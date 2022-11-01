@@ -1,4 +1,5 @@
 import numpy as np
+from pyretis.core.common import compute_weight
 
 
 # Define some infRETIS infrastructure
@@ -153,7 +154,6 @@ class REPEX_state(object):
         self.result.update_run_total_prob()
 
     def add_traj(self, ens, traj, valid, count=True, n=0):
-        # print(ens, valid, 'bing1')
 
         if ens >= 0 and self._offset != 0:
             valid = tuple([0 for _ in range(self._offset)] + list(valid))
@@ -161,7 +161,6 @@ class REPEX_state(object):
             valid = tuple(list(valid) +
                           [0 for _ in range(self.n - self._offset)])
         ens += self._offset
-        # print(ens, valid, 'bing2')
         assert valid[ens] != 0
         # invalidate last prob
         self._last_prob = None
@@ -453,7 +452,56 @@ class REPEX_state(object):
 
         return total//num_loops
 
-def calc_cv_vector(path, interfaces):
-    path_max, _ = path.ordermax
-    value = 1
-    return tuple(value if i <= path_max else 0 for i in interfaces)
+    def write_ensembles_daniel(self, step):
+        out = self.prob
+        out = out.T
+        out = np.nan_to_num(out)
+        
+        for i, ens in enumerate(out):
+            if self._locks[i]:
+                continue
+                
+            with open(f'./{i}-pathensemble.txt', 'a') as writer:
+                print(f'-- ensemble: {i} --')
+                writer.write(f'{step}\t{sum([ww != 0. for ww in ens])}\n')    
+                for j, weight in enumerate(ens):
+                    if weight != 0:
+                        traj = self.state[j]
+                        path = self._trajs[j]
+                        if i in [self._offset, self._offset-1]:
+                            # ens 0 and -1
+                            length = getattr(path, 'length', None)
+                        else:
+                            length = None
+                        R = 'R' if traj[-1] == 1 else 'L'
+                        min_o, max_o = path.ordermin[0], path.ordermax[0]
+                        min_idx, max_idx = path.ordermin[1], path.ordermax[1]
+                        MC = path.get_move()
+                        if MC == None:
+                            MC = 'ki'
+                        # print(step, weight, 'L', 'R', MC, min_o, max_o, min_idx, max_idx)
+                        # print(f'{step}\t{weight:.02f}\tL {R}\t{MC}\t{min_o:.02f}\t{max_o:.02f}')
+                        # step weight L R length MC min-O max-O idx-min idx-max
+                        # f'{step}\t\t{L}\t\{R}\t\t{}'
+                        writer.write(f'{step}\t{weight:.02f}\tL {R}\t{MC}\t{min_o:.02f}\t{max_o:.02f}\t{path.number}\n')    
+                        # file write something here...
+
+                        # self.result.update_ens(i-self._offset, tuple(traj), weight,
+                        #                        length=length)
+                # self.result.update_run_prob(i-self._offset, n=self._n)
+            # self.result.update_run_total_prob() 
+
+
+def calc_cv_vector(path, interfaces, move):                                           
+    path_max, _ = path.ordermax                                                 
+    value = 1                                                                   
+
+    if move == 'wf':
+        cv = []
+        for intf_i in interfaces:
+            intfs = [interfaces[0], intf_i, interfaces[-1]]
+            cv.append(compute_weight(path, intfs, 'wf'))
+
+        return(tuple(cv))
+    
+    return tuple(value if i <= path_max else 0 for i in interfaces)         
