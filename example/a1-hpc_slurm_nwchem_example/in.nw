@@ -1,0 +1,15 @@
+start nwchem
+echo
+
+geometry units angstroms noautosym nocenter
+ load ../far.xyz
+end
+basis
+  *  library cc-pVTZ
+end
+
+dft
+  xc b3lyp
+end
+
+task dft
