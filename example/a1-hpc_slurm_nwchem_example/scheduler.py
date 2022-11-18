@@ -30,8 +30,8 @@ def func0(inp_dic):
     # run nwchem in worker .. 
     stdout = folder + f'stdout_{cnt}.txt'
     stderr = folder + 'stderr.txt'
-    # cmd = ["srun", "--exclusive", "--ntasks", "2", "--mem-per-cpu", "500", "nwchem", f"worker{worker}.nw"]
-    cmd = ["srun", "nwchem", f"worker{worker}.nw"]
+    cmd = ["srun", "--exclusive", "--ntasks", "2", "--mem-per-cpu", "500", "nwchem", f"worker{worker}.nw"]
+    # cmd = ["srun", "nwchem", f"worker{worker}.nw"]
     with open(stdout, 'wb') as out, open(stderr, 'wb') as err:
         exe = subprocess.Popen(cmd, cwd=folder, stdout=out, stderr=err)
         exe.communicate(input=None)
