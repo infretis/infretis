@@ -1,7 +1,6 @@
 from dask.distributed import Client, as_completed
 import subprocess
 import os
-import numpy as np
 import time
 
 def print_output(output, cnt, detail=True, start_time=0):
@@ -22,7 +21,6 @@ def print_output(output, cnt, detail=True, start_time=0):
 
 def func0(inp_dic):
     worker = inp_dic['worker']
-    randint = inp_dic['randint']
     folder = inp_dic['folder']
     cnt = inp_dic['cnt']
     inp_dic['start_time'] = time.time()
@@ -60,7 +58,6 @@ if __name__ == "__main__":
    futures = as_completed(None, with_results=True)
    for worker in range(n_workers):
        inp_dic = {'worker': worker,
-                  'randint': np.random.randint(1,10),
                   'folder': f'./worker{worker}/',
                   'cnt':cnt1}
        print('workerz', worker, f'./worker{worker}/')
@@ -74,7 +71,6 @@ if __name__ == "__main__":
        print_output(output, cnt, detail, start_time)
 
        inp_dic = {'worker': output['worker'],
-                  'randint': np.random.randint(1,10),
                   'folder': output['folder'],
                   'cnt':cnt1}
        fut = client.submit(func0, inp_dic)
