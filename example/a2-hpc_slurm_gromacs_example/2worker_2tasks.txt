@@ -1,0 +1,101 @@
+workerz 0 ./worker0/
+workerz 1 ./worker1/
+ ---  cycle:  0  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669041957.7137785
+end_time:	 1669041980.956695
+sim_time:	 23.242916584014893
+ ---  cycle:  0  | END    | --- 
+ 
+ ---  cycle:  1  | START  | --- 
+worker:	 1
+return_code:	 0
+start_time:	 1669041957.7237127
+end_time:	 1669041981.2021742
+sim_time:	 23.478461503982544
+ ---  cycle:  1  | END    | --- 
+ 
+ ---  cycle:  2  | START  | --- 
+worker:	 1
+return_code:	 0
+start_time:	 1669041981.2123291
+end_time:	 1669042006.2383983
+sim_time:	 25.026069164276123
+ ---  cycle:  2  | END    | --- 
+ 
+ ---  cycle:  3  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669041980.968436
+end_time:	 1669042006.380422
+sim_time:	 25.411986112594604
+ ---  cycle:  3  | END    | --- 
+ 
+ ---  cycle:  4  | START  | --- 
+worker:	 1
+return_code:	 0
+start_time:	 1669042006.2474973
+end_time:	 1669042030.3339758
+sim_time:	 24.08647847175598
+ ---  cycle:  4  | END    | --- 
+ 
+ ---  cycle:  5  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042006.3993206
+end_time:	 1669042030.8790393
+sim_time:	 24.479718685150146
+ ---  cycle:  5  | END    | --- 
+ 
+ ---  cycle:  6  | START  | --- 
+worker:	 1
+return_code:	 0
+start_time:	 1669042030.352825
+end_time:	 1669042054.254129
+sim_time:	 23.901304006576538
+ ---  cycle:  6  | END    | --- 
+ 
+ ---  cycle:  7  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042030.9021223
+end_time:	 1669042054.8759613
+sim_time:	 23.973839044570923
+ ---  cycle:  7  | END    | --- 
+ 
+ ---  cycle:  8  | START  | --- 
+worker:	 1
+return_code:	 0
+start_time:	 1669042054.2694225
+end_time:	 1669042075.6562066
+sim_time:	 21.386784076690674
+ ---  cycle:  8  | END    | --- 
+ 
+ ---  cycle:  9  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042054.8912187
+end_time:	 1669042076.327119
+sim_time:	 21.435900449752808
+ ---  cycle:  9  | END    | --- 
+ 
+ ---  cycle:  10  | START  | --- 
+worker:	 1
+return_code:	 0
+start_time:	 1669042075.6713333
+end_time:	 1669042097.5571294
+sim_time:	 21.885796070098877
+ ---  cycle:  10  | END    | --- 
+ 
+ ---  cycle:  11  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042076.3420553
+end_time:	 1669042098.8878822
+sim_time:	 22.54582691192627
+ ---  cycle:  11  | END    | --- 
+ 
+Mon Nov 21 15:45:55 CET 2022
+Mon Nov 21 15:48:19 CET 2022
+diff: 2m24s
