@@ -1,0 +1,93 @@
+workerz 0 ./worker0/
+ ---  cycle:  0  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042241.848943
+end_time:	 1669042266.3047998
+sim_time:	 24.455856800079346
+ ---  cycle:  0  | END    | --- 
+ 
+ ---  cycle:  1  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042266.3126228
+end_time:	 1669042289.4468539
+sim_time:	 23.134231090545654
+ ---  cycle:  1  | END    | --- 
+ 
+ ---  cycle:  2  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042289.453266
+end_time:	 1669042312.489326
+sim_time:	 23.036060094833374
+ ---  cycle:  2  | END    | --- 
+ 
+ ---  cycle:  3  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042312.4971004
+end_time:	 1669042336.7699456
+sim_time:	 24.27284526824951
+ ---  cycle:  3  | END    | --- 
+ 
+ ---  cycle:  4  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042336.779351
+end_time:	 1669042362.016409
+sim_time:	 25.23705792427063
+ ---  cycle:  4  | END    | --- 
+ 
+ ---  cycle:  5  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042362.0259268
+end_time:	 1669042387.412203
+sim_time:	 25.386276245117188
+ ---  cycle:  5  | END    | --- 
+ 
+ ---  cycle:  6  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042387.420213
+end_time:	 1669042412.4985268
+sim_time:	 25.07831382751465
+ ---  cycle:  6  | END    | --- 
+ 
+ ---  cycle:  7  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042412.5088305
+end_time:	 1669042437.6129515
+sim_time:	 25.10412096977234
+ ---  cycle:  7  | END    | --- 
+ 
+ ---  cycle:  8  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042437.62033
+end_time:	 1669042462.743449
+sim_time:	 25.12311887741089
+ ---  cycle:  8  | END    | --- 
+ 
+ ---  cycle:  9  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042462.7524743
+end_time:	 1669042487.9484239
+sim_time:	 25.19594955444336
+ ---  cycle:  9  | END    | --- 
+ 
+ ---  cycle:  10  | START  | --- 
+worker:	 0
+return_code:	 0
+start_time:	 1669042487.9574184
+end_time:	 1669042513.42757
+sim_time:	 25.470151662826538
+ ---  cycle:  10  | END    | --- 
+ 
+
+Mon Nov 21 15:50:38 CET 2022
+Mon Nov 21 15:55:13 CET 2022
+diff: 4m35s
