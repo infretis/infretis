@@ -19,8 +19,10 @@ periodic = [True, True, True]
 Engine settings
 ---------------
 class = gromacs2    # more effective than gromacs class
-gmx = gmx_mpi
-mdrun = srun --exclusive --ntasks 2 --mem-per-cpu 500 gmx_mpi mdrun -ntomp 1
+# gmx = gmx_mpi
+gmx = gmx
+# mdrun = srun --exclusive --ntasks 2 --mem-per-cpu 500 gmx_mpi mdrun -ntomp 1
+mdrun = gmx mdrun
 input_path = gromacs_input
 timestep = 0.0005
 subcycles = 1
