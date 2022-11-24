@@ -11,7 +11,7 @@ if __name__ == "__main__":
     # with open("./infretis.toml", mode="rb") as f:
     #     config = tomli.load(f)
     # read config and setup pyretis sim
-    with open("./infretis_2.toml", mode="rb") as f:
+    with open("./infretis_4.toml", mode="rb") as f:
         config = tomli.load(f)
 
     steps = config['simulation']['steps']
@@ -20,7 +20,6 @@ if __name__ == "__main__":
     if 'current' not in config:
         config['current'] = {}
         config['current']['step'] = 0
-        config['current']['traj_num'] = 0
         config['current']['active'] = []
         config['current']['locked'] = []
 
