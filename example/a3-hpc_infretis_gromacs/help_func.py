@@ -132,7 +132,7 @@ def print_path_info(state, intfs=False, write=True):
 
     state.config['current']['active'] = live_trajs
     state.config['current']['locked'] = locks
-    with open("./infretis_3.toml", "wb") as f:
+    with open("./infretis_5.toml", "wb") as f:
         tomli_w.dump(state.config, f)  
         
 def set_shooting(sim, ens, input_traj, pin, moves):
@@ -182,9 +182,6 @@ def treat_output(output, state, sim, traj_num_dic, save=False):
                                                     for kk in out_traj.phasepoints),
                                       'ens_idx': ens_save_idx}
             traj_num += 1
-            print(traj_num_dic)
-            print(ens_save_idx)
-            exit('bakar')
             sim.ensembles[ens_save_idx]['path_ensemble'].store_path(out_traj)
             
             cycle = {'step': traj_num -1 , 'endcycle': 10, 'startcycle': 0, 'stepno': 10, 'steps': 10}
@@ -270,7 +267,7 @@ def setup_repex(sim, config, traj_num_dic):
 
     size = config['current']['size']
     interfaces = config['current']['interfaces']
-    traj_num = config['current']['traj_num']
+    active = config['current']['active']
     state = REPEX_state(size, minus=True)
     moves = sim.settings['tis']['shooting_moves']
 
@@ -278,26 +275,25 @@ def setup_repex(sim, config, traj_num_dic):
     for i in range(size-1):
         # we add all the i+ paths.
         path = sim.ensembles[i+1]['path_ensemble'].last_path
-        path.path_number = traj_num
+        print('nah', path.path_number, active[i+1])
         state.add_traj(ens=i, traj=path,
                        valid=calc_cv_vector(path, interfaces, moves[i+1]),
                        count=False)
-        traj_num_dic[traj_num] = {'weight': np.zeros(size+1),
+        traj_num_dic[path.path_number] = {'weight': np.zeros(size+1),
                                   'adress':  set(kk.particles.config[0].split('salt')[-1]
                                                  for kk in path.phasepoints),
-                                  'ens_idx': traj_num + 1}
-        traj_num += 1
+                                  'ens_idx': i + 1}
     
     # add minus path:
     path = sim.ensembles[0]['path_ensemble'].last_path
-    path.path_number = traj_num
     state.add_traj(ens=-1, traj=path, valid=(1,), count=False)
-    traj_num_dic[traj_num] = {'weight': np.zeros(size+1),
+    traj_num_dic[path.path_number] = {'weight': np.zeros(size+1),
                               'adress':  set(kk.particles.config[0].split('salt')[-1]
                                              for kk in path.phasepoints),
                               'ens_idx': 0}
-    traj_num += 1
-    config['current']['traj_num'] = traj_num
+
+    if 'traj_num' not in config['current'].keys():
+        config['current']['traj_num'] = max(config['current']['active']) + 1
     return state
 
 def print_end(live_trajs, stopping, traj_num_dic):
