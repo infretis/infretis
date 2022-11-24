@@ -54,6 +54,7 @@ swapsimul = True
 Initial-path
 ------------
 method = load
+load_folder = trajs
 
 Orderparameter
 --------------

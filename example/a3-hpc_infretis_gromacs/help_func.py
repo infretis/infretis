@@ -132,19 +132,26 @@ def print_path_info(state, intfs=False, write=True):
 
     state.config['current']['active'] = live_trajs
     state.config['current']['locked'] = locks
-    with open("./ape2.toml", "wb") as f:
+    with open("./infretis_3.toml", "wb") as f:
         tomli_w.dump(state.config, f)  
-
         
-def set_shooting(sim, ens, input_traj, pin, move):
+def set_shooting(sim, ens, input_traj, pin, moves):
+    # set move 
+
+    if len(ens) > 1 or ens[0] == -1:
+        move = 'sh'
+    else:
+        move = moves[ens[0]+1]
+
     print('shooting', move, 'in ensembles:', ' '.join([f'00{ens_num+1}' for ens_num in ens]),
           'with paths:', ' '.join([str(trajj.path_number) for trajj in input_traj]),
           'and worker:', pin)
 
-    # assign gromacs resurces to workers:
     for ens_num, traj_inp in zip(ens, input_traj):
         ens_num += 1
         sim.ensembles[ens_num]['path_ensemble'].last_path = traj_inp.copy()
+
+    return move
 
 def treat_output(output, state, sim, traj_num_dic, save=False):
     traj_num = state.config['current']['traj_num']
@@ -155,6 +162,7 @@ def treat_output(output, state, sim, traj_num_dic, save=False):
     traj_vectors = output['traj_vectors']
     status = output['status']
     path_numbers_old = output['path_numbers_old']
+    pn_archive = []
     pin = output['pin']
     move = output['move']
     time_spent = output['time']
@@ -167,12 +175,16 @@ def treat_output(output, state, sim, traj_num_dic, save=False):
         # if path is new: number and save the path:
         if out_traj.path_number == None or status == 'ACC':
             out_traj.path_number = traj_num
+            pn_archive.append(pn_old)
             ens_save_idx = traj_num_dic[pn_old]['ens_idx']
             traj_num_dic[traj_num] = {'weight': np.zeros(size+1),
                                       'adress': set(kk.particles.config[0].split('salt')[-1] 
                                                     for kk in out_traj.phasepoints),
                                       'ens_idx': ens_save_idx}
             traj_num += 1
+            print(traj_num_dic)
+            print(ens_save_idx)
+            exit('bakar')
             sim.ensembles[ens_save_idx]['path_ensemble'].store_path(out_traj)
             
             cycle = {'step': traj_num -1 , 'endcycle': 10, 'startcycle': 0, 'stepno': 10, 'steps': 10}
@@ -183,9 +195,12 @@ def treat_output(output, state, sim, traj_num_dic, save=False):
                       f'pathensemble-{ens_num+1}': sim.ensembles[0]['path_ensemble']}
             
             # NB! Saving can take some time..
+
             if save:
+                flipppa = time.time() 
                 for task in sim.output_tasks:
                     task.output(result)
+                print('saving path time:', time.time() - flipppa)
             
         state.add_traj(ens_num, out_traj, traj_v)
         
@@ -210,13 +225,38 @@ def treat_output(output, state, sim, traj_num_dic, save=False):
           'with status:', status, 'and worker:', pin, f'total time: {time_spent:.2f}')
 
     state.config['current']['traj_num'] = traj_num
-    return pin
+    return pin, 'ACC' == status, pn_archive
 
 
 def setup_pyretis(config):
 
+    ## load paths from traj/{0,1,2,3} etc...
+    ## change that if config active  .. 
+
+
     inp = config['simulation']['pyretis_inp']
     sim_settings = parse_settings_file(inp)
+    interfaces = sim_settings['simulation']['interfaces']
+    size = len(interfaces)
+
+    if not config['current']['active']:
+        config['current']['active'] = list(range(size))
+        
+
+    active = config['current']['active']
+    locks = config['current']['locked']
+
+    config['current']['interfaces'] = interfaces
+    config['current']['size'] = size
+    sim_settings['current'] = {'size': size}
+    sim_settings['current']['active'] = config['current']['active']
+
+    # if active:
+    # load from active ..
+
+    print(sim_settings['simulation'])
+    print(sim_settings['tis'])
+
     sim = create_simulation(sim_settings)
     sim.set_up_output(sim_settings, progress=True)
     sim.initiate(sim_settings)
@@ -224,6 +264,9 @@ def setup_pyretis(config):
     return sim
 
 def setup_repex(sim, config, traj_num_dic):
+
+    ##
+    ## if config['current']['locked']: then ....
 
     size = config['current']['size']
     interfaces = config['current']['interfaces']
@@ -267,4 +310,11 @@ def print_end(live_trajs, stopping, traj_num_dic):
         print(f'{key:03.0f}', "|" if key not in live_trajs else '*',
               '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '---' for item0 in item['weight'][:-1]])
              ,'\t', "|" if key not in live_trajs else '*')
+
+
+def write_to_pathens(traj_num_dic, pn_archive):
+    with open('infretis_data.txt', 'a') as fp:
+        for pn in pn_archive:
+            weight = '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '----' for item0 in traj_num_dic[pn]['weight'][:-1]])
+            fp.write(f'{pn:03.0f}' + '\t|\t' + weight + '\t|\n')
 
