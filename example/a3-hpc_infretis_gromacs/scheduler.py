@@ -8,35 +8,19 @@ dask.config.config['work-stealing'] = False
 if __name__ == "__main__":
 
     # read config and setup pyretis sim
-    # with open("./infretis.toml", mode="rb") as f:
-    #     config = tomli.load(f)
-    # read config and setup pyretis sim
-    with open("./infretis_4.toml", mode="rb") as f:
+    with open("./infretis.toml", mode="rb") as f:
         config = tomli.load(f)
-
     steps = config['simulation']['steps']
-    traj_num_dic = {}
 
-    if 'current' not in config:
-        config['current'] = {}
-        config['current']['step'] = 0
-        config['current']['active'] = []
-        config['current']['locked'] = []
-
-        with open('infretis_data.txt', 'w') as fp:
-            pass
-
-    # need restart checking
+    # setup pyretis
     sim = setup_pyretis(config)
     moves = sim.settings['tis']['shooting_moves']
     interfaces = sim.settings['simulation']['interfaces']
 
-    # setup dask and repex
-    n_workers = config['dask']['workers']
-    client = Client(n_workers=n_workers)
+    # setup repex and dask
+    state = setup_repex(sim, config)
+    client = Client(n_workers=state.workers)
     futures = as_completed(None, with_results=True)
-    state = setup_repex(sim, config, traj_num_dic)
-    state.config = config
 
     # start running
     print('stored ensemble paths:')
@@ -46,7 +30,7 @@ if __name__ == "__main__":
     print(' ')
 
     # initialization: submit the first batch of workers
-    for worker in range(n_workers):
+    for worker in range(state.workers):
 
         print(f'------- submit worker {worker} START -------')
 
@@ -61,14 +45,14 @@ if __name__ == "__main__":
 
         # submit job
         fut = client.submit(run_md, ens, input_traj,
-                            sim.settings, sim.ensembles, worker,
+                            sim, worker,
                             move, str(worker), pure=False)
         futures.add(fut)
 
         print(f'------- submit worker {worker} END -------')
         print()
 
-    while config['current']['step'] < steps + n_workers:
+    while config['current']['step'] < steps + state.workers:
         step = config['current']['step']
 
         # get output from finished worker
@@ -76,12 +60,11 @@ if __name__ == "__main__":
         print(f'------- infinity {step} START -------')
 
         # analyze & store output
-        pin, acc, pn_archive = treat_output(output, state, sim, traj_num_dic, save=True)
-        # pin, acc, pn_archive = treat_output(output, state, sim, traj_num_dic)
+        pin, acc, pn_archive = treat_output(output, state, sim)
 
-        # print analyzed output and write toml
+        # print analyzed output  # and write toml
         if acc:
-            write_to_pathens(traj_num_dic, pn_archive)
+            write_to_pathens(state, pn_archive)
 
         # submit new job:
         if step < steps:
@@ -92,8 +75,7 @@ if __name__ == "__main__":
 
             # submit job
             fut = client.submit(run_md, ens, input_traj,
-                                sim.settings, sim.ensembles, step,
-                                move, pin, pure=False)
+                                sim, step, move, pin, pure=False)
             futures.add(fut)
         else: 
             print_path_info(state)
@@ -104,4 +86,5 @@ if __name__ == "__main__":
         print()
 
     live_trajs = state.live_paths()
+    traj_num_dic = state.traj_num_dic
     print_end(live_trajs, config['current']['step'], traj_num_dic)
