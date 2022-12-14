@@ -9,7 +9,8 @@ from pyretis.setup import create_simulation
 from pyretis.inout.settings import parse_settings_file
 from infretis import calc_cv_vector, REPEX_state
 
-def run_md(ens_num, input_traj, settings, ensembles, cycle, move, pin):
+def run_md(ens_num, input_traj, sim, cycle, move, pin):
+    settings, ensembles = sim.settings, sim.ensembles
     interfaces = settings['simulation']['interfaces']
     start_time = time.time() 
     out = {'ensembles': [],                                                  
@@ -27,15 +28,11 @@ def run_md(ens_num, input_traj, settings, ensembles, cycle, move, pin):
     if len(ens_num) == 1:
         start_cond = ensembles[ens_num[0]+1]['path_ensemble'].start_condition
         tis_settings = settings['ensemble'][ens_num[0]+1]['tis'] 
-        
-        if move == 'sh':
-            accept, trial, status = shoot(ensembles[ens_num[0]+1],
-                                          tis_settings,
-                                          start_cond)
-        else:
-            accept, trial, status = wire_fencing(ensembles[ens_num[0]+1],
-                                                 tis_settings,
-                                                 start_cond)
+
+        moves = {'sh': shoot, 'wf': wire_fencing}
+        accept, trial, status = moves[move](ensembles[ens_num[0]+1],
+                                            tis_settings,
+                                            start_cond)
         
         if accept:                                                                  
             out_traj = trial                                                        
@@ -153,7 +150,8 @@ def set_shooting(sim, ens, input_traj, pin, moves):
 
     return move
 
-def treat_output(output, state, sim, traj_num_dic, save=False):
+def treat_output(output, state, sim, save=False):
+    traj_num_dic = state.traj_num_dic
     traj_num = state.config['current']['traj_num']
     size = state.config['current']['size']
 
@@ -180,7 +178,9 @@ def treat_output(output, state, sim, traj_num_dic, save=False):
             traj_num_dic[traj_num] = {'weight': np.zeros(size+1),
                                       'adress': set(kk.particles.config[0].split('salt')[-1] 
                                                     for kk in out_traj.phasepoints),
-                                      'ens_idx': ens_save_idx}
+                                      'ens_idx': ens_save_idx,
+                                      'max_op': out_traj.ordermax,
+                                      'length': out_traj.length}
             traj_num += 1
             sim.ensembles[ens_save_idx]['path_ensemble'].store_path(out_traj)
             
@@ -226,10 +226,20 @@ def treat_output(output, state, sim, traj_num_dic, save=False):
 
 
 def setup_pyretis(config):
+    if 'current' not in config:
+        config['current'] = {}
+        config['current']['step'] = 0
+        config['current']['active'] = []
+        config['current']['locked'] = []
+        config['current']['dic'] = []
+        with open('infretis_data.txt', 'w') as fp:
+            fp.write('# ' + '='*66 + '\n')
+            fp.write('# ' + '\txxx\t\tlen\t\tmax OP\t\t000     001     002     003     004     \n')
+            fp.write('# ' + '-'*66 + '\n')
+            pass
 
     ## load paths from traj/{0,1,2,3} etc...
     ## change that if config active  .. 
-
 
     inp = config['simulation']['pyretis_inp']
     sim_settings = parse_settings_file(inp)
@@ -238,7 +248,6 @@ def setup_pyretis(config):
 
     if not config['current']['active']:
         config['current']['active'] = list(range(size))
-        
 
     active = config['current']['active']
     locks = config['current']['locked']
@@ -260,40 +269,45 @@ def setup_pyretis(config):
 
     return sim
 
-def setup_repex(sim, config, traj_num_dic):
+def setup_repex(sim, config):
 
-    ##
     ## if config['current']['locked']: then ....
 
     size = config['current']['size']
     interfaces = config['current']['interfaces']
     active = config['current']['active']
-    state = REPEX_state(size, minus=True)
+    state = REPEX_state(size, workers=config['dask']['workers'],
+                        minus=True)
+    traj_num_dic = state.traj_num_dic
     moves = sim.settings['tis']['shooting_moves']
 
     ## initiate by adding paths from retis sim to repex
     for i in range(size-1):
         # we add all the i+ paths.
         path = sim.ensembles[i+1]['path_ensemble'].last_path
-        print('nah', path.path_number, active[i+1])
         state.add_traj(ens=i, traj=path,
                        valid=calc_cv_vector(path, interfaces, moves[i+1]),
                        count=False)
         traj_num_dic[path.path_number] = {'weight': np.zeros(size+1),
-                                  'adress':  set(kk.particles.config[0].split('salt')[-1]
-                                                 for kk in path.phasepoints),
-                                  'ens_idx': i + 1}
+                                          'adress':  set(kk.particles.config[0].split('salt')[-1]
+                                                         for kk in path.phasepoints),
+                                          'ens_idx': i + 1,
+                                          'max_op': path.ordermax,
+                                          'length': path.length}
     
     # add minus path:
     path = sim.ensembles[0]['path_ensemble'].last_path
     state.add_traj(ens=-1, traj=path, valid=(1,), count=False)
     traj_num_dic[path.path_number] = {'weight': np.zeros(size+1),
-                              'adress':  set(kk.particles.config[0].split('salt')[-1]
-                                             for kk in path.phasepoints),
-                              'ens_idx': 0}
+                                      'adress':  set(kk.particles.config[0].split('salt')[-1]
+                                                     for kk in path.phasepoints),
+                                      'ens_idx': 0,
+                                      'max_op': path.ordermax,
+                                      'length': path.length}
 
     if 'traj_num' not in config['current'].keys():
         config['current']['traj_num'] = max(config['current']['active']) + 1
+    state.config = config
     return state
 
 def print_end(live_trajs, stopping, traj_num_dic):
@@ -308,9 +322,39 @@ def print_end(live_trajs, stopping, traj_num_dic):
              ,'\t', "|" if key not in live_trajs else '*')
 
 
-def write_to_pathens(traj_num_dic, pn_archive):
+def write_to_pathens(state, pn_archive):
+    traj_num_dic = state.traj_num_dic
     with open('infretis_data.txt', 'a') as fp:
         for pn in pn_archive:
+            string = ''
+            string += f'\t{pn:03.0f}\t\t'
+            string += f"{traj_num_dic[pn]['length']:05.0f}" + '\t'
+            string += f"{traj_num_dic[pn]['max_op'][0]:05.5f}" + '\t\t'
             weight = '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '----' for item0 in traj_num_dic[pn]['weight'][:-1]])
-            fp.write(f'{pn:03.0f}' + '\t|\t' + weight + '\t|\n')
+            fp.write(string + weight + '\t\n')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
