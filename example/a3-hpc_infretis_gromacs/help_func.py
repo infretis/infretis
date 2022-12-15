@@ -8,6 +8,7 @@ from pyretis.core.retis import retis_swap_zero # need to disable "add_path_data(
 from pyretis.setup import create_simulation
 from pyretis.inout.settings import parse_settings_file
 from infretis import calc_cv_vector, REPEX_state
+from dask.distributed import Client, as_completed
 
 def run_md(ens_num, input_traj, sim, cycle, move, pin):
     settings, ensembles = sim.settings, sim.ensembles
@@ -66,7 +67,7 @@ def run_md(ens_num, input_traj, sim, cycle, move, pin):
     return out
 
 
-def print_path_info(state, intfs=False, write=True):
+def print_path_info(state, ens_sel=(), input_traj=(), intfs=False):
     ens_no = len(state._trajs[:-1])
     ens_str = [f'{i:03.0f}' for i in range(ens_no)]
     state_dic = {}
@@ -75,7 +76,9 @@ def print_path_info(state, intfs=False, write=True):
     locks = [traj0.path_number for traj0, lock0 in
              zip(state._trajs[:-1], state._locks[:-1]) if lock0]
 
-    
+    locks_idx = [i for i, lock0 in enumerate(state._locks[:-1]) if lock0]
+    locks_ens = [f'{i:03.0f}' for i, lock0 in enumerate(state._locks[:-1]) if lock0]
+
     for path_temp in state._trajs[:-1]:
         path_pwds = sorted(set([pp.particles.config[0] for pp in path_temp.phasepoints]))
         ens = next(i for i in path_pwds[0].split('/') if i in ens_str)
@@ -122,18 +125,24 @@ def print_path_info(state, intfs=False, write=True):
         print(len(state._trajs[:-1]))
         for live in state._trajs[:-1]:
             print(live.path_number, calc_cv_vector(live, interfaces, 'sh'))
-    print('===')
+        print('===')
             
     if not last_prob:
         state._last_prob = None
 
     state.config['current']['active'] = live_trajs
-    state.config['current']['locked'] = locks
+    locked = [(int(sim0 + state._offset), path0.path_number) for sim0, path0 in zip(ens_sel, input_traj)]
+    state.config['current']['locked'] = locked
+    print('ooga 1')
+    print(state.config['current']['locked'])
+    print('ooga 2')
+    # state.config['current']['locked'] = [(l_ens, l_path) for l_ens, l_path in zip(locks_ens, locks)]
     with open("./infretis_5.toml", "wb") as f:
         tomli_w.dump(state.config, f)  
-        
-def set_shooting(sim, ens, input_traj, pin, moves):
-    # set move 
+
+
+def set_shooting(sim, ens, input_traj, pin):
+    moves = sim.settings['tis']['shooting_moves']
 
     if len(ens) > 1 or ens[0] == -1:
         move = 'sh'
@@ -234,7 +243,7 @@ def setup_pyretis(config):
         config['current']['dic'] = []
         with open('infretis_data.txt', 'w') as fp:
             fp.write('# ' + '='*66 + '\n')
-            fp.write('# ' + '\txxx\t\tlen\t\tmax OP\t\t000     001     002     003     004     \n')
+            fp.write('# ' + '\tpnum\t\tplen\t\tpmaxOP\t\t000     001     002     003     004     \n')
             fp.write('# ' + '-'*66 + '\n')
             pass
 
@@ -259,9 +268,6 @@ def setup_pyretis(config):
 
     # if active:
     # load from active ..
-
-    print(sim_settings['simulation'])
-    print(sim_settings['tis'])
 
     sim = create_simulation(sim_settings)
     sim.set_up_output(sim_settings, progress=True)
@@ -334,27 +340,77 @@ def write_to_pathens(state, pn_archive):
             fp.write(string + weight + '\t\n')
 
 
+def setup_internal(config):
+
+    # check if we restart or not 
+    if 'current' not in config or config['current'].get('step') == 0:
+        config['current'] = {}
+        config['current']['step'] = 0
+        config['current']['active'] = []
+        config['current']['locked'] = []
+        config['current']['dic'] = []
+        with open('infretis_data.txt', 'w') as fp:
+            fp.write('# ' + '='*66 + '\n')
+            fp.write('# ' + '\txxx\t\tlen\t\tmax OP\t\t000     001     002     003     004     \n')
+            fp.write('# ' + '-'*66 + '\n')
+            pass
+
+    # setup pyretis
+    inp = config['simulation']['pyretis_inp']
+    sim_settings = parse_settings_file(inp)
+
+    interfaces = sim_settings['simulation']['interfaces']
+    size = len(interfaces)
+    config['current']['size'] = size
+    if not config['current']['active']:
+        config['current']['active'] = list(range(size))
+
+    # give path to the active paths
+    sim_settings['current'] = {'size': size}
+    sim_settings['current']['active'] = config['current']['active']
+    sim = create_simulation(sim_settings)
+    sim.set_up_output(sim_settings)
+    sim.initiate(sim_settings)
+
+    # setup infretis
+    state = REPEX_state(size, workers=config['dask']['workers'],
+                        minus=True)
+    state.steps = config['simulation']['steps']
+    state.cstep = config['current']['step']
+    traj_num_dic = state.traj_num_dic
+    moves = sim.settings['tis']['shooting_moves']
+
+    ## initiate by adding paths from retis sim to repex
+    for i in range(size-1):
+        # we add all the i+ paths.
+        path = sim.ensembles[i+1]['path_ensemble'].last_path
+        state.add_traj(ens=i, traj=path,
+                       valid=calc_cv_vector(path, interfaces, moves[i+1]),
+                       count=False)
+        traj_num_dic[path.path_number] = {'weight': np.zeros(size+1),
+                                          'adress':  set(kk.particles.config[0].split('salt')[-1]
+                                                         for kk in path.phasepoints),
+                                          'ens_idx': i + 1,
+                                          'max_op': path.ordermax,
+                                          'length': path.length}
+    
+    # add minus path:
+    path = sim.ensembles[0]['path_ensemble'].last_path
+    state.add_traj(ens=-1, traj=path, valid=(1,), count=False)
+    traj_num_dic[path.path_number] = {'weight': np.zeros(size+1),
+                                      'adress':  set(kk.particles.config[0].split('salt')[-1]
+                                                     for kk in path.phasepoints),
+                                      'ens_idx': 0,
+                                      'max_op': path.ordermax,
+                                      'length': path.length}
+
+    if 'traj_num' not in config['current'].keys():
+        config['current']['traj_num'] = max(config['current']['active']) + 1
+    state.config = config
+    return sim, state
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+def setup_dask(workers):
+    client = Client(n_workers=workers)
+    futures = as_completed(None, with_results=True)
+    return client, futures
