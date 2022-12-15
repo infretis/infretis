@@ -103,6 +103,19 @@ class REPEX_state(object):
         self.config = {}
         self.traj_num_dic = {}
         self.workers = workers
+        self.steps = None
+        self.cstep = None
+
+    def lock_pick(self):
+        enss = []
+        trajs = [] 
+        for ens, traj in self.config['current']['locked']:
+            enss.append(ens-self._offset)
+            traj_idx = self.live_paths().index(traj)
+            self.swap(traj_idx, ens)
+            self.lock(ens)
+            trajs.append(self._trajs[ens])
+        return tuple(enss), tuple(trajs)
 
     def pick(self):
         prob = self.prob.astype("float64").flatten()
@@ -195,6 +208,9 @@ class REPEX_state(object):
 
     def live_paths(self):
         return [traj.path_number for traj in self._trajs[:-1]]
+
+    def loop(self):
+        return self.cstep < self.steps + self.workers
 
     @property
     def prob(self):
@@ -457,6 +473,12 @@ class REPEX_state(object):
             old_grey = new_grey
 
         return total//num_loops
+
+    def print_start(self, sim):
+        print('stored ensemble paths:')
+        ens_num = [sim0['path_ensemble'].last_path.path_number for sim0 in sim.ensembles]
+        print(' '.join([f'00{i}: {j},' for i, j in enumerate(ens_num)]))
+        print('saved ensemble paths:', self.live_paths())
 
 
 def calc_cv_vector(path, interfaces, move):                                           
