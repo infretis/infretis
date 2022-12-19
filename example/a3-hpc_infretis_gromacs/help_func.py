@@ -11,7 +11,10 @@ from infretis import calc_cv_vector, REPEX_state
 from dask.distributed import Client, as_completed
 
 # def run_md(ens_num, input_traj, sim, cycle, move, pin):
-def run_md(ens_num, md_items):
+def run_md(md_items):
+    ens_num = md_items['ens']
+    cycle = md_items['cycle']
+    input_traj = md_items['input_traj']
     settings = md_items['sim'].settings
     ensembles = md_items['sim'].ensembles
     interfaces = settings['simulation']['interfaces']
@@ -20,7 +23,6 @@ def run_md(ens_num, md_items):
            'traj_vectors': [], 'status': None,
            'pin': md_items['pin']}
     path_numbers_old = []
-    moves = md_items['sim'].settings['tis']['shooting_moves'] 
 
     for traj0 in input_traj:
         path_numbers_old.append(traj0.path_number)
@@ -47,6 +49,7 @@ def run_md(ens_num, md_items):
         out['accepted_trajs'] = [out_traj]
         out['traj_vectors'] = [cv_vector]
         out['status'] = status
+        out['move'] = move
     else:
         accept, trial, status = retis_swap_zero(ensembles, 
                                                 settings,
@@ -59,8 +62,9 @@ def run_md(ens_num, md_items):
         out['ensembles'] = list(ens_num)
         out['accepted_trajs'] = out_traj
         ifaces = [[interfaces[0:1]], interfaces]
+        out['move'] = 'sh'
         for traj, iface in zip(out_traj, ifaces):
-            out['traj_vectors'].append(calc_cv_vector(traj, iface, move))     
+            out['traj_vectors'].append(calc_cv_vector(traj, iface, out['move']))     
         out['status'] = status
     curr_time = time.time() 
     out['time'] = curr_time - start_time
@@ -163,7 +167,12 @@ def treat_output(output, state, sim, save=False):
           'with status:', status, 'and worker:', pin, f'total time: {time_spent:.2f}')
 
     state.config['current']['traj_num'] = traj_num
-    return pin, 'ACC' == status, pn_archive
+
+    # print analyzed output
+    if'ACC' == status:
+        write_to_pathens(state, pn_archive)
+
+    return pin
 
 
 def setup_pyretis(config):
@@ -248,7 +257,11 @@ def setup_repex(sim, config):
     state.config = config
     return state
 
-def print_end(live_trajs, stopping, traj_num_dic):
+# def print_end(live_trajs, stopping, traj_num_dic):
+def print_end(state):
+    live_trajs = state.live_paths()
+    stopping = state.cstep
+    traj_num_dic = state.traj_num_dic
     print('--------------------------------------------------')
     print('live trajs:', live_trajs, f'after {stopping-1} cycles')
     print('==================================================')
@@ -407,6 +420,7 @@ def prepare_shooting(state, md_items):
         move = 'sh'
     else:
         move = state.mc_moves[ens[0]+1]
+
     print('shooting', move, 'in ensembles:', ' '.join([f'00{ens_num+1}' for ens_num in ens]),
           'with paths:', ' '.join([str(trajj.path_number) for trajj in input_traj]),
           'and worker:', md_items['pin'])

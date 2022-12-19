@@ -21,50 +21,43 @@ if __name__ == "__main__":
     for worker in range(state.workers):
         print(f'------- submit worker {worker} START -------')
 
+        # chose ens and path for the next job
         ens, input_traj = state.pick_lock()
-
         md_items.update({'ens': ens, 'input_traj': input_traj,
                          'pin': worker, 'cycle': worker})
         prepare_shooting(state, md_items)
+
+        # submit job
         fut = client.submit(run_md, md_items, pure=False)
-        # fut = client.submit(run_md, ens, input_traj,
-        #                     sim, worker,
-        #                     move, str(worker), pure=False)
         futures.add(fut)
 
         print(f'------- submit worker {worker} END -------\n')
 
-    exit('mboppi')
     while state.loop():
         # get output from finished worker
         output = next(futures)[1]
         print(f'------- infinity {state.cstep} START -------')
 
         # analyze & store output
-        pin, acc, pn_archive = treat_output(output, state, sim)
-
-        # print analyzed output  # and write toml
-        if acc:
-            write_to_pathens(state, pn_archive)
+        pin = treat_output(output, state, md_items['sim'])
 
         # submit new job:
         if state.cstep < state.steps:
             # chose ens and path for the next job
             ens, input_traj = state.pick()
-            move = set_shooting(sim, ens, input_traj, pin)
-            print_path_info(state, ens, input_traj)
+            md_items.update({'ens': ens, 'input_traj': input_traj,
+                             'pin': pin, 'cycle': state.cstep})
+            prepare_shooting(state, md_items)
+            # print_path_info(state, ens, input_traj)
 
             # submit job
-            fut = client.submit(run_md, ens, input_traj,
-                                sim, state.cstep, move, pin, pure=False)
+            fut = client.submit(run_md, md_items, pure=False)
             futures.add(fut)
         else: 
-            print_path_info(state)
+            state.print_state()
 
         print(f'------- infinity {state.cstep} END -------')
         state.cstep += 1
         print()
 
-    live_trajs = state.live_paths()
-    traj_num_dic = state.traj_num_dic
-    print_end(live_trajs, state.cstep, traj_num_dic)
+    print_end(state)
