@@ -2,8 +2,8 @@ import dask.distributed
 from dask.distributed import Client, as_completed
 import tomli
 from help_func import run_md, print_path_info, set_shooting, treat_output
-from help_func import setup_pyretis, setup_repex, print_end, write_to_pathens
-from help_func import setup_internal, setup_dask
+from help_func import print_end, write_to_pathens
+from help_func import setup_internal, setup_dask, prepare_shooting
 dask.config.config['work-stealing'] = False
 
 if __name__ == "__main__":
@@ -13,42 +13,28 @@ if __name__ == "__main__":
         config = tomli.load(f)
 
     # setup pyretis, repex, dask client and futures
-    sim, state = setup_internal(config)
+    md_items, state = setup_internal(config)
     client, futures = setup_dask(state.workers)
 
-    state.print_start(sim)
-    print_path_info(state)
-
-    # select the first ens and input_traj
+    # print and initiate
+    state.print_start()
     for worker in range(state.workers):
-
         print(f'------- submit worker {worker} START -------')
 
-        # Pick and set ens and trajs
+        ens, input_traj = state.pick_lock()
 
-        # ens, input_traj = state.pick()
-        # state.config['current']['locked'] = [(2, 3), (3, 2)]
-        state.config['current']['locked'] = [(2, 3)]
-        ens, input_traj = state.lock_pick()
-
-        print_path_info(state, ens, input_traj)
-        #
-        # if no locks:
-        #
-        ##    ens, input_traj = state.pick()
-        ## else: if locks:
-        ##    ens, input_traj = state.lock_pick()
-        move = set_shooting(sim, ens, input_traj, str(worker))
-
-        # submit job
-        fut = client.submit(run_md, ens, input_traj,
-                            sim, worker,
-                            move, str(worker), pure=False)
+        md_items.update({'ens': ens, 'input_traj': input_traj,
+                         'pin': worker, 'cycle': worker})
+        prepare_shooting(state, md_items)
+        fut = client.submit(run_md, md_items, pure=False)
+        # fut = client.submit(run_md, ens, input_traj,
+        #                     sim, worker,
+        #                     move, str(worker), pure=False)
         futures.add(fut)
 
-        print(f'------- submit worker {worker} END -------')
-        print()
+        print(f'------- submit worker {worker} END -------\n')
 
+    exit('mboppi')
     while state.loop():
         # get output from finished worker
         output = next(futures)[1]
