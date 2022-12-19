@@ -3,24 +3,24 @@ import numpy as np
 import time
 import tomli_w
 from dask.distributed import get_worker
-from pyretis.core.tis import shoot, wire_fencing
+from pyretis.core.tis import select_shoot
 from pyretis.core.retis import retis_swap_zero # need to disable "add_path_data()"
 from pyretis.setup import create_simulation
 from pyretis.inout.settings import parse_settings_file
 from infretis import calc_cv_vector, REPEX_state
 from dask.distributed import Client, as_completed
 
-def run_md(ens_num, input_traj, sim, cycle, move, pin):
-    settings, ensembles = sim.settings, sim.ensembles
+# def run_md(ens_num, input_traj, sim, cycle, move, pin):
+def run_md(ens_num, md_items):
+    settings = md_items['sim'].settings
+    ensembles = md_items['sim'].ensembles
     interfaces = settings['simulation']['interfaces']
     start_time = time.time() 
-    out = {'ensembles': [],                                                  
-           'accepted_trajs': [],                                        
-           'traj_vectors': [],
-           'status': None,
-           'pin': pin,
-           'move': move}
+    out = {'ensembles': [], 'accepted_trajs': [],                                        
+           'traj_vectors': [], 'status': None,
+           'pin': md_items['pin']}
     path_numbers_old = []
+    moves = md_items['sim'].settings['tis']['shooting_moves'] 
 
     for traj0 in input_traj:
         path_numbers_old.append(traj0.path_number)
@@ -30,17 +30,17 @@ def run_md(ens_num, input_traj, sim, cycle, move, pin):
         start_cond = ensembles[ens_num[0]+1]['path_ensemble'].start_condition
         tis_settings = settings['ensemble'][ens_num[0]+1]['tis'] 
 
-        moves = {'sh': shoot, 'wf': wire_fencing}
-        accept, trial, status = moves[move](ensembles[ens_num[0]+1],
-                                            tis_settings,
-                                            start_cond)
-        
+        accept, trial, status = select_shoot(ensembles[ens_num[0]+1],
+                                             tis_settings,
+                                             start_cond)
         if accept:                                                                  
             out_traj = trial                                                        
         else:                                                                       
             out_traj = input_traj[0]
         if ens_num[0] < 0:
             interfaces = interfaces[0:1]
+
+        move = tis_settings.get('shooting_move', 'sh')
         cv_vector = calc_cv_vector(out_traj, interfaces, move)
                 
         out['ensembles'] = list(ens_num)
@@ -67,78 +67,10 @@ def run_md(ens_num, input_traj, sim, cycle, move, pin):
     return out
 
 
-def print_path_info(state, ens_sel=(), input_traj=(), intfs=False):
-    ens_no = len(state._trajs[:-1])
-    ens_str = [f'{i:03.0f}' for i in range(ens_no)]
-    state_dic = {}
-    path_dic = {}
-    ens_pwds = []
-    locks = [traj0.path_number for traj0, lock0 in
-             zip(state._trajs[:-1], state._locks[:-1]) if lock0]
-
-    locks_idx = [i for i, lock0 in enumerate(state._locks[:-1]) if lock0]
-    locks_ens = [f'{i:03.0f}' for i, lock0 in enumerate(state._locks[:-1]) if lock0]
-
-    for path_temp in state._trajs[:-1]:
-        path_pwds = sorted(set([pp.particles.config[0] for pp in path_temp.phasepoints]))
-        ens = next(i for i in path_pwds[0].split('/') if i in ens_str)
-        state_dic[ens] = {'pwds': [pwd.split('/')[-1] for pwd in path_pwds]}
-        state_dic[ens]['path_number'] = path_temp.path_number
-        path_dic[state_dic[ens]['path_number']] = [pwd.split('k')[-1] for pwd in path_pwds]
-
-    for ens in ens_str:
-        ens_pwds.append(sorted(os.listdir(f'./{ens}/accepted')))
-
-    # check if state_paths correspond to path_pwds:
-    for ens, string1 in zip(ens_str, ens_pwds):
-        string0 = state_dic[ens]['pwds']
-        if string0 != string1:
-            print(string0, string1)
-            print('warning! the state_paths does not correspond to the path_pwds!')
-    
-    last_prob = True
-    if type(state._last_prob) == type(None):
-        state.prob
-        last_prob = False
-        
-    # print current state
-    p_num = [state_dic[ens]['path_number'] for ens in ens_str]
-    print('===')
-    print(' xx |\t', '\t'.join(['e'+i for i in ens_str]))
-    print(' -- |     -----------------------------------')
-    
-    live_trajs = [traj.path_number for traj in state._trajs[:-1]] # state.live_paths()
-    w_start = 0
-    for live in live_trajs:
-        if live not in locks:
-            for weight in state._last_prob[w_start:-1]:
-                w_start += 1
-                if sum(weight) != 0:
-                    print(f'p{live:02.0f} |\t',
-                          '\t'.join([f'{j:.2f}' if j != 0 else '----' for j in weight[:-1]]))
-                    break
-        else:
-            print(f'p{live:02.0f} |\t', '\t'.join(['----' for j in range(ens_no)]))
-
-    print('===')
-    if intfs:
-        print(len(state._trajs[:-1]))
-        for live in state._trajs[:-1]:
-            print(live.path_number, calc_cv_vector(live, interfaces, 'sh'))
-        print('===')
-            
-    if not last_prob:
-        state._last_prob = None
-
-    state.config['current']['active'] = live_trajs
-    locked = [(int(sim0 + state._offset), path0.path_number) for sim0, path0 in zip(ens_sel, input_traj)]
-    state.config['current']['locked'] = locked
-    print('ooga 1')
-    print(state.config['current']['locked'])
-    print('ooga 2')
-    # state.config['current']['locked'] = [(l_ens, l_path) for l_ens, l_path in zip(locks_ens, locks)]
-    with open("./infretis_5.toml", "wb") as f:
-        tomli_w.dump(state.config, f)  
+def print_path_info(state, ens_sel=(), input_traj=()):
+    pwd_checker(state)
+    state.print_state()
+    write_toml(state, ens_sel=(), input_traj=())
 
 
 def set_shooting(sim, ens, input_traj, pin):
@@ -378,14 +310,14 @@ def setup_internal(config):
     state.steps = config['simulation']['steps']
     state.cstep = config['current']['step']
     traj_num_dic = state.traj_num_dic
-    moves = sim.settings['tis']['shooting_moves']
+    state.mc_moves = sim.settings['tis']['shooting_moves']
 
     ## initiate by adding paths from retis sim to repex
     for i in range(size-1):
         # we add all the i+ paths.
         path = sim.ensembles[i+1]['path_ensemble'].last_path
         state.add_traj(ens=i, traj=path,
-                       valid=calc_cv_vector(path, interfaces, moves[i+1]),
+                       valid=calc_cv_vector(path, interfaces, state.mc_moves[i+1]),
                        count=False)
         traj_num_dic[path.path_number] = {'weight': np.zeros(size+1),
                                           'adress':  set(kk.particles.config[0].split('salt')[-1]
@@ -407,10 +339,83 @@ def setup_internal(config):
     if 'traj_num' not in config['current'].keys():
         config['current']['traj_num'] = max(config['current']['active']) + 1
     state.config = config
-    return sim, state
+    return {'sim': sim}, state
 
 
 def setup_dask(workers):
     client = Client(n_workers=workers)
     futures = as_completed(None, with_results=True)
     return client, futures
+
+
+def pwd_checker(state):
+    all_good = True
+
+    ens_no = len(state._trajs[:-1])
+    ens_str = [f'{i:03.0f}' for i in range(ens_no)]
+    state_dic = {}
+    path_dic = {}
+    ens_pwds = []
+    locks = [traj0.path_number for traj0, lock0 in
+             zip(state._trajs[:-1], state._locks[:-1]) if lock0]
+
+    locks_idx = [i for i, lock0 in enumerate(state._locks[:-1]) if lock0]
+    locks_ens = [f'{i:03.0f}' for i, lock0 in enumerate(state._locks[:-1]) if lock0]
+
+    for path_temp in state._trajs[:-1]:
+        path_pwds = sorted(set([pp.particles.config[0] for pp in path_temp.phasepoints]))
+        ens = next(i for i in path_pwds[0].split('/') if i in ens_str)
+        state_dic[ens] = {'pwds': [pwd.split('/')[-1] for pwd in path_pwds]}
+        state_dic[ens]['path_number'] = path_temp.path_number
+        path_dic[state_dic[ens]['path_number']] = [pwd.split('k')[-1] for pwd in path_pwds]
+
+    for ens in ens_str:
+        ens_pwds.append(sorted(os.listdir(f'./{ens}/accepted')))
+
+    # check if state_paths correspond to path_pwds:
+    for ens, string1 in zip(ens_str, ens_pwds):
+        string0 = state_dic[ens]['pwds']
+        if string0 != string1:
+            print(string0, string1)
+            print('warning! the state_paths does not correspond to the path_pwds!')
+            all_good = False
+
+    return all_good
+
+
+def write_toml(state, ens_sel=(), input_traj=()):
+    state.config['current']['active'] = state.live_paths()
+    locked_ep = []
+    for ens0, path0 in zip(ens_sel, input_traj):
+        locked_ep.append((int(ens0 + state._offset), path0.path_number))
+    state.config['current']['locked'] = locked_ep
+
+    with open("./infretis_5.toml", "wb") as f:
+        tomli_w.dump(state.config, f)  
+
+
+def prepare_shooting(state, md_items):
+    # pwd_checker
+    pwd_checker(state)
+    # print state:
+    state.print_state()
+    # write toml:
+    ens, input_traj = md_items['ens'], md_items['input_traj']
+    write_toml(state, ens, input_traj)
+    # chose move and print
+    if len(ens) > 1 or ens[0] == -1:
+        move = 'sh'
+    else:
+        move = state.mc_moves[ens[0]+1]
+    print('shooting', move, 'in ensembles:', ' '.join([f'00{ens_num+1}' for ens_num in ens]),
+          'with paths:', ' '.join([str(trajj.path_number) for trajj in input_traj]),
+          'and worker:', md_items['pin'])
+
+    # update pwd
+    for ens_num, traj_inp in zip(ens, input_traj):
+        ens_num += 1
+        md_items['sim'].ensembles[ens_num]['path_ensemble'].last_path = traj_inp.copy()
+    
+
+
+

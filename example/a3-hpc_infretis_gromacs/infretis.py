@@ -100,13 +100,17 @@ class REPEX_state(object):
         self.result = Results(n, offset=self._offset)
         self._n = 0
         self._trajs = ["" for i in range(n)]
+
         self.config = {}
         self.traj_num_dic = {}
         self.workers = workers
         self.steps = None
         self.cstep = None
+        self.mc_moves = []
 
-    def lock_pick(self):
+    def pick_lock(self):
+        if not self.config['current']['locked']:
+            return self.pick()
         enss = []
         trajs = [] 
         for ens, traj in self.config['current']['locked']:
@@ -208,6 +212,11 @@ class REPEX_state(object):
 
     def live_paths(self):
         return [traj.path_number for traj in self._trajs[:-1]]
+
+    def locked_paths(self):
+        locks = [t0.path_number for t0, l0 in
+                 zip(self._trajs[:-1], self._locks[:-1]) if l0]
+        return locks
 
     def loop(self):
         return self.cstep < self.steps + self.workers
@@ -474,11 +483,36 @@ class REPEX_state(object):
 
         return total//num_loops
 
-    def print_start(self, sim):
+    def print_start(self):
         print('stored ensemble paths:')
-        ens_num = [sim0['path_ensemble'].last_path.path_number for sim0 in sim.ensembles]
+        ens_num = self.live_paths()
         print(' '.join([f'00{i}: {j},' for i, j in enumerate(ens_num)]))
-        print('saved ensemble paths:', self.live_paths())
+        self.print_state()
+
+    def print_state(self):
+        last_prob = True
+        if type(self._last_prob) == type(None):
+            self.prob
+            last_prob = False
+
+        print('===')
+        to_print = '\t'.join(['e'+ f'{i:03.0f}' for i in range(self.n-1)])
+        print(' xx |\t' + to_print)
+        print(' -- |     -----------------------------------')
+
+        locks = self.locked_paths()
+        for idx, live in enumerate(self.live_paths()):
+            if live not in locks:
+                to_print = f'p{live:02.0f} |\t'
+                for prob in self._last_prob[idx][:-1]:
+                    to_print += f'{prob:.2f}\t' if prob != 0 else '----\t'
+                print(to_print)
+            else:
+                to_print = f'p{live:02.0f} |\t'
+                print(to_print + '\t'.join(['----' for j in range(self.n-1)]))
+        print('===')
+        if not last_prob:
+            self._last_prob = None
 
 
 def calc_cv_vector(path, interfaces, move):                                           
