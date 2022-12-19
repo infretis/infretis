@@ -514,6 +514,20 @@ class REPEX_state(object):
         if not last_prob:
             self._last_prob = None
 
+    def print_end(self):
+        live_trajs = self.live_paths()
+        stopping = self.cstep
+        traj_num_dic = self.traj_num_dic
+        print('--------------------------------------------------')
+        print('live trajs:', live_trajs, f'after {stopping-1} cycles')
+        print('==================================================')
+        print('xxx | 000        001     002     003     004     |')
+        print('--------------------------------------------------')
+        for key, item in traj_num_dic.items():
+            print(f'{key:03.0f}', "|" if key not in live_trajs else '*',
+                  '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '---' for item0 in item['weight'][:-1]])
+                 ,'\t', "|" if key not in live_trajs else '*')
+
 
 def calc_cv_vector(path, interfaces, move):                                           
     path_max, _ = path.ordermax                                                 
