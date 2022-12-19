@@ -1,8 +1,7 @@
 import dask.distributed
 from dask.distributed import Client, as_completed
 import tomli
-from help_func import run_md, print_path_info, set_shooting, treat_output
-from help_func import print_end, write_to_pathens
+from help_func import run_md, treat_output, print_end
 from help_func import setup_internal, setup_dask, prepare_shooting
 dask.config.config['work-stealing'] = False
 
@@ -48,7 +47,6 @@ if __name__ == "__main__":
             md_items.update({'ens': ens, 'input_traj': input_traj,
                              'pin': pin, 'cycle': state.cstep})
             prepare_shooting(state, md_items)
-            # print_path_info(state, ens, input_traj)
 
             # submit job
             fut = client.submit(run_md, md_items, pure=False)
@@ -60,4 +58,4 @@ if __name__ == "__main__":
         state.cstep += 1
         print()
 
-    print_end(state)
+    state.print_end()
