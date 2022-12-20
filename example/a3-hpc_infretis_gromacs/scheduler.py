@@ -1,9 +1,6 @@
-import dask.distributed
-from dask.distributed import Client, as_completed
 import tomli
-from help_func import run_md, treat_output, print_end
-from help_func import setup_internal, setup_dask, prepare_shooting
-dask.config.config['work-stealing'] = False
+from help_func import run_md, treat_output, run_md2
+from help_func import setup_internal, setup_dask, prepare_pyretis
 
 if __name__ == "__main__":
 
@@ -24,14 +21,15 @@ if __name__ == "__main__":
         ens, input_traj = state.pick_lock()
         md_items.update({'ens': ens, 'input_traj': input_traj,
                          'pin': worker, 'cycle': worker})
-        prepare_shooting(state, md_items)
+        prepare_pyretis(state, md_items, printing=True)
 
         # submit job
-        fut = client.submit(run_md, md_items, pure=False)
+        fut = client.submit(run_md2, md_items, pure=False)
         futures.add(fut)
 
         print(f'------- submit worker {worker} END -------\n')
 
+    # main loop
     while state.loop():
         # get output from finished worker
         output = next(futures)[1]
@@ -46,12 +44,12 @@ if __name__ == "__main__":
             ens, input_traj = state.pick()
             md_items.update({'ens': ens, 'input_traj': input_traj,
                              'pin': pin, 'cycle': state.cstep})
-            prepare_shooting(state, md_items)
+            prepare_pyretis(state, md_items, printing=True)
 
             # submit job
             fut = client.submit(run_md, md_items, pure=False)
             futures.add(fut)
-        else: 
+        else:
             state.print_state()
 
         print(f'------- infinity {state.cstep} END -------')
