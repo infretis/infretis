@@ -2,98 +2,61 @@ import os
 import numpy as np
 import time
 import tomli_w
-from dask.distributed import get_worker
 from pyretis.core.tis import select_shoot
-from pyretis.core.retis import retis_swap_zero # need to disable "add_path_data()"
+from pyretis.core.retis import retis_swap_zero
 from pyretis.setup import create_simulation
 from pyretis.inout.settings import parse_settings_file
 from infretis import calc_cv_vector, REPEX_state
-from dask.distributed import Client, as_completed
+from dask.distributed import dask, Client, as_completed
+dask.config.config['work-stealing'] = False
 
-# def run_md(ens_num, input_traj, sim, cycle, move, pin):
 def run_md(md_items):
+    start_time = time.time() 
+
     ens_num = md_items['ens']
-    cycle = md_items['cycle']
     input_traj = md_items['input_traj']
     settings = md_items['sim'].settings
     ensembles = md_items['sim'].ensembles
     interfaces = settings['simulation']['interfaces']
-    start_time = time.time() 
-    out = {'ensembles': [], 'accepted_trajs': [],                                        
-           'traj_vectors': [], 'status': None,
-           'pin': md_items['pin']}
-    path_numbers_old = []
-
+    out = {'ensembles': list(ens_num), 'traj_vectors': [],
+           'pin': md_items['pin'], 'pnum_old': []}
     for traj0 in input_traj:
-        path_numbers_old.append(traj0.path_number)
-    out['path_numbers_old'] = path_numbers_old
+        out['pnum_old'].append(traj0.path_number)
     
     if len(ens_num) == 1:
         start_cond = ensembles[ens_num[0]+1]['path_ensemble'].start_condition
         tis_settings = settings['ensemble'][ens_num[0]+1]['tis'] 
-
         accept, trial, status = select_shoot(ensembles[ens_num[0]+1],
                                              tis_settings,
                                              start_cond)
-        if accept:                                                                  
-            out_traj = trial                                                        
-        else:                                                                       
-            out_traj = input_traj[0]
+
+        out_traj = trial if accept else input_traj[0]
+
         if ens_num[0] < 0:
             interfaces = interfaces[0:1]
 
         move = tis_settings.get('shooting_move', 'sh')
         cv_vector = calc_cv_vector(out_traj, interfaces, move)
                 
-        out['ensembles'] = list(ens_num)
         out['accepted_trajs'] = [out_traj]
         out['traj_vectors'] = [cv_vector]
-        out['status'] = status
         out['move'] = move
     else:
         accept, trial, status = retis_swap_zero(ensembles, 
                                                 settings,
-                                                cycle)
-        if accept:                                                                  
-            out_traj = trial                                                        
-        else:                                                                       
-            out_traj = input_traj
+                                                0)
+        out_traj = trial if accept else input_traj
 
-        out['ensembles'] = list(ens_num)
         out['accepted_trajs'] = out_traj
         ifaces = [[interfaces[0:1]], interfaces]
         out['move'] = 'sh'
         for traj, iface in zip(out_traj, ifaces):
             out['traj_vectors'].append(calc_cv_vector(traj, iface, out['move']))     
-        out['status'] = status
-    curr_time = time.time() 
-    out['time'] = curr_time - start_time
+
+    out['status'] = status
+    out['time'] = time.time() - start_time
     return out
 
-
-def print_path_info(state, ens_sel=(), input_traj=()):
-    pwd_checker(state)
-    state.print_state()
-    write_toml(state, ens_sel=(), input_traj=())
-
-
-def set_shooting(sim, ens, input_traj, pin):
-    moves = sim.settings['tis']['shooting_moves']
-
-    if len(ens) > 1 or ens[0] == -1:
-        move = 'sh'
-    else:
-        move = moves[ens[0]+1]
-
-    print('shooting', move, 'in ensembles:', ' '.join([f'00{ens_num+1}' for ens_num in ens]),
-          'with paths:', ' '.join([str(trajj.path_number) for trajj in input_traj]),
-          'and worker:', pin)
-
-    for ens_num, traj_inp in zip(ens, input_traj):
-        ens_num += 1
-        sim.ensembles[ens_num]['path_ensemble'].last_path = traj_inp.copy()
-
-    return move
 
 def treat_output(output, state, sim, save=False):
     traj_num_dic = state.traj_num_dic
@@ -104,7 +67,7 @@ def treat_output(output, state, sim, save=False):
     out_trajs = output['accepted_trajs']
     traj_vectors = output['traj_vectors']
     status = output['status']
-    path_numbers_old = output['path_numbers_old']
+    pnum_old = output['pnum_old']
     pn_archive = []
     pin = output['pin']
     move = output['move']
@@ -114,7 +77,7 @@ def treat_output(output, state, sim, save=False):
     for ens_num, out_traj, traj_v, pn_old in zip(ensembles,
                                                  out_trajs,
                                                  traj_vectors,
-                                                 path_numbers_old):
+                                                 pnum_old):
         # if path is new: number and save the path:
         if out_traj.path_number == None or status == 'ACC':
             out_traj.path_number = traj_num
@@ -162,7 +125,7 @@ def treat_output(output, state, sim, save=False):
     
     # print information to screen
     print('shooted', move, 'in ensembles:', ' '.join([f'00{ens_num+1}' for ens_num in ensembles]),
-          'with paths:', ' '.join([str(pn_old) for pn_old in path_numbers_old]), '->', 
+          'with paths:', ' '.join([str(pn_old) for pn_old in pnum_old]), '->', 
           ' '.join([str(trajj.path_number) for trajj in out_trajs]),
           'with status:', status, 'and worker:', pin, f'total time: {time_spent:.2f}')
 
@@ -175,7 +138,29 @@ def treat_output(output, state, sim, save=False):
     return pin
 
 
-def setup_pyretis(config):
+def write_to_pathens(state, pn_archive):
+    traj_num_dic = state.traj_num_dic
+    with open('infretis_data.txt', 'a') as fp:
+        for pn in pn_archive:
+            string = ''
+            string += f'\t{pn:03.0f}\t'
+            string += f"{traj_num_dic[pn]['length']:05.0f}" + '\t'
+            string += f"{traj_num_dic[pn]['max_op'][0]:05.5f}" + '\t\t'
+            weight = []
+            for item0 in traj_num_dic[pn]['weight'][:-1]:
+                w_str = f'{item0:02.2f}' if item0 != 0.0 else '----'
+                weight.append(w_str)
+            fp.write(string + '\t'.join(weight) + '\t\n')
+
+
+def setup_internal(config):
+    # setup pyretis
+    inp = config['simulation']['pyretis_inp']
+    sim_settings = parse_settings_file(inp)
+    interfaces = sim_settings['simulation']['interfaces']
+    size = len(interfaces)
+
+    # check if we restart or not 
     if 'current' not in config:
         config['current'] = {}
         config['current']['step'] = 0
@@ -183,129 +168,10 @@ def setup_pyretis(config):
         config['current']['locked'] = []
         config['current']['dic'] = []
         with open('infretis_data.txt', 'w') as fp:
-            fp.write('# ' + '='*66 + '\n')
-            fp.write('# ' + '\tpnum\t\tplen\t\tpmaxOP\t\t000     001     002     003     004     \n')
-            fp.write('# ' + '-'*66 + '\n')
-            pass
-
-    ## load paths from traj/{0,1,2,3} etc...
-    ## change that if config active  .. 
-
-    inp = config['simulation']['pyretis_inp']
-    sim_settings = parse_settings_file(inp)
-    interfaces = sim_settings['simulation']['interfaces']
-    size = len(interfaces)
-
-    if not config['current']['active']:
-        config['current']['active'] = list(range(size))
-
-    active = config['current']['active']
-    locks = config['current']['locked']
-
-    config['current']['interfaces'] = interfaces
-    config['current']['size'] = size
-    sim_settings['current'] = {'size': size}
-    sim_settings['current']['active'] = config['current']['active']
-
-    # if active:
-    # load from active ..
-
-    sim = create_simulation(sim_settings)
-    sim.set_up_output(sim_settings, progress=True)
-    sim.initiate(sim_settings)
-
-    return sim
-
-def setup_repex(sim, config):
-
-    ## if config['current']['locked']: then ....
-
-    size = config['current']['size']
-    interfaces = config['current']['interfaces']
-    active = config['current']['active']
-    state = REPEX_state(size, workers=config['dask']['workers'],
-                        minus=True)
-    traj_num_dic = state.traj_num_dic
-    moves = sim.settings['tis']['shooting_moves']
-
-    ## initiate by adding paths from retis sim to repex
-    for i in range(size-1):
-        # we add all the i+ paths.
-        path = sim.ensembles[i+1]['path_ensemble'].last_path
-        state.add_traj(ens=i, traj=path,
-                       valid=calc_cv_vector(path, interfaces, moves[i+1]),
-                       count=False)
-        traj_num_dic[path.path_number] = {'weight': np.zeros(size+1),
-                                          'adress':  set(kk.particles.config[0].split('salt')[-1]
-                                                         for kk in path.phasepoints),
-                                          'ens_idx': i + 1,
-                                          'max_op': path.ordermax,
-                                          'length': path.length}
-    
-    # add minus path:
-    path = sim.ensembles[0]['path_ensemble'].last_path
-    state.add_traj(ens=-1, traj=path, valid=(1,), count=False)
-    traj_num_dic[path.path_number] = {'weight': np.zeros(size+1),
-                                      'adress':  set(kk.particles.config[0].split('salt')[-1]
-                                                     for kk in path.phasepoints),
-                                      'ens_idx': 0,
-                                      'max_op': path.ordermax,
-                                      'length': path.length}
-
-    if 'traj_num' not in config['current'].keys():
-        config['current']['traj_num'] = max(config['current']['active']) + 1
-    state.config = config
-    return state
-
-# def print_end(live_trajs, stopping, traj_num_dic):
-def print_end(state):
-    live_trajs = state.live_paths()
-    stopping = state.cstep
-    traj_num_dic = state.traj_num_dic
-    print('--------------------------------------------------')
-    print('live trajs:', live_trajs, f'after {stopping-1} cycles')
-    print('==================================================')
-    print('xxx | 000        001     002     003     004     |')
-    print('--------------------------------------------------')
-    for key, item in traj_num_dic.items():
-        print(f'{key:03.0f}', "|" if key not in live_trajs else '*',
-              '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '---' for item0 in item['weight'][:-1]])
-             ,'\t', "|" if key not in live_trajs else '*')
-
-
-def write_to_pathens(state, pn_archive):
-    traj_num_dic = state.traj_num_dic
-    with open('infretis_data.txt', 'a') as fp:
-        for pn in pn_archive:
-            string = ''
-            string += f'\t{pn:03.0f}\t\t'
-            string += f"{traj_num_dic[pn]['length']:05.0f}" + '\t'
-            string += f"{traj_num_dic[pn]['max_op'][0]:05.5f}" + '\t\t'
-            weight = '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '----' for item0 in traj_num_dic[pn]['weight'][:-1]])
-            fp.write(string + weight + '\t\n')
-
-
-def setup_internal(config):
-
-    # check if we restart or not 
-    if 'current' not in config or config['current'].get('step') == 0:
-        config['current'] = {}
-        config['current']['step'] = 0
-        config['current']['active'] = []
-        config['current']['locked'] = []
-        config['current']['dic'] = []
-        with open('infretis_data.txt', 'w') as fp:
-            fp.write('# ' + '='*66 + '\n')
-            fp.write('# ' + '\txxx\t\tlen\t\tmax OP\t\t000     001     002     003     004     \n')
-            fp.write('# ' + '-'*66 + '\n')
-            pass
-
-    # setup pyretis
-    inp = config['simulation']['pyretis_inp']
-    sim_settings = parse_settings_file(inp)
-
-    interfaces = sim_settings['simulation']['interfaces']
-    size = len(interfaces)
+            fp.write('# ' + '='*(34+8*size)+ '\n')
+            ens_str = '\t'.join([f'{i:03.0f}' for i in range(size)])
+            fp.write('# ' + f'\txxx\tlen\tmax OP\t\t{ens_str}\n')
+            fp.write('# ' + '='*(34+8*size)+ '\n')
     config['current']['size'] = size
     if not config['current']['active']:
         config['current']['active'] = list(range(size))
@@ -390,7 +256,8 @@ def pwd_checker(state):
         string0 = state_dic[ens]['pwds']
         if string0 != string1:
             print(string0, string1)
-            print('warning! the state_paths does not correspond to the path_pwds!')
+            print('warning! the state_paths does' + \
+                  'not correspond to the path_pwds!')
             all_good = False
 
     return all_good
@@ -407,29 +274,133 @@ def write_toml(state, ens_sel=(), input_traj=()):
         tomli_w.dump(state.config, f)  
 
 
-def prepare_shooting(state, md_items):
+def prepare_pyretis(state, md_items, printing=False):
+
     # pwd_checker
     pwd_checker(state)
-    # print state:
-    state.print_state()
+
     # write toml:
     ens, input_traj = md_items['ens'], md_items['input_traj']
     write_toml(state, ens, input_traj)
-    # chose move and print
-    if len(ens) > 1 or ens[0] == -1:
-        move = 'sh'
-    else:
-        move = state.mc_moves[ens[0]+1]
-
-    print('shooting', move, 'in ensembles:', ' '.join([f'00{ens_num+1}' for ens_num in ens]),
-          'with paths:', ' '.join([str(trajj.path_number) for trajj in input_traj]),
-          'and worker:', md_items['pin'])
 
     # update pwd
     for ens_num, traj_inp in zip(ens, input_traj):
         ens_num += 1
         md_items['sim'].ensembles[ens_num]['path_ensemble'].last_path = traj_inp.copy()
+
+    # print state:
+    if printing:
+        state.print_state()
+        if len(ens) > 1 or ens[0] == -1:
+            move = 'sh'
+        else:
+            move = state.mc_moves[ens[0]+1]
+        ens_p = ' '.join([f'00{ens_num+1}' for ens_num in ens])
+        pat_p = ' '.join([str(i.path_number) for i in input_traj])
+        print('shooting', move, 'in ensembles:',
+              ens_p, 'with paths:', pat_p, 
+              'and worker:', md_items['pin'])
+
+
+def pyretis_mc(md_items):
+    ens_num = md_items['ens']
+    input_traj = md_items['input_traj']
+    settings = md_items['sim'].settings
+    ensembles = md_items['sim'].ensembles
+    interfaces = settings['simulation']['interfaces']
+
+    out = {'pnum_old': []}
+    for traj0 in input_traj:
+        out['pnum_old'].append(traj0.path_number)
     
 
+    if len(ens_num) == 1:
+        start_cond = ensembles[ens_num[0]+1]['path_ensemble'].start_condition
+        tis_settings = settings['ensemble'][ens_num[0]+1]['tis'] 
+        move = tis_settings.get('shooting_move', 'sh')
+        accept, trial, status = select_shoot(ensembles[ens_num[0]+1],
+                                             tis_settings,
+                                             start_cond)
+
+        out_traj = [trial if accept else input_traj[0]]
+        swap = False
+        if ens_num[0] < 0:
+            interfaces = [interfaces[0:1]]
+        else: 
+            interfaces = [interfaces]
+
+    else:
+        accept, trial, status = retis_swap_zero(ensembles, 
+                                                settings,
+                                                0)
+        out_traj = trial if accept else input_traj
+        swap = True
+        move = 'sh'
+        interfaces= [[interfaces[0:1]], interfaces]
+
+    out['move'] = move
+    out['accepted_trajs'] = out_traj
+    out['status'] = status
+    out['interfaces'] = interfaces
+    out['ensembles'] = list(ens_num)
+    out['pin'] = md_items['pin']
+
+    return out
 
 
+def run_md2(md_items):
+
+    start_time = time.time() 
+    # out_traj, status, swap = pyretis_mc(md_items)
+    out = pyretis_mc(md_items)
+    out['traj_vectors'] = []
+
+    for traj, iface in zip(out['accepted_trajs'], out['interfaces']):
+        cv_vector = calc_cv_vector(traj, iface, out['move'])
+        out['traj_vectors'].append(cv_vector)
+
+    out['time'] = time.time() - start_time
+    return out
+
+    # out['accepted_trajs'] = out_traj
+
+    # out = {'ensembles': list(ens_num), 'traj_vectors': [],
+    #        'pin': md_items['pin'], 'pnum_old': []}
+
+
+    # 
+
+    # if len(ens_num) == 1:
+    #     start_cond = ensembles[ens_num[0]+1]['path_ensemble'].start_condition
+    #     tis_settings = settings['ensemble'][ens_num[0]+1]['tis'] 
+    #     accept, trial, status = select_shoot(ensembles[ens_num[0]+1],
+    #                                          tis_settings,
+    #                                          start_cond)
+
+    #     out_traj = trial if accept else input_traj[0]
+
+    #     if ens_num[0] < 0:
+    #         interfaces = interfaces[0:1]
+
+    #     move = tis_settings.get('shooting_move', 'sh')
+    #     cv_vector = calc_cv_vector(out_traj, interfaces, move)
+    #             
+    #     out['accepted_trajs'] = [out_traj]
+    #     out['traj_vectors'] = [cv_vector]
+    #     out['move'] = move
+    # else:
+    #     accept, trial, status = retis_swap_zero(ensembles, 
+    #                                             settings,
+    #                                             0)
+    #     out_traj = trial if accept else input_traj
+
+    #     out['accepted_trajs'] = out_traj
+    #     ifaces = [[interfaces[0:1]], interfaces]
+    #     out['move'] = 'sh'
+    #     for traj, iface in zip(out_traj, ifaces):
+    #         out['traj_vectors'].append(calc_cv_vector(traj, iface, out['move']))     
+
+    # out['status'] = status
+    # curr_time = time.time() 
+    # out['time'] = curr_time - start_time
+    # return out
