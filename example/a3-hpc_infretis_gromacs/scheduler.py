@@ -1,5 +1,5 @@
 import tomli
-from help_func import run_md, treat_output, run_md2
+from help_func import run_md, treat_output
 from help_func import setup_internal, setup_dask, prepare_pyretis
 
 if __name__ == "__main__":
@@ -11,6 +11,7 @@ if __name__ == "__main__":
     # setup pyretis, repex, dask client and futures
     md_items, state = setup_internal(config)
     client, futures = setup_dask(state.workers)
+    print('MONKE', state.mc_moves)
 
     # print and initiate
     state.print_start()
@@ -24,7 +25,7 @@ if __name__ == "__main__":
         prepare_pyretis(state, md_items, printing=True)
 
         # submit job
-        fut = client.submit(run_md2, md_items, pure=False)
+        fut = client.submit(run_md, md_items, pure=False)
         futures.add(fut)
 
         print(f'------- submit worker {worker} END -------\n')
