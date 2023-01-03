@@ -525,20 +525,17 @@ class REPEX_state(object):
         print('--------------------------------------------------')
         for key, item in traj_num_dic.items():
             print(f'{key:03.0f}', "|" if key not in live_trajs else '*',
-                  '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '---' for item0 in item['weight'][:-1]])
+                  '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '---' for item0 in item['frac'][:-1]])
                  ,'\t', "|" if key not in live_trajs else '*')
 
 
-def calc_cv_vector(path, interfaces, move):                                           
+def calc_cv_vector(path, interfaces, moves):                                           
     path_max, _ = path.ordermax                                                 
-    value = 1                                                                   
 
-    if move == 'wf':
-        cv = []
-        for intf_i in interfaces:
-            intfs = [interfaces[0], intf_i, interfaces[-1]]
-            cv.append(compute_weight(path, intfs, 'wf'))
+    cv = []
+    intfs_i = [interfaces[0]] + interfaces[:-1]
+    for idx, intf_i in enumerate(intfs_i):
+        intfs = [interfaces[0], intf_i, interfaces[-1]]
+        cv.append(compute_weight(path, intfs, moves[idx]))
 
-        return(tuple(cv))
-    
-    return tuple(value if i <= path_max else 0 for i in interfaces)         
+    return(tuple(cv))

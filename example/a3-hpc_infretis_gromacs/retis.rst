@@ -39,8 +39,8 @@ zero_momentum = False
 rescale_energy = False
 sigma_v = -1
 seed = 0
-# shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf']
-shooting_moves = ['sh', 'sh', 'sh', 'sh', 'sh']
+shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf']
+# shooting_moves = ['sh', 'sh', 'sh', 'sh', 'sh']
 high_accept = True
 n_jumps = 2
 
@@ -69,5 +69,4 @@ order-file = 1
 energy-file = 1
 trajectory-file = 1
 screen = 1
-
 
