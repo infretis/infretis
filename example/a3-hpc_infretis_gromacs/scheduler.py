@@ -11,7 +11,6 @@ if __name__ == "__main__":
     # setup pyretis, repex, dask client and futures
     md_items, state = setup_internal(config)
     client, futures = setup_dask(state.workers)
-    print('MONKE', state.mc_moves)
 
     # print and initiate
     state.print_start()
