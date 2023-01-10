@@ -115,7 +115,6 @@ def treat_output(output, state, sim, save=False):
                     task.output(result)
                 print('saving path time:', time.time() - flipppa)
             
-        print('gori0', ensembles, move, traj_v)
         state.add_traj(ens_num, out_traj, traj_v)
         
         # record weights 
@@ -153,29 +152,28 @@ def write_to_pathens(state, pn_archive):
     with open('infretis_data.txt', 'a') as fp:
         for pn in pn_archive:
             string = ''
-            string += f'\t{pn:03.0f}\t'
-            string += f"{traj_num_dic[pn]['length']:05.0f}" + '\t'
-            string += f"{traj_num_dic[pn]['max_op'][0]:05.5f}" + '\t\t'
+            string += f'\t{pn:3.0f}\t'
+            string += f"{traj_num_dic[pn]['length']:5.0f}" + '\t'
+            string += f"{traj_num_dic[pn]['max_op'][0]:5.5f}" + '\t\t'
             frac = []
             weight = []
             # for pn in pn_archive:
             if len(traj_num_dic[pn]['traj_v']) == 1:
-                frac.append(f"{traj_num_dic[pn]['frac'][0]:02.3f}")
-                weight.append(f"{traj_num_dic[pn]['traj_v'][0]:02.0f}")
+                f0 = traj_num_dic[pn]['frac'][0]
+                w0 = traj_num_dic[pn]['traj_v'][0]
+                # frac.append(f"{f0:02.3f}")
+                frac.append('----' if f0 == 0.0 else f"{f0:5.3f}")
+                weight.append('----' if f0 == 0.0 else f"{w0:5.0f}")
                 frac += ['----']*(size-2)
-                weight += ['01']*(size-2)
+                weight += ['----']*(size-2)
             else:
                 frac.append('----')
-                weight.append(f'{1:02.0f}')
+                weight.append(f'----')
                 for w0, f0 in zip(traj_num_dic[pn]['traj_v'][:-1], 
                                   traj_num_dic[pn]['frac'][1:-1]):
-                    frac.append(f"{f0:02.3f}")
-                    weight.append(f"{w0:02.0f}")
-            # for item0 in traj_num_dic[pn]['weight'][:-1]:
-            #     w_str = f'{item0:02.2f}' if item0 != 0.0 else '----'
-            #     weight.append(w_str)
-            print(frac)
-            print(weight)
+                    # frac.append(f"{f0:02.3f}")
+                    frac.append('----' if f0 == 0.0 else f"{f0:5.3f}")
+                    weight.append('----' if f0 == 0.0 else f"{w0:5.0f}")
             fp.write(string + '\t'.join(frac) + '\t' + '\t'.join(weight) + '\t\n')
 
 
@@ -230,6 +228,7 @@ def setup_internal(config):
                                           'max_op': path.ordermax,
                                           'length': path.length,
                                           'traj_v': np.array(list(traj_v) + [0.])}
+    exit('krapi')
     
     # add minus path:
     path = sim.ensembles[0]['path_ensemble'].last_path

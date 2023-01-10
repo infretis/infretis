@@ -535,7 +535,10 @@ def calc_cv_vector(path, interfaces, moves):
     cv = []
     intfs_i = [interfaces[0]] + interfaces[:-1]
     for idx, intf_i in enumerate(intfs_i):
-        intfs = [interfaces[0], intf_i, interfaces[-1]]
-        cv.append(compute_weight(path, intfs, moves[idx]))
+        if moves[idx] == 'wf':
+            intfs = [interfaces[0], intf_i, interfaces[-1]]
+            cv.append(compute_weight(path, intfs, moves[idx]))
+        else:
+            cv.append(1. if intf_i <= path_max else 0.)
 
     return(tuple(cv))
