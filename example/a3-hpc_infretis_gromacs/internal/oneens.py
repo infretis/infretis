@@ -15,7 +15,6 @@ def setup(inp):
     return sim
 
 
-
 def rand_ens(ensemble):
     print(ensemble['rgen'].rand())
 
@@ -38,9 +37,9 @@ def run_loop(inp, ens, cap=10):
             ensemble['path_ensemble'].last_path = trial
             max_op.append(ensemble['path_ensemble'].last_path.ordermax[0])
             it+=1
-        retur['ens'].append(ensemble['rgen'].rand()[0])
-        retur['path_ens'].append(ensemble['path_ensemble'].rgen.rand()[0])
-        retur['path'].append(ensemble['path_ensemble'].last_path.rgen.rand()[0])
+        # retur['ens'].append(ensemble['rgen'].rand()[0])
+        # retur['path_ens'].append(ensemble['path_ensemble'].rgen.rand()[0])
+        # retur['path'].append(ensemble['path_ensemble'].last_path.rgen.rand()[0])
     return retur
 
 
@@ -64,23 +63,21 @@ def shoot(tis_settings, start_cond, dic):
 
     retur = dic['retur']
 
+    dic['print'] = []
     if accept:
-        dic['cnt'] += 1
         ensemble['path_ensemble'].last_path = trial
-    # else: 
-    #     dic['saved_traj'].rgen = trial.rgen
+        dic['print'].append(f"{dic['cnt']:5.0f}")
+        dic['print'].append(f'{trial.ordermax[0]:.5}')
+        # print(f"{dic['cnt']:5.0f}", f'{trial.ordermax[0]:.5}')
+        dic['cnt'] += 1
 
-    # dic['ens_rgen'] = ensemble['rgen'] 
-    # dic['pat_rgen'] = ensemble['path_ensemble'].rgen 
-    retur['ens'].append(ensemble['rgen'].rand()[0])
-    retur['path_ens'].append(ensemble['path_ensemble'].rgen.rand()[0])
-    retur['path'].append(ensemble['path_ensemble'].last_path.rgen.rand()[0])
+    # retur['ens'].append(ensemble['rgen'].rand()[0])
+    # retur['path_ens'].append(ensemble['path_ensemble'].rgen.rand()[0])
+    # retur['path'].append(ensemble['path_ensemble'].last_path.rgen.rand()[0])
     return dic
-    # yo = {'ensemble': ensemble}
-    # return yo
 
 
-def dask_check(inp, ens, cap=10000):
+def dask_check(inp, ens, cap=100, compare=False):
     if __name__ == "__main__":
 
         client = Client(n_workers=1)
@@ -90,70 +87,38 @@ def dask_check(inp, ens, cap=10000):
         tis_settings = sim.settings['ensemble'][ens]['tis']
         start_cond = ensemble['path_ensemble'].start_condition
 
-        # dic = {'cnt': 0, 'saved_traj': ensemble['path_ensemble'].last_path}
+        ensemble['rgen'].rand()[0]
+        ensemble['path_ensemble'].rgen.rand()[0]
+        ensemble['path_ensemble'].last_path.rgen.rand()[0]
+        # p = ensemble['path_ensemble'].last_path
+        # p.weight= 20
+        # print(p.weight)
+        # print(ensemble['path_ensemble'].last_path.weight)
+        # exit('ape')
+
         dic = {'cnt': 0}
         dic['retur'] = {'ens': [], 'path_ens': [], 'path': []}
         dic['ensemble'] = ensemble
 
-        for i in range(10):
+        for i in range(cap):
             j = client.submit(shoot, tis_settings, start_cond, dic)
             futures.add(j)
             out = next(futures)[1]
-            # dic.update(out)
-            # print('cat 1', ensemble['rgen'] == ensemble['rgen'])
-            # print('cat 2', ensemble['rgen'] == out['ensemble']['rgen'])
-            # print('cat 3', ensemble['path_ensemble'].rgen == ensemble['path_ensemble'].rgen)
-            # print('cat 4', ensemble['path_ensemble'].rgen == out['ensemble']['path_ensemble'].rgen)
-            # print('cat 5', ensemble['path_ensemble'].last_path.rgen == ensemble['path_ensemble'].last_path.rgen)
-            # print('cat 6', ensemble['path_ensemble'].last_path.rgen == out['ensemble']['path_ensemble'].last_path.rgen)
             dic['ensemble'] = out['ensemble']
             dic['retur']  = out['retur']
-            # print(out['retur'])
-            # exit('tiger')
-            # ensemble['path_ensemble'].last_path = dic['saved_traj']
-            # ensemble['rgen'] = dic['ens_rgen']
-            # ensemble['path_ensemble'].rgen = dic['pat_rgen']
+            dic['cnt'] =  out['cnt']
+            if out['print']:
+                print(out['print'][0], out['print'][1])
 
-            # print(ensemble['path_ensemble'].last_path.length, out['saved_traj'].length)
-            # print(dir(dic['saved_traj'].rgen))
-            # dic['ensemble']['rgen'] = out['ens_rgen'] 
-            # dic['ensemble']['path_ensemble'].last_path = out['saved_traj']
-            # ensemble['path_ensemble'].last_path = out['saved_traj']
+        if compare:
+            out_dask = dic['retur']
+            out_loop = run_loop('./retis_3.rst', 2, cap)
 
-            # if out['accept']:
-            #     printint
-
-        out_dask = dic['retur']
-        out_loop = run_loop('./retis_3.rst', 2)
-        print(type(out_loop), out_loop.keys() )
-        print(type(out_dask), out_dask.keys() )
-        # print(out_loop)
-        # print(out_dask)
-        # exit('na')
-
-        for key in ['ens', 'path_ens', 'path']:
-            print(key)
-            for i, j in zip(out_loop[key], out_dask[key]):
-                print(f'{i:.5f}\t{j:.5f}\t{i==j}')
+            for key in ['ens', 'path_ens', 'path']:
+                print(key)
+                for i, j in zip(out_loop[key], out_dask[key]):
+                    print(f'{i:.5f}\t{j:.5f}\t{i==j}')
     
 # out_loop = run_loop('./retis_3.rst', 2)
 # ens_check('./retis_3.rst', 2)
-out_dask = dask_check('./retis_3.rst', 2)
-
-# print('loop\tdask')
-
-# print(type(out_loop), out_loop.keys() )
-# print(type(out_dask), out_dask.keys() )
-# for key in ['ens', 'path_ens', 'path']:
-#     print(out_loop[key])
-#     print(out_dask[key])
-#     print(' ')
-    
-    # for i, j in zip(out_loop[key], out_dask[key]):
-        # print(f'{i:.5f}\t{j:.5f}')
-    
-
-
-
-
-
+out_dask = dask_check('./retis_3.rst', 2, 10000, compare=False)
