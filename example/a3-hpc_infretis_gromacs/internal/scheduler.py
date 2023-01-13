@@ -41,26 +41,26 @@ if __name__ == "__main__":
         # print(f'------- infinity {state.cstep} START -------')
 
         # analyze & store output
-        time2 = time.time()
+        # time2 = time.time()
         treat_output(state, md_items)
-        time3 = time.time()
+        # time3 = time.time()
         # state.print_state()
 
         # submit new job:
         if state.cstep < state.steps:
             # chose ens and path for the next job
             ens_nums, input_traj = state.pick()
-            time4 = time.time()
+            # time4 = time.time()
             md_items.update({'ens_nums': ens_nums})
             prepare_pyretis(state, md_items, input_traj, printing=False)
             time5 = time.time()
             # submit job
             print(f'{state.cstep:7.0f}',
                   f'{time5 - time1:2.5f}',
-                  f'{time2 - time1:2.5f}',
-                  f'{time3 - time2:2.5f}',
-                  f'{time4 - time3:2.5f}',
-                  f'{time5 - time4:2.5f}',
+            #       f'{time2 - time1:2.5f}',
+            #       f'{time3 - time2:2.5f}',
+            #       f'{time4 - time3:2.5f}',
+            #       f'{time5 - time4:2.5f}',
                  )
             fut = client.submit(run_md, md_items, pure=False)
             futures.add(fut)

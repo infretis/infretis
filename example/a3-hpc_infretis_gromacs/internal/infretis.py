@@ -1,5 +1,6 @@
 import numpy as np
 from pyretis.core.common import compute_weight
+import time
 
 
 # Define some infRETIS infrastructure
@@ -171,10 +172,10 @@ class REPEX_state(object):
                         length = getattr(path, 'length', None)
                     else:
                         length = None
-                    self.result.update_ens(i-self._offset, tuple(traj), weight,
-                                           length=length)
-            self.result.update_run_prob(i-self._offset, n=self._n)
-        self.result.update_run_total_prob()
+        #             self.result.update_ens(i-self._offset, tuple(traj), weight,
+        #                                    length=length)
+        #     self.result.update_run_prob(i-self._offset, n=self._n)
+        # self.result.update_run_total_prob()
 
     def add_traj(self, ens, traj, valid, count=True, n=0):
 
@@ -190,9 +191,14 @@ class REPEX_state(object):
         self._trajs[ens] = traj
         self.state[ens, :] = valid
         self.unlock(ens)
+        # time1 = time.time()
         if count:
             self.write_ensembles()
             self._n += 1
+        # time2 = time.time()
+        # print(f'{self.cstep:7.0f}',
+        #       f'{time2 - time1:2.5f}',
+        #      )
 
     def lock(self, ens):
         # invalidate last prob
