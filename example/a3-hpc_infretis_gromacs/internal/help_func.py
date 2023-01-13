@@ -87,41 +87,23 @@ def treat_output(state, md_items, save=False):
             pn_new.append(traj_num)
             pn_archive.append(pn_old)
             ens_save_idx = traj_num_dic[pn_old]['ens_idx']
-            # print('bear',pn_old, traj_v)
             traj_num_dic[traj_num] = {'frac': np.zeros(size+1),
                                       'ens_idx': ens_save_idx,
                                       'max_op': out_traj.ordermax,
                                       'length': out_traj.length,
                                       'traj_v': traj_v}
             traj_num += 1
-            # state.ensembles[ens_save_idx]['path_ensemble'].store_path(out_traj)
-
-            # flamingo0 = [state.ensembles[kk]['path_ensemble'].last_path.path_number for kk in [0, 1, 2]]
-            # print('flamingo0', flamingo0)
-            # print('flamingo1', state.ensembles[ens_save_idx]['path_ensemble'].last_path.path_number, pn_old)
-            # if state.ensembles[ens_save_idx]['path_ensemble'].last_path.path_number != pn_old:
-            #     exit('ape1')
-            # if len(set(flamingo0)) != len(flamingo0):
-            #     exit('ape2')
-            
-            # cycle = {'step': traj_num -1 , 'endcycle': 10, 'startcycle': 0, 'stepno': 10, 'steps': 10}
-            # result = {f'status-{ens_num+1}': 'ACC', 'cycle': cycle, f'path-{ens_num+1}':  out_traj,
-            #           f'accept-{ens_num+1}': True, f'move-{ens_num+1}': 'sh', 
-            #           'all-2': {'ensemble_number': ens_num+1, 'mc-move': 'sh',
-            #                     'status': 'ACC', 'trial': out_traj, 'accept': True},
-            #           f'pathensemble-{ens_num+1}': ensembles[0]['path_ensemble']}
-            # 
-            # if save: # NB! Saving can take some time..
-            #     # flipppa = time.time() 
-            #     # for task in sim.output_tasks:
-            #     #     task.output(result)
-            #     print('saving path time:', time.time() - flipppa)
         else:
             pn_new.append(out_traj.path_number)
             
         state.add_traj(ens_num, out_traj, traj_v)
         state.ensembles[ens_num+1] = md_items['ensembles'][ens_num+1]
         md_items['ensembles'].pop(ens_num+1)
+        # time3 = time.time()
+        # print(f'{state.cstep:7.0f}',
+        #       f'{time2 - time1:2.5f}',
+        #       f'{time3 - time2:2.5f}',
+        #      )
         
     # record weights 
     live_trajs = [traj.path_number for traj in state._trajs[:-1]] # state.live_paths()
@@ -129,33 +111,18 @@ def treat_output(state, md_items, save=False):
                  zip(state._trajs[:-1], state._locks[:-1]) if lock0]
     w_start = 0
     last_prob = True
-    # print('all:', [i.path_number for i in state._trajs[:-1]])
-    # print(state._last_prob)
-
-    # print('live:', live_trajs)
-    # print('locked:', traj_lock)
     for idx, live in enumerate(live_trajs):
         if live not in traj_lock:
             traj_num_dic[live]['frac'] += state._last_prob[:-1][idx, :]
-            # for frac in state._last_prob[w_start:-1]:
-            #     w_start += 1
-            #     print('shark', f'p{live}', frac)
-            #     traj_num_dic[live]['frac'] += frac
-            #     break
     if not last_prob:
         state._last_prob = None
-
-    # print information to screen
-    # print('shooted', 'sh', 'in ensembles:', ' '.join([f'00{ens_num+1}' for ens_num in md_items['ens_nums']]),
-    #       'with paths:', ' '.join([str(pn_old) for pn_old in md_items['pnum_old']]), '->', 
-    #       ' '.join([str(pn0) for pn0 in pn_new]),
-    #       'with status:', md_items['status'], 'and worker:', md_items['pin'], f"total time: {md_items['time']:.2f}")
 
     state.config['current']['traj_num'] = traj_num
 
     # print analyzed output
     if'ACC' == md_items['status']:
         write_to_pathens(state, pn_archive)
+
 
 
 def write_to_pathens(state, pn_archive):
