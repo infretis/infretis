@@ -1,5 +1,4 @@
 import numpy as np
-from pyretis.core.common import compute_weight
 import time
 
 
@@ -105,10 +104,14 @@ class REPEX_state(object):
         self.config = {}
         self.traj_num_dic = {}
         self.workers = workers
-        self.steps = None
+        self.tsteps = None
         self.cstep = None
+        self.screen = None
         self.mc_moves = []
         self.ensembles = {}
+        self.worker = -1 
+        self.time_keep = {}
+        self.pattern = 0
 
     def pick_lock(self):
         if not self.config['current']['locked']:
@@ -127,8 +130,6 @@ class REPEX_state(object):
         prob = self.prob.astype("float64").flatten()
         p = np.random.choice(self.n**2, p=np.nan_to_num(prob/np.sum(prob)))
         traj, ens = np.divmod(p, self.n)
-        # print(np.divmod(p, self.n))
-        # traj, ens = (2, 2)
         self.swap(traj, ens)
         self.lock(ens)
         traj = self._trajs[ens]
@@ -191,14 +192,9 @@ class REPEX_state(object):
         self._trajs[ens] = traj
         self.state[ens, :] = valid
         self.unlock(ens)
-        # time1 = time.time()
         if count:
             self.write_ensembles()
             self._n += 1
-        # time2 = time.time()
-        # print(f'{self.cstep:7.0f}',
-        #       f'{time2 - time1:2.5f}',
-        #      )
 
     def lock(self, ens):
         # invalidate last prob
@@ -228,7 +224,35 @@ class REPEX_state(object):
         return locks
 
     def loop(self):
-        return self.cstep < self.steps + self.workers
+        if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
+            if self.cstep != 0:
+                print(f'------- infinity {self.cstep:5.0f} END -------\n')
+        self.cstep += 1
+        if not self.cstep < self.tsteps + self.workers:
+            if self.screen > 0:
+                self.print_end()
+        else:
+            if self.screen > 0 and np.mod(self.cstep, self.screen) == 0: 
+                print(f'------- infinity {self.cstep:5.0f} START -------')
+        return self.cstep < self.tsteps + self.workers
+
+    def initiate(self):
+        with open('pattern.txt', 'w') as fp:
+            fp.write('# \n')
+        if self.worker == -1:
+            if self.screen > 0:
+                self.print_start()
+        if self.worker > -1:
+            if self.screen > 0:
+                print(f'------- submit worker {self.worker} END -------\n')
+        self.worker += 1
+        if self.worker < self.workers:
+            if self.screen > 0:
+                print(f'------- submit worker {self.worker} START -------')
+            self.time_keep[self.worker] = time.time()
+        return self.worker < self.workers
+
+
 
     @property
     def prob(self):
@@ -517,8 +541,8 @@ class REPEX_state(object):
                     to_print += f'{prob:.2f}\t' if prob != 0 else '----\t'
                 to_print += ' ' + f"{self.traj_num_dic[live]['max_op'][0]:.5f} |"
                 to_print += ' ' + f"{self.traj_num_dic[live]['length']:5.0f}"
-                to_print += ' ' + f"w{self.traj_num_dic[live]['traj_v']}"
-                to_print += ' ' + f"f{self.traj_num_dic[live]['frac']}"
+                # to_print += ' ' + f"w{self.traj_num_dic[live]['traj_v']}"
+                # to_print += ' ' + f"f{self.traj_num_dic[live]['frac']}"
                 print(to_print)
             else:
                 to_print = f'p{live:02.0f} |\t'
@@ -542,19 +566,3 @@ class REPEX_state(object):
                  ,'\t', "|" if key not in live_trajs else '*')
 
 
-def calc_cv_vector(path, interfaces, moves):                                           
-    path_max, _ = path.ordermax                                                 
-
-    cv = []
-    if len(interfaces) == 1:
-        return (1. if interfaces[0] <= path_max else 0., )
-
-    for idx, intf_i in enumerate(interfaces[:-1]):
-        if moves[idx+1] == 'wf':
-            intfs = [interfaces[0], intf_i, interfaces[-1]]
-            intfs[-1] = -0.2
-            cv.append(compute_weight(path, intfs, moves[idx+1]))
-        else:
-            cv.append(1. if intf_i <= path_max else 0.)
-    cv.append(0.)
-    return(tuple(cv))
