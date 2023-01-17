@@ -91,7 +91,7 @@ def treat_output(state, md_items, save=False):
               '->', ' '.join([str(pn_new) for pn_new in pn_news]),
               'with status:', md_items['status'], 'and worker:',
               md_items['pin'], f"total time: {md_items['time']:.2f}")
-        # state.print_state()
+        state.print_state()
 
 
 def write_to_pathens(state, pn_archive):
@@ -289,7 +289,6 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
     md_items['pnum_old'] = []
 
     # save pattern grid:
-    # if state.worker == state.workers and state.pattern:
     if state.pattern and state.worker == state.workers:
         now0 = time.time()
         with open('pattern.txt', 'a') as fp:
@@ -297,7 +296,6 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
                 fp.write(f"{ens_num+1} {state.time_keep[md_items['pin']]:.5f}" +
                          f" {now0:.5f} {md_items['pin']}\n")
         state.time_keep[md_items['pin']] = now0
-        # print('bambi 2', state.time_keep, md_items['pin'])
         
 
 def calc_cv_vector(path, interfaces, moves):                                           
