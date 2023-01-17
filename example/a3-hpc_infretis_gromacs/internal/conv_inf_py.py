@@ -62,8 +62,13 @@ def print_pathens(inp):
                 # print(pline)
                 # exit('ape')
                 steps[ens] += 1
-                with open(f'./{ens}/pathensemble.txt', 'a') as fp:
-                    fp.write(pline + '\n')
+                if ens == '000':
+                    with open(f'./{ens}/pathensemble.txt', 'a') as fp:
+                        for _ in range(int(dic[i][ens][0])):
+                            fp.write(pline + '\n')
+                else:
+                        with open(f'./{ens}/pathensemble.txt', 'a') as fp:
+                            fp.write(pline + '\n')
 
 
 print_pathens(INP)
