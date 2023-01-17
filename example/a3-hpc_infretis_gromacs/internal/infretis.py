@@ -237,8 +237,9 @@ class REPEX_state(object):
         return self.cstep < self.tsteps + self.workers
 
     def initiate(self):
-        with open('pattern.txt', 'w') as fp:
-            fp.write('# \n')
+        if self.pattern > 0:
+            with open('pattern.txt', 'w') as fp:
+                fp.write('# \n')
         if self.worker == -1:
             if self.screen > 0:
                 self.print_start()
