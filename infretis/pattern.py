@@ -8,6 +8,10 @@ min0 = min(a[:, 1])
 a[:,1] -= min0
 a[:,2] -= min0
 
+min1 = a[:18][0, 1]
+a[:18][:, 1] -= min1
+a[:18][:, 2] -= min1
+
 workers = list(set(a[:, 3]))
 min_ens, max_ens = min(a[:,0]), max(a[:,0])
 c_dic = {0: 'r', 1: 'b', 2: 'g'}
