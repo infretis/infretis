@@ -109,7 +109,7 @@ class REPEX_state(object):
         self.screen = None
         self.mc_moves = []
         self.ensembles = {}
-        self.worker = -1 
+        self.worker = -1
         self.time_keep = {}
         self.pattern = 0
 
@@ -232,7 +232,7 @@ class REPEX_state(object):
             if self.screen > 0:
                 self.print_end()
         else:
-            if self.screen > 0 and np.mod(self.cstep, self.screen) == 0: 
+            if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
                 print(f'------- infinity {self.cstep:5.0f} START -------')
         return self.cstep < self.tsteps + self.workers
 
@@ -252,7 +252,6 @@ class REPEX_state(object):
                 print(f'------- submit worker {self.worker} START -------')
             self.time_keep[self.worker] = time.time()
         return self.worker < self.workers
-
 
 
     @property
@@ -565,5 +564,3 @@ class REPEX_state(object):
             print(f'{key:03.0f}', "|" if key not in live_trajs else '*',
                   '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '---' for item0 in item['frac'][:-1]])
                  ,'\t', "|" if key not in live_trajs else '*')
-
-
