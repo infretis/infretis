@@ -22,9 +22,6 @@ def run_md(md_items):
     if len(ens_nums) == 1:
         start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
         tis_settings = settings['ensemble'][ens_nums[0]+1]['tis'] 
-        # print('wiiii 0', set(i.particles.config[0] for i in ensembles[ens_nums[0]+1]['path_ensemble'].last_path.phasepoints))
-        # print('wiiii 1', os.listdir(f'./00{ens_nums[0]+1}/accepted'))
-        # print('wiiii 2', os.listdir(f'./00{ens_nums[0]+1}/generate'))
         ensembles[ens_nums[0]+1]['engine'].clean_up()
         accept, trials, status = select_shoot(ensembles[ens_nums[0]+1],
                                               tis_settings,
