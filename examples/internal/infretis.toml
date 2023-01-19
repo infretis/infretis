@@ -1,0 +1,31 @@
+# infretis config
+
+[dask]
+workers = 3
+
+[simulation]
+pyretis_inp = 'retis.rst'
+states_ab = [ 0.27, 0.45 ]
+steps = 200
+seed = 0
+
+[engine]
+engine = 'gromacs'
+input_path = 'gromacs_input'
+gmx = 'gmx_mpi'
+mdrun = 'srun --exclusive --ntasks 2 --mem-per-cpu 500 gmx_mpi mdrun -ntomp 1'
+subcycles = 1
+maxwarn = 15
+
+[order_parameter]
+class = 'Distance'
+index = [ 0, 1 ]
+periodic = false
+
+[output]
+backup = 'backup'
+order-file = -1
+energy-file = -1
+trajectory-file = -1
+screen = 1
+pattern = 1

@@ -287,8 +287,8 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
         now0 = time.time()
         with open('pattern.txt', 'a') as fp:
             for idx, ens_num in enumerate(ens_nums_old):
-                fp.write(f"{ens_num+1} {state.time_keep[md_items['pin']]:.5f}" +
-                         f"{now0:.5f} {md_items['pin']}\n")
+                fp.write(f"{ens_num+1}\t{state.time_keep[md_items['pin']]:.5f}\t" +
+                         f"{now0:.5f}\t{md_items['pin']}\n")
         state.time_keep[md_items['pin']] = now0
 
 
@@ -302,8 +302,6 @@ def calc_cv_vector(path, interfaces, moves):
     for idx, intf_i in enumerate(interfaces[:-1]):
         if moves[idx+1] == 'wf':
             intfs = [interfaces[0], intf_i, interfaces[-1]]
-            # NBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB:
-            intfs[-1] = -0.2
             cv.append(compute_weight(path, intfs, moves[idx+1]))
         else:
             cv.append(1. if intf_i <= path_max else 0.)

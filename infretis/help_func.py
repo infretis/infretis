@@ -22,9 +22,6 @@ def run_md(md_items):
     if len(ens_nums) == 1:
         start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
         tis_settings = settings['ensemble'][ens_nums[0]+1]['tis'] 
-        # print('wiiii 0', set(i.particles.config[0] for i in ensembles[ens_nums[0]+1]['path_ensemble'].last_path.phasepoints))
-        # print('wiiii 1', os.listdir(f'./00{ens_nums[0]+1}/accepted'))
-        # print('wiiii 2', os.listdir(f'./00{ens_nums[0]+1}/generate'))
         ensembles[ens_nums[0]+1]['engine'].clean_up()
         accept, trials, status = select_shoot(ensembles[ens_nums[0]+1],
                                               tis_settings,
@@ -247,45 +244,24 @@ def pwd_checker(state):
     ens_str = [f'{i:03.0f}' for i in range(state.n-1)]
     state_dic = {}
 
-    # path_dic = {}
-    # locks = [traj0.path_number for traj0, lock0 in
-    #          zip(state._trajs[:-1], state._locks[:-1]) if lock0]
-    # print('monkey 0', locks)
-    # print('monkey 1', state.locked_paths())
-    # locks_idx = [i for i, lock0 in enumerate(state._locks[:-1]) if lock0]
-    # locks_ens = [f'{i:03.0f}' for i, lock0 in enumerate(state._locks[:-1]) if lock0]
-
-    print('elephant 0', len(state._trajs[:-1]))
     for path_temp in state._trajs[:-1]:
         path_pwds = sorted(set([pp.particles.config[0] for pp in path_temp.phasepoints]))
         ens = next(i for i in path_pwds[0].split('/') if i in ens_str)
         state_dic[ens] = {'pwds': [pwd.split('/')[-1] for pwd in path_pwds]}
         state_dic[ens]['path_number'] = path_temp.path_number
-        print('fake', ens, state_dic[ens]['pwds'], path_pwds)
-        # path_dic[state_dic[ens]['path_number']] = [pwd.split('k')[-1] for pwd in path_pwds]
 
     ens_pwds = []
-    print('elephant 1', len(ens_str))
     for ens in ens_str:
         ens_pwds.append(sorted(os.listdir(f'./{ens}/accepted')))
-        print('real', ens, ens_pwds[-1])
 
     # check if state_paths correspond to path_pwds:
-    # print('croc 1', ens_str)
-    # print('croc 2', ens_pwds)
-    # print(' ')
-    # print('croc 3', state_dic)
-    # print('croc 4', state._trajs)
-    # print('frog 0') 
     for ens, string1 in zip(ens_str, ens_pwds):
-        # print(ens, string1)
         string0 = state_dic[ens]['pwds']
         if string0 != string1:
             print(string0, string1)
             print('warning! the state_paths does' + \
                   'not correspond to the path_pwds!')
             all_good = False
-    print('frog 1') 
 
     return all_good
 
