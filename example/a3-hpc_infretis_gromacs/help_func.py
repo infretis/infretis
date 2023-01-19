@@ -6,143 +6,124 @@ from pyretis.core.tis import select_shoot
 from pyretis.core.retis import retis_swap_zero
 from pyretis.setup import create_simulation
 from pyretis.inout.settings import parse_settings_file
-from infretis import calc_cv_vector, REPEX_state
+from infretis import REPEX_state
 from dask.distributed import dask, Client, as_completed
+from pyretis.core.common import compute_weight
 dask.config.config['work-stealing'] = False
 
 
 def run_md(md_items):
     start_time = time.time() 
-
-    out = pyretis_mc(md_items)
-
-    out['traj_vectors'] = []
-    for traj, iface in zip(out['accepted_trajs'], out['interfaces']):
-        cv_vector = calc_cv_vector(traj, iface, md_items['mc_moves'])
-        out['traj_vectors'].append(cv_vector)
-
-    out['time'] = time.time() - start_time
-    return out
-
-
-def pyretis_mc(md_items):
-    ens_num = md_items['ens']
-    input_traj = md_items['input_traj']
-    settings = md_items['sim'].settings
-    ensembles = md_items['sim'].ensembles
+    ens_nums = md_items['ens_nums']
+    ensembles = md_items['ensembles']
+    settings = md_items['settings']
     interfaces = settings['simulation']['interfaces']
-    out = {'pnum_old': []}
-    for traj0 in input_traj:
-        out['pnum_old'].append(traj0.path_number)
 
-    if len(ens_num) == 1:
-        start_cond = ensembles[ens_num[0]+1]['path_ensemble'].start_condition
-        tis_settings = settings['ensemble'][ens_num[0]+1]['tis'] 
-        move = tis_settings.get('shooting_move', 'sh')
-        accept, trial, status = select_shoot(ensembles[ens_num[0]+1],
-                                             tis_settings,
-                                             start_cond)
+    if len(ens_nums) == 1:
+        start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
+        tis_settings = settings['ensemble'][ens_nums[0]+1]['tis'] 
+        # print('wiiii 0', set(i.particles.config[0] for i in ensembles[ens_nums[0]+1]['path_ensemble'].last_path.phasepoints))
+        # print('wiiii 1', os.listdir(f'./00{ens_nums[0]+1}/accepted'))
+        # print('wiiii 2', os.listdir(f'./00{ens_nums[0]+1}/generate'))
+        ensembles[ens_nums[0]+1]['engine'].clean_up()
+        accept, trials, status = select_shoot(ensembles[ens_nums[0]+1],
+                                              tis_settings,
+                                              start_cond)
+        trials = [trials]
+        interfaces = [interfaces] if ens_nums[0] >= 0 else [interfaces[0:1]]
 
-        out_traj = [trial if accept else input_traj[0]]
-        swap = False
-        if ens_num[0] < 0:
-            interfaces = [interfaces[0:1]]
-        else: 
-            interfaces = [interfaces]
     else:
-        accept, trial, status = retis_swap_zero(ensembles, 
-                                                settings,
-                                                0)
-        out_traj = trial if accept else input_traj
-        swap = True
-        move = 'sh'
-        interfaces= [[interfaces[0:1]], interfaces]
+        ensembles_l = [ensembles[i+1] for i in ens_nums]
+        ensembles_l[0]['engine'].clean_up()
+        ensembles_l[1]['engine'].clean_up()
+        accept, trials, status = retis_swap_zero(ensembles_l, settings, 0)
+        interfaces = [interfaces[0:1], interfaces]
 
-    out.update({'move': move, 'accepted_trajs': out_traj,
-                'status': status, 'interfaces': interfaces,
-                'ensembles': list(ens_num), 'pin': md_items['pin']})
+    for trial, ens_num, ifaces in zip(trials, ens_nums, interfaces):
+        md_items['moves'].append(md_items['mc_moves'][ens_num+1])
+        md_items['pnum_old'].append(ensembles[ens_num+1]['path_ensemble'].last_path.path_number)
+        if status == 'ACC':
+            trial.traj_v = calc_cv_vector(trial, ifaces, md_items['mc_moves'])
+            ensembles[ens_num+1]['path_ensemble'].last_path = trial
 
-    return out
+    end_time = time.time()
+    md_items.update({'status': status,
+                     'interfaces': interfaces,
+                     'time': end_time - start_time,
+                     'start_time': start_time,
+                     'end_time': end_time})
+    return md_items
 
 
-def treat_output(output, state, sim, save=False):
+def treat_output(state, md_items, save=False):
     traj_num_dic = state.traj_num_dic
     traj_num = state.config['current']['traj_num']
-    size = state.config['current']['size']
+    ensembles = md_items['ensembles']
+    pn_news = []
 
-    ensembles = output['ensembles']
-    out_trajs = output['accepted_trajs']
-    traj_vectors = output['traj_vectors']
-    status = output['status']
-    pnum_old = output['pnum_old']
-    pn_archive = []
-    pin = output['pin']
-    move = output['move']
-    time_spent = output['time']
-    
     # analyse and record worker data
-    for ens_num, out_traj, traj_v, pn_old in zip(ensembles,
-                                                 out_trajs,
-                                                 traj_vectors,
-                                                 pnum_old):
+    for ens_num, pn_old in zip(md_items['ens_nums'],
+                               md_items['pnum_old']):
         # if path is new: number and save the path:
-        if out_traj.path_number == None or status == 'ACC':
+        out_traj = ensembles[ens_num+1]['path_ensemble'].last_path
+        if out_traj.path_number == None or md_items['status'] == 'ACC':
+            # move to accept:
+            ens_save_idx = traj_num_dic[pn_old]['ens_save_idx']
+            state.ensembles[ens_save_idx]['path_ensemble'].store_path(out_traj)
             out_traj.path_number = traj_num
-            pn_archive.append(pn_old)
-            ens_save_idx = traj_num_dic[pn_old]['ens_idx']
-            traj_num_dic[traj_num] = {'frac': np.zeros(size+1),
+            print('saved new path:', traj_num, f'in 00{ens_num+1}', 'with the following files:')
+            for path0 in set(i.particles.config[0] for i in out_traj.phasepoints):
+                print('path_num:', traj_num, path0)
+
+            traj_num_dic[traj_num] = {'frac': np.zeros(state.n),
                                       'adress': set(kk.particles.config[0].split('salt')[-1] 
                                                     for kk in out_traj.phasepoints),
-                                      'ens_idx': ens_save_idx,
                                       'max_op': out_traj.ordermax,
                                       'length': out_traj.length,
-                                      'traj_v': traj_v}
+                                      'traj_v': out_traj.traj_v,
+                                      'ens_save_idx': ens_save_idx}
             traj_num += 1
-            sim.ensembles[ens_save_idx]['path_ensemble'].store_path(out_traj)
-            
-            cycle = {'step': traj_num -1 , 'endcycle': 10, 'startcycle': 0, 'stepno': 10, 'steps': 10}
-            result = {f'status-{ens_num+1}': 'ACC', 'cycle': cycle, f'path-{ens_num+1}':  out_traj,
-                      f'accept-{ens_num+1}': True, f'move-{ens_num+1}': 'sh', 
-                      'all-2': {'ensemble_number': ens_num+1, 'mc-move': 'sh',
-                                'status': 'ACC', 'trial': out_traj, 'accept': True},
-                      f'pathensemble-{ens_num+1}': sim.ensembles[0]['path_ensemble']}
             
             # NB! Saving can take some time..
-
             if save:
+                cycle = {'step': traj_num -1 , 'endcycle': 10,
+                         'startcycle': 0, 'stepno': 10, 'steps': 10}
+                result = {f'status-{ens_num+1}': 'ACC', 'cycle': cycle,
+                          f'path-{ens_num+1}':  out_traj, f'accept-{ens_num+1}': True,
+                          f'move-{ens_num+1}': 'sh', 
+                          'all-2': {'ensemble_number': ens_num+1, 'mc-move': 'sh',
+                                    'status': 'ACC', 'trial': out_traj, 'accept': True},
+                          f'pathensemble-{ens_num+1}': sim.ensembles[0]['path_ensemble']}
                 flipppa = time.time() 
                 for task in sim.output_tasks:
                     task.output(result)
                 print('saving path time:', time.time() - flipppa)
             
-        state.add_traj(ens_num, out_traj, traj_v)
-        
-        # record weights 
-        live_trajs = [traj.path_number for traj in state._trajs[:-1]] # state.live_paths()
-        traj_lock = [traj0.path_number for traj0, lock0 in
-                     zip(state._trajs[:-1], state._locks[:-1]) if lock0]
-        w_start = 0
-        for live in live_trajs:
-            if live not in traj_lock:
-                for frac in state._last_prob[w_start:-1]:
-                    w_start += 1
-                    if sum(frac) != 0:
-                        traj_num_dic[live]['frac'] += frac
-                        break
-    
-    # print information to screen
-    print('shooted', move, 'in ensembles:', ' '.join([f'00{ens_num+1}' for ens_num in ensembles]),
-          'with paths:', ' '.join([str(pn_old) for pn_old in pnum_old]), '->', 
-          ' '.join([str(trajj.path_number) for trajj in out_trajs]),
-          'with status:', status, 'and worker:', pin, f'total time: {time_spent:.2f}')
-
+        pn_news.append(out_traj.path_number)
+        state.add_traj(ens_num, out_traj, out_traj.traj_v)
+        state.ensembles[ens_num+1] = md_items['ensembles'][ens_num+1]
+        md_items['ensembles'].pop(ens_num+1)
     state.config['current']['traj_num'] = traj_num
+        
+    # record weights 
+    locked_trajs = state.locked_paths()
+    for idx, live in enumerate(state.live_paths()):
+        if live not in locked_trajs:
+            traj_num_dic[live]['frac'] += state._last_prob[:-1][idx, :]
 
-    # print analyzed output
-    if'ACC' == status:
-        write_to_pathens(state, pn_archive)
+    # write succ data to infretis_data.txt
+    if md_items['status'] == 'ACC':
+        write_to_pathens(state, md_items['pnum_old'])
 
-    return pin
+    # print information to screen
+    if state.screen > 0 and np.mod(state.cstep, state.screen) == 0:
+        print('shooted', ' '.join(md_items['moves']), 'in ensembles:',
+              ' '.join([f'00{ens_num+1}' for ens_num in md_items['ens_nums']]),
+              'with paths:', ' '.join([str(pn_old) for pn_old in md_items['pnum_old']]),
+              '->', ' '.join([str(pn_new) for pn_new in pn_news]),
+              'with status:', md_items['status'], 'and worker:',
+              md_items['pin'], f"total time: {md_items['time']:.2f}")
+        state.print_state()
 
 
 def write_to_pathens(state, pn_archive):
@@ -154,27 +135,28 @@ def write_to_pathens(state, pn_archive):
             string = ''
             string += f'\t{pn:3.0f}\t'
             string += f"{traj_num_dic[pn]['length']:5.0f}" + '\t'
-            string += f"{traj_num_dic[pn]['max_op'][0]:5.5f}" + '\t\t'
+            string += f"{traj_num_dic[pn]['max_op'][0]:8.5f}" + '\t'
             frac = []
             weight = []
-            # for pn in pn_archive:
             if len(traj_num_dic[pn]['traj_v']) == 1:
                 f0 = traj_num_dic[pn]['frac'][0]
                 w0 = traj_num_dic[pn]['traj_v'][0]
-                # frac.append(f"{f0:02.3f}")
-                frac.append('----' if f0 == 0.0 else f"{f0:5.3f}")
-                weight.append('----' if f0 == 0.0 else f"{w0:5.0f}")
+                frac.append('----' if f0 == 0.0 else f"{f0:8.3f}")
+                if weight == 0:
+                    print('tortoise', frac, weight)
+                    exit('fish')
+                weight.append('----' if f0 == 0.0 else f"{w0:8.0f}")
                 frac += ['----']*(size-2)
                 weight += ['----']*(size-2)
             else:
                 frac.append('----')
                 weight.append(f'----')
-                for w0, f0 in zip(traj_num_dic[pn]['traj_v'][:-1], 
+                for w0, f0 in zip(traj_num_dic[pn]['traj_v'][:-1],
                                   traj_num_dic[pn]['frac'][1:-1]):
-                    # frac.append(f"{f0:02.3f}")
                     frac.append('----' if f0 == 0.0 else f"{f0:5.3f}")
                     weight.append('----' if f0 == 0.0 else f"{w0:5.0f}")
             fp.write(string + '\t'.join(frac) + '\t' + '\t'.join(weight) + '\t\n')
+            traj_num_dic.pop(pn)
 
 
 def setup_internal(config):
@@ -210,8 +192,10 @@ def setup_internal(config):
     # setup infretis
     state = REPEX_state(size, workers=config['dask']['workers'],
                         minus=True)
-    state.steps = config['simulation']['steps']
+    state.tsteps = config['simulation']['steps']
     state.cstep = config['current']['step']
+    state.screen = config['output']['screen']
+    state.pattern = config['output']['pattern']
     traj_num_dic = state.traj_num_dic
     state.mc_moves = sim.settings['tis']['shooting_moves']
 
@@ -219,32 +203,37 @@ def setup_internal(config):
     for i in range(size-1):
         # we add all the i+ paths.
         path = sim.ensembles[i+1]['path_ensemble'].last_path
-        traj_v = calc_cv_vector(path, interfaces, state.mc_moves)
-        state.add_traj(ens=i, traj=path, valid=traj_v, count=False)
+        path.traj_v = calc_cv_vector(path, interfaces, state.mc_moves)
+        state.add_traj(ens=i, traj=path, valid=path.traj_v, count=False)
         traj_num_dic[path.path_number] = {'frac': np.zeros(size+1),
                                           'adress':  set(kk.particles.config[0].split('salt')[-1]
                                                          for kk in path.phasepoints),
-                                          'ens_idx': i + 1,
+                                          'ens_save_idx': i + 1,
                                           'max_op': path.ordermax,
                                           'length': path.length,
-                                          'traj_v': np.array(list(traj_v) + [0.])}
-    exit('krapi')
+                                          'traj_v': path.traj_v}
     
     # add minus path:
     path = sim.ensembles[0]['path_ensemble'].last_path
-    state.add_traj(ens=-1, traj=path, valid=(1,), count=False)
+    path.traj_v = (1,)
+    state.add_traj(ens=-1, traj=path, valid=path.traj_v, count=False)
     traj_num_dic[path.path_number] = {'frac': np.zeros(size+1),
                                       'adress':  set(kk.particles.config[0].split('salt')[-1]
                                                      for kk in path.phasepoints),
-                                      'ens_idx': 0,
+                                      'ens_save_idx': 0,
                                       'max_op': path.ordermax,
                                       'length': path.length, 
-                                      'traj_v': (1.,)}
+                                      'traj_v': path.traj_v}
 
     if 'traj_num' not in config['current'].keys():
         config['current']['traj_num'] = max(config['current']['active']) + 1
     state.config = config
-    return {'sim': sim, 'mc_moves': state.mc_moves}, state
+    state.ensembles = {i: sim.ensembles[i] for i in range(len(sim.ensembles))}
+    md_items = {'settings': sim.settings,
+                'mc_moves': state.mc_moves,
+                'ensembles': {}}
+
+    return md_items, state
 
 
 def setup_dask(workers):
@@ -255,36 +244,48 @@ def setup_dask(workers):
 
 def pwd_checker(state):
     all_good = True
-
-    ens_no = len(state._trajs[:-1])
-    ens_str = [f'{i:03.0f}' for i in range(ens_no)]
+    ens_str = [f'{i:03.0f}' for i in range(state.n-1)]
     state_dic = {}
-    path_dic = {}
-    ens_pwds = []
-    locks = [traj0.path_number for traj0, lock0 in
-             zip(state._trajs[:-1], state._locks[:-1]) if lock0]
 
-    locks_idx = [i for i, lock0 in enumerate(state._locks[:-1]) if lock0]
-    locks_ens = [f'{i:03.0f}' for i, lock0 in enumerate(state._locks[:-1]) if lock0]
+    # path_dic = {}
+    # locks = [traj0.path_number for traj0, lock0 in
+    #          zip(state._trajs[:-1], state._locks[:-1]) if lock0]
+    # print('monkey 0', locks)
+    # print('monkey 1', state.locked_paths())
+    # locks_idx = [i for i, lock0 in enumerate(state._locks[:-1]) if lock0]
+    # locks_ens = [f'{i:03.0f}' for i, lock0 in enumerate(state._locks[:-1]) if lock0]
 
+    print('elephant 0', len(state._trajs[:-1]))
     for path_temp in state._trajs[:-1]:
         path_pwds = sorted(set([pp.particles.config[0] for pp in path_temp.phasepoints]))
         ens = next(i for i in path_pwds[0].split('/') if i in ens_str)
         state_dic[ens] = {'pwds': [pwd.split('/')[-1] for pwd in path_pwds]}
         state_dic[ens]['path_number'] = path_temp.path_number
-        path_dic[state_dic[ens]['path_number']] = [pwd.split('k')[-1] for pwd in path_pwds]
+        print('fake', ens, state_dic[ens]['pwds'], path_pwds)
+        # path_dic[state_dic[ens]['path_number']] = [pwd.split('k')[-1] for pwd in path_pwds]
 
+    ens_pwds = []
+    print('elephant 1', len(ens_str))
     for ens in ens_str:
         ens_pwds.append(sorted(os.listdir(f'./{ens}/accepted')))
+        print('real', ens, ens_pwds[-1])
 
     # check if state_paths correspond to path_pwds:
+    # print('croc 1', ens_str)
+    # print('croc 2', ens_pwds)
+    # print(' ')
+    # print('croc 3', state_dic)
+    # print('croc 4', state._trajs)
+    # print('frog 0') 
     for ens, string1 in zip(ens_str, ens_pwds):
+        # print(ens, string1)
         string0 = state_dic[ens]['pwds']
         if string0 != string1:
             print(string0, string1)
             print('warning! the state_paths does' + \
                   'not correspond to the path_pwds!')
             all_good = False
+    print('frog 1') 
 
     return all_good
 
@@ -300,29 +301,65 @@ def write_toml(state, ens_sel=(), input_traj=()):
         tomli_w.dump(state.config, f)  
 
 
-def prepare_pyretis(state, md_items, printing=False):
+def prep_pyretis(state, md_items, inp_traj, ens_nums):
 
     # pwd_checker
-    pwd_checker(state)
+    if not pwd_checker(state):
+        exit('sumtin fishy goin on here')
 
     # write toml:
-    ens, input_traj = md_items['ens'], md_items['input_traj']
-    write_toml(state, ens, input_traj)
+    # ens, input_traj = md_items['ens'], md_items['input_traj']
+    write_toml(state, ens_nums, inp_traj)
 
     # update pwd
-    for ens_num, traj_inp in zip(ens, input_traj):
-        ens_num += 1
-        md_items['sim'].ensembles[ens_num]['path_ensemble'].last_path = traj_inp.copy()
+    if state.worker != state.workers:
+        md_items.update({'pin': state.worker})
+    if state.worker == state.workers:
+        ens_nums_old = md_items.pop('ens_nums')
+    md_items.update({'ens_nums': ens_nums})
+
+    for ens_num, traj_inp in zip(ens_nums, inp_traj):
+        state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
+        md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
 
     # print state:
-    if printing:
-        state.print_state()
-        if len(ens) > 1 or ens[0] == -1:
+    if state.screen > 0 and np.mod(state.cstep, state.screen) == 0:
+        if len(ens_nums) > 1 or ens_nums[0] == -1:
             move = 'sh'
         else:
-            move = state.mc_moves[ens[0]+1]
-        ens_p = ' '.join([f'00{ens_num+1}' for ens_num in ens])
-        pat_p = ' '.join([str(i.path_number) for i in input_traj])
+            move = state.mc_moves[md_items['ens_nums'][0]+1]
+        ens_p = ' '.join([f'00{ens_num+1}' for ens_num in md_items['ens_nums']])
+        pat_p = ' '.join([str(i.path_number) for i in inp_traj])
         print('shooting', move, 'in ensembles:',
               ens_p, 'with paths:', pat_p, 
               'and worker:', md_items['pin'])
+
+    # empty certain md_items:
+    md_items['moves'] = []
+    md_items['pnum_old'] = []
+
+    # save pattern grid:
+    if state.pattern and state.worker == state.workers:
+        now0 = time.time()
+        with open('pattern.txt', 'a') as fp:
+            for idx, ens_num in enumerate(ens_nums_old):
+                fp.write(f"{ens_num+1}\t{state.time_keep[md_items['pin']]:.5f}\t" +
+                         f"{now0:.5f}\t{md_items['pin']}\n")
+        state.time_keep[md_items['pin']] = now0
+
+
+def calc_cv_vector(path, interfaces, moves):
+    path_max, _ = path.ordermax
+
+    cv = []
+    if len(interfaces) == 1:
+        return (1. if interfaces[0] <= path_max else 0.,)
+
+    for idx, intf_i in enumerate(interfaces[:-1]):
+        if moves[idx+1] == 'wf':
+            intfs = [interfaces[0], intf_i, interfaces[-1]]
+            cv.append(compute_weight(path, intfs, moves[idx+1]))
+        else:
+            cv.append(1. if intf_i <= path_max else 0.)
+    cv.append(0.)
+    return(tuple(cv))

@@ -1,5 +1,5 @@
 import numpy as np
-from pyretis.core.common import compute_weight
+import time
 
 
 # Define some infRETIS infrastructure
@@ -104,9 +104,14 @@ class REPEX_state(object):
         self.config = {}
         self.traj_num_dic = {}
         self.workers = workers
-        self.steps = None
+        self.tsteps = None
         self.cstep = None
+        self.screen = None
         self.mc_moves = []
+        self.ensembles = {}
+        self.worker = -1
+        self.time_keep = {}
+        self.pattern = 0
 
     def pick_lock(self):
         if not self.config['current']['locked']:
@@ -168,10 +173,10 @@ class REPEX_state(object):
                         length = getattr(path, 'length', None)
                     else:
                         length = None
-                    self.result.update_ens(i-self._offset, tuple(traj), weight,
-                                           length=length)
-            self.result.update_run_prob(i-self._offset, n=self._n)
-        self.result.update_run_total_prob()
+        #             self.result.update_ens(i-self._offset, tuple(traj), weight,
+        #                                    length=length)
+        #     self.result.update_run_prob(i-self._offset, n=self._n)
+        # self.result.update_run_total_prob()
 
     def add_traj(self, ens, traj, valid, count=True, n=0):
 
@@ -219,7 +224,35 @@ class REPEX_state(object):
         return locks
 
     def loop(self):
-        return self.cstep < self.steps + self.workers
+        if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
+            if self.cstep != 0:
+                print(f'------- infinity {self.cstep:5.0f} END -------\n')
+        self.cstep += 1
+        if not self.cstep < self.tsteps + self.workers:
+            if self.screen > 0:
+                self.print_end()
+        else:
+            if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
+                print(f'------- infinity {self.cstep:5.0f} START -------')
+        return self.cstep < self.tsteps + self.workers
+
+    def initiate(self):
+        if self.pattern > 0:
+            with open('pattern.txt', 'w') as fp:
+                fp.write('# \n')
+        if self.worker == -1:
+            if self.screen > 0:
+                self.print_start()
+        if self.worker > -1:
+            if self.screen > 0:
+                print(f'------- submit worker {self.worker} END -------\n')
+        self.worker += 1
+        if self.worker < self.workers:
+            if self.screen > 0:
+                print(f'------- submit worker {self.worker} START -------')
+            self.time_keep[self.worker] = time.time()
+        return self.worker < self.workers
+
 
     @property
     def prob(self):
@@ -506,6 +539,8 @@ class REPEX_state(object):
                 to_print = f'p{live:02.0f} |\t'
                 for prob in self._last_prob[idx][:-1]:
                     to_print += f'{prob:.2f}\t' if prob != 0 else '----\t'
+                to_print += ' ' + f"{self.traj_num_dic[live]['max_op'][0]:.5f} |"
+                to_print += ' ' + f"{self.traj_num_dic[live]['length']:5.0f}"
                 print(to_print)
             else:
                 to_print = f'p{live:02.0f} |\t'
@@ -527,18 +562,3 @@ class REPEX_state(object):
             print(f'{key:03.0f}', "|" if key not in live_trajs else '*',
                   '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '---' for item0 in item['frac'][:-1]])
                  ,'\t', "|" if key not in live_trajs else '*')
-
-
-def calc_cv_vector(path, interfaces, moves):                                           
-    path_max, _ = path.ordermax                                                 
-
-    cv = []
-    intfs_i = [interfaces[0]] + interfaces[:-1]
-    for idx, intf_i in enumerate(intfs_i):
-        if moves[idx] == 'wf':
-            intfs = [interfaces[0], intf_i, interfaces[-1]]
-            cv.append(compute_weight(path, intfs, moves[idx]))
-        else:
-            cv.append(1. if intf_i <= path_max else 0.)
-
-    return(tuple(cv))

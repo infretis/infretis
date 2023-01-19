@@ -26,7 +26,7 @@ def run_md(md_items):
                                               tis_settings,
                                               start_cond)
         trials = [trials]
-        interfaces =  [interfaces] if ens_nums[0] >= 0 else [interfaces[0:1]]
+        interfaces = [interfaces] if ens_nums[0] >= 0 else [interfaces[0:1]]
 
     else:
         ensembles_l = [ensembles[i+1] for i in ens_nums]
@@ -59,7 +59,6 @@ def treat_output(state, md_items, save=False):
     for ens_num, pn_old in zip(md_items['ens_nums'],
                                md_items['pnum_old']):
         # if path is new: number and save the path:
-        # print(ens_num+1, md_items['start_time'], md_items['end_time'], md_items['pin'])
         out_traj = ensembles[ens_num+1]['path_ensemble'].last_path
         if out_traj.path_number == None or md_items['status'] == 'ACC':
             out_traj.path_number = traj_num
@@ -80,10 +79,11 @@ def treat_output(state, md_items, save=False):
         if live not in locked_trajs:
             traj_num_dic[live]['frac'] += state._last_prob[:-1][idx, :]
 
-    # print analyzed output
+    # write succ data to infretis_data.txt
     if md_items['status'] == 'ACC':
         write_to_pathens(state, md_items['pnum_old'])
 
+    # print information to screen
     if state.screen > 0 and np.mod(state.cstep, state.screen) == 0:
         print('shooted', ' '.join(md_items['moves']), 'in ensembles:',
               ' '.join([f'00{ens_num+1}' for ens_num in md_items['ens_nums']]),
@@ -109,12 +109,11 @@ def write_to_pathens(state, pn_archive):
             if len(traj_num_dic[pn]['traj_v']) == 1:
                 f0 = traj_num_dic[pn]['frac'][0]
                 w0 = traj_num_dic[pn]['traj_v'][0]
-                frac.append('----' if f0 == 0.0 else f"{f0:5.3f}")
+                frac.append('----' if f0 == 0.0 else f"{f0:8.3f}")
                 if weight == 0:
                     print('tortoise', frac, weight)
                     exit('fish')
-                
-                weight.append('----' if f0 == 0.0 else f"{w0:5.0f}")
+                weight.append('----' if f0 == 0.0 else f"{w0:8.0f}")
                 frac += ['----']*(size-2)
                 weight += ['----']*(size-2)
             else:
@@ -255,11 +254,6 @@ def write_toml(state, ens_sel=(), input_traj=()):
 
 def prep_pyretis(state, md_items, inp_traj, ens_nums):
 
-    # pwd_checker
-    # pwd_checker(state)
-
-    # write toml:
-    # write_toml(state, ens, input_traj)
 
     # update pwd
     if state.worker != state.workers:
@@ -269,7 +263,7 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
     md_items.update({'ens_nums': ens_nums})
 
     for ens_num, traj_inp in zip(ens_nums, inp_traj):
-        state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp.copy()
+        state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
         md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
 
     # print state:
@@ -294,16 +288,16 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
         with open('pattern.txt', 'a') as fp:
             for idx, ens_num in enumerate(ens_nums_old):
                 fp.write(f"{ens_num+1} {state.time_keep[md_items['pin']]:.5f}" +
-                         f" {now0:.5f} {md_items['pin']}\n")
+                         f"{now0:.5f} {md_items['pin']}\n")
         state.time_keep[md_items['pin']] = now0
-        
 
-def calc_cv_vector(path, interfaces, moves):                                           
-    path_max, _ = path.ordermax                                                 
+
+def calc_cv_vector(path, interfaces, moves):
+    path_max, _ = path.ordermax
 
     cv = []
     if len(interfaces) == 1:
-        return (1. if interfaces[0] <= path_max else 0., )
+        return (1. if interfaces[0] <= path_max else 0.,)
 
     for idx, intf_i in enumerate(interfaces[:-1]):
         if moves[idx+1] == 'wf':
