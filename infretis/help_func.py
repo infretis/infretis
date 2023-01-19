@@ -309,7 +309,7 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
 
     # write toml:
     # ens, input_traj = md_items['ens'], md_items['input_traj']
-    write_toml(state, ens_nums, inp_traj)
+    # write_toml(state, ens_nums, inp_traj)
 
     # update pwd
     if state.worker != state.workers:
