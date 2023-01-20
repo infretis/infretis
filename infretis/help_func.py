@@ -68,10 +68,6 @@ def treat_output(state, md_items, save=False):
             ens_save_idx = traj_num_dic[pn_old]['ens_save_idx']
             state.ensembles[ens_save_idx]['path_ensemble'].store_path(out_traj)
             out_traj.path_number = traj_num
-            print('saved new path:', traj_num, f'in 00{ens_num+1}', 'with the following files:')
-            for path0 in set(i.particles.config[0] for i in out_traj.phasepoints):
-                print('path_num:', traj_num, path0)
-
             traj_num_dic[traj_num] = {'frac': np.zeros(state.n),
                                       'adress': set(kk.particles.config[0].split('salt')[-1] 
                                                     for kk in out_traj.phasepoints),
