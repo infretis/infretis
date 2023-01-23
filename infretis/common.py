@@ -9,7 +9,7 @@ from pyretis.inout.settings import parse_settings_file
 from infretis.inf_core import REPEX_state
 from dask.distributed import dask, Client, as_completed
 from pyretis.core.common import compute_weight
-dask.config.config['work-stealing'] = False
+dask.config.set({'distributed.scheduler.work-stealing': False})
 
 
 def run_md(md_items):
