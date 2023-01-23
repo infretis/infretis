@@ -1,8 +1,6 @@
 # incredibly stupid way of running this example:
 # run this script in terminal by writing "bash script.sh"
 
-cp ../../infretis/
-
 cp ../../infretis/conv_inf_py.py  .
 cp ../../infretis/infretis.py     .
 cp ../../infretis/pattern.py      .

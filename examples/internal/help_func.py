@@ -137,6 +137,7 @@ def setup_internal(config):
     # check if we restart or not 
     if 'current' not in config:
         config['current'] = {}
+        config['current']['traj_num'] = 0
         config['current']['step'] = 0
         config['current']['active'] = []
         config['current']['locked'] = []
@@ -147,8 +148,6 @@ def setup_internal(config):
             fp.write('# ' + f'\txxx\tlen\tmax OP\t\t{ens_str}\n')
             fp.write('# ' + '='*(34+8*size)+ '\n')
     config['current']['size'] = size
-    if not config['current']['active']:
-        config['current']['active'] = list(range(size))
 
     # give path to the active paths
     sim_settings['current'] = {'size': size}
@@ -156,6 +155,11 @@ def setup_internal(config):
     sim = create_simulation(sim_settings)
     sim.set_up_output(sim_settings)
     sim.initiate(sim_settings)
+
+    if config['current']['traj_num'] == 0:
+        for i_ens in sim.ensembles:
+            i_ens['path_ensemble'].last_path.path_number = config['current']['traj_num']
+            config['current']['traj_num'] += 1
 
     # setup infretis
     state = REPEX_state(size, workers=config['dask']['workers'],
@@ -208,24 +212,16 @@ def setup_dask(workers):
 
 def pwd_checker(state):
     all_good = True
-
     ens_str = [f'{i:03.0f}' for i in range(state.n-1)]
     state_dic = {}
-    path_dic = {}
-    ens_pwds = []
-    locks = [traj0.path_number for traj0, lock0 in
-             zip(state._trajs[:-1], state._locks[:-1]) if lock0]
-
-    locks_idx = [i for i, lock0 in enumerate(state._locks[:-1]) if lock0]
-    locks_ens = [f'{i:03.0f}' for i, lock0 in enumerate(state._locks[:-1]) if lock0]
 
     for path_temp in state._trajs[:-1]:
         path_pwds = sorted(set([pp.particles.config[0] for pp in path_temp.phasepoints]))
         ens = next(i for i in path_pwds[0].split('/') if i in ens_str)
         state_dic[ens] = {'pwds': [pwd.split('/')[-1] for pwd in path_pwds]}
         state_dic[ens]['path_number'] = path_temp.path_number
-        path_dic[state_dic[ens]['path_number']] = [pwd.split('k')[-1] for pwd in path_pwds]
 
+    ens_pwds = []
     for ens in ens_str:
         ens_pwds.append(sorted(os.listdir(f'./{ens}/accepted')))
 
@@ -254,6 +250,9 @@ def write_toml(state, ens_sel=(), input_traj=()):
 
 def prep_pyretis(state, md_items, inp_traj, ens_nums):
 
+    # write toml:
+    # ens, input_traj = md_items['ens'], md_items['input_traj']
+    # write_toml(state, ens_nums, inp_traj)
 
     # update pwd
     if state.worker != state.workers:
