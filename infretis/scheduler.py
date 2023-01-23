@@ -1,6 +1,6 @@
 import tomli
-from infretis.help_func import run_md, treat_output
-from infretis.help_func import setup_internal, setup_dask, prep_pyretis
+from infretis.common import run_md, treat_output
+from infretis.common import setup_internal, setup_dask, prep_pyretis
 
 # if __name__ == "__main__":
 def scheduler(input_file):
