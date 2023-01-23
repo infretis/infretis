@@ -7,7 +7,7 @@ workers = 3
 pyretis_inp = 'retis.rst'
 internal = true
 states_ab = [ 0.27, 0.45 ]
-steps = 200
+steps = 50
 seed = 0
 
 [engine]
