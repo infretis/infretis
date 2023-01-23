@@ -7,7 +7,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
-infretisrun = "infretis.infretisrun:entry_point"
-infretisanalyse= "infretis.infretisrun:entry_point"
+infretisrun = "infretis.bin:infretisrun"
+infretisanalyze = "infretis.bin:infretisanalyze"
 
 

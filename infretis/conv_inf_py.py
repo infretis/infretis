@@ -1,5 +1,4 @@
 HEAD = '#     Step    No.-acc  No.-shoot l m r  Length Acc Mc            Min-O            Max-O Idx-Min Idx-Max          O-shoot  Idx-sh Idx-shN  Weight'
-INP = './infretis_data.txt'
 
 def read_infinity(inp):
     path_dic = {}
@@ -47,9 +46,6 @@ def print_pathens(inp):
                     print('whadafa')
                     exit('ape')
                 pline += f" {dic[i][ens][1]/dic[i][ens][0]:7.10e}"
-                # print(HEAD)
-                # print(pline)
-                # exit('ape')
                 steps[ens] += 1
                 if ens == '000':
                     with open(f'./{ens}/pathensemble.txt', 'a') as fp:
@@ -58,6 +54,3 @@ def print_pathens(inp):
                 else:
                         with open(f'./{ens}/pathensemble.txt', 'a') as fp:
                             fp.write(pline + '\n')
-
-
-print_pathens(INP)
