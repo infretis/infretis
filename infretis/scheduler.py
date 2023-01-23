@@ -1,10 +1,11 @@
 import tomli
-from help_func import run_md, treat_output
-from help_func import setup_internal, setup_dask, prep_pyretis
+from infretis.help_func import run_md, treat_output
+from infretis.help_func import setup_internal, setup_dask, prep_pyretis
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
+def scheduler(input_file):
 
-    with open("./infretis.toml", mode="rb") as f:
+    with open(input_file, mode="rb") as f:
         config = tomli.load(f)
 
     # setup pyretis, repex, dask client and futures

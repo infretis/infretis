@@ -6,7 +6,7 @@ from pyretis.core.tis import select_shoot
 from pyretis.core.retis import retis_swap_zero
 from pyretis.setup import create_simulation
 from pyretis.inout.settings import parse_settings_file
-from infretis import REPEX_state
+from infretis.inf_core import REPEX_state
 from dask.distributed import dask, Client, as_completed
 from pyretis.core.common import compute_weight
 dask.config.config['work-stealing'] = False
@@ -22,7 +22,8 @@ def run_md(md_items):
     if len(ens_nums) == 1:
         start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
         tis_settings = settings['ensemble'][ens_nums[0]+1]['tis'] 
-        ensembles[ens_nums[0]+1]['engine'].clean_up()
+        if not md_items['internal']:
+            ensembles[ens_nums[0]+1]['engine'].clean_up()
         accept, trials, status = select_shoot(ensembles[ens_nums[0]+1],
                                               tis_settings,
                                               start_cond)
@@ -31,8 +32,9 @@ def run_md(md_items):
 
     else:
         ensembles_l = [ensembles[i+1] for i in ens_nums]
-        ensembles_l[0]['engine'].clean_up()
-        ensembles_l[1]['engine'].clean_up()
+        if not md_items['internal']:
+            ensembles_l[0]['engine'].clean_up()
+            ensembles_l[1]['engine'].clean_up()
         accept, trials, status = retis_swap_zero(ensembles_l, settings, 0)
         interfaces = [interfaces[0:1], interfaces]
 
@@ -69,12 +71,13 @@ def treat_output(state, md_items, save=False):
             state.ensembles[ens_save_idx]['path_ensemble'].store_path(out_traj)
             out_traj.path_number = traj_num
             traj_num_dic[traj_num] = {'frac': np.zeros(state.n),
-                                      'adress': set(kk.particles.config[0].split('salt')[-1] 
-                                                    for kk in out_traj.phasepoints),
                                       'max_op': out_traj.ordermax,
                                       'length': out_traj.length,
                                       'traj_v': out_traj.traj_v,
                                       'ens_save_idx': ens_save_idx}
+            if not md_items['internal']:
+                traj_num_dic[traj_num]['adress'] = set(kk.particles.config[0].split('salt')[-1] 
+                                                       for kk in out_traj.phasepoints)
             traj_num += 1
             
             # NB! Saving can take some time..
@@ -164,15 +167,15 @@ def setup_internal(config):
         config['current'] = {}
         config['current']['traj_num'] = 0
         config['current']['step'] = 0
-        config['current']['active'] = []
+        config['current']['active'] = list(range(size))
         config['current']['locked'] = []
         config['current']['dic'] = []
+        config['current']['size'] = size
         with open('infretis_data.txt', 'w') as fp:
             fp.write('# ' + '='*(34+8*size)+ '\n')
             ens_str = '\t'.join([f'{i:03.0f}' for i in range(size)])
             fp.write('# ' + f'\txxx\tlen\tmax OP\t\t{ens_str}\n')
             fp.write('# ' + '='*(34+8*size)+ '\n')
-    config['current']['size'] = size
 
     # give path to the active paths
     sim_settings['current'] = {'size': size}
@@ -203,24 +206,26 @@ def setup_internal(config):
         path.traj_v = calc_cv_vector(path, interfaces, state.mc_moves)
         state.add_traj(ens=i, traj=path, valid=path.traj_v, count=False)
         traj_num_dic[path.path_number] = {'frac': np.zeros(size+1),
-                                          'adress':  set(kk.particles.config[0].split('salt')[-1]
-                                                         for kk in path.phasepoints),
                                           'ens_save_idx': i + 1,
                                           'max_op': path.ordermax,
                                           'length': path.length,
                                           'traj_v': path.traj_v}
+        if not config['simulation']['internal']:
+            traj_num_dic[path.path_number]['adress'] = set(kk.particles.config[0].split('salt')[-1]
+                                                           for kk in path.phasepoints)
     
     # add minus path:
     path = sim.ensembles[0]['path_ensemble'].last_path
     path.traj_v = (1,)
     state.add_traj(ens=-1, traj=path, valid=path.traj_v, count=False)
     traj_num_dic[path.path_number] = {'frac': np.zeros(size+1),
-                                      'adress':  set(kk.particles.config[0].split('salt')[-1]
-                                                     for kk in path.phasepoints),
                                       'ens_save_idx': 0,
                                       'max_op': path.ordermax,
                                       'length': path.length, 
                                       'traj_v': path.traj_v}
+    if not config['simulation']['internal']:
+        traj_num_dic[path.path_number]['adress'] = set(kk.particles.config[0].split('salt')[-1]
+                                                       for kk in path.phasepoints)
 
     if 'traj_num' not in config['current'].keys():
         config['current']['traj_num'] = max(config['current']['active']) + 1
@@ -228,7 +233,8 @@ def setup_internal(config):
     state.ensembles = {i: sim.ensembles[i] for i in range(len(sim.ensembles))}
     md_items = {'settings': sim.settings,
                 'mc_moves': state.mc_moves,
-                'ensembles': {}}
+                'ensembles': {}, 
+                'internal': config['simulation']['internal']}
 
     return md_items, state
 
@@ -280,8 +286,9 @@ def write_toml(state, ens_sel=(), input_traj=()):
 def prep_pyretis(state, md_items, inp_traj, ens_nums):
 
     # pwd_checker
-    if not pwd_checker(state):
-        exit('sumtin fishy goin on here')
+    if not md_items['internal']:
+        if not pwd_checker(state):
+            exit('sumtin fishy goin on here')
 
     # write toml:
     # ens, input_traj = md_items['ens'], md_items['input_traj']
