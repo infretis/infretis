@@ -5,6 +5,7 @@ workers = 1
 
 [simulation]
 pyretis_inp = 'retis.rst'
+internal = false
 states_ab = [ 0.27, 0.45 ]
 steps = 5
 seed = 0
