@@ -162,6 +162,7 @@ def setup_internal(config):
     # check if we restart or not 
     if 'current' not in config:
         config['current'] = {}
+        config['current']['traj_num'] = 0
         config['current']['step'] = 0
         config['current']['active'] = []
         config['current']['locked'] = []
@@ -172,8 +173,6 @@ def setup_internal(config):
             fp.write('# ' + f'\txxx\tlen\tmax OP\t\t{ens_str}\n')
             fp.write('# ' + '='*(34+8*size)+ '\n')
     config['current']['size'] = size
-    if not config['current']['active']:
-        config['current']['active'] = list(range(size))
 
     # give path to the active paths
     sim_settings['current'] = {'size': size}
@@ -181,6 +180,11 @@ def setup_internal(config):
     sim = create_simulation(sim_settings)
     sim.set_up_output(sim_settings)
     sim.initiate(sim_settings)
+
+    if config['current']['traj_num'] == 0:
+        for i_ens in sim.ensembles:
+            i_ens['path_ensemble'].last_path.path_number = config['current']['traj_num']
+            config['current']['traj_num'] += 1
 
     # setup infretis
     state = REPEX_state(size, workers=config['dask']['workers'],
