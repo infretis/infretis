@@ -9,4 +9,5 @@ Todo:
 	1. Classes & Functions (from pyretis&ops)
 	2. Smart restart
 	3. Toy external engine
-	4. Multiple runnable ways (pin, hpc, etc.)
+	4. Reimplement subtrajectory MC moves
+	5. Multiple runnable ways (pin, hpc, etc.)
