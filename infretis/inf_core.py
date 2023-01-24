@@ -321,7 +321,7 @@ class REPEX_state(object):
                 out[offset:] = self.quick_prob(sorted_non_locked[offset:])
         else:
             #TODO DEBUG print
-            print("DEBUG this should not happen outside of wirefencing")
+            # print("DEBUG this should not happen outside of wirefencing")
             blocks = self.find_blocks(sorted_non_locked, offset=offset)
             for start, stop, direction in blocks:
                 if direction == -1:

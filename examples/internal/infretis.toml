@@ -7,7 +7,7 @@ workers = 3
 pyretis_inp = 'retis.rst'
 internal = true
 states_ab = [ 0.27, 0.45 ]
-steps = 50
+steps = 100
 seed = 0
 
 [engine]
@@ -28,5 +28,5 @@ backup = 'backup'
 order-file = -1
 energy-file = -1
 trajectory-file = -1
-screen = 1
+screen = 20
 pattern = 1
