@@ -12,14 +12,6 @@ def scheduler(input_file):
     md_items, state = setup_internal(config)
     client, futures = setup_dask(state.workers)
 
-    print('hawai ----------------------------------------0')
-    # for path_temp in state._trajs[:-1]:
-    #     print(path_temp.path_number)
-    # state.print_state()
-    print(state.cstep, state.tsteps)
-    # print(self.cstep < state.tsteps)
-    # exit('stop!')
-
     # submit the first number of workers
     while state.initiate():
         # chose ens and path for the next job
@@ -40,7 +32,6 @@ def scheduler(input_file):
 
         # submit new job:
         if state.cstep + state.workers <= state.tsteps:
-            print('shootinggg', state.cstep, state.workers, state.tsteps)
             # chose ens and path for the next job
             ens_nums, inp_traj = state.pick()
             prep_pyretis(state, md_items, inp_traj, ens_nums)
@@ -48,5 +39,3 @@ def scheduler(input_file):
             # submit job
             fut = client.submit(run_md, md_items, pure=False)
             futures.add(fut)
-
-    print(state.traj_num_dic)
