@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import tomli_w
 
 
 # Define some infRETIS infrastructure
@@ -92,6 +93,8 @@ class REPEX_state(object):
         else:
             self._offset = 0
 
+        np.random.seed(0)
+
         self.n = n
         self.state = np.zeros(shape=(n, n))
         self._locks = np.ones(shape=(n))
@@ -112,6 +115,7 @@ class REPEX_state(object):
         self.worker = -1
         self.time_keep = {}
         self.pattern = 0
+        self.output_tasks = None
 
     def pick_lock(self):
         if not self.config['current']['locked']:
@@ -228,9 +232,11 @@ class REPEX_state(object):
             if self.cstep != 0:
                 print(f'------- infinity {self.cstep:5.0f} END -------\n')
         self.cstep += 1
+        self.config['current']['step'] = self.cstep
         if not self.cstep < self.tsteps + self.workers:
             if self.screen > 0:
                 self.print_end()
+                self.write_toml()
         else:
             if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
                 print(f'------- infinity {self.cstep:5.0f} START -------')
@@ -562,3 +568,15 @@ class REPEX_state(object):
             print(f'{key:03.0f}', "|" if key not in live_trajs else '*',
                   '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '---' for item0 in item['frac'][:-1]])
                  ,'\t', "|" if key not in live_trajs else '*')
+
+
+    def write_toml(self, ens_sel=(), input_traj=()):
+        self.config['current']['active'] = self.live_paths()
+        locked_ep = []
+        for ens0, path0 in zip(ens_sel, input_traj):
+            locked_ep.append((int(ens0 + self._offset), path0.path_number))
+        self.config['current']['locked'] = locked_ep
+    
+        with open("./restart.toml", "wb") as f:
+            tomli_w.dump(self.config, f)  
+        self.config['current']['locked'] = []

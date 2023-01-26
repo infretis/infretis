@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import time
-import tomli_w
 from pyretis.core.tis import select_shoot
 from pyretis.core.retis import retis_swap_zero
 from pyretis.setup import create_simulation
@@ -54,7 +53,7 @@ def run_md(md_items):
     return md_items
 
 
-def treat_output(state, md_items, save=False):
+def treat_output(state, md_items):
     traj_num_dic = state.traj_num_dic
     traj_num = state.config['current']['traj_num']
     ensembles = md_items['ensembles']
@@ -81,7 +80,7 @@ def treat_output(state, md_items, save=False):
             traj_num += 1
             
             # NB! Saving can take some time..
-            if save:
+            if state.config['output']['save']:
                 cycle = {'step': traj_num -1 , 'endcycle': 10,
                          'startcycle': 0, 'stepno': 10, 'steps': 10}
                 result = {f'status-{ens_num+1}': 'ACC', 'cycle': cycle,
@@ -89,9 +88,9 @@ def treat_output(state, md_items, save=False):
                           f'move-{ens_num+1}': 'sh', 
                           'all-2': {'ensemble_number': ens_num+1, 'mc-move': 'sh',
                                     'status': 'ACC', 'trial': out_traj, 'accept': True},
-                          f'pathensemble-{ens_num+1}': sim.ensembles[0]['path_ensemble']}
+                          f'pathensemble-{ens_num+1}': state.ensembles[0]['path_ensemble']}
                 flipppa = time.time() 
-                for task in sim.output_tasks:
+                for task in state.output_tasks:
                     task.output(result)
                 print('saving path time:', time.time() - flipppa)
             
@@ -169,7 +168,6 @@ def setup_internal(config):
         config['current']['step'] = 0
         config['current']['active'] = list(range(size))
         config['current']['locked'] = []
-        config['current']['dic'] = []
         config['current']['size'] = size
         with open('infretis_data.txt', 'w') as fp:
             fp.write('# ' + '='*(34+8*size)+ '\n')
@@ -196,6 +194,7 @@ def setup_internal(config):
     state.cstep = config['current']['step']
     state.screen = config['output']['screen']
     state.pattern = config['output']['pattern']
+    state.output_tasks = sim.output_tasks
     traj_num_dic = state.traj_num_dic
     state.mc_moves = sim.settings['tis']['shooting_moves']
 
@@ -272,15 +271,6 @@ def pwd_checker(state):
     return all_good
 
 
-def write_toml(state, ens_sel=(), input_traj=()):
-    state.config['current']['active'] = state.live_paths()
-    locked_ep = []
-    for ens0, path0 in zip(ens_sel, input_traj):
-        locked_ep.append((int(ens0 + state._offset), path0.path_number))
-    state.config['current']['locked'] = locked_ep
-
-    with open("./infretis_5.toml", "wb") as f:
-        tomli_w.dump(state.config, f)  
 
 
 def prep_pyretis(state, md_items, inp_traj, ens_nums):
@@ -291,8 +281,7 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
             exit('sumtin fishy goin on here')
 
     # write toml:
-    # ens, input_traj = md_items['ens'], md_items['input_traj']
-    # write_toml(state, ens_nums, inp_traj)
+    state.write_toml(ens_nums, inp_traj)
 
     # update pwd
     if state.worker != state.workers:
