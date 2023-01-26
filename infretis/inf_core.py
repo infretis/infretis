@@ -608,15 +608,11 @@ class REPEX_state(object):
             locked_ep.append((int(ens0 + self._offset), path0.path_number))
         self.config['current']['locked'] = locked_ep
 
+        # save accumulative fracs
         self.config['current']['frac'] = {}
         for key in self.traj_num_dic.keys():
             self.config['current']['frac'][str(key)] = [float(i) for i in self.traj_num_dic[key]['frac']]
 
-        print('piggie 1 ----------------------------------')
-        for key in self.config['current']['frac'].keys():
-            print(type(key), set(type(i) for i in self.config['current']['frac'][key]))
-        print('piggie 2 ----------------------------------')
-    
         with open("./restart.toml", "wb") as f:
             tomli_w.dump(self.config, f)  
         self.config['current']['locked'] = []
