@@ -1,5 +1,3 @@
-# infretis config
-
 [dask]
 workers = 1
 
