@@ -8,7 +8,7 @@ states_ab = [
     0.27,
     0.45,
 ]
-steps = 100
+steps = 10
 seed = 0
 
 [engine]
@@ -29,8 +29,6 @@ periodic = false
 
 [output]
 backup = "backup"
-order-file = -1
-energy-file = -1
-trajectory-file = -1
-screen = 20
+save = false
+screen = 1
 pattern = 1

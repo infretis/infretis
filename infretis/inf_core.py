@@ -229,20 +229,51 @@ class REPEX_state(object):
 
     def loop(self):
         if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
-            if self.cstep != 0:
+            if self.cstep not in (0, self.config['current'].get('restarted-from', 0)):
                 print(f'------- infinity {self.cstep:5.0f} END -------\n')
+
+        if self.cstep >= self.tsteps:
+            # should probably wait until all workers are free to close
+            # the while loop, but for now when cstep >= tsteps we return
+            # false.
+            self.print_end()
+            self.write_toml()
+            print('bimbim', self.locked_paths())
+            return False
+
+
         self.cstep += 1
-        self.config['current']['step'] = self.cstep
-        if not self.cstep < self.tsteps + self.workers:
-            if self.screen > 0:
-                self.print_end()
-                self.write_toml()
-        else:
+        self.config['current']['cstep'] = self.cstep
+        
+        # if self.cstep > self.tsteps:
+        #     if self.screen > 0:
+        #         self.print_end()
+        #         self.write_toml()
+        # else:
+        #     self.cstep += 1
+        #     self.config['current']['cstep'] = self.cstep
+        # if not self.cstep < self.tsteps + self.workers:
+        # if not self.cstep <= self.tsteps:
+        #     print('barger 1')
+        #     print(self.cstep <= self.tsteps)
+        #     print(self.cstep, self.tsteps)
+        #     print('barger 2')
+        # # if self.cstep == self.tsteps:
+        #     if self.screen > 0:
+        #         self.cstep += -1
+        #         self.print_end()
+        #         self.write_toml()
+        if self.cstep <= self.tsteps:
             if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
                 print(f'------- infinity {self.cstep:5.0f} START -------')
-        return self.cstep < self.tsteps + self.workers
+        # return self.cstep < self.tsteps + self.workers
+        # print('burg', self.cstep, self.tsteps)
+        return self.cstep <= self.tsteps
 
     def initiate(self):
+        if not self.cstep < self.tsteps:
+            return False
+
         if self.pattern > 0:
             with open('pattern.txt', 'w') as fp:
                 fp.write('# \n')
@@ -560,7 +591,7 @@ class REPEX_state(object):
         stopping = self.cstep
         traj_num_dic = self.traj_num_dic
         print('--------------------------------------------------')
-        print('live trajs:', live_trajs, f'after {stopping-1} cycles')
+        print('live trajs:', live_trajs, f'after {stopping} cycles')
         print('==================================================')
         print('xxx | 000        001     002     003     004     |')
         print('--------------------------------------------------')
@@ -576,6 +607,15 @@ class REPEX_state(object):
         for ens0, path0 in zip(ens_sel, input_traj):
             locked_ep.append((int(ens0 + self._offset), path0.path_number))
         self.config['current']['locked'] = locked_ep
+
+        self.config['current']['frac'] = {}
+        for key in self.traj_num_dic.keys():
+            self.config['current']['frac'][str(key)] = [float(i) for i in self.traj_num_dic[key]['frac']]
+
+        print('piggie 1 ----------------------------------')
+        for key in self.config['current']['frac'].keys():
+            print(type(key), set(type(i) for i in self.config['current']['frac'][key]))
+        print('piggie 2 ----------------------------------')
     
         with open("./restart.toml", "wb") as f:
             tomli_w.dump(self.config, f)  

@@ -165,7 +165,7 @@ def setup_internal(config):
     if 'current' not in config:
         config['current'] = {}
         config['current']['traj_num'] = 0
-        config['current']['step'] = 0
+        config['current']['cstep'] = 0
         config['current']['active'] = list(range(size))
         config['current']['locked'] = []
         config['current']['size'] = size
@@ -174,6 +174,17 @@ def setup_internal(config):
             ens_str = '\t'.join([f'{i:03.0f}' for i in range(size)])
             fp.write('# ' + f'\txxx\tlen\tmax OP\t\t{ens_str}\n')
             fp.write('# ' + '='*(34+8*size)+ '\n')
+    else:
+    #     print('noob', config['current']['cstep'], config['simulation']['steps'])
+        config['current']['restarted-from'] = config['current']['cstep']
+        if config['current']['cstep'] == config['simulation']['steps']:
+            print('current step and total steps are equal, we increase total',
+                  'steps with the number of workers.')
+            config['simulation']['steps'] += config['dask']['workers']
+    #         "
+    #     exit('crabl')
+        # if config['current']['cstep'] == 
+        #whada fa was i supposed tow rite here again chotto wasurechatta
 
     # give path to the active paths
     sim_settings['current'] = {'size': size}
@@ -191,12 +202,30 @@ def setup_internal(config):
     state = REPEX_state(size, workers=config['dask']['workers'],
                         minus=True)
     state.tsteps = config['simulation']['steps']
-    state.cstep = config['current']['step']
+    state.cstep = config['current']['cstep']
     state.screen = config['output']['screen']
     state.pattern = config['output']['pattern']
     state.output_tasks = sim.output_tasks
-    traj_num_dic = state.traj_num_dic
     state.mc_moves = sim.settings['tis']['shooting_moves']
+    traj_num_dic = state.traj_num_dic
+
+    ###
+    ###
+
+    print(config['current'].keys())
+    if 'frac' in config['current']:
+        print('bear a', config['current']['frac'].keys())
+        print('bear b', config['current']['active'])
+    for path_num in config['current']['active']:
+        if 'frac' in config['current']:
+            traj_num_dic[path_num] = {'frac': config['current']['frac'].get(str(path_num), np.zeros(size+1))}
+            print('chill a', traj_num_dic[path_num])
+        else:
+            traj_num_dic[path_num] = {'frac': np.zeros(size+1)}
+            print('chill b', traj_num_dic[path_num])
+
+    ###
+    ###
 
     ## initiate by adding paths from retis sim to repex
     for i in range(size-1):
@@ -204,11 +233,16 @@ def setup_internal(config):
         path = sim.ensembles[i+1]['path_ensemble'].last_path
         path.traj_v = calc_cv_vector(path, interfaces, state.mc_moves)
         state.add_traj(ens=i, traj=path, valid=path.traj_v, count=False)
-        traj_num_dic[path.path_number] = {'frac': np.zeros(size+1),
-                                          'ens_save_idx': i + 1,
-                                          'max_op': path.ordermax,
-                                          'length': path.length,
-                                          'traj_v': path.traj_v}
+        traj_num_dic[path.path_number].update({'ens_save_idx': i + 1,  
+                                               'max_op': path.ordermax,
+                                               'length': path.length,  
+                                               'traj_v': path.traj_v})  
+
+        # traj_num_dic[path.path_number] = {'frac': np.zeros(size+1),
+        #                                   'ens_save_idx': i + 1,
+        #                                   'max_op': path.ordermax,
+        #                                   'length': path.length,
+        #                                   'traj_v': path.traj_v}
         if not config['simulation']['internal']:
             traj_num_dic[path.path_number]['adress'] = set(kk.particles.config[0].split('salt')[-1]
                                                            for kk in path.phasepoints)
@@ -217,11 +251,16 @@ def setup_internal(config):
     path = sim.ensembles[0]['path_ensemble'].last_path
     path.traj_v = (1,)
     state.add_traj(ens=-1, traj=path, valid=path.traj_v, count=False)
-    traj_num_dic[path.path_number] = {'frac': np.zeros(size+1),
-                                      'ens_save_idx': 0,
-                                      'max_op': path.ordermax,
-                                      'length': path.length, 
-                                      'traj_v': path.traj_v}
+    traj_num_dic[path.path_number].update({'ens_save_idx': 0,      
+                                           'max_op': path.ordermax,
+                                           'length': path.length,  
+                                           'traj_v': path.traj_v})
+    # traj_num_dic[path.path_number] = {'frac': np.zeros(size+1),
+    #                                   'ens_save_idx': 0,
+    #                                   'max_op': path.ordermax,
+    #                                   'length': path.length, 
+    #                                   'traj_v': path.traj_v}
+
     if not config['simulation']['internal']:
         traj_num_dic[path.path_number]['adress'] = set(kk.particles.config[0].split('salt')[-1]
                                                        for kk in path.phasepoints)
@@ -269,8 +308,6 @@ def pwd_checker(state):
             all_good = False
 
     return all_good
-
-
 
 
 def prep_pyretis(state, md_items, inp_traj, ens_nums):
