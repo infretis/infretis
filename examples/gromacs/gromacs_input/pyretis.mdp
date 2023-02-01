@@ -166,7 +166,7 @@ tc-grps                  = system
 tau_t                    = 0.1
 ref_t                    = 300
 ; pressure coupling     
-pcoupl                   = no; parrinello-rahman
+pcoupl                   = berendsen; parrinello-rahman
 pcoupltype               = isotropic
 nstpcouple               = -1
 ; Time constant (ps), compressibility (1/bar) and reference P (bar)
