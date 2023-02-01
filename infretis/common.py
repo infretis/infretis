@@ -80,7 +80,7 @@ def treat_output(state, md_items):
             traj_num += 1
             
             # NB! Saving can take some time..
-            if state.config['output']['save']:
+            if state.config['output']['store_paths']:
                 cycle = {'step': traj_num -1 , 'endcycle': 10,
                          'startcycle': 0, 'stepno': 10, 'steps': 10}
                 result = {f'status-{ens_num+1}': 'ACC', 'cycle': cycle,
@@ -125,7 +125,7 @@ def write_to_pathens(state, pn_archive):
     traj_num_dic = state.traj_num_dic
     size = state.n
 
-    with open('infretis_data.txt', 'a') as fp:
+    with open(state.data_file, 'a') as fp:
         for pn in pn_archive:
             string = ''
             string += f'\t{pn:3.0f}\t'
@@ -161,6 +161,10 @@ def setup_internal(config):
     interfaces = sim_settings['simulation']['interfaces']
     size = len(interfaces)
 
+    data_dir = config['output']['data_dir']
+    pattern_file = os.path.join(data_dir, 'pattern.txt')
+    data_file = os.path.join(data_dir, 'infretis_data.txt')
+
     # check if we restart or not 
     if 'current' not in config:
         config['current'] = {}
@@ -169,7 +173,7 @@ def setup_internal(config):
         config['current']['active'] = list(range(size))
         config['current']['locked'] = []
         config['current']['size'] = size
-        with open('infretis_data.txt', 'w') as fp:
+        with open(data_file, 'w') as fp:
             fp.write('# ' + '='*(34+8*size)+ '\n')
             ens_str = '\t'.join([f'{i:03.0f}' for i in range(size)])
             fp.write('# ' + f'\txxx\tlen\tmax OP\t\t{ens_str}\n')
@@ -240,6 +244,9 @@ def setup_internal(config):
     if 'traj_num' not in config['current'].keys():
         config['current']['traj_num'] = max(config['current']['active']) + 1
     state.config = config
+    state.pattern_file = pattern_file
+    state.data_file = data_file
+
     state.ensembles = {i: sim.ensembles[i] for i in range(len(sim.ensembles))}
     md_items = {'settings': sim.settings,
                 'mc_moves': state.mc_moves,
@@ -322,7 +329,7 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
     # save pattern grid:
     if state.pattern and state.worker == state.workers:
         now0 = time.time()
-        with open('pattern.txt', 'a') as fp:
+        with open(state.pattern_file, 'a') as fp:
             for idx, ens_num in enumerate(ens_nums_old):
                 fp.write(f"{ens_num+1}\t{state.time_keep[md_items['pin']]:.5f}\t" +
                          f"{now0:.5f}\t{md_items['pin']}\n")

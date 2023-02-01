@@ -3,12 +3,12 @@ workers = 1
 
 [simulation]
 pyretis_inp = "retis.rst"
-internal = false
+internal = true
 states_ab = [
     0.27,
     0.45,
 ]
-steps = 10
+steps = 25
 seed = 0
 
 [engine]
@@ -29,7 +29,7 @@ periodic = false
 
 [output]
 backup = "backup"
-store_paths = true
-screen = 1
-pattern = true
+store_paths = false
+screen = 0
+pattern = false
 data_dir = "./"

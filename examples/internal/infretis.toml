@@ -29,6 +29,7 @@ periodic = false
 
 [output]
 backup = "backup"
-save = false
-screen = 1
-pattern = 1
+store_paths = false
+screen = 25
+pattern = true
+data_dir = "./data"

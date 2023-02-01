@@ -116,6 +116,8 @@ class REPEX_state(object):
         self.time_keep = {}
         self.pattern = 0
         self.output_tasks = None
+        self.data_file = None
+        self.pattern_file = None
 
     def pick_lock(self):
         if not self.config['current']['locked']:
@@ -238,9 +240,7 @@ class REPEX_state(object):
             # false.
             self.print_end()
             self.write_toml()
-            print('bimbim', self.locked_paths())
             return False
-
 
         self.cstep += 1
         self.config['current']['cstep'] = self.cstep
@@ -275,7 +275,7 @@ class REPEX_state(object):
             return False
 
         if self.pattern > 0:
-            with open('pattern.txt', 'w') as fp:
+            with open(self.pattern_file, 'w') as fp:
                 fp.write('# \n')
         if self.worker == -1:
             if self.screen > 0:

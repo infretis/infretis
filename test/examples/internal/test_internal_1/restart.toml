@@ -1,0 +1,141 @@
+[dask]
+workers = 1
+
+[simulation]
+pyretis_inp = "retis.rst"
+internal = true
+states_ab = [
+    0.27,
+    0.45,
+]
+steps = 25
+seed = 0
+
+[engine]
+engine = "gromacs"
+input_path = "gromacs_input"
+gmx = "gmx_mpi"
+mdrun = "srun --exclusive --ntasks 2 --mem-per-cpu 500 gmx_mpi mdrun -ntomp 1"
+subcycles = 1
+maxwarn = 15
+
+[order_parameter]
+class = "Distance"
+index = [
+    0,
+    1,
+]
+periodic = false
+
+[output]
+backup = "backup"
+store_paths = false
+screen = 0
+pattern = false
+data_dir = "./"
+
+[current]
+traj_num = 33
+cstep = 25
+active = [
+    22,
+    31,
+    2,
+    32,
+    29,
+    10,
+    30,
+    27,
+]
+locked = []
+size = 8
+
+[current.frac]
+2 = [
+    0.0,
+    14.722058823529416,
+    10.277941176470591,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+]
+10 = [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    6.0745318091528135,
+    16.925468190847187,
+    0.0,
+    0.0,
+    0.0,
+]
+22 = [
+    11.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+]
+27 = [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.4142880712753671,
+    6.585711928724633,
+    0.0,
+]
+29 = [
+    0.0,
+    0.0,
+    0.0,
+    2.7586206896551726,
+    2.2413793103448274,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+]
+30 = [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    4.0,
+    0.0,
+    0.0,
+]
+31 = [
+    0.0,
+    2.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+]
+32 = [
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+]
