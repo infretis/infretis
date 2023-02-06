@@ -1,6 +1,8 @@
 import numpy as np
+import os
 import time
 import tomli_w
+import pickle
 
 
 # Define some infRETIS infrastructure
@@ -93,6 +95,7 @@ class REPEX_state(object):
         else:
             self._offset = 0
 
+        # set numpy random seed when we initiate REPEX_state
         np.random.seed(0)
 
         self.n = n
@@ -229,14 +232,33 @@ class REPEX_state(object):
                  zip(self._trajs[:-1], self._locks[:-1]) if l0]
         return locks
 
+    def save_rng(self):
+        rng_dic = {'rng-state': np.random.get_state()}
+        # save_loc = self.config['simulation']['load_dir']
+        save_loc = self.config['simulation'].get('save_loc', './')
+        save_loc = os.path.join('./', save_loc, 'infretis.restart')
+        with open(save_loc, 'wb') as outfile:
+            pickle.dump(rng_dic, outfile)
+
+    def set_rng(self):
+        save_loc = self.config['simulation'].get('save_loc', './')
+        # save_loc = self.config['simulation']['load_dir']
+        save_loc = os.path.join('./', save_loc, 'infretis.restart')
+        with open(save_loc, 'rb') as infile:
+            info = pickle.load(infile)
+        np.random.set_state(info['rng-state'])
+
     def loop(self):
+        # save current random state
+        self.save_rng()
+
         if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
             if self.cstep not in (0, self.config['current'].get('restarted-from', 0)):
                 print(f'------- infinity {self.cstep:5.0f} END -------\n')
 
         if self.cstep >= self.tsteps:
-            # should probably wait until all workers are free to close
-            # the while loop, but for now when cstep >= tsteps we return
+            # should probably add a check for stopping when all workers are free
+            # to close the while loop, but for now when cstep >= tsteps we return
             # false.
             self.print_end()
             self.write_toml()
@@ -245,29 +267,10 @@ class REPEX_state(object):
         self.cstep += 1
         self.config['current']['cstep'] = self.cstep
         
-        # if self.cstep > self.tsteps:
-        #     if self.screen > 0:
-        #         self.print_end()
-        #         self.write_toml()
-        # else:
-        #     self.cstep += 1
-        #     self.config['current']['cstep'] = self.cstep
-        # if not self.cstep < self.tsteps + self.workers:
-        # if not self.cstep <= self.tsteps:
-        #     print('barger 1')
-        #     print(self.cstep <= self.tsteps)
-        #     print(self.cstep, self.tsteps)
-        #     print('barger 2')
-        # # if self.cstep == self.tsteps:
-        #     if self.screen > 0:
-        #         self.cstep += -1
-        #         self.print_end()
-        #         self.write_toml()
         if self.cstep <= self.tsteps:
             if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
                 print(f'------- infinity {self.cstep:5.0f} START -------')
-        # return self.cstep < self.tsteps + self.workers
-        # print('burg', self.cstep, self.tsteps)
+
         return self.cstep <= self.tsteps
 
     def initiate(self):

@@ -8,8 +8,10 @@ states_ab = [
     0.27,
     0.45,
 ]
-steps = 10
+steps = 3
 seed = 0
+save_loc = "./data"
+load_dir = "trajs"
 
 [engine]
 engine = "gromacs"
