@@ -10,6 +10,7 @@ states_ab = [
 ]
 steps = 25
 seed = 0
+save_loc = "./"
 
 [engine]
 engine = "gromacs"
@@ -29,7 +30,7 @@ periodic = false
 
 [output]
 backup = "backup"
-store_paths = false
+store_paths = true
 screen = 0
 pattern = false
 data_dir = "./"

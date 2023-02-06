@@ -5,6 +5,8 @@ from pyretis.core.tis import select_shoot
 from pyretis.core.retis import retis_swap_zero
 from pyretis.setup import create_simulation
 from pyretis.inout.settings import parse_settings_file
+from pyretis.inout.restart import write_ensemble_restart
+from pyretis.inout.common import make_dirs
 from infretis.inf_core import REPEX_state
 from dask.distributed import dask, Client, as_completed
 from pyretis.core.common import compute_weight
@@ -64,6 +66,7 @@ def treat_output(state, md_items):
                                md_items['pnum_old']):
         # if path is new: number and save the path:
         out_traj = ensembles[ens_num+1]['path_ensemble'].last_path
+        state.ensembles[ens_num+1] = ensembles[ens_num+1]
         if out_traj.path_number == None or md_items['status'] == 'ACC':
             # move to accept:
             ens_save_idx = traj_num_dic[pn_old]['ens_save_idx']
@@ -90,14 +93,28 @@ def treat_output(state, md_items):
                                     'status': 'ACC', 'trial': out_traj, 'accept': True},
                           f'pathensemble-{ens_num+1}': state.ensembles[0]['path_ensemble']}
                 flipppa = time.time() 
+                if md_items['internal'] and state.config['output']['store_paths']:
+                    dirname = f'./trajs/{out_traj.path_number}'
+                    make_dirs(dirname)
                 for task in state.output_tasks:
                     task.output(result)
-                print('saving path time:', time.time() - flipppa)
+
+        if state.config['output']['store_paths']:
+            print('writewrite')
+            write_ensemble_restart(state.ensembles[ens_num+1], md_items['settings'], save='path')
+            write_ensemble_restart(state.ensembles[ens_num+1], md_items['settings'], save=f'e{ens_num+1}')
             
         pn_news.append(out_traj.path_number)
         state.add_traj(ens_num, out_traj, out_traj.traj_v)
-        state.ensembles[ens_num+1] = md_items['ensembles'][ens_num+1]
-        md_items['ensembles'].pop(ens_num+1)
+
+        print('pnumber', out_traj.path_number)
+        print(f'00{ens_num+1}', out_traj.rgen.get_state()['state'][2])
+        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['path_ensemble'].rgen.get_state()['state'][2])
+        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['engine'].rgen.get_state()['state'][2])
+        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['rgen'].get_state()['state'][2])
+        print()
+
+        ensembles.pop(ens_num+1)
     state.config['current']['traj_num'] = traj_num
         
     # record weights 
@@ -188,9 +205,28 @@ def setup_internal(config):
     # give path to the active paths
     sim_settings['current'] = {'size': size}
     sim_settings['current']['active'] = config['current']['active']
+
     sim = create_simulation(sim_settings)
+
+    for idx, pn in enumerate(config['current']['active']):
+        sim.ensembles[idx]['path_ensemble'].path_number = pn
+
+    # path rng and ensemble rng objects have to be saved separately!
+    # create worker/ensemble restart folders
+    for worker in range(config['dask']['workers']):
+        dirname = f'./trajs/e{worker}'
+        make_dirs(dirname)
+
     sim.set_up_output(sim_settings)
+    ############################
+    ############################
+    ############################
+    ############################
+    ############################
+
+    # print(sim_settings)
     sim.initiate(sim_settings)
+    # exit('haha')
 
     if config['current']['traj_num'] == 0:
         for i_ens in sim.ensembles:
@@ -207,6 +243,7 @@ def setup_internal(config):
     state.output_tasks = sim.output_tasks
     state.mc_moves = sim.settings['tis']['shooting_moves']
     traj_num_dic = state.traj_num_dic
+
 
     # load acc frac if restart
     for path_num in config['current']['active']:
@@ -246,12 +283,21 @@ def setup_internal(config):
     state.config = config
     state.pattern_file = pattern_file
     state.data_file = data_file
+    if 'restarted-from' in config['current']:
+        state.set_rng()
 
     state.ensembles = {i: sim.ensembles[i] for i in range(len(sim.ensembles))}
+    ###
+    sim.settings['initial-path']['load_folder'] = 'trajs'
     md_items = {'settings': sim.settings,
                 'mc_moves': state.mc_moves,
                 'ensembles': {}, 
                 'internal': config['simulation']['internal']}
+
+    print('start zebra 0')
+    for idx, traj in enumerate(state._trajs[:-1]):
+        print(idx, traj.path_number, traj.ordermax)
+    print('start zebra 1')
 
     return md_items, state
 
@@ -296,8 +342,14 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
         if not pwd_checker(state):
             exit('sumtin fishy goin on here')
 
-    # write toml:
+    # write toml and rng:
     state.write_toml(ens_nums, inp_traj)
+
+    ###
+    ### make sure where to save_rng().
+    ### pig state.save_rng()
+    ###
+    ###
 
     # update pwd
     if state.worker != state.workers:
@@ -308,6 +360,13 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
 
     for ens_num, traj_inp in zip(ens_nums, inp_traj):
         state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
+        print('pnumber', traj_inp.path_number)
+        print(f'00{ens_num+1}', traj_inp.rgen.get_state()['state'][2])
+        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['path_ensemble'].rgen.get_state()['state'][2])
+        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['engine'].rgen.get_state()['state'][2])
+        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['rgen'].get_state()['state'][2])
+        print()
+        # exit('ape')
         md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
 
     # print state:

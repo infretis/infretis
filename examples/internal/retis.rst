@@ -4,7 +4,7 @@ Retis 1D example
 Simulation
 ----------
 task = retis
-steps = 200000
+steps = 200
 interfaces = [-0.99, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, 1.0] 
 
 System 
@@ -50,7 +50,7 @@ swapsimul = True
 
 Initial-path settings
 ---------------------
-method = kick
+method = restart
 kick-from = initial
 
 Particles

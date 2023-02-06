@@ -1,5 +1,5 @@
 [dask]
-workers = 3
+workers = 1
 
 [simulation]
 pyretis_inp = "retis.rst"
@@ -8,8 +8,9 @@ states_ab = [
     0.27,
     0.45,
 ]
-steps = 10
+steps = 25
 seed = 0
+save_loc = "./data"
 
 [engine]
 engine = "gromacs"
@@ -29,7 +30,7 @@ periodic = false
 
 [output]
 backup = "backup"
-store_paths = false
-screen = 25
-pattern = true
-data_dir = "./data"
+store_paths = true
+screen = 0
+pattern = false
+data_dir = "./"

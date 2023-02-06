@@ -50,7 +50,7 @@ swapsimul = True
 
 Initial-path settings
 ---------------------
-method = kick
+method = restart
 kick-from = initial
 
 Particles

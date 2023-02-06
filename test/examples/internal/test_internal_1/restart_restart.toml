@@ -10,6 +10,7 @@ states_ab = [
 ]
 steps = 50
 seed = 0
+save_loc = "./"
 
 [engine]
 engine = "gromacs"
@@ -29,11 +30,10 @@ periodic = false
 
 [output]
 backup = "backup"
-store_paths = false
+store_paths = true
 screen = 0
 pattern = false
-data_dir = "./infretis_data.txt"
-pattern_dir = "./pattern.txt"
+data_dir = "./"
 
 [current]
 traj_num = 61
@@ -50,6 +50,7 @@ active = [
 ]
 locked = []
 size = 8
+restarted-from = 25
 
 [current.frac]
 35 = [
