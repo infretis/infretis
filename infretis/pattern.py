@@ -28,9 +28,9 @@ def pattern(inp, cap=250):
         for i in dic[int(worker)]:
             plt.plot(i[0], i[1], alpha=0.2, color=c_dic[int(worker)])
     
-    plt.plot([3, max(a[:, 2])-3], [max_ens+4]*2, color='k') 
-    plt.plot([3, max(a[:, 2])-3], [min_ens-4]*2, color='k') 
+    plt.plot([3, max(a[:, 2])-3], [max_ens+3]*2, color='k', alpha=0.0)
+    plt.plot([3, max(a[:, 2])-3], [min_ens-3]*2, color='k', alpha=0.0)
     plt.xlabel(r"Time [s]")
-    plt.ylabel(r"OP")
-    plt.legend(frameon=False, loc='upper right')
-    plt.savefig('pattern.pdf')
+    plt.ylabel(r"Ensemble")
+    lgd = plt.legend(bbox_to_anchor=(1.04, 0.5), loc="center left", borderaxespad=0,  edgecolor='k', framealpha=1.0,)
+    plt.savefig('pattern.pdf', bbox_extra_artists=(lgd,), bbox_inches='tight')

@@ -66,7 +66,7 @@ class test_infretisrun(unittest.TestCase):
                 true_list.append(istrue)
 
             # cd to previous, need to do this to delete tempdir
-            # os.chdir(file_path)
+            os.chdir(file_path)
         os.chdir(curr_path)
 
         # finally check the istrues
