@@ -100,19 +100,13 @@ def treat_output(state, md_items):
                     task.output(result)
 
         if state.config['output']['store_paths']:
-            print('writewrite')
+            # save ensemble-path_ensemble-rgen (not used) and ensemble-path
             write_ensemble_restart(state.ensembles[ens_num+1], md_items['settings'], save='path')
+            # save ensemble-rgen, ensemble-engine-rgen
             write_ensemble_restart(state.ensembles[ens_num+1], md_items['settings'], save=f'e{ens_num+1}')
             
         pn_news.append(out_traj.path_number)
         state.add_traj(ens_num, out_traj, out_traj.traj_v)
-
-        print('pnumber', out_traj.path_number)
-        print(f'00{ens_num+1}', out_traj.rgen.get_state()['state'][2])
-        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['path_ensemble'].rgen.get_state()['state'][2])
-        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['engine'].rgen.get_state()['state'][2])
-        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['rgen'].get_state()['state'][2])
-        print()
 
         ensembles.pop(ens_num+1)
     state.config['current']['traj_num'] = traj_num
@@ -218,15 +212,7 @@ def setup_internal(config):
         make_dirs(dirname)
 
     sim.set_up_output(sim_settings)
-    ############################
-    ############################
-    ############################
-    ############################
-    ############################
-
-    # print(sim_settings)
     sim.initiate(sim_settings)
-    # exit('haha')
 
     if config['current']['traj_num'] == 0:
         for i_ens in sim.ensembles:
@@ -360,13 +346,6 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
 
     for ens_num, traj_inp in zip(ens_nums, inp_traj):
         state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
-        print('pnumber', traj_inp.path_number)
-        print(f'00{ens_num+1}', traj_inp.rgen.get_state()['state'][2])
-        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['path_ensemble'].rgen.get_state()['state'][2])
-        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['engine'].rgen.get_state()['state'][2])
-        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['rgen'].get_state()['state'][2])
-        print()
-        # exit('ape')
         md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
 
     # print state:

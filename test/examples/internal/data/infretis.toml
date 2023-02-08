@@ -8,7 +8,7 @@ states_ab = [
     0.27,
     0.45,
 ]
-steps = 25
+steps = 20
 seed = 0
 save_loc = "./"
 
