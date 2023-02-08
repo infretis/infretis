@@ -38,7 +38,7 @@ class test_infretisrun(unittest.TestCase):
             os.mkdir('trajs')
             copy_tree(f'../{folder}/trajs', './trajs')
             for ens in range(8):
-                copy_tree(f'../{folder}/trajs/{ens}', f'../{folder}/trajs/e{ens}')
+                copy_tree(f'./trajs/{ens}', f'./trajs/e{ens}')
             
             # run standard simulation start command
             os.system("infretisrun -i infretis.toml >| out.txt")
@@ -118,7 +118,7 @@ class test_infretisrun(unittest.TestCase):
             os.mkdir('trajs')
             copy_tree(f'../{folder}/trajs', './trajs')
             for ens in range(8):
-                copy_tree(f'../{folder}/trajs/{ens}', f'../{folder}/trajs/e{ens}')
+                copy_tree(f'./trajs/{ens}', f'./trajs/e{ens}')
             
             # run standard simulation start command
             os.system("infretisrun -i infretis.toml >| out.txt")

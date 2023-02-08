@@ -1,6 +1,6 @@
-infretisrun -i infretis.toml
-infretisanalyze -i infretis_data.txt -p pattern.txt
-# pyretisanalyse -i retis.rst # to produce report
+# run all 
+cd ./sh-norestart/ ; bash script.sh ; cd .. ;
+cd ./sh-restart/ ; bash script.sh ; cd .. ;
+cd ./wf-norestart/ ; bash script.sh ; cd .. ;
+cd ./wf-restart/ ; bash script.sh ; cd .. ;
 
-# this deletes everything
-bash clean.sh

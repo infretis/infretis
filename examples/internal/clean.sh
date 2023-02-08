@@ -1,6 +1,6 @@
-# this deletes everything temp
-rm -r 0* out.rst* pyretis.log* pyretis.restart*
-rm pattern.txt infretis_data.txt restart.toml
-rm data/* infretis.restart
-cd trajs ; rm -r 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 8 9 34  35  36  37  38  39 40  41  42  43  44  45  46  47  48  49 50  51  52  53  54  55  56  57  58  59
-cd .. ;
+# clean all 
+cd ./sh-norestart/ ; bash clean.sh ; cd .. ;
+cd ./sh-restart/ ; bash clean.sh ; cd .. ;
+cd ./wf-norestart/ ; bash clean.sh ; cd .. ;
+cd ./wf-restart/ ; bash clean.sh ; cd .. ;
+

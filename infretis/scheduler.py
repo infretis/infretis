@@ -24,10 +24,8 @@ def scheduler(input_file):
 
     # main loop
     while state.loop():
-        # get output from finished worker
+        # get and treat worker output
         md_items = next(futures)[1]
-
-        # analyze & store output
         treat_output(state, md_items)
 
         # submit new job:
@@ -39,3 +37,6 @@ def scheduler(input_file):
             # submit job
             fut = client.submit(run_md, md_items, pure=False)
             futures.add(fut)
+
+    # end client
+    client.close()
