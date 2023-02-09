@@ -10,6 +10,8 @@ def scheduler(input_file):
 
     # setup pyretis, repex, dask client and futures
     md_items, state = setup_internal(config)
+    if None in (md_items, state):
+        return
     client, futures = setup_dask(state.workers)
 
     # submit the first number of workers

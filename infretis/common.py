@@ -192,9 +192,9 @@ def setup_internal(config):
     else:
         config['current']['restarted-from'] = config['current']['cstep']
         if config['current']['cstep'] == config['simulation']['steps']:
-            print('current step and total steps are equal, we increase total',
-                  'steps with the number of workers.')
-            config['simulation']['steps'] += config['dask']['workers']
+            print('current step and total steps are equal so we exit ',
+                  'without doing anything.')
+            return None, None
 
     # give path to the active paths
     sim_settings['current'] = {'size': size}
@@ -273,7 +273,6 @@ def setup_internal(config):
         state.set_rng()
 
     state.ensembles = {i: sim.ensembles[i] for i in range(len(sim.ensembles))}
-    ###
     sim.settings['initial-path']['load_folder'] = 'trajs'
     md_items = {'settings': sim.settings,
                 'mc_moves': state.mc_moves,

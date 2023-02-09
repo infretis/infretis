@@ -57,7 +57,7 @@ class test_infretisrun(unittest.TestCase):
                 config = tomli.load(f)
                 config['simulation']['steps'] = 40
             with open("./restart.toml", "wb") as f:
-                tomli_w.dump(config, f)       
+                tomli_w.dump(config, f)
             
             # restart standard simulation start command
             os.system("infretisrun -i restart.toml >> out.txt")
@@ -70,12 +70,12 @@ class test_infretisrun(unittest.TestCase):
                     print(f'./{item0}', f'../{folder}/{item2}')
                 self.assertTrue(istrue)
 
-            # edit restart.toml by increasing steps from 50 to 100
+            # edit restart.toml by increasing steps from 40 to 60
             with open('restart.toml', mode="rb") as f:
                 config = tomli.load(f)
                 config['simulation']['steps'] = 60
             with open("./restart.toml", "wb") as f:
-                tomli_w.dump(config, f)       
+                tomli_w.dump(config, f)
             
             # restart standard simulation start command
             os.system("infretisrun -i restart.toml >> out.txt")
@@ -134,7 +134,7 @@ class test_infretisrun(unittest.TestCase):
                 config = tomli.load(f)
                 config['simulation']['steps'] = 40
             with open("./restart.toml", "wb") as f:
-                tomli_w.dump(config, f)       
+                tomli_w.dump(config, f)
             
             # restart standard simulation start command
             os.system("infretisrun -i restart.toml >> out.txt")
@@ -147,13 +147,13 @@ class test_infretisrun(unittest.TestCase):
                     print(f'./{item0}', f'../{folder}/{item2}')
                 self.assertTrue(istrue)
 
-            # edit restart.toml by increasing steps from 50 to 100
+            # edit restart.toml by increasing steps from 40 to 60
             with open('restart.toml', mode="rb") as f:
                 config = tomli.load(f)
                 config['simulation']['steps'] = 60
             with open("./restart.toml", "wb") as f:
-                tomli_w.dump(config, f)       
-            
+                tomli_w.dump(config, f)
+
             # restart standard simulation start command
             os.system("infretisrun -i restart.toml >> out.txt")
 
@@ -199,6 +199,37 @@ class test_infretisrun(unittest.TestCase):
                     print(f'./{item0}', f'../{folder}/{item1}')
                 self.assertTrue(istrue)
 
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['simulation']['steps'] = 30
+            with open("./restart.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # restart standard simulation start command
+            os.system("infretisrun -i restart.toml >> out.txt")
+            # running a zero step sim should not affect the following results
+            os.system("infretisrun -i restart.toml >> out.txt")
+
+            # edit restart.toml by increasing steps from 30 to 40
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['simulation']['steps'] = 40
+            with open("./restart.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # restart standard simulation start command
+            os.system("infretisrun -i restart.toml >> out.txt")
+            os.system("sed -i -e '53 s/30/20/' restart.toml >> out.txt")
+
+            # compare files
+            items0 = ['infretis_data.txt', 'restart.toml']
+            items2 = ['sh40steps.txt', 'sh40steps.toml']
+            for item0, item2 in zip(items0, items2):
+                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item2}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item2}')
+                self.assertTrue(istrue)
+
             os.chdir(file_path)
         os.chdir(curr_path)
 
@@ -232,9 +263,40 @@ class test_infretisrun(unittest.TestCase):
                     print(f'./{item0}', f'../{folder}/{item1}')
                 self.assertTrue(istrue)
 
+            # edit restart.toml by increasing steps from 20 to 30
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['simulation']['steps'] = 30
+            with open("./restart.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # restart standard simulation start command
+            os.system("infretisrun -i restart.toml >> out.txt")
+            # # running a zero step sim should not affect the following results
+            os.system("infretisrun -i restart.toml >> out.txt")
+
+            # edit restart.toml by increasing steps from 30 to 40
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['simulation']['steps'] = 40
+            with open("./restart.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # restart standard simulation start command
+            os.system("infretisrun -i restart.toml >> out.txt")
+            os.system("sed -i -e '53 s/30/20/' restart.toml >> out.txt")
+
+            # compare files
+            items0 = ['infretis_data.txt', 'restart.toml']
+            items2 = ['wf40steps.txt', 'wf40steps.toml']
+            for item0, item2 in zip(items0, items2):
+                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item2}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item2}')
+                self.assertTrue(istrue)
+
             os.chdir(file_path)
         os.chdir(curr_path)
 
-# test what happens if we try to restart given restart.toml that does not have more steps.
 if __name__ == '__main__':  
     unittest.main()
