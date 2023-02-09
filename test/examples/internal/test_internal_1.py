@@ -48,8 +48,9 @@ class test_infretisrun(unittest.TestCase):
             items1 = ['sh20steps.txt', 'sh20steps.toml']
             for item0, item1 in zip(items0, items1): 
                 istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item1}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item1}')
                 self.assertTrue(istrue)
-                true_list.append(istrue)
 
             # edit restart.toml by increasing steps from 25 to 50
             with open('restart.toml', mode="rb") as f:
@@ -63,10 +64,11 @@ class test_infretisrun(unittest.TestCase):
 
             # compare files
             items2 = ['sh40steps.txt', 'sh40steps.toml']
-            for item0, item2 in zip(items0, items2): 
+            for item0, item2 in zip(items0, items2):
                 istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item2}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item2}')
                 self.assertTrue(istrue)
-                true_list.append(istrue)
 
             # edit restart.toml by increasing steps from 50 to 100
             with open('restart.toml', mode="rb") as f:
@@ -82,18 +84,13 @@ class test_infretisrun(unittest.TestCase):
             items3 = ['sh60steps.txt', 'sh60steps.toml']
             for item0, item3 in zip(items0, items3): 
                 istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item3}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item3}')
                 self.assertTrue(istrue)
-                true_list.append(istrue)
 
             # cd to previous, need to do this to delete tempdir
             os.chdir(file_path)
         os.chdir(curr_path)
-
-        # finally check the istrues
-        for istrue, item in zip(true_list, items1 + items2 + items3):
-            if not istrue:
-                print('fail!', item)
-            self.assertTrue(istrue)
 
     def test_infretisrun_1worker_wf(self):
         # get path of where we run coverage unittest
@@ -128,8 +125,9 @@ class test_infretisrun(unittest.TestCase):
             items1 = ['wf20steps.txt', 'wf20steps.toml']
             for item0, item1 in zip(items0, items1): 
                 istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item1}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item1}')
                 self.assertTrue(istrue)
-                true_list.append(istrue)
 
             # edit restart.toml by increasing steps from 25 to 50
             with open('restart.toml', mode="rb") as f:
@@ -145,8 +143,9 @@ class test_infretisrun(unittest.TestCase):
             items2 = ['wf40steps.txt', 'wf40steps.toml']
             for item0, item2 in zip(items0, items2): 
                 istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item2}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item2}')
                 self.assertTrue(istrue)
-                true_list.append(istrue)
 
             # edit restart.toml by increasing steps from 50 to 100
             with open('restart.toml', mode="rb") as f:
@@ -162,18 +161,80 @@ class test_infretisrun(unittest.TestCase):
             items3 = ['wf60steps.txt', 'wf60steps.toml']
             for item0, item3 in zip(items0, items3): 
                 istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item3}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item3}')
                 self.assertTrue(istrue)
-                true_list.append(istrue)
 
             # cd to previous, need to do this to delete tempdir
             os.chdir(file_path)
         os.chdir(curr_path)
 
-        # finally check the istrues
-        for istrue, item in zip(true_list, items1 + items2 + items3):
-            if not istrue:
-                print('fail!', item)
-            self.assertTrue(istrue)
+    def test_pick_lock_sh(self):
+        # get current path
+        curr_path = pathlib.Path.cwd()
 
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        # here we unzip a "crashed" simulation (we finish step 10
+        # but did not recieve step 11 path back. so we restart
+        # from last restart.toml file.
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            shutil.copy(f'../{folder}/sh-crash.zip', './')
+            shutil.unpack_archive('sh-crash.zip', './')
+            os.system("infretisrun -i restart.toml >| out.txt")
+            os.system("sed '53d' restart.toml >| restart0.toml")
+
+            items0 = ['infretis_data.txt', 'restart0.toml']
+            items1 = ['sh20steps.txt', 'sh20steps.toml']
+            for item0, item1 in zip(items0, items1):
+                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item1}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item1}')
+                self.assertTrue(istrue)
+
+            os.chdir(file_path)
+        os.chdir(curr_path)
+
+    def test_pick_lock_wf(self):
+        # get current path
+        curr_path = pathlib.Path.cwd()
+
+        # here we unzip a "crashed" simulation (we finish step 10
+        # but did not recieve step 11 path back. so we restart
+        # from last restart.toml file.
+
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            shutil.copy(f'../{folder}/wf-crash.zip', './')
+            shutil.unpack_archive('wf-crash.zip', './')
+            os.system("infretisrun -i restart.toml >| out.txt")
+            os.system("sed '53d' restart.toml >| restart0.toml")
+
+            items0 = ['infretis_data.txt', 'restart0.toml']
+            items1 = ['wf20steps.txt', 'wf20steps.toml']
+            for item0, item1 in zip(items0, items1):
+                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item1}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item1}')
+                self.assertTrue(istrue)
+
+            os.chdir(file_path)
+        os.chdir(curr_path)
+
+# test what happens if we try to restart given restart.toml that does not have more steps.
 if __name__ == '__main__':  
     unittest.main()

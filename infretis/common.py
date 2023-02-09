@@ -72,7 +72,7 @@ def treat_output(state, md_items):
             ens_save_idx = traj_num_dic[pn_old]['ens_save_idx']
             state.ensembles[ens_save_idx]['path_ensemble'].store_path(out_traj)
             out_traj.path_number = traj_num
-            traj_num_dic[traj_num] = {'frac': np.zeros(state.n),
+            traj_num_dic[traj_num] = {'frac': np.zeros(state.n, dtype="float128"),
                                       'max_op': out_traj.ordermax,
                                       'length': out_traj.length,
                                       'traj_v': out_traj.traj_v,
@@ -234,9 +234,9 @@ def setup_internal(config):
     # load acc frac if restart
     for path_num in config['current']['active']:
         if 'frac' in config['current']:
-            traj_num_dic[path_num] = {'frac': config['current']['frac'].get(str(path_num), np.zeros(size+1))}
+            traj_num_dic[path_num] = {'frac': np.array(config['current']['frac'].get(str(path_num), np.zeros(size+1)), dtype="float128")}
         else:
-            traj_num_dic[path_num] = {'frac': np.zeros(size+1)}
+            traj_num_dic[path_num] = {'frac': np.zeros(size+1, dtype="float128")}
 
     ## initiate by adding paths from retis sim to repex
     for i in range(size-1):
@@ -330,12 +330,6 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
 
     # write toml and rng:
     state.write_toml(ens_nums, inp_traj)
-
-    ###
-    ### make sure where to save_rng().
-    ### pig state.save_rng()
-    ###
-    ###
 
     # update pwd
     if state.worker != state.workers:
