@@ -103,7 +103,6 @@ class REPEX_state(object):
         self._locks = np.ones(shape=(n))
         self._last_prob = None
         self._random_count = 0
-        self.result = Results(n, offset=self._offset)
         self._n = 0
         self._trajs = ["" for i in range(n)]
 
@@ -121,6 +120,9 @@ class REPEX_state(object):
         self.output_tasks = None
         self.data_file = None
         self.pattern_file = None
+
+        # Not using this at the moment
+        # self.result = Results(n, offset=self._offset)
 
     def pick_lock(self):
         if not self.config['current']['locked']:
@@ -157,6 +159,9 @@ class REPEX_state(object):
                 other = self._offset
                 other_traj = self.pick_traj_ens(other)
                 return (-1, 0), (traj, other_traj)
+
+        # save current random state
+        self.save_rng()
         return (ens-self._offset,), (traj,)
 
     def pick_traj_ens(self, ens):
@@ -234,7 +239,6 @@ class REPEX_state(object):
 
     def save_rng(self):
         rng_dic = {'rng-state': np.random.get_state()}
-        # save_loc = self.config['simulation']['load_dir']
         save_loc = self.config['simulation'].get('save_loc', './')
         save_loc = os.path.join('./', save_loc, 'infretis.restart')
         with open(save_loc, 'wb') as outfile:
@@ -242,16 +246,12 @@ class REPEX_state(object):
 
     def set_rng(self):
         save_loc = self.config['simulation'].get('save_loc', './')
-        # save_loc = self.config['simulation']['load_dir']
         save_loc = os.path.join('./', save_loc, 'infretis.restart')
         with open(save_loc, 'rb') as infile:
             info = pickle.load(infile)
         np.random.set_state(info['rng-state'])
 
     def loop(self):
-        # save current random state
-        self.save_rng()
-
         if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
             if self.cstep not in (0, self.config['current'].get('restarted-from', 0)):
                 print(f'------- infinity {self.cstep:5.0f} END -------\n')
@@ -613,7 +613,7 @@ class REPEX_state(object):
 
         # save accumulative fracs
         self.config['current']['frac'] = {}
-        for key in self.traj_num_dic.keys():
+        for key in sorted(self.traj_num_dic.keys()):
             self.config['current']['frac'][str(key)] = [float(i) for i in self.traj_num_dic[key]['frac']]
 
         with open("./restart.toml", "wb") as f:

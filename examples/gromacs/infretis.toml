@@ -10,7 +10,7 @@ states_ab = [
 ]
 steps = 3
 seed = 0
-save_loc = "./data"
+save_loc = "./"
 load_dir = "trajs"
 
 [engine]
