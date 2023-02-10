@@ -15,7 +15,6 @@ def read_infinity(inp):
             split_len = int(len(split[3:])/2)
             for idx, (frac, weight) in enumerate(zip(split[3:3+split_len], split[3+split_len:3+split_len*2])):
                 if '-' not in frac or '-' not in weight:
-                    print(frac, weight)
                     path_dic[path_no][f'{idx:03.0f}'] = (float(frac), int(weight))
     return path_dic, split_len
 
