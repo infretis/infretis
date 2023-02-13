@@ -28,6 +28,7 @@ def infretisanalyze():
 
     args_dict = vars(parser.parse_args())
     input_file = args_dict.get('input', inp0)
-    pattern_file = args_dict.get('pattern', inp1)
+    pattern_file = args_dict.get('pattern', False)
     print_pathens(input_file)
-    pattern(pattern_file)
+    if pattern_file:
+        pattern(pattern_file)
