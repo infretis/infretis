@@ -298,5 +298,42 @@ class test_infretisrun(unittest.TestCase):
             os.chdir(file_path)
         os.chdir(curr_path)
 
+    def test_pyretis_dataconv(self):
+        # get path of where we run coverage unittest
+        curr_path = pathlib.Path.cwd()
+
+        # we collect istrue and check at the end to let tempdir
+        # close without a possible AssertionError interuption
+        true_list = []
+
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            shutil.copy(f'../data/wf.rst', './retis.rst')
+            shutil.copy(f'../data/wf40steps.txt', './infretis_data.txt')
+            for ens in range(8):
+                os.mkdir(f'00{ens}')
+            os.system("infretisanalyze -i infretis_data.txt >| out.txt")
+            os.system("pyretisanalyse -i retis.rst >> out.txt")
+        
+            istrue = False
+            with open('./report/retis_report.rst', 'r') as read:
+                for idx, line in enumerate(read):
+                    if 'f_{A}' in line:
+                        istrue = '0.412036268' in line
+                        break
+                    if idx == 15:
+                        break
+            self.assertTrue(istrue)
+
+                # cd to previous, need to do this to delete tempdir
+            os.chdir(file_path)
+        os.chdir(curr_path)
+
 if __name__ == '__main__':  
     unittest.main()
