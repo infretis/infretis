@@ -147,11 +147,11 @@ def write_to_pathens(state, pn_archive):
             if len(traj_num_dic[pn]['traj_v']) == 1:
                 f0 = traj_num_dic[pn]['frac'][0]
                 w0 = traj_num_dic[pn]['traj_v'][0]
-                frac.append('----' if f0 == 0.0 else f"{f0:8.3f}")
+                frac.append('----' if f0 == 0.0 else str(f0))
                 if weight == 0:
                     print('tortoise', frac, weight)
                     exit('fish')
-                weight.append('----' if f0 == 0.0 else f"{w0:8.0f}")
+                weight.append('----' if f0 == 0.0 else str(w0))
                 frac += ['----']*(size-2)
                 weight += ['----']*(size-2)
             else:
@@ -159,8 +159,8 @@ def write_to_pathens(state, pn_archive):
                 weight.append(f'----')
                 for w0, f0 in zip(traj_num_dic[pn]['traj_v'][:-1],
                                   traj_num_dic[pn]['frac'][1:-1]):
-                    frac.append('----' if f0 == 0.0 else f"{f0:5.3f}")
-                    weight.append('----' if f0 == 0.0 else f"{w0:5.0f}")
+                    frac.append('----' if f0 == 0.0 else str(f0))
+                    weight.append('----' if f0 == 0.0 else str(w0))
             fp.write(string + '\t'.join(frac) + '\t' + '\t'.join(weight) + '\t\n')
             traj_num_dic.pop(pn)
 
@@ -254,7 +254,7 @@ def setup_internal(config):
     
     # add minus path:
     path = sim.ensembles[0]['path_ensemble'].last_path
-    path.traj_v = (1,)
+    path.traj_v = (1.,)
     state.add_traj(ens=-1, traj=path, valid=path.traj_v, count=False)
     traj_num_dic[path.path_number].update({'ens_save_idx': 0,      
                                            'max_op': path.ordermax,

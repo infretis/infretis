@@ -1,3 +1,4 @@
+import numpy as np
 HEAD = '#     Step    No.-acc  No.-shoot l m r  Length Acc Mc            Min-O            Max-O Idx-Min Idx-Max          O-shoot  Idx-sh Idx-shN  Weight'
 
 def read_infinity(inp):
@@ -15,7 +16,7 @@ def read_infinity(inp):
             split_len = int(len(split[3:])/2)
             for idx, (frac, weight) in enumerate(zip(split[3:3+split_len], split[3+split_len:3+split_len*2])):
                 if '-' not in frac or '-' not in weight:
-                    path_dic[path_no][f'{idx:03.0f}'] = (float(frac), int(weight))
+                    path_dic[path_no][f'{idx:03.0f}'] = (np.float128(frac), float(weight))
     return path_dic, split_len
 
 
