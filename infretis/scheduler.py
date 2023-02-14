@@ -15,7 +15,7 @@ def scheduler(input_file):
     client, futures = setup_dask(state.workers)
 
     # submit the first number of workers
-    while state.initiate():
+    while state.initiate(md_items):
         # chose ens and path for the next job
         ens_nums, input_traj = state.pick_lock()
         prep_pyretis(state, md_items, input_traj, ens_nums)

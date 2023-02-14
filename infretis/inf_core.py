@@ -109,12 +109,13 @@ class REPEX_state(object):
         self.config = {}
         self.traj_num_dic = {}
         self.workers = workers
+        self.cworker = None
         self.tsteps = None
         self.cstep = None
         self.screen = None
         self.mc_moves = []
         self.ensembles = {}
-        self.worker = -1
+        self.toinitiate = self.workers
         self.time_keep = {}
         self.pattern = 0
         self.output_tasks = None
@@ -145,6 +146,10 @@ class REPEX_state(object):
         self.lock(ens)
         traj = self._trajs[ens]
         # If available do 0+- swap with 50% probability
+
+        ens_nums = (ens-self._offset,)
+        inp_trajs = (traj,)
+
         if ((
              (ens == self._offset and not self._locks[self._offset-1]) or
              (ens == self._offset-1 and not self._locks[self._offset])
@@ -153,16 +158,21 @@ class REPEX_state(object):
                 # ens = 0
                 other = self._offset - 1
                 other_traj = self.pick_traj_ens(other)
-                return (-1, 0), (other_traj, traj)
+                ens_nums = (-1, 0)
+                inp_trajs = (other_traj, traj)
             else:
                 # ens = -1
                 other = self._offset
                 other_traj = self.pick_traj_ens(other)
-                return (-1, 0), (traj, other_traj)
+                ens_nums = (-1, 0)
+                inp_trajs = (traj, other_traj)
 
-        # save current random state
-        self.save_rng()
-        return (ens-self._offset,), (traj,)
+        # print the picked traj and ens
+        if self.printing():
+            pat_nums = [str(i.path_number) for i in inp_trajs]
+            self.print_pick(ens_nums, pat_nums, self.cworker)
+
+        return ens_nums, inp_trajs
 
     def pick_traj_ens(self, ens):
         prob = self.prob.astype("float64")[:, ens].flatten()
@@ -252,7 +262,7 @@ class REPEX_state(object):
         np.random.set_state(info['rng-state'])
 
     def loop(self):
-        if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
+        if self.printing():
             if self.cstep not in (0, self.config['current'].get('restarted-from', 0)):
                 print(f'------- infinity {self.cstep:5.0f} END -------\n')
 
@@ -273,25 +283,28 @@ class REPEX_state(object):
 
         return self.cstep <= self.tsteps
 
-    def initiate(self):
+    def initiate(self, md_items):
         if not self.cstep < self.tsteps:
             return False
+
+        self.cworker = self.workers - self.toinitiate
+        md_items.update({'pin': self.cworker})
 
         if self.pattern > 0:
             with open(self.pattern_file, 'w') as fp:
                 fp.write('# \n')
-        if self.worker == -1:
+        if self.toinitiate == self.workers:
             if self.screen > 0:
                 self.print_start()
-        if self.worker > -1:
+        if self.toinitiate < self.workers:
             if self.screen > 0:
-                print(f'------- submit worker {self.worker} END -------\n')
-        self.worker += 1
-        if self.worker < self.workers:
+                print(f'------- submit worker {self.cworker-1} END -------\n')
+        if self.toinitiate > 0:
             if self.screen > 0:
-                print(f'------- submit worker {self.worker} START -------')
-            self.time_keep[self.worker] = time.time()
-        return self.worker < self.workers
+                print(f'------- submit worker {self.cworker} START -------')
+            self.time_keep[self.workers - self.toinitiate] = time.time()
+        self.toinitiate -= 1
+        return self.toinitiate >= 0
 
 
     @property
@@ -556,6 +569,58 @@ class REPEX_state(object):
 
         return total//num_loops
 
+    def write_toml(self, ens_sel=(), input_traj=()):
+        self.config['current']['active'] = self.live_paths()
+        locked_ep = []
+        for ens0, path0 in zip(ens_sel, input_traj):
+            locked_ep.append((int(ens0 + self._offset), path0.path_number))
+        self.config['current']['locked'] = locked_ep
+
+        # save accumulative fracs
+        self.config['current']['frac'] = {}
+        for key in sorted(self.traj_num_dic.keys()):
+            fracs = [str(i) for i in self.traj_num_dic[key]['frac']]
+            self.config['current']['frac'][str(key)] = fracs
+
+        with open("./restart.toml", "wb") as f:
+            tomli_w.dump(self.config, f)
+
+    def write_pattern(self, md_items):
+        now0 = time.time()
+        with open(self.pattern_file, 'a') as fp:
+            for idx, ens_num in enumerate(md_items['ens_nums']):
+                fp.write(f"{ens_num+1}\t{self.time_keep[md_items['pin']]:.5f}\t" +
+                         f"{now0:.5f}\t{md_items['pin']}\n")
+        self.time_keep[md_items['pin']] = now0
+
+    def printing(self):
+        return self.screen > 0 and np.mod(self.cstep, self.screen) == 0
+
+    def print_pick(self, ens_nums, pat_nums, pin):
+        if len(ens_nums) > 1 or ens_nums[0] == -1:
+            move = 'sh'
+        else:
+            move = self.mc_moves[ens_nums[0]+1]
+        ens_p = ' '.join([f'00{ens_num+1}' for ens_num in ens_nums])
+        pat_p = ' '.join(pat_nums)
+        print('shooting', move, 'in ensembles:',
+              ens_p, 'with paths:', pat_p,
+              'and worker:', pin)
+
+    def print_shooted(self, md_items, pn_news):
+        if self.printing():
+            moves = md_items['moves']
+            ens_nums = ' '.join([f'00{i+1}' for i in md_items['ens_nums']])
+            pnum_old = ' '.join([str(i) for i in md_items['pnum_old']])
+            pnum_new = ' '.join([str(i) for i in pn_news])
+            status = md_items['status']
+            simtime = md_items['time']
+            print('shooted', ' '.join(moves), 'in ensembles:', ens_nums,
+                  'with paths:', pnum_old,  '->', pnum_new, 'with status:',
+                  status, 'and worker:', self.cworker,
+                  f"total time: {simtime:.2f}")
+            self.print_state()
+
     def print_start(self):
         print('stored ensemble paths:')
         ens_num = self.live_paths()
@@ -602,20 +667,3 @@ class REPEX_state(object):
             print(f'{key:03.0f}', "|" if key not in live_trajs else '*',
                   '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '---' for item0 in item['frac'][:-1]])
                  ,'\t', "|" if key not in live_trajs else '*')
-
-
-    def write_toml(self, ens_sel=(), input_traj=()):
-        self.config['current']['active'] = self.live_paths()
-        locked_ep = []
-        for ens0, path0 in zip(ens_sel, input_traj):
-            locked_ep.append((int(ens0 + self._offset), path0.path_number))
-        self.config['current']['locked'] = locked_ep
-
-        # save accumulative fracs
-        self.config['current']['frac'] = {}
-        for key in sorted(self.traj_num_dic.keys()):
-            self.config['current']['frac'][str(key)] = [str(i) for i in self.traj_num_dic[key]['frac']]
-
-        with open("./restart.toml", "wb") as f:
-            tomli_w.dump(self.config, f)  
-        self.config['current']['locked'] = []
