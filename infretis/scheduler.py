@@ -1,5 +1,5 @@
 import tomli
-from infretis.common import run_md, treat_output
+from infretis.common import run_md, treat_output, pwd_checker
 from infretis.common import setup_internal, setup_dask, prep_pyretis
 
 
@@ -12,7 +12,7 @@ def scheduler(input_file):
     md_items, state = setup_internal(config)
     if None in (md_items, state):
         return
-    client, futures = setup_dask(state.workers)
+    client, futures = setup_dask(config, state.workers)
 
     # submit the first number of workers
     while state.initiate(md_items):

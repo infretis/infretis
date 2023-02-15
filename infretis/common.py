@@ -183,8 +183,10 @@ def setup_internal(config):
 
     return md_items, state
 
-def setup_dask(workers):
+def setup_dask(config, workers):
     client = Client(n_workers=workers)
+    for module in config['dask'].get('files', []):
+        client.upload_file(module)
     futures = as_completed(None, with_results=True)
     return client, futures
 
@@ -314,12 +316,6 @@ def setup_config(config, size):
             print('current step and total steps are equal so we exit ',
                   'without doing anything.')
             return True
-
-    # path rng and ensemble rng objects have to be saved separately!
-    # create worker/ensemble restart folders
-    for worker in range(config['dask']['workers']):
-        make_dirs(f'./trajs/e{worker}')
-
     return False
 
 def setup_pyretis(config, sim_settings):
