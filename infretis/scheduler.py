@@ -14,6 +14,17 @@ def scheduler(input_file):
         return
     client, futures = setup_dask(config, state.workers)
 
+    print('tori a')
+    for idx, key in enumerate(state.ensembles.keys()):
+        # print('pnumber', state.ensembles[key]['path_ensemble'].last_path.path_number, state.ensembles[key]['path_ensemble'].last_path.length)
+        traj = state._trajs[idx]
+        print('pnumber', traj.path_number, traj.length)
+        print(f'00{idx}', state.ensembles[key]['path_ensemble'].last_path.rgen.get_state()['state'][2])
+        print(f'00{idx}', state.ensembles[key]['path_ensemble'].rgen.get_state()['state'][2])
+        # print(f'00{idx}', state.ensembles[key]['engine'].rgen.get_state()['state'][2])
+        print(f'00{idx}', state.ensembles[key]['rgen'].get_state()['state'][2])
+    print('tori b')
+
     # submit the first number of workers
     while state.initiate(md_items):
         # chose ens and path for the next job
@@ -41,4 +52,14 @@ def scheduler(input_file):
             futures.add(fut)
 
     # end client
+    print('koppa a')
+    for idx, key in enumerate(state.ensembles.keys()):
+        # print('pnumber', state.ensembles[key]['path_ensemble'].last_path.path_number, state.ensembles[key]['path_ensemble'].last_path.length)
+        traj = state._trajs[idx]
+        print('pnumber', traj.path_number, traj.length)
+        print(f'00{idx}', state.ensembles[key]['path_ensemble'].last_path.rgen.get_state()['state'][2])
+        print(f'00{idx}', state.ensembles[key]['path_ensemble'].rgen.get_state()['state'][2])
+        # print(f'00{idx}', state.ensembles[key]['engine'].rgen.get_state()['state'][2])
+        print(f'00{idx}', state.ensembles[key]['rgen'].get_state()['state'][2])
+    print('koppa b')
     client.close()

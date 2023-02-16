@@ -42,6 +42,7 @@ def run_md(md_items):
     for trial, ens_num, ifaces in zip(trials, ens_nums, interfaces):
         md_items['moves'].append(md_items['mc_moves'][ens_num+1])
         md_items['pnum_old'].append(ensembles[ens_num+1]['path_ensemble'].last_path.path_number)
+        md_items['generated'] = trial.generated
         if status == 'ACC':
             trial.traj_v = calc_cv_vector(trial, ifaces, md_items['mc_moves'])
             ensembles[ens_num+1]['path_ensemble'].last_path = trial
@@ -66,6 +67,7 @@ def treat_output(state, md_items):
                                md_items['pnum_old']):
         # if path is new: number and save the path:
         out_traj = ensembles[ens_num+1]['path_ensemble'].last_path
+        print('mage', md_items['generated'])
         state.ensembles[ens_num+1] = ensembles[ens_num+1]
         if out_traj.path_number == None or md_items['status'] == 'ACC':
             # move to accept:
@@ -107,6 +109,14 @@ def treat_output(state, md_items):
             # save ens-rgen, ens-engine-rgen
             write_ensemble_restart(state.ensembles[ens_num+1], md_items['settings'], save=f'e{ens_num+1}')
             
+        print('mugi a')
+        print('pnumber', out_traj.path_number)
+        print(f'00{ens_num+1}', out_traj.rgen.get_state()['state'][2])
+        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['path_ensemble'].rgen.get_state()['state'][2])
+        # print(f'00{ens_num+1}', state.ensembles[ens_num+1]['engine'].rgen.get_state()['state'][2])
+        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['rgen'].get_state()['state'][2])
+        print('mugi b')
+
         pn_news.append(out_traj.path_number)
         state.add_traj(ens_num, out_traj, out_traj.traj_v)
         ensembles.pop(ens_num+1)
@@ -232,11 +242,20 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
     # prep path and ensemble
     for ens_num, traj_inp in zip(ens_nums, inp_traj):
         state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
+        print('boppa a')
+        print('pnumber', traj_inp.path_number)
+        print(f'00{ens_num+1}', traj_inp.rgen.get_state()['state'][2])
+        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['path_ensemble'].rgen.get_state()['state'][2])
+        # print(f'00{ens_num+1}', state.ensembles[ens_num+1]['engine'].rgen.get_state()['state'][2])
+        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['rgen'].get_state()['state'][2])
+        print('boppa b')
+
         md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
 
     # empty / update md_items:
     md_items['moves'] = []
     md_items['pnum_old'] = []
+    md_items['generated'] = []
     md_items.update({'ens_nums': ens_nums})
 
 def calc_cv_vector(path, interfaces, moves):
