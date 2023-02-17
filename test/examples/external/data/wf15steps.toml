@@ -1,0 +1,74 @@
+[dask]
+workers = 1
+files = [
+    "orderp.py",
+    "gromacs.py",
+]
+
+[simulation]
+pyretis_inp = "retis.rst"
+internal = false
+states_ab = [
+    0.27,
+    0.45,
+]
+steps = 15
+seed = 0
+save_loc = "./"
+load_dir = "trajs"
+
+[engine]
+engine = "gromacs"
+input_path = "gromacs_input"
+gmx = "gmx_mpi"
+mdrun = "srun --exclusive --ntasks 2 --mem-per-cpu 500 gmx_mpi mdrun -ntomp 1"
+subcycles = 1
+maxwarn = 15
+
+[order_parameter]
+class = "Distance"
+index = [
+    0,
+    1,
+]
+periodic = false
+
+[output]
+backup = "backup"
+store_paths = true
+screen = 1
+pattern = true
+data_dir = "./"
+data_file = "./infretis_data.txt"
+pattern_file = "./pattern.txt"
+
+[current]
+traj_num = 9
+cstep = 15
+active = [
+    3,
+    8,
+    7,
+]
+locked = []
+size = 3
+
+[current.frac]
+3 = [
+    "7.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+7 = [
+    "0.0",
+    "1.25",
+    "1.75",
+    "0.0",
+]
+8 = [
+    "0.0",
+    "1.0",
+    "1.0",
+    "0.0",
+]
