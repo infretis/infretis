@@ -252,7 +252,7 @@ class test_infretisrun(unittest.TestCase):
             os.chdir(file_path)
         os.chdir(curr_path)
 
-    def test_pick_lock_sh(self):
+    def test_pick_lock_sh0(self):
         # get current path
         curr_path = pathlib.Path.cwd()
 
@@ -269,8 +269,203 @@ class test_infretisrun(unittest.TestCase):
             os.chdir(tempdir)
             # copy files from template folder
             folder = 'data'
-            shutil.copy(f'../{folder}/sh-crash.zip', './')
-            shutil.unpack_archive('sh-crash.zip', './')
+            shutil.copy(f'../{folder}/sh-crash0.zip', './')
+            shutil.unpack_archive('sh-crash0.zip', './')
+            os.system("infretisrun -i restart.toml >| out.txt")
+            # remove "restarted-from" line
+            os.system("sed '55d' restart.toml >| restart0.toml")
+
+            items0 = ['infretis_data.txt', 'restart0.toml']
+            items1 = ['sh20steps.txt', 'sh20steps.toml']
+            for item0, item1 in zip(items0, items1):
+                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item1}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item1}')
+                self.assertTrue(istrue)
+
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['simulation']['steps'] = 30
+            with open("./restart.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # restart standard simulation start command
+            os.system("infretisrun -i restart.toml >> out.txt")
+            # running a zero step sim should not affect the following results
+            os.system("infretisrun -i restart.toml >> out.txt")
+
+            # edit restart.toml by increasing steps from 30 to 40
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['simulation']['steps'] = 40
+            with open("./restart.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # restart standard simulation start command
+            os.system("infretisrun -i restart.toml >> out.txt")
+            # remove "restarted-from" line
+            os.system("sed -i -e '55 s/30/20/' restart.toml >> out.txt")
+
+            # compare files
+            items0 = ['infretis_data.txt', 'restart.toml']
+            items2 = ['sh40steps.txt', 'sh40steps.toml']
+            for item0, item2 in zip(items0, items2):
+                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item2}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item2}')
+                self.assertTrue(istrue)
+            os.chdir(file_path)
+        os.chdir(curr_path)
+
+    def test_pick_lock_sh1(self):
+        # get current path
+        curr_path = pathlib.Path.cwd()
+
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        # here we unzip a "crashed" simulation (we finish step 10
+        # but did not recieve step 11 path back. so we restart
+        # from last restart.toml file.
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            shutil.copy(f'../{folder}/sh-crash1.zip', './')
+            shutil.unpack_archive('sh-crash1.zip', './')
+            os.system("infretisrun -i restart.toml >| out.txt")
+            # remove "restarted-from" line
+            os.system("sed '55d' restart.toml >| restart0.toml")
+
+            items0 = ['infretis_data.txt', 'restart0.toml']
+            items1 = ['sh20steps.txt', 'sh20steps.toml']
+            for item0, item1 in zip(items0, items1):
+                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item1}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item1}')
+                self.assertTrue(istrue)
+
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['simulation']['steps'] = 30
+            with open("./restart.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # restart standard simulation start command
+            os.system("infretisrun -i restart.toml >> out.txt")
+            # running a zero step sim should not affect the following results
+            os.system("infretisrun -i restart.toml >> out.txt")
+
+            # edit restart.toml by increasing steps from 30 to 40
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['simulation']['steps'] = 40
+            with open("./restart.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # restart standard simulation start command
+            os.system("infretisrun -i restart.toml >> out.txt")
+            # remove "restarted-from" line
+            os.system("sed -i -e '55 s/30/20/' restart.toml >> out.txt")
+
+            # compare files
+            items0 = ['infretis_data.txt', 'restart.toml']
+            items2 = ['sh40steps.txt', 'sh40steps.toml']
+            for item0, item2 in zip(items0, items2):
+                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item2}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item2}')
+                self.assertTrue(istrue)
+            os.chdir(file_path)
+        os.chdir(curr_path)
+
+    def test_pick_lock_sh2(self):
+        # get current path
+        curr_path = pathlib.Path.cwd()
+
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        # here we unzip a "crashed" simulation (we finish step 10
+        # but did not recieve step 11 path back. so we restart
+        # from last restart.toml file.
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            shutil.copy(f'../{folder}/sh-crash2.zip', './')
+            shutil.unpack_archive('sh-crash2.zip', './')
+            os.system("infretisrun -i restart.toml >| out.txt")
+            # remove "restarted-from" line
+            os.system("sed '55d' restart.toml >| restart0.toml")
+
+            items0 = ['infretis_data.txt', 'restart0.toml']
+            items1 = ['sh20steps.txt', 'sh20steps.toml']
+            for item0, item1 in zip(items0, items1):
+                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item1}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item1}')
+                self.assertTrue(istrue)
+
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['simulation']['steps'] = 30
+            with open("./restart.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # restart standard simulation start command
+            os.system("infretisrun -i restart.toml >> out.txt")
+            # running a zero step sim should not affect the following results
+            os.system("infretisrun -i restart.toml >> out.txt")
+
+            # edit restart.toml by increasing steps from 30 to 40
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['simulation']['steps'] = 40
+            with open("./restart.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # restart standard simulation start command
+            os.system("infretisrun -i restart.toml >> out.txt")
+            # remove "restarted-from" line
+            os.system("sed -i -e '55 s/30/20/' restart.toml >> out.txt")
+
+            # compare files
+            items0 = ['infretis_data.txt', 'restart.toml']
+            items2 = ['sh40steps.txt', 'sh40steps.toml']
+            for item0, item2 in zip(items0, items2):
+                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item2}')
+                if not istrue:
+                    print(f'./{item0}', f'../{folder}/{item2}')
+                self.assertTrue(istrue)
+            os.chdir(file_path)
+        os.chdir(curr_path)
+
+    def test_pick_lock_sh3(self):
+        # get current path
+        curr_path = pathlib.Path.cwd()
+
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        # here we unzip a "crashed" simulation (we finish step 10
+        # but did not recieve step 11 path back. so we restart
+        # from last restart.toml file.
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            shutil.copy(f'../{folder}/sh-crash3.zip', './')
+            shutil.unpack_archive('sh-crash3.zip', './')
             os.system("infretisrun -i restart.toml >| out.txt")
             # remove "restarted-from" line
             os.system("sed '55d' restart.toml >| restart0.toml")

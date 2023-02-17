@@ -220,8 +220,6 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
             exit('sumtin fishy goin on here')
 
     # write data:
-    state.save_rng()
-    state.write_toml(ens_nums, inp_traj)
     if state.config['output']['pattern'] and state.toinitiate == -1:
         state.write_pattern(md_items)
 
