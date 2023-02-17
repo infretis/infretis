@@ -128,6 +128,7 @@ class REPEX_state(object):
     def pick_lock(self):
         if not self.config['current']['locked']:
             return self.pick()
+        print('pick locked!')
         enss = []
         trajs = [] 
         for ens, traj in self.config['current']['locked']:
@@ -270,6 +271,7 @@ class REPEX_state(object):
             # should probably add a check for stopping when all workers are free
             # to close the while loop, but for now when cstep >= tsteps we return
             # false.
+            self.save_rng()
             self.print_end()
             self.write_toml()
             return False
