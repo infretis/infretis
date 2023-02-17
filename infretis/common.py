@@ -6,6 +6,7 @@ from pyretis.core.retis import retis_swap_zero
 from pyretis.setup import create_simulation
 from pyretis.inout.settings import parse_settings_file
 from pyretis.inout.restart import write_ensemble_restart
+from pyretis.inout.archive import PathStorage
 from pyretis.inout.common import make_dirs
 from infretis.inf_core import REPEX_state
 from dask.distributed import dask, Client, as_completed
@@ -55,12 +56,12 @@ def run_md(md_items):
                      'end_time': end_time})
     return md_items
 
-
 def treat_output(state, md_items):
     traj_num_dic = state.traj_num_dic
     traj_num = state.config['current']['traj_num']
     ensembles = md_items['ensembles']
     pn_news = []
+    pstore = PathStorage()
 
     # analyse and record worker data
     for ens_num, pn_old in zip(md_items['ens_nums'],
@@ -84,38 +85,22 @@ def treat_output(state, md_items):
                                                        for kk in out_traj.phasepoints)
             traj_num += 1
 
-            ### vvv CLEAN THIS WHEN TESTING EXTERNAL vvv
-            
             # NB! Saving can take some time..
             # add setting where we save .trr file or not (we always save restart)
-            if state.config['output']['store_paths']:
-                cycle = {'step': traj_num -1 , 'endcycle': 10,
-                         'startcycle': 0, 'stepno': 10, 'steps': 10}
-                result = {f'status-{ens_num+1}': 'ACC', 'cycle': cycle,
-                          f'path-{ens_num+1}':  out_traj, f'accept-{ens_num+1}': True,
-                          f'move-{ens_num+1}': 'sh', 
-                          'all-2': {'ensemble_number': ens_num+1, 'mc-move': 'sh',
-                                    'status': 'ACC', 'trial': out_traj, 'accept': True},
-                          f'pathensemble-{ens_num+1}': state.ensembles[0]['path_ensemble']}
-                flipppa = time.time() 
-                if md_items['internal'] and state.config['output']['store_paths']:
-                    make_dirs(f'./trajs/{out_traj.path_number}')
-                for task in state.output_tasks:
-                    task.output(result)
+            if md_items['internal'] and state.config['output']['store_paths']:
+                make_dirs(f'./trajs/{out_traj.path_number}')
+            if state.config['output']['store_paths'] and not md_items['internal']:
+                # print('polar a', set(kk.particles.config[0] for kk in out_traj.phasepoints))
+                pstore.output(state.cstep, state.ensembles[ens_num+1]['path_ensemble'])
+                # print('polar b', set(kk.particles.config[0] for kk in out_traj.phasepoints))
+                # print('polar c', set(kk.particles.config[0] for kk in state.ensembles[ens_num+1]['path_ensemble'].last_path.phasepoints))
+
 
         if state.config['output']['store_paths']:
             # save ens-path_ens-rgen (not used) and ens-path
             write_ensemble_restart(state.ensembles[ens_num+1], md_items['settings'], save='path')
             # save ens-rgen, ens-engine-rgen
             write_ensemble_restart(state.ensembles[ens_num+1], md_items['settings'], save=f'e{ens_num+1}')
-            
-        print('mugi a')
-        print('pnumber', out_traj.path_number)
-        print(f'00{ens_num+1}', out_traj.rgen.get_state()['state'][2])
-        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['path_ensemble'].rgen.get_state()['state'][2])
-        # print(f'00{ens_num+1}', state.ensembles[ens_num+1]['engine'].rgen.get_state()['state'][2])
-        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['rgen'].get_state()['state'][2])
-        print('mugi b')
 
         pn_news.append(out_traj.path_number)
         state.add_traj(ens_num, out_traj, out_traj.traj_v)
@@ -218,6 +203,7 @@ def pwd_checker(state):
     # check if state_paths correspond to path_pwds:
     for ens, string1 in zip(ens_str, ens_pwds):
         string0 = state_dic[ens]['pwds']
+        print(ens, string0)
         if string0 != string1:
             print(string0, string1)
             print('warning! the state_paths does' + \
@@ -242,14 +228,6 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
     # prep path and ensemble
     for ens_num, traj_inp in zip(ens_nums, inp_traj):
         state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
-        print('boppa a')
-        print('pnumber', traj_inp.path_number)
-        print(f'00{ens_num+1}', traj_inp.rgen.get_state()['state'][2])
-        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['path_ensemble'].rgen.get_state()['state'][2])
-        # print(f'00{ens_num+1}', state.ensembles[ens_num+1]['engine'].rgen.get_state()['state'][2])
-        print(f'00{ens_num+1}', state.ensembles[ens_num+1]['rgen'].get_state()['state'][2])
-        print('boppa b')
-
         md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
 
     # empty / update md_items:
