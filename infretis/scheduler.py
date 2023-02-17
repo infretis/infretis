@@ -13,17 +13,10 @@ def scheduler(input_file):
     if None in (md_items, state):
         return
     client, futures = setup_dask(config, state.workers)
-
-    print('tori a')
-    for idx, key in enumerate(state.ensembles.keys()):
-        # print('pnumber', state.ensembles[key]['path_ensemble'].last_path.path_number, state.ensembles[key]['path_ensemble'].last_path.length)
-        traj = state._trajs[idx]
-        print('pnumber', traj.path_number, traj.length)
-        print(f'00{idx}', state.ensembles[key]['path_ensemble'].last_path.rgen.get_state()['state'][2])
-        print(f'00{idx}', state.ensembles[key]['path_ensemble'].rgen.get_state()['state'][2])
-        # print(f'00{idx}', state.ensembles[key]['engine'].rgen.get_state()['state'][2])
-        print(f'00{idx}', state.ensembles[key]['rgen'].get_state()['state'][2])
-    print('tori b')
+    print('shark a')
+    if not config['simulation']['internal']:
+        pwd_checker(state)
+    print('shark b')
 
     # submit the first number of workers
     while state.initiate(md_items):
@@ -45,21 +38,22 @@ def scheduler(input_file):
         if state.cstep + state.workers <= state.tsteps:
             # chose ens and path for the next job
             ens_nums, inp_traj = state.pick()
+
+            # vvvv if crash here it is NOT OK vvvv
+            # if state.cstep == 10:
+            #     break
             prep_pyretis(state, md_items, inp_traj, ens_nums)
+            # vvvv if crash here it is OK vvvv
+            # if state.cstep == 10:
+            #     break
 
             # submit job
             fut = client.submit(run_md, md_items, pure=False)
             futures.add(fut)
 
     # end client
-    print('koppa a')
-    for idx, key in enumerate(state.ensembles.keys()):
-        # print('pnumber', state.ensembles[key]['path_ensemble'].last_path.path_number, state.ensembles[key]['path_ensemble'].last_path.length)
-        traj = state._trajs[idx]
-        print('pnumber', traj.path_number, traj.length)
-        print(f'00{idx}', state.ensembles[key]['path_ensemble'].last_path.rgen.get_state()['state'][2])
-        print(f'00{idx}', state.ensembles[key]['path_ensemble'].rgen.get_state()['state'][2])
-        # print(f'00{idx}', state.ensembles[key]['engine'].rgen.get_state()['state'][2])
-        print(f'00{idx}', state.ensembles[key]['rgen'].get_state()['state'][2])
-    print('koppa b')
+    print('bear a')
+    if not config['simulation']['internal']:
+        pwd_checker(state)
+    print('bear b')
     client.close()
