@@ -119,6 +119,8 @@ def treat_output(state, md_items):
     state.config['current']['traj_num'] = traj_num
     state.cworker = md_items['pin']
     state.print_shooted(md_items, pn_news)
+    state.save_rng()
+    state.write_toml()
 
 def setup_internal(config):
     # setup config

@@ -35,10 +35,6 @@ class test_infretisrun(unittest.TestCase):
             folder = 'data'
             for fil in FILES:
                 shutil.copy(f'../{folder}/{fil}', './')
-            # shutil.copy(f'../{folder}/infretis.toml', './')
-            # shutil.copy(f'../{folder}/gromacs.py', './')
-            # shutil.copy(f'../{folder}/orderp.py', './')
-            # shutil.copy(f'../{folder}/retis.rst', './')
             os.mkdir('trajs')
             copy_tree(f'../{folder}/trajs', './trajs')
             for ens in range(3):
@@ -144,7 +140,7 @@ class test_infretisrun(unittest.TestCase):
                 self.assertTrue(istrue)
 
             # cd to previous, need to do this to delete tempdir
-            # os.chdir(file_path)
+            os.chdir(file_path)
         os.chdir(curr_path)
 
     def test_pick_lock_wf1(self):
@@ -256,92 +252,6 @@ class test_infretisrun(unittest.TestCase):
             copy_tree(f'../{folder}/trajs', './trajs')
             shutil.copy(f'../{folder}/wfcrash2.zip', './')
             shutil.unpack_archive('wfcrash2.zip', './')
-            for ens in range(3):
-                copy_tree(f'./trajs/{ens}', f'./trajs/e{ens}')
-                shutil.move(f'p{ens}.restart', f'./trajs/{ens}/ensemble.restart')
-                shutil.move(f'e{ens}.restart', f'./trajs/e{ens}/ensemble.restart')
-
-            os.system("infretisrun -i restart.toml >| out.txt")
-            # remove "restarted-from" line
-            os.system("sed '55d' restart.toml >| restart0.toml")
-
-            items0 = ['infretis_data.txt', 'restart0.toml']
-            items1 = ['wf10steps.txt', 'wf10steps.toml']
-            for item0, item1 in zip(items0, items1):
-                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item1}')
-                if not istrue:
-                    print(f'./{item0}', f'../{folder}/{item1}')
-                self.assertTrue(istrue)
-
-            # # edit restart.toml by increasing steps from 10 to 15
-            with open('restart.toml', mode="rb") as f:
-                config = tomli.load(f)
-                config['simulation']['steps'] = 15
-            with open("./restart.toml", "wb") as f:
-                tomli_w.dump(config, f)
-
-            # restart standard simulation start command
-            os.system("infretisrun -i restart.toml >> out.txt")
-            # # running a zero step sim should not affect the following results
-            os.system("infretisrun -i restart.toml >> out.txt")
-
-            os.system("sed '55d' restart.toml >| restart0.toml")
-            items0 = ['infretis_data.txt', 'restart0.toml']
-            items1 = ['wf15steps.txt', 'wf15steps.toml']
-            for item0, item1 in zip(items0, items1):
-                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item1}')
-                if not istrue:
-                    print(f'./{item0}', f'../{folder}/{item1}')
-                self.assertTrue(istrue)
-
-            # edit restart.toml by increasing steps from 15 to 20
-            with open('restart.toml', mode="rb") as f:
-                config = tomli.load(f)
-                config['simulation']['steps'] = 20
-            with open("./restart.toml", "wb") as f:
-                tomli_w.dump(config, f)
-
-            # # restart standard simulation start command
-            os.system("infretisrun -i restart.toml >> out.txt")
-            os.system("sed -i -e '55 s/30/20/' restart.toml >> out.txt")
-
-            # do some comp here?
-
-            # compare files
-            os.system("sed '55d' restart.toml >| restart0.toml")
-            items0 = ['infretis_data.txt', 'restart0.toml']
-            items2 = ['wf20steps.txt', 'wf20steps.toml']
-            for item0, item2 in zip(items0, items2):
-                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item2}')
-                if not istrue:
-                    print(f'./{item0}', f'../{folder}/{item2}')
-                self.assertTrue(istrue)
-            os.chdir(file_path)
-        os.chdir(curr_path)
-
-    def test_pick_lock_wf3(self):
-        # get current path
-        curr_path = pathlib.Path.cwd()
-
-        # here we unzip a "crashed" simulation (we finish step 10
-        # but did not recieve step 11 path back. so we restart
-        # from last restart.toml file.
-
-        # get path and cd into current file
-        file_path = pathlib.Path(__file__).parent
-        os.chdir(file_path)
-
-        with tempfile.TemporaryDirectory(dir='./') as tempdir:
-            # cd to tempdir
-            os.chdir(tempdir)
-            # copy files from template folder
-            folder = 'data'
-            for fil in FILES:
-                shutil.copy(f'../{folder}/{fil}', './')
-            os.mkdir('trajs')
-            copy_tree(f'../{folder}/trajs', './trajs')
-            shutil.copy(f'../{folder}/wfcrash3.zip', './')
-            shutil.unpack_archive('wfcrash3.zip', './')
             for ens in range(3):
                 copy_tree(f'./trajs/{ens}', f'./trajs/e{ens}')
                 shutil.move(f'p{ens}.restart', f'./trajs/{ens}/ensemble.restart')
