@@ -30,8 +30,6 @@ def scheduler(input_file):
         # get and treat worker output
         md_items = next(futures)[1]
         treat_output(state, md_items)
-        state.save_rng()
-        state.write_toml()
 
         # submit new job:
         if state.cstep + state.workers <= state.tsteps:
