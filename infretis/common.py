@@ -85,8 +85,7 @@ def treat_output(state, md_items):
                                       'traj_v': out_traj.traj_v,
                                       'ens_save_idx': ens_save_idx}
             if not md_items['internal']:
-                traj_num_dic[traj_num]['adress'] = set(kk.particles.config[0].split('salt')[-1] 
-                                                       for kk in out_traj.phasepoints)
+                traj_num_dic[traj_num]['adress'] = set(os.path.basename(kk.particles.config[0]) for kk in out_traj.phasepoints)
             traj_num += 1
 
             # NB! Saving can take some time..
@@ -95,7 +94,14 @@ def treat_output(state, md_items):
                 make_dirs(f'./trajs/{out_traj.path_number}')
             if state.config['output']['store_paths'] and not md_items['internal']:
                 pstore.output(state.cstep, state.ensembles[ens_num+1]['path_ensemble'])
-
+                if state.config['output']['delete_old'] and pn_old > state.n - 2:
+                    # if pn is larger than ensemble number ...
+                    for adress in traj_num_dic[pn_old]['adress']:
+                        print(f'./trajs/{pn_old}/accepted/{adress}', os.path.isfile(f'./trajs/{pn_old}/accepted/{adress}'), state.n -2, pn_old > state.n -1)
+                        os.remove(f'./trajs/{pn_old}/accepted/{adress}')
+                    print('baka 0')
+                    print('pn_old', traj_num_dic[pn_old]['adress'])
+                    print('baka 1')
 
         if state.config['output']['store_paths']:
             # save ens-path_ens-rgen (not used) and ens-path
@@ -155,8 +161,7 @@ def setup_internal(config):
                               'traj_v': path.traj_v,
                               'frac': np.array(frac, dtype='float128')}
         if not config['simulation']['internal']:
-            traj_num_dic[pnum]['adress'] = set(kk.particles.config[0].split('salt')[-1]
-                                               for kk in path.phasepoints)
+            traj_num_dic[pnum]['adress'] = set(os.path.basename(kk.particles.config[0]) for kk in path.phasepoints)
     
     # add minus path:
     path = sim.ensembles[0]['path_ensemble'].last_path
@@ -170,8 +175,7 @@ def setup_internal(config):
                          'traj_v': path.traj_v,
                          'frac': np.array(frac, dtype='float128')}
     if not config['simulation']['internal']:
-        traj_num_dic[pnum]['adress'] = set(kk.particles.config[0].split('salt')[-1]
-                                           for kk in path.phasepoints)
+        traj_num_dic[pnum]['adress'] = set(os.path.basename(kk.particles.config[0]) for kk in path.phasepoints)
 
     state.ensembles = {i: sim.ensembles[i] for i in range(len(sim.ensembles))}
     sim.settings['initial-path']['load_folder'] = 'trajs'
