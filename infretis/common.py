@@ -68,7 +68,11 @@ def treat_output(state, md_items):
                                md_items['pnum_old']):
         # if path is new: number and save the path:
         out_traj = ensembles[ens_num+1]['path_ensemble'].last_path
-        print('mage', md_items['generated'])
+
+        for idx, lock in enumerate(state.locked):
+            if str(pn_old) in lock[1]:
+                state.locked.pop(idx)
+
         state.ensembles[ens_num+1] = ensembles[ens_num+1]
         if out_traj.path_number == None or md_items['status'] == 'ACC':
             # move to accept:
@@ -90,10 +94,7 @@ def treat_output(state, md_items):
             if md_items['internal'] and state.config['output']['store_paths']:
                 make_dirs(f'./trajs/{out_traj.path_number}')
             if state.config['output']['store_paths'] and not md_items['internal']:
-                # print('polar a', set(kk.particles.config[0] for kk in out_traj.phasepoints))
                 pstore.output(state.cstep, state.ensembles[ens_num+1]['path_ensemble'])
-                # print('polar b', set(kk.particles.config[0] for kk in out_traj.phasepoints))
-                # print('polar c', set(kk.particles.config[0] for kk in state.ensembles[ens_num+1]['path_ensemble'].last_path.phasepoints))
 
 
         if state.config['output']['store_paths']:
@@ -119,11 +120,12 @@ def treat_output(state, md_items):
     state.config['current']['traj_num'] = traj_num
     state.cworker = md_items['pin']
     state.print_shooted(md_items, pn_news)
+    # save for possible restart
     state.save_rng()
     state.write_toml()
 
 def setup_internal(config):
-    # setup config
+    # parse retis.rst
     inp = config['simulation']['pyretis_inp']
     sim_settings = parse_settings_file(inp)
     interfaces = sim_settings['simulation']['interfaces']
@@ -339,4 +341,6 @@ def setup_repex(config, sim):
     state.data_file = config['output']['data_file']
     if 'restarted-from' in config['current']:
         state.set_rng()
+    state.locked0 = list(config['current'].get('locked', []))
+    state.locked = list(config['current'].get('locked', []))
     return state

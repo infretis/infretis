@@ -252,7 +252,7 @@ class test_infretisrun(unittest.TestCase):
             os.chdir(file_path)
         os.chdir(curr_path)
 
-    def test_pick_lock_sh0(self):
+    def test_pick_locked_sh1(self):
         # get current path
         curr_path = pathlib.Path.cwd()
 
@@ -269,55 +269,81 @@ class test_infretisrun(unittest.TestCase):
             os.chdir(tempdir)
             # copy files from template folder
             folder = 'data'
-            shutil.copy(f'../{folder}/sh-crash0.zip', './')
-            shutil.unpack_archive('sh-crash0.zip', './')
-            os.system("infretisrun -i restart.toml >| out.txt")
-            # remove "restarted-from" line
-            os.system("sed '55d' restart.toml >| restart0.toml")
+            shutil.copy(f'../{folder}/sh-crash1.zip', './')
+            shutil.copy(f'../{folder}/pick1.toml', './')
+            shutil.unpack_archive('sh-crash1.zip', './')
+            os.system("infretisrun -i pick1.toml >| out.txt")
 
-            items0 = ['infretis_data.txt', 'restart0.toml']
-            items1 = ['sh20steps.txt', 'sh20steps.toml']
-            for item0, item1 in zip(items0, items1):
-                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item1}')
-                if not istrue:
-                    print(f'./{item0}', f'../{folder}/{item1}')
-                self.assertTrue(istrue)
+            pick_counter = 0
+            subm_counter = 0
+            submit = False
+            with open('out.txt', 'r') as read:
+                for idx, line in enumerate(read):
+                    if 'submit' in line:
+                        submit = True if 'START' in line else False
+                    if 'pick locked!' in line:
+                        pick_counter += 1
+                    if 'shooting sh in ensembles: 000 001 with paths: 0 1' in line and submit:
+                        subm_counter += 1
+                    if 'shooting sh in ensembles: 004 with paths: 4' in line and submit:
+                        subm_counter += 1
+            self.assertTrue(pick_counter == 1)
+            self.assertTrue(subm_counter == 2)
+            self.assertFalse(submit)
 
             with open('restart.toml', mode="rb") as f:
                 config = tomli.load(f)
-                config['simulation']['steps'] = 30
-            with open("./restart.toml", "wb") as f:
-                tomli_w.dump(config, f)
-
-            # restart standard simulation start command
-            os.system("infretisrun -i restart.toml >> out.txt")
-            # running a zero step sim should not affect the following results
-            os.system("infretisrun -i restart.toml >> out.txt")
-
-            # edit restart.toml by increasing steps from 30 to 40
-            with open('restart.toml', mode="rb") as f:
-                config = tomli.load(f)
-                config['simulation']['steps'] = 40
-            with open("./restart.toml", "wb") as f:
-                tomli_w.dump(config, f)
-
-            # restart standard simulation start command
-            os.system("infretisrun -i restart.toml >> out.txt")
-            # remove "restarted-from" line
-            os.system("sed -i -e '55 s/30/20/' restart.toml >> out.txt")
-
-            # compare files
-            items0 = ['infretis_data.txt', 'restart.toml']
-            items2 = ['sh40steps.txt', 'sh40steps.toml']
-            for item0, item2 in zip(items0, items2):
-                istrue = filecmp.cmp(f'./{item0}', f'../{folder}/{item2}')
-                if not istrue:
-                    print(f'./{item0}', f'../{folder}/{item2}')
-                self.assertTrue(istrue)
+            self.assertTrue(len(config['current']['locked']) == 0)
             os.chdir(file_path)
         os.chdir(curr_path)
 
-    def test_pick_lock_sh1(self):
+    def test_pick_locked_sh2(self):
+        # get current path
+        curr_path = pathlib.Path.cwd()
+
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        # here we unzip a "crashed" simulation (we finish step 10
+        # but did not recieve step 11 path back. so we restart
+        # from last restart.toml file.
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            shutil.copy(f'../{folder}/sh-crash1.zip', './')
+            shutil.copy(f'../{folder}/pick2.toml', './')
+            shutil.unpack_archive('sh-crash1.zip', './')
+            os.system("infretisrun -i pick2.toml >| out.txt")
+            # remove "restarted-from" line
+            os.system("sed '55d' restart.toml >| restart0.toml")
+
+            pick_counter = 0
+            subm_counter = 0
+            submit = False
+            with open('out.txt', 'r') as read:
+                for idx, line in enumerate(read):
+                    if 'submit' in line:
+                        submit = True if 'START' in line else False
+                    if 'pick locked!' in line:
+                        pick_counter += 1
+                    if 'shooting sh in ensembles: 007 with paths: 9' in line and submit:
+                        subm_counter += 1
+                    if 'shooting sh in ensembles: 006 with paths: 8' in line and submit:
+                        subm_counter += 1
+            self.assertTrue(pick_counter == 2)
+            self.assertTrue(subm_counter == 2)
+            self.assertFalse(submit)
+            with open('restart.toml', mode="rb") as f:
+                config = tomli.load(f)
+            self.assertTrue(len(config['current']['locked']) == 0)
+            os.chdir(file_path)
+        os.chdir(curr_path)
+
+    def test_restart_sh1(self):
         # get current path
         curr_path = pathlib.Path.cwd()
 
@@ -382,7 +408,7 @@ class test_infretisrun(unittest.TestCase):
             os.chdir(file_path)
         os.chdir(curr_path)
 
-    def test_pick_lock_sh2(self):
+    def test_restart_sh2(self):
         # get current path
         curr_path = pathlib.Path.cwd()
 
@@ -447,7 +473,7 @@ class test_infretisrun(unittest.TestCase):
             os.chdir(file_path)
         os.chdir(curr_path)
 
-    def test_pick_lock_sh3(self):
+    def test_restart_sh3(self):
         # get current path
         curr_path = pathlib.Path.cwd()
 
@@ -512,7 +538,7 @@ class test_infretisrun(unittest.TestCase):
             os.chdir(file_path)
         os.chdir(curr_path)
 
-    def test_pick_lock_wf(self):
+    def test_restart_wf(self):
         # get current path
         curr_path = pathlib.Path.cwd()
 

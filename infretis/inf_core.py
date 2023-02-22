@@ -121,22 +121,29 @@ class REPEX_state(object):
         self.output_tasks = None
         self.data_file = None
         self.pattern_file = None
+        self.locked0 = []
+        self.locked = []
 
         # Not using this at the moment
         # self.result = Results(n, offset=self._offset)
 
     def pick_lock(self):
-        if not self.config['current']['locked']:
+        if not self.locked0:
             return self.pick()
+        else:
+            self.locked0.pop()
         print('pick locked!')
         enss = []
         trajs = [] 
-        for ens, traj in self.config['current']['locked']:
+        enss0, trajs0 = self.locked.pop()
+        for ens, traj in zip(enss0, trajs0):
             enss.append(ens-self._offset)
-            traj_idx = self.live_paths().index(traj)
+            traj_idx = self.live_paths().index(int(traj))
             self.swap(traj_idx, ens)
             self.lock(ens)
             trajs.append(self._trajs[ens])
+        if self.printing():
+            self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
         return tuple(enss), tuple(trajs)
 
     def pick(self):
@@ -168,9 +175,10 @@ class REPEX_state(object):
                 ens_nums = (-1, 0)
                 inp_trajs = (traj, other_traj)
 
-        # print the picked traj and ens
+        # lock and print the picked traj and ens
+        pat_nums = [str(i.path_number) for i in inp_trajs]
+        self.locked.append((list(ens_nums), pat_nums))
         if self.printing():
-            pat_nums = [str(i.path_number) for i in inp_trajs]
             self.print_pick(ens_nums, pat_nums, self.cworker)
 
         return ens_nums, inp_trajs
@@ -574,8 +582,8 @@ class REPEX_state(object):
     def write_toml(self, ens_sel=(), input_traj=()):
         self.config['current']['active'] = self.live_paths()
         locked_ep = []
-        for ens0, path0 in zip(ens_sel, input_traj):
-            locked_ep.append((int(ens0 + self._offset), path0.path_number))
+        for tup in self.locked:
+            locked_ep.append(([int(tup0 + self._offset) for tup0 in tup[0]], tup[1]))
         self.config['current']['locked'] = locked_ep
 
         # save accumulative fracs
