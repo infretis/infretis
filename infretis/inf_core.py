@@ -225,9 +225,24 @@ class REPEX_state(object):
         self._trajs[ens] = traj
         self.state[ens, :] = valid
         self.unlock(ens)
+
         if count:
             self.write_ensembles()
             self._n += 1
+
+    def sort_trajstate(self):
+        needstomove = [self.state[idx][:-1][idx] == 0 for idx in range(self.n-1)]
+        while True in needstomove and self.toinitiate == -1:
+            ens_idx = list(needstomove).index(True)
+            locks = self.locked_paths()
+            zero_idx = list(self.state[ens_idx][1:-1]).index(0) + 1
+            avail = [1 if i != 0 else 0 for i in self.state[:, zero_idx]]
+            avail = [j if self._trajs[i].path_number not in locks else 0 for i, j in enumerate(avail[:-1])]
+            trj_idx =  avail.index(1)
+            self.swap(ens_idx, trj_idx)
+            needstomove = [self.state[idx][:-1][idx] == 0 for idx in range(self.n-1)]
+        self._last_prob = None
+        self.prob
 
     def lock(self, ens):
         # invalidate last prob
@@ -649,9 +664,12 @@ class REPEX_state(object):
         print(' -- |     -----------------------------------')
 
         locks = self.locked_paths()
+        oil = False
         for idx, live in enumerate(self.live_paths()):
             if live not in locks:
                 to_print = f'p{live:02.0f} |\t'
+                if self.state[idx][:-1][idx] == 0 or self._last_prob[idx][:-1][idx] < 0.001:
+                    oil = True
                 for prob in self._last_prob[idx][:-1]:
                     to_print += f'{prob:.2f}\t' if prob != 0 else '----\t'
                 to_print += ' ' + f"{self.traj_num_dic[live]['max_op'][0]:.5f} |"
@@ -660,6 +678,10 @@ class REPEX_state(object):
             else:
                 to_print = f'p{live:02.0f} |\t'
                 print(to_print + '\t'.join(['----' for j in range(self.n-1)]))
+        if oil:
+            print('olive oil')
+            oil = False
+
         print('===')
         if not last_prob:
             self._last_prob = None
