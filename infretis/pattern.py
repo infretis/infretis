@@ -35,15 +35,15 @@ def pattern(inp, cap=250):
         dic[int(worker)] = time_ends
 
     # scatter
-    for worker in workers:
-        for i in dic[int(worker)]:
-            enss = list(range(int(min_ens), int(max_ens)+1))
-            time = i
-            for row in a:
-                if row[1] < time < row[2] and worker != row[3]:
-                    enss.pop(enss.index(int(row[0])))
-            plt.scatter([time]*len(enss), enss,
-                        color=c_dic2[int(worker)], marker=r's')
+    # for worker in workers:
+    #     for i in dic[int(worker)]:
+    #         enss = list(range(int(min_ens), int(max_ens)+1))
+    #         time = i
+    #         for row in a:
+    #             if row[1] < time < row[2] and worker != row[3]:
+    #                 enss.pop(enss.index(int(row[0])))
+    #         plt.scatter([time]*len(enss), enss,
+    #                     color=c_dic2[int(worker)], marker=r's')
 
     # plot worker start -> end -
     for i in range(len(a)):
@@ -60,6 +60,7 @@ def pattern(inp, cap=250):
     plt.ylabel(r"Ensemble")
     plt.xticks([])
     plt.yticks(list(range(int(min_ens), int(max_ens)+1)))
-    lgd = plt.legend(bbox_to_anchor=(1.04, 0.5), loc="center left",
-                     borderaxespad=0,  edgecolor='k', framealpha=1.0,)
-    plt.savefig('pattern.pdf', bbox_extra_artists=(lgd,), bbox_inches='tight')
+    # lgd = plt.legend(bbox_to_anchor=(1.04, 0.5), loc="center left",
+    #                  borderaxespad=0,  edgecolor='k', framealpha=1.0,)
+    # plt.savefig('pattern.pdf', bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig('pattern.pdf', bbox_inches='tight')

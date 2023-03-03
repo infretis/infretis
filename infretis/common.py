@@ -13,6 +13,14 @@ from dask.distributed import dask, Client, as_completed
 from pyretis.core.common import compute_weight
 dask.config.set({'distributed.scheduler.work-stealing': False})
 
+def run_benchmark(md_items):
+    start_time = time.time()
+    ens_nums = md_items['ens_nums']
+    ensembles = md_items['ensembles']
+    settings = md_items['settings']
+    interfaces = settings['simulation']['interfaces']
+
+    return md_items
 
 def run_md(md_items):
     start_time = time.time() 
@@ -109,6 +117,8 @@ def treat_output(state, md_items):
             # save ens-rgen, ens-engine-rgen
             write_ensemble_restart(state.ensembles[ens_num+1], md_items['settings'], save=f'e{ens_num+1}')
 
+
+
         pn_news.append(out_traj.path_number)
         state.add_traj(ens_num, out_traj, out_traj.traj_v)
         ensembles.pop(ens_num+1)
@@ -123,6 +133,7 @@ def treat_output(state, md_items):
     if md_items['status'] == 'ACC':
         write_to_pathens(state, md_items['pnum_old'])
 
+    state.sort_trajstate()
     state.config['current']['traj_num'] = traj_num
     state.cworker = md_items['pin']
     state.print_shooted(md_items, pn_news)
@@ -327,6 +338,7 @@ def setup_pyretis(config, sim_settings):
     sim = create_simulation(sim_settings)
     for idx, pn in enumerate(config['current']['active']):
         sim.ensembles[idx]['path_ensemble'].path_number = pn
+
     sim.set_up_output(sim_settings)
     sim.initiate(sim_settings)
     return sim
