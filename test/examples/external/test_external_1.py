@@ -314,3 +314,7 @@ class test_infretisrun(unittest.TestCase):
                 self.assertTrue(istrue)
             os.chdir(file_path)
         os.chdir(curr_path)
+
+# delete old.. test
+#
+#

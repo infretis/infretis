@@ -13,55 +13,67 @@ from dask.distributed import dask, Client, as_completed
 from pyretis.core.common import compute_weight
 dask.config.set({'distributed.scheduler.work-stealing': False})
 
-def run_benchmark(md_items):
+def run_bm(md_items):
     start_time = time.time()
     ens_nums = md_items['ens_nums']
     ensembles = md_items['ensembles']
     settings = md_items['settings']
-    interfaces = settings['simulation']['interfaces']
+    interfaces = md_items['interfaces']
 
+    # set shooting_move = 'md'
+    if 'shooting_move' in settings:
+        settings['shooting_move'] = 'md'
+
+    start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
+    accept, trials, status = select_shoot(ensembles[ens_nums[0]+1],
+                                          md_items['settings'],
+                                          start_cond)
+
+    md_items['pnum_old'].append(ensembles[ens_nums[0]+1]['path_ensemble'].last_path.path_number)
+    md_items['trial_len'].append(trials.length)
+    md_items['trial_op'].append((trials.ordermin[0], trials.ordermax[0]))
+    md_items.update({'status': 'BMA',
+                     'interfaces': interfaces,
+                     'time': time.time() - start_time,
+                     'start_time': start_time})
     return md_items
 
 def run_md(md_items):
     start_time = time.time() 
     ens_nums = md_items['ens_nums']
     ensembles = md_items['ensembles']
-    settings = md_items['settings']
-    interfaces = settings['simulation']['interfaces']
+    interfaces = md_items['interfaces']
 
     if len(ens_nums) == 1:
         start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
-        tis_settings = settings['ensemble'][ens_nums[0]+1]['tis'] 
         if not md_items['internal']:
             ensembles[ens_nums[0]+1]['engine'].clean_up()
         accept, trials, status = select_shoot(ensembles[ens_nums[0]+1],
-                                              tis_settings,
+                                              md_items['settings'],
                                               start_cond)
         trials = [trials]
-        interfaces = [interfaces] if ens_nums[0] >= 0 else [interfaces[0:1]]
 
     else:
         ensembles_l = [ensembles[i+1] for i in ens_nums]
         if not md_items['internal']:
             ensembles_l[0]['engine'].clean_up()
             ensembles_l[1]['engine'].clean_up()
-        accept, trials, status = retis_swap_zero(ensembles_l, settings, 0)
-        interfaces = [interfaces[0:1], interfaces]
+        accept, trials, status = retis_swap_zero(ensembles_l, md_items['settings'], 0)
 
     for trial, ens_num, ifaces in zip(trials, ens_nums, interfaces):
         md_items['moves'].append(md_items['mc_moves'][ens_num+1])
         md_items['pnum_old'].append(ensembles[ens_num+1]['path_ensemble'].last_path.path_number)
+        md_items['trial_len'].append(trial.length)
+        md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
         md_items['generated'] = trial.generated
         if status == 'ACC':
             trial.traj_v = calc_cv_vector(trial, ifaces, md_items['mc_moves'])
             ensembles[ens_num+1]['path_ensemble'].last_path = trial
 
-    end_time = time.time()
     md_items.update({'status': status,
                      'interfaces': interfaces,
-                     'time': end_time - start_time,
-                     'start_time': start_time,
-                     'end_time': end_time})
+                     'time': time.time() - start_time,
+                     'start_time': start_time})
     return md_items
 
 def treat_output(state, md_items):
@@ -74,7 +86,6 @@ def treat_output(state, md_items):
     # analyse and record worker data
     for ens_num, pn_old in zip(md_items['ens_nums'],
                                md_items['pnum_old']):
-        # if path is new: number and save the path:
         out_traj = ensembles[ens_num+1]['path_ensemble'].last_path
 
         for idx, lock in enumerate(state.locked):
@@ -82,6 +93,7 @@ def treat_output(state, md_items):
                 state.locked.pop(idx)
 
         state.ensembles[ens_num+1] = ensembles[ens_num+1]
+        # if path is new: number and save the path:
         if out_traj.path_number == None or md_items['status'] == 'ACC':
             # move to accept:
             ens_save_idx = traj_num_dic[pn_old]['ens_save_idx']
@@ -102,22 +114,16 @@ def treat_output(state, md_items):
                 make_dirs(f'./trajs/{out_traj.path_number}')
             if state.config['output']['store_paths'] and not md_items['internal']:
                 pstore.output(state.cstep, state.ensembles[ens_num+1]['path_ensemble'])
-                if state.config['output']['delete_old'] and pn_old > state.n - 2:
+                if state.config['output'].get('delete_old', False) and pn_old > state.n - 2:
                     # if pn is larger than ensemble number ...
                     for adress in traj_num_dic[pn_old]['adress']:
-                        print(f'./trajs/{pn_old}/accepted/{adress}', os.path.isfile(f'./trajs/{pn_old}/accepted/{adress}'), state.n -2, pn_old > state.n -1)
                         os.remove(f'./trajs/{pn_old}/accepted/{adress}')
-                    print('baka 0')
-                    print('pn_old', traj_num_dic[pn_old]['adress'])
-                    print('baka 1')
 
         if state.config['output']['store_paths']:
             # save ens-path_ens-rgen (not used) and ens-path
-            write_ensemble_restart(state.ensembles[ens_num+1], md_items['settings'], save='path')
+            write_ensemble_restart(state.ensembles[ens_num+1], state.pyretis_settings, save='path')
             # save ens-rgen, ens-engine-rgen
-            write_ensemble_restart(state.ensembles[ens_num+1], md_items['settings'], save=f'e{ens_num+1}')
-
-
+            write_ensemble_restart(state.ensembles[ens_num+1], state.pyretis_settings, save=f'e{ens_num+1}')
 
         pn_news.append(out_traj.path_number)
         state.add_traj(ens_num, out_traj, out_traj.traj_v)
@@ -125,6 +131,8 @@ def treat_output(state, md_items):
         
     # record weights 
     locked_trajs = state.locked_paths()
+    if state._last_prob is None:
+        state.prob
     for idx, live in enumerate(state.live_paths()):
         if live not in locked_trajs:
             traj_num_dic[live]['frac'] += state._last_prob[:-1][idx, :]
@@ -190,8 +198,8 @@ def setup_internal(config):
 
     state.ensembles = {i: sim.ensembles[i] for i in range(len(sim.ensembles))}
     sim.settings['initial-path']['load_folder'] = 'trajs'
-    md_items = {'settings': sim.settings,
-                'mc_moves': state.mc_moves,
+    state.pyretis_settings = sim.settings
+    md_items = {'mc_moves': state.mc_moves,
                 'ensembles': {}, 
                 'internal': config['simulation']['internal']}
 
@@ -247,9 +255,22 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
         state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
         md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
 
+    md_items['settings'] = None
+    md_items['interfaces'] = None
+    interfaces = state.pyretis_settings['simulation']['interfaces']
+    if len(ens_nums) == 1:
+        interfaces = [interfaces] if ens_nums[0] >= 0 else [interfaces[0:1]]
+        md_items['settings'] = state.pyretis_settings['ensemble'][ens_nums[0]+1]['tis']
+        md_items['interfaces'] = interfaces
+    else:
+        md_items['settings'] = state.pyretis_settings
+        md_items['interfaces'] = [interfaces[0:1], interfaces]
+
     # empty / update md_items:
     md_items['moves'] = []
     md_items['pnum_old'] = []
+    md_items['trial_len'] = []
+    md_items['trial_op'] = []
     md_items['generated'] = []
     md_items.update({'ens_nums': ens_nums})
 
