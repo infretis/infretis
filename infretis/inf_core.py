@@ -123,6 +123,8 @@ class REPEX_state(object):
         self.pattern_file = None
         self.locked0 = []
         self.locked = []
+        self.pyretis_settings = None
+        self.zeroswap = 0.5
 
         # Not using this at the moment
         # self.result = Results(n, offset=self._offset)
@@ -161,7 +163,7 @@ class REPEX_state(object):
         if ((
              (ens == self._offset and not self._locks[self._offset-1]) or
              (ens == self._offset-1 and not self._locks[self._offset])
-        ) and np.random.random() < 0.5):
+        ) and np.random.random() < self.zeroswap):
             if ens == self._offset:
                 # ens = 0
                 other = self._offset - 1
@@ -638,11 +640,13 @@ class REPEX_state(object):
             ens_nums = ' '.join([f'00{i+1}' for i in md_items['ens_nums']])
             pnum_old = ' '.join([str(i) for i in md_items['pnum_old']])
             pnum_new = ' '.join([str(i) for i in pn_news])
+            trial_lens = ' '.join([str(i) for i in md_items['trial_len']])
+            trial_ops = ' '.join([f'[{i[0]:4.4f} {i[1]:4.4f}]' for i in md_items['trial_op']])
             status = md_items['status']
             simtime = md_items['time']
             print('shooted', ' '.join(moves), 'in ensembles:', ens_nums,
                   'with paths:', pnum_old,  '->', pnum_new, 'with status:',
-                  status, 'and worker:', self.cworker,
+                  status,'len:',trial_lens, 'op:', trial_ops,  'and worker:', self.cworker,
                   f"total time: {simtime:.2f}")
             self.print_state()
 
