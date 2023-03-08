@@ -20,10 +20,6 @@ class test_infretisrun(unittest.TestCase):
         # get path of where we run coverage unittest
         curr_path = pathlib.Path.cwd()
 
-        # we collect istrue and check at the end to let tempdir
-        # close without a possible AssertionError interuption
-        true_list = []
-
         # get path and cd into current file
         file_path = pathlib.Path(__file__).parent
         os.chdir(file_path)
@@ -59,10 +55,6 @@ class test_infretisrun(unittest.TestCase):
     def test_infretisrun_1worker_wf(self):
         # get path of where we run coverage unittest
         curr_path = pathlib.Path.cwd()
-
-        # we collect istrue and check at the end to let tempdir
-        # close without a possible AssertionError interuption
-        true_list = []
 
         # get path and cd into current file
         file_path = pathlib.Path(__file__).parent
@@ -315,6 +307,95 @@ class test_infretisrun(unittest.TestCase):
             os.chdir(file_path)
         os.chdir(curr_path)
 
-# delete old.. test
-#
-#
+    def test_infretisbm(self):
+        # get path of where we run coverage unittest
+        curr_path = pathlib.Path.cwd()
+
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            for fil in FILES:
+                shutil.copy(f'../{folder}/{fil}', './')
+            os.mkdir('trajs')
+            copy_tree(f'../{folder}/trajs', './trajs')
+            for ens in range(3):
+                copy_tree(f'./trajs/{ens}', f'./trajs/e{ens}')
+
+            # edit infretis.toml to add bm settings
+            with open('infretis.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['output']['screen'] = 1
+                config['simulation']['bm_steps'] = 100
+                config['simulation']['bm_intfs'] = [-999, 999]
+            with open("./infretis.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # run standard simulation start command
+            os.system("infretisbm -i infretis.toml >| out.txt")
+
+            collect_true = []
+            with open('out.txt', 'r') as read:
+                for line in read:
+                    if 'shooted' in line:
+                        if 'BMA' in line and 'len: 100' in line:
+                            collect_true.append(True)
+                        else:
+                            collect_true.append(False)
+            os.chdir(file_path)
+        os.chdir(curr_path)
+        self.assertTrue(len(collect_true)>0)
+        self.assertTrue(all(collect_true))
+
+    def test_delete_old(self):
+        # get path of where we run coverage unittest
+        curr_path = pathlib.Path.cwd()
+
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        # recorded old data: 615423c2d39
+        live_trajs = [11, 10, 8]
+        record = {i: (i < 3 or i in live_trajs) for i in range(12)}
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            for fil in FILES:
+                shutil.copy(f'../{folder}/{fil}', './')
+            os.mkdir('trajs')
+            copy_tree(f'../{folder}/trajs', './trajs')
+            for ens in range(3):
+                copy_tree(f'./trajs/{ens}', f'./trajs/e{ens}')
+
+            # edit infretis.toml to add bm settings
+            with open('infretis.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['output']['screen'] = 1
+                config['output']['delete_old'] = True
+            with open("./infretis.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # run standard simulation start command
+            os.system("infretisrun -i infretis.toml >| out.txt")
+
+            collect_true = []
+            fitems = os.listdir('./trajs/')
+            live_trajs = [11, 10, 8]
+            record = {i: (i < 3 or i in live_trajs) for i in range(12)}
+            for i in range(12):
+                if str(i) in fitems:
+                    fitems0 = os.listdir(f'./trajs/{i}/accepted')
+                    collect_true.append(record[i] == (len(fitems0)>0))
+            os.chdir(file_path)
+        os.chdir(curr_path)
+        self.assertTrue(len(collect_true)>0)
+        self.assertTrue(all(collect_true))

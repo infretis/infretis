@@ -19,10 +19,6 @@ class test_infretisrun(unittest.TestCase):
         # get path of where we run coverage unittest
         curr_path = pathlib.Path.cwd()
 
-        # we collect istrue and check at the end to let tempdir
-        # close without a possible AssertionError interuption
-        true_list = []
-
         # get path and cd into current file
         file_path = pathlib.Path(__file__).parent
         os.chdir(file_path)
@@ -61,10 +57,6 @@ class test_infretisrun(unittest.TestCase):
         # get path of where we run coverage unittest
         curr_path = pathlib.Path.cwd()
 
-        # we collect istrue and check at the end to let tempdir
-        # close without a possible AssertionError interuption
-        true_list = []
-
         # get path and cd into current file
         file_path = pathlib.Path(__file__).parent
         os.chdir(file_path)
@@ -102,10 +94,6 @@ class test_infretisrun(unittest.TestCase):
     def test_infretisrun_1worker_sh(self):
         # get path of where we run coverage unittest
         curr_path = pathlib.Path.cwd()
-
-        # we collect istrue and check at the end to let tempdir
-        # close without a possible AssertionError interuption
-        true_list = []
 
         # get path and cd into current file
         file_path = pathlib.Path(__file__).parent
@@ -179,10 +167,6 @@ class test_infretisrun(unittest.TestCase):
     def test_infretisrun_1worker_wf(self):
         # get path of where we run coverage unittest
         curr_path = pathlib.Path.cwd()
-
-        # we collect istrue and check at the end to let tempdir
-        # close without a possible AssertionError interuption
-        true_list = []
 
         # get path and cd into current file
         file_path = pathlib.Path(__file__).parent
@@ -603,13 +587,104 @@ class test_infretisrun(unittest.TestCase):
             os.chdir(file_path)
         os.chdir(curr_path)
 
-    def test_pyretis_dataconv(self):
+    def test_infretisbm_1w(self):
+        # Simply test that infretisbm works as intended.
         # get path of where we run coverage unittest
         curr_path = pathlib.Path.cwd()
 
-        # we collect istrue and check at the end to let tempdir
-        # close without a possible AssertionError interuption
-        true_list = []
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            shutil.copy(f'../{folder}/infretis.toml', './')
+            shutil.copy(f'../{folder}/initial.xyz', './')
+            shutil.copy(f'../{folder}/wf.rst', './retis.rst')
+            os.mkdir('trajs')
+            copy_tree(f'../{folder}/trajs', './trajs')
+            for ens in range(8):
+                copy_tree(f'./trajs/{ens}', f'./trajs/e{ens}')
+
+            # edit infretis.toml to add bm settings
+            with open('infretis.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['output']['screen'] = 1
+                config['simulation']['bm_steps'] = 100
+                config['simulation']['bm_intfs'] = [-999, 999]
+            with open("./infretis.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # run standard simulation start command
+            os.system("infretisbm -i infretis.toml >| out.txt")
+
+            collect_true = []
+            with open('out.txt', 'r') as read:
+                for line in read:
+                    if 'shooted' in line:
+                        if 'BMA' in line and 'len: 100' in line:
+                            collect_true.append(True)
+                        else:
+                            collect_true.append(False)
+            os.chdir(file_path)
+        os.chdir(curr_path)
+        self.assertTrue(len(collect_true)>0)
+        self.assertTrue(all(collect_true))
+
+    def test_infretisbm_3w(self):
+        # Simply test that infretisbm works as intended.
+        # get path of where we run coverage unittest
+        curr_path = pathlib.Path.cwd()
+
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            shutil.copy(f'../{folder}/infretis.toml', './')
+            shutil.copy(f'../{folder}/initial.xyz', './')
+            shutil.copy(f'../{folder}/wf.rst', './retis.rst')
+            os.mkdir('trajs')
+            copy_tree(f'../{folder}/trajs', './trajs')
+            for ens in range(8):
+                copy_tree(f'./trajs/{ens}', f'./trajs/e{ens}')
+
+            # edit infretis.toml to add bm settings
+            with open('infretis.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['dask']['workers'] = 3
+                config['output']['screen'] = 1
+                config['simulation']['bm_steps'] = 150
+                config['simulation']['bm_intfs'] = [-999, 999]
+            with open("./infretis.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            # run standard simulation start command
+            os.system("infretisbm -i infretis.toml >| out.txt")
+
+            collect_true = []
+            with open('out.txt', 'r') as read:
+                for line in read:
+                    if 'shooted' in line:
+                        if 'BMA' in line and 'len: 150' in line:
+                            collect_true.append(True)
+                        else:
+                            collect_true.append(False)
+            os.chdir(file_path)
+        os.chdir(curr_path)
+        self.assertTrue(all(collect_true))
+
+    def test_pyretis_dataconv(self):
+        # test infretisanalyze.
+        # get path of where we run coverage unittest
+        curr_path = pathlib.Path.cwd()
 
         # get path and cd into current file
         file_path = pathlib.Path(__file__).parent

@@ -14,7 +14,7 @@ from pyretis.core.common import compute_weight
 dask.config.set({'distributed.scheduler.work-stealing': False})
 
 def run_bm(md_items):
-    start_time = time.time()
+    md_items['wmd_start'] = time.time()
     ens_nums = md_items['ens_nums']
     ensembles = md_items['ensembles']
     settings = md_items['settings']
@@ -34,12 +34,11 @@ def run_bm(md_items):
     md_items['trial_op'].append((trials.ordermin[0], trials.ordermax[0]))
     md_items.update({'status': 'BMA',
                      'interfaces': interfaces,
-                     'time': time.time() - start_time,
-                     'start_time': start_time})
+                     'wmd_end': time.time()})
     return md_items
 
 def run_md(md_items):
-    start_time = time.time() 
+    md_items['wmd_start'] = time.time()
     ens_nums = md_items['ens_nums']
     ensembles = md_items['ensembles']
     interfaces = md_items['interfaces']
@@ -72,8 +71,7 @@ def run_md(md_items):
 
     md_items.update({'status': status,
                      'interfaces': interfaces,
-                     'time': time.time() - start_time,
-                     'start_time': start_time})
+                     'wmd_end': time.time()})
     return md_items
 
 def treat_output(state, md_items):
@@ -81,7 +79,7 @@ def treat_output(state, md_items):
     traj_num = state.config['current']['traj_num']
     ensembles = md_items['ensembles']
     pn_news = []
-    pstore = PathStorage()
+    md_items['md_end'] = time.time()
 
     # analyse and record worker data
     for ens_num, pn_old in zip(md_items['ens_nums'],
@@ -113,7 +111,7 @@ def treat_output(state, md_items):
             if md_items['internal'] and state.config['output']['store_paths']:
                 make_dirs(f'./trajs/{out_traj.path_number}')
             if state.config['output']['store_paths'] and not md_items['internal']:
-                pstore.output(state.cstep, state.ensembles[ens_num+1]['path_ensemble'])
+                state.pstore.output(state.cstep, state.ensembles[ens_num+1]['path_ensemble'])
                 if state.config['output'].get('delete_old', False) and pn_old > state.n - 2:
                     # if pn is larger than ensemble number ...
                     for adress in traj_num_dic[pn_old]['adress']:
@@ -203,6 +201,12 @@ def setup_internal(config):
                 'ensembles': {}, 
                 'internal': config['simulation']['internal']}
 
+    if state.pattern:
+        writemode = 'a' if 'restarted-from' in state.config['current'] else 'w'
+        with open(state.pattern_file, writemode) as fp:
+            fp.write(f"# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end"
+                     + f"[s]\tMD_end [s]\t Dask_end [s]\tEnsembles\t{state.start_time}\n")
+
     return md_items, state
 
 def setup_dask(config, workers):
@@ -246,10 +250,6 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
         if not pwd_checker(state):
             exit('sumtin fishy goin on here')
 
-    # write data:
-    if state.config['output']['pattern'] and state.toinitiate == -1:
-        state.write_pattern(md_items)
-
     # prep path and ensemble
     for ens_num, traj_inp in zip(ens_nums, inp_traj):
         state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
@@ -265,6 +265,12 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
     else:
         md_items['settings'] = state.pyretis_settings
         md_items['interfaces'] = [interfaces[0:1], interfaces]
+
+    # write pattern:
+    if state.config['output']['pattern'] and state.toinitiate == -1:
+        state.write_pattern(md_items)
+    else:
+        md_items['md_start'] = time.time()
 
     # empty / update md_items:
     md_items['moves'] = []
@@ -375,9 +381,14 @@ def setup_repex(config, sim):
     state.mc_moves = sim.settings['tis']['shooting_moves']
     state.config = config
     state.pattern_file = config['output']['pattern_file']
+    state.pattern = config['output']['pattern']
     state.data_file = config['output']['data_file']
     if 'restarted-from' in config['current']:
         state.set_rng()
     state.locked0 = list(config['current'].get('locked', []))
     state.locked = list(config['current'].get('locked', []))
+
+    pstore = PathStorage()
+    state.pstore = pstore
+
     return state
