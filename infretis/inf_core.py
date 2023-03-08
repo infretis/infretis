@@ -116,8 +116,7 @@ class REPEX_state(object):
         self.mc_moves = []
         self.ensembles = {}
         self.toinitiate = self.workers
-        self.time_keep = {}
-        self.pattern = 0
+        self.pattern = None
         self.output_tasks = None
         self.data_file = None
         self.pattern_file = None
@@ -125,6 +124,8 @@ class REPEX_state(object):
         self.locked = []
         self.pyretis_settings = None
         self.zeroswap = 0.5
+        self.start_time = time.time()
+        self.pstore = None
 
         # Not using this at the moment
         # self.result = Results(n, offset=self._offset)
@@ -290,7 +291,7 @@ class REPEX_state(object):
     def loop(self):
         if self.printing():
             if self.cstep not in (0, self.config['current'].get('restarted-from', 0)):
-                print(f'------- infinity {self.cstep:5.0f} END -------\n')
+                print(f'------- infinity {self.cstep:5.0f} END -------\n', flush=True)
 
         if self.cstep >= self.tsteps:
             # should probably add a check for stopping when all workers are free
@@ -317,9 +318,6 @@ class REPEX_state(object):
         self.cworker = self.workers - self.toinitiate
         md_items.update({'pin': self.cworker})
 
-        if self.pattern > 0:
-            with open(self.pattern_file, 'w') as fp:
-                fp.write('# \n')
         if self.toinitiate == self.workers:
             if self.screen > 0:
                 self.print_start()
@@ -329,7 +327,6 @@ class REPEX_state(object):
         if self.toinitiate > 0:
             if self.screen > 0:
                 print(f'------- submit worker {self.cworker} START -------')
-            self.time_keep[self.workers - self.toinitiate] = time.time()
         self.toinitiate -= 1
         return self.toinitiate >= 0
 
@@ -613,12 +610,17 @@ class REPEX_state(object):
             tomli_w.dump(self.config, f)
 
     def write_pattern(self, md_items):
-        now0 = time.time()
+        md_start = time.time()
+        ensnums = '-'.join([str(i+1) for i in md_items['ens_nums']])
         with open(self.pattern_file, 'a') as fp:
-            for idx, ens_num in enumerate(md_items['ens_nums']):
-                fp.write(f"{ens_num+1}\t{self.time_keep[md_items['pin']]:.5f}\t" +
-                         f"{now0:.5f}\t{md_items['pin']}\n")
-        self.time_keep[md_items['pin']] = now0
+            fp.write(f"{md_items['pin']}\t\t"
+                   + f"{md_items['md_start'] - self.start_time:8.8f}\t"
+                   + f"{md_items['wmd_start'] - self.start_time:8.8f}\t"
+                   + f"{md_items['wmd_end'] - self.start_time:8.8f}\t"
+                   + f"{md_items['md_end'] - self.start_time:8.8f}\t"
+                   + f"{md_start - self.start_time:8.8f}\t"
+                   + f"{ensnums}\n")
+        md_items['md_start'] = md_start
 
     def printing(self):
         return self.screen > 0 and np.mod(self.cstep, self.screen) == 0
@@ -643,7 +645,7 @@ class REPEX_state(object):
             trial_lens = ' '.join([str(i) for i in md_items['trial_len']])
             trial_ops = ' '.join([f'[{i[0]:4.4f} {i[1]:4.4f}]' for i in md_items['trial_op']])
             status = md_items['status']
-            simtime = md_items['time']
+            simtime = md_items['md_end'] - md_items['md_start']
             print('shooted', ' '.join(moves), 'in ensembles:', ens_nums,
                   'with paths:', pnum_old,  '->', pnum_new, 'with status:',
                   status,'len:',trial_lens, 'op:', trial_ops,  'and worker:', self.cworker,
