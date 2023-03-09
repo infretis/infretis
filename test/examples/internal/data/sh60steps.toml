@@ -31,7 +31,7 @@ periodic = false
 [output]
 backup = "backup"
 store_paths = true
-screen = 0
+screen = 1
 pattern = false
 data_dir = "./"
 data_file = "./infretis_data.txt"
@@ -52,7 +52,7 @@ active = [
 ]
 locked = []
 size = 8
-restarted-from = 40
+restarted_from = 40
 
 [current.frac]
 16 = [

@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import time
+import tomli
 from pyretis.core.tis import select_shoot
 from pyretis.core.retis import retis_swap_zero
 from pyretis.setup import create_simulation
@@ -147,7 +148,35 @@ def treat_output(state, md_items):
     state.save_rng()
     state.write_toml()
 
-def setup_internal(config):
+def setup_internal(input_file):
+
+    # read input_file.toml
+    with open(input_file, mode="rb") as f:
+        config = tomli.load(f)
+    # if input_file.toml != restart.toml and restart.toml exist:
+    if os.path.isfile('restart.toml') and \
+       'restart.toml' not in input_file and \
+       config['output']['store_paths']:
+        with open('./restart.toml', mode="rb") as f:
+            restart = tomli.load(f)
+        # check if they are similar to use restart over input_file
+        equal = True
+        for key in ['dask', 'simulation', 'engine', 'order_parameter',
+                    'output']:
+            if config[key] != restart[key]:
+                equal = False
+                break
+        if equal:
+            for act in restart['current']['active']:
+                store_p = os.path.join('trajs', str(act), 'ensemble.restart')
+                if not os.path.isfile(store_p):
+                    equal = False
+                    break
+        if equal:
+            restart['current']['restarted_from'] = restart['current']['cstep']
+            config = restart
+            print('We use restart.toml instead.')
+
     # parse retis.rst
     inp = config['simulation']['pyretis_inp']
     sim_settings = parse_settings_file(inp)
@@ -157,7 +186,7 @@ def setup_internal(config):
     # setup config
     endsim = setup_config(config, size)
     if endsim:
-        return None, None
+        return None, None, None
 
     # setup pyretis and infretis
     sim = setup_pyretis(config, sim_settings)
@@ -202,12 +231,12 @@ def setup_internal(config):
                 'internal': config['simulation']['internal']}
 
     if state.pattern:
-        writemode = 'a' if 'restarted-from' in state.config['current'] else 'w'
+        writemode = 'a' if 'restarted_from' in state.config['current'] else 'w'
         with open(state.pattern_file, writemode) as fp:
             fp.write(f"# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end"
                      + f"[s]\tMD_end [s]\t Dask_end [s]\tEnsembles\t{state.start_time}\n")
 
-    return md_items, state
+    return md_items, state, config
 
 def setup_dask(config, workers):
     client = Client(n_workers=workers)
@@ -352,7 +381,7 @@ def setup_config(config, size):
             fp.write('# ' + f'\txxx\tlen\tmax OP\t\t{ens_str}\n')
             fp.write('# ' + '='*(34+8*size)+ '\n')
     else:
-        config['current']['restarted-from'] = config['current']['cstep']
+        config['current']['restarted_from'] = config['current']['cstep']
         if config['current']['cstep'] == config['simulation']['steps']:
             print('current step and total steps are equal so we exit ',
                   'without doing anything.')
@@ -383,7 +412,7 @@ def setup_repex(config, sim):
     state.pattern_file = config['output']['pattern_file']
     state.pattern = config['output']['pattern']
     state.data_file = config['output']['data_file']
-    if 'restarted-from' in config['current']:
+    if 'restarted_from' in config['current']:
         state.set_rng()
     state.locked0 = list(config['current'].get('locked', []))
     state.locked = list(config['current'].get('locked', []))

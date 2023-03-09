@@ -1,16 +1,11 @@
-import tomli
 import numpy as np
 from infretis.common import run_md, run_bm, treat_output, pwd_checker
 from infretis.common import setup_internal, setup_dask, prep_pyretis
 
 
 def scheduler(input_file):
-
-    with open(input_file, mode="rb") as f:
-        config = tomli.load(f)
-
     # setup pyretis, repex, dask client and futures
-    md_items, state = setup_internal(config)
+    md_items, state, config = setup_internal(input_file)
     if None in (md_items, state):
         return
     client, futures = setup_dask(config, state.workers)
@@ -45,12 +40,8 @@ def scheduler(input_file):
     client.close()
 
 def bm_scheduler(input_file):
-
-    with open(input_file, mode="rb") as f:
-        config = tomli.load(f)
-
     # setup pyretis, repex, dask client and futures
-    md_items, state = setup_internal(config)
+    md_items, state, config = setup_internal(input_file)
     state.zeroswap = 0.
     if None in (md_items, state):
         return
