@@ -290,7 +290,7 @@ class REPEX_state(object):
 
     def loop(self):
         if self.printing():
-            if self.cstep not in (0, self.config['current'].get('restarted-from', 0)):
+            if self.cstep not in (0, self.config['current'].get('restarted_from', 0)):
                 print(f'------- infinity {self.cstep:5.0f} END -------\n', flush=True)
 
         if self.cstep >= self.tsteps:
