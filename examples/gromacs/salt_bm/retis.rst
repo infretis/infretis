@@ -15,9 +15,11 @@ Engine
 ------
 class = gromacs2    # more effective than gromacs class
 # gmx = srun gmx_d
-gmx = mpirun -np 1 gmx_d
-# gmx = gmx_d
-mdrun = gmx_d mdrun
+# gmx = mpirun -np 1 gmx_d
+# gmx = gmx
+# mdrun = gmx mdrun -nt 4 -pinoffset 0 -pin on
+gmx = gmx
+mdrun = gmx mdrun
 input_path = ./../salt_data/gromacs_input
 timestep = 0.0005
 subcycles = 1

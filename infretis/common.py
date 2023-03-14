@@ -248,26 +248,13 @@ def setup_dask(config, workers):
 def pwd_checker(state):
     all_good = True
     ens_str = [f'{i:03.0f}' for i in range(state.n-1)]
-    state_dic = {}
 
+    tot = []
     for path_temp in state._trajs[:-1]:
-        path_pwds = sorted(set([pp.particles.config[0] for pp in path_temp.phasepoints]))
-        ens = next(i for i in path_pwds[0].split('/') if i in ens_str)
-        state_dic[ens] = {'pwds': [pwd.split('/')[-1] for pwd in path_pwds]}
-        state_dic[ens]['path_number'] = path_temp.path_number
-
-    ens_pwds = []
-    for ens in ens_str:
-        ens_pwds.append(sorted(os.listdir(f'./{ens}/accepted')))
-
-    # check if state_paths correspond to path_pwds:
-    for ens, string1 in zip(ens_str, ens_pwds):
-        string0 = state_dic[ens]['pwds']
-        print(ens, string0)
-        if string0 != string1:
-            print(string0, string1)
-            print('warning! the state_paths does' + \
-                  'not correspond to the path_pwds!')
+        tot += list(set([pp.particles.config[0] for pp in path_temp.phasepoints]))
+    for ppath in tot:
+        if not os.path.isfile(ppath):
+            print('warning! this path does not exist', ppath)
             all_good = False
 
     return all_good
@@ -283,6 +270,20 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
     for ens_num, traj_inp in zip(ens_nums, inp_traj):
         state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
         md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
+
+        # for non slurm internal pc only..
+        # in retis.rst, gmx = gmx, mdrun = gmx mdrun
+        # config['dask']['wmdrun'] a list of commands with len equal no works.
+        if state.config['dask'].get('wmdrun', False):
+            add = state.config['dask']['wmdrun'][md_items['pin']]
+            mdrun = 'gmx mdrun ' + add + ' -s {} -deffnm {} -c {}'
+            mdrun_c = 'gmx mdrun ' + add + ' -s {} -cpi {} -append -deffnm {} -c {}'
+            print('crow 0', md_items['ensembles'][ens_num+1]['engine'].mdrun)
+            print('crow 1', mdrun)
+            print('crow 2', md_items['ensembles'][ens_num+1]['engine'].mdrun_c)
+            print('crow 3', mdrun_c)
+            md_items['ensembles'][ens_num+1]['engine'].mdrun = mdrun
+            md_items['ensembles'][ens_num+1]['engine'].mdrun_c = mdrun_c
 
     md_items['settings'] = None
     md_items['interfaces'] = None
