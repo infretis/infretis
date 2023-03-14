@@ -1,9 +1,10 @@
 [dask]
-workers = 1
+workers = 2
+files=["Orderp.py"]
 wmdrun= [
      "-nt 4 -pinoffset 0 -pin on",
+     "-nb gpu",
 ]
-
 
 [simulation]
 pyretis_inp = "retis.rst"
