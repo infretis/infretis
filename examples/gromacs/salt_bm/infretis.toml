@@ -1,5 +1,9 @@
 [dask]
 workers = 1
+wmdrun= [
+     "-nt 4 -pinoffset 0 -pin on",
+]
+
 
 [simulation]
 pyretis_inp = "retis.rst"
@@ -8,7 +12,7 @@ states_ab = [
     0.27,
     0.45,
 ]
-steps = 20
+steps = 50
 bm_steps = 100
 bm_intfs = [
     -900.0,
