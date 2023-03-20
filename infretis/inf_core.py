@@ -3,6 +3,10 @@ import os
 import time
 import tomli_w
 import pickle
+import logging
+from pyretis.inout.formats.formatter import get_log_formatter
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger.addHandler(logging.NullHandler())
 
 
 # Define some infRETIS infrastructure
@@ -135,7 +139,7 @@ class REPEX_state(object):
             return self.pick()
         else:
             self.locked0.pop()
-        print('pick locked!')
+        logger.info('pick locked!')
         enss = []
         trajs = [] 
         enss0, trajs0 = self.locked.pop()
@@ -291,7 +295,7 @@ class REPEX_state(object):
     def loop(self):
         if self.printing():
             if self.cstep not in (0, self.config['current'].get('restarted_from', 0)):
-                print(f'------- infinity {self.cstep:5.0f} END -------\n', flush=True)
+                logger.info(f'------- infinity {self.cstep:5.0f} END -------\n')
 
         if self.cstep >= self.tsteps:
             # should probably add a check for stopping when all workers are free
@@ -307,7 +311,7 @@ class REPEX_state(object):
         
         if self.cstep <= self.tsteps:
             if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
-                print(f'------- infinity {self.cstep:5.0f} START -------')
+                 logger.info(f'------- infinity {self.cstep:5.0f} START -------')
 
         return self.cstep <= self.tsteps
 
@@ -323,10 +327,10 @@ class REPEX_state(object):
                 self.print_start()
         if self.toinitiate < self.workers:
             if self.screen > 0:
-                print(f'------- submit worker {self.cworker-1} END -------\n')
+                logger.info(f'------- submit worker {self.cworker-1} END -------\n')
         if self.toinitiate > 0:
             if self.screen > 0:
-                print(f'------- submit worker {self.cworker} START -------')
+                logger.info(f'------- submit worker {self.cworker} START -------')
         self.toinitiate -= 1
         return self.toinitiate >= 0
 
@@ -632,9 +636,8 @@ class REPEX_state(object):
             move = self.mc_moves[ens_nums[0]+1]
         ens_p = ' '.join([f'00{ens_num+1}' for ens_num in ens_nums])
         pat_p = ' '.join(pat_nums)
-        print('shooting', move, 'in ensembles:',
-              ens_p, 'with paths:', pat_p,
-              'and worker:', pin)
+        logger.info(f'shooting {move} in ensembles: {ens_p} with paths:' \
+                    f' {pat_p} and worker: {pin}')
 
     def print_shooted(self, md_items, pn_news):
         if self.printing():
@@ -646,16 +649,17 @@ class REPEX_state(object):
             trial_ops = ' '.join([f'[{i[0]:4.4f} {i[1]:4.4f}]' for i in md_items['trial_op']])
             status = md_items['status']
             simtime = md_items['md_end'] - md_items['md_start']
-            print('shooted', ' '.join(moves), 'in ensembles:', ens_nums,
-                  'with paths:', pnum_old,  '->', pnum_new, 'with status:',
-                  status,'len:',trial_lens, 'op:', trial_ops,  'and worker:', self.cworker,
-                  f"total time: {simtime:.2f}")
+            logger.info(f"shooted {' '.join(moves)} in ensembles: {ens_nums}" \
+                        f' with paths: {pnum_old} -> {pnum_new}')
+            logger.info('with status:' \
+                        f' {status} len: {trial_lens} op: {trial_ops} and' \
+                        f' worker: {self.cworker} total time: {simtime:.2f}')
             self.print_state()
 
     def print_start(self):
-        print('stored ensemble paths:')
+        logger.info('stored ensemble paths:')
         ens_num = self.live_paths()
-        print(' '.join([f'00{i}: {j},' for i, j in enumerate(ens_num)]))
+        logger.info(' '.join([f'00{i}: {j},' for i, j in enumerate(ens_num)]) + '\n')
         self.print_state()
 
     def print_state(self):
@@ -664,10 +668,10 @@ class REPEX_state(object):
             self.prob
             last_prob = False
 
-        print('===')
+        logger.info('===')
         to_print = '\t'.join(['e'+ f'{i:03.0f}' for i in range(self.n-1)])
-        print(' xx |\t' + to_print)
-        print(' -- |     -----------------------------------')
+        logger.info(' xx |\t' + to_print)
+        logger.info(' -- |     -----------------------------------')
 
         locks = self.locked_paths()
         oil = False
@@ -680,15 +684,15 @@ class REPEX_state(object):
                     to_print += f'{prob:.2f}\t' if prob != 0 else '----\t'
                 to_print += ' ' + f"{self.traj_num_dic[live]['max_op'][0]:.5f} |"
                 to_print += ' ' + f"{self.traj_num_dic[live]['length']:5.0f}"
-                print(to_print)
+                logger.info(to_print)
             else:
                 to_print = f'p{live:02.0f} |\t'
-                print(to_print + '\t'.join(['----' for j in range(self.n-1)]))
+                logger.info(to_print + '\t'.join(['----' for j in range(self.n-1)]))
         if oil:
-            print('olive oil')
+            logger.info('olive oil')
             oil = False
 
-        print('===')
+        logger.info('===')
         if not last_prob:
             self._last_prob = None
 
@@ -696,12 +700,12 @@ class REPEX_state(object):
         live_trajs = self.live_paths()
         stopping = self.cstep
         traj_num_dic = self.traj_num_dic
-        print('--------------------------------------------------')
-        print('live trajs:', live_trajs, f'after {stopping} cycles')
-        print('==================================================')
-        print('xxx | 000        001     002     003     004     |')
-        print('--------------------------------------------------')
+        logger.info('--------------------------------------------------')
+        logger.info(f'live trajs: {live_trajs} after {stopping} cycles')
+        logger.info('==================================================')
+        logger.info('xxx | 000        001     002     003     004     |')
+        logger.info('--------------------------------------------------')
         for key, item in traj_num_dic.items():
-            print(f'{key:03.0f}', "|" if key not in live_trajs else '*',
-                  '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '---' for item0 in item['frac'][:-1]])
-                 ,'\t', "|" if key not in live_trajs else '*')
+            values = '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '----' for item0 in item['frac'][:-1]])
+            logger.info(f'{key:03.0f} * {values} *')
+
