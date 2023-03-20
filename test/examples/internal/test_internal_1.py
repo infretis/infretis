@@ -50,6 +50,78 @@ class test_infretisrun(unittest.TestCase):
                 if not istrue:
                     print(f'./{item0}', f'../{folder}/{item1}')
                 self.assertTrue(istrue)
+
+            # inspect log files in a simple way
+            simlog = []
+            with open('./sim.log') as read:
+                for line in read:
+                    if 'shooting wf in ensembles: 003' in line:
+                        simlog.append(True)
+            workerlog = []
+            with open('./worker0.log') as read:
+                for line in read:
+                    if 'Shooting wf in ensemble: 003' in line:
+                        workerlog.append(True)
+            self.assertTrue(len(simlog) == 8)
+            self.assertTrue(len(workerlog) == len(simlog))
+            os.chdir(file_path)
+        os.chdir(curr_path)
+
+    def test_infretisrun_3worker_wf_long(self):
+        # get path of where we run coverage unittest
+        curr_path = pathlib.Path.cwd()
+
+        # get path and cd into current file
+        file_path = pathlib.Path(__file__).parent
+        os.chdir(file_path)
+
+        with tempfile.TemporaryDirectory(dir='./') as tempdir:
+            # cd to tempdir
+            os.chdir(tempdir)
+            # copy files from template folder
+            folder = 'data'
+            shutil.copy(f'../{folder}/infretis.toml', './')
+            shutil.copy(f'../{folder}/initial.xyz', './')
+            shutil.copy(f'../{folder}/wf.rst', './retis.rst')
+            os.mkdir('trajs')
+            copy_tree(f'../{folder}/trajs', './trajs')
+            for ens in range(8):
+                copy_tree(f'./trajs/{ens}', f'./trajs/e{ens}')
+
+            # change to three workers
+            with open('infretis.toml', mode="rb") as f:
+                config = tomli.load(f)
+                config['dask']['workers'] = 3
+                config['simulation']['steps'] = 30
+            with open("./infretis.toml", "wb") as f:
+                tomli_w.dump(config, f)
+
+            os.system("infretisrun -i infretis.toml >| out.txt")
+
+            # only compare log since three workers (asynchronous)
+            simlog = []
+            simzero = []
+            with open('./sim.log') as read:
+                for line in read:
+                    if 'shooting' in line:
+                        simlog.append(True)
+                    if 'shooting sh in ensembles: 000 001' in line:
+                        simzero.append(True)
+            workerlog = []
+            workerzero = []
+            for i in range(3):
+                cnt = 0
+                cntzero = 0
+                with open(f'./worker{i}.log') as read:
+                    for line in read:
+                        if 'with path' in line:
+                            cnt += 1
+                        if '000 001' in line:
+                            cntzero += 1
+                workerlog.append(cnt)
+                workerzero.append(cntzero)
+            self.assertTrue(sum(workerlog) == len(simlog))
+            self.assertTrue(sum(workerzero) == len(simzero))
             os.chdir(file_path)
         os.chdir(curr_path)
 
@@ -261,7 +333,7 @@ class test_infretisrun(unittest.TestCase):
             pick_counter = 0
             subm_counter = 0
             submit = False
-            with open('out.txt', 'r') as read:
+            with open('sim.log', 'r') as read:
                 for idx, line in enumerate(read):
                     if 'submit' in line:
                         submit = True if 'START' in line else False
@@ -308,7 +380,7 @@ class test_infretisrun(unittest.TestCase):
             pick_counter = 0
             subm_counter = 0
             submit = False
-            with open('out.txt', 'r') as read:
+            with open('sim.log', 'r') as read:
                 for idx, line in enumerate(read):
                     if 'submit' in line:
                         submit = True if 'START' in line else False
@@ -687,15 +759,15 @@ class test_infretisrun(unittest.TestCase):
             os.system("infretisbm -i infretis.toml >| out.txt")
 
             collect_true = []
-            with open('out.txt', 'r') as read:
+            with open('sim.log', 'r') as read:
                 for line in read:
-                    if 'shooted' in line:
+                    if 'with status' in line:
                         if 'BMA' in line and 'len: 100' in line:
                             collect_true.append(True)
                         else:
                             collect_true.append(False)
-            os.chdir(file_path)
-        os.chdir(curr_path)
+            # os.chdir(file_path)
+        # os.chdir(curr_path)
         self.assertTrue(len(collect_true)>0)
         self.assertTrue(all(collect_true))
 

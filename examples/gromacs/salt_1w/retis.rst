@@ -14,10 +14,8 @@ units = gromacs
 Engine
 ------
 class = gromacs2    # more effective than gromacs class
-# gmx = srun gmx_d
-gmx = mpirun -np 1 gmx_d
-# gmx = gmx_d
-mdrun = gmx_d mdrun
+gmx = gmx
+mdrun = gmx mdrun
 input_path = ./../salt_data/gromacs_input
 timestep = 0.0005
 subcycles = 1
@@ -41,7 +39,7 @@ high_accept = True
 
 Initial-path
 ------------
-method = load
+method = restart
 load_folder = trajs
 
 RETIS settings

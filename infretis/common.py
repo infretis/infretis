@@ -2,6 +2,8 @@ import os
 import numpy as np
 import time
 import tomli
+import logging
+from pyretis.inout.formats.formatter import get_log_formatter
 from pyretis.core.tis import select_shoot
 from pyretis.core.retis import retis_swap_zero
 from pyretis.setup import create_simulation
@@ -10,9 +12,16 @@ from pyretis.inout.restart import write_ensemble_restart
 from pyretis.inout.archive import PathStorage
 from pyretis.inout.common import make_dirs
 from infretis.inf_core import REPEX_state
-from dask.distributed import dask, Client, as_completed
+from dask.distributed import dask, Client, as_completed, get_worker
 from pyretis.core.common import compute_weight
 dask.config.set({'distributed.scheduler.work-stealing': False})
+logger = logging.getLogger('')
+logger.setLevel(logging.DEBUG)
+# Define a console logger. This will log to sys.stderr:
+console = logging.StreamHandler()
+console.setLevel(logging.WARNING)
+console.setFormatter(get_log_formatter(logging.WARNING))
+logger.addHandler(console)
 
 def run_bm(md_items):
     md_items['wmd_start'] = time.time()
@@ -44,7 +53,13 @@ def run_md(md_items):
     ensembles = md_items['ensembles']
     interfaces = md_items['interfaces']
 
+
     if len(ens_nums) == 1:
+        pnum = ensembles[ens_nums[0]+1]['path_ensemble'].last_path.path_number
+        enum = f"{ens_nums[0]+1:03.0f}"
+        move = md_items['mc_moves'][ens_nums[0]+1]
+        logger.info(f"Shooting {move} in ensemble: {enum}"\
+                    f" with path: {pnum} and worker: {md_items['pin']}")
         start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
         if not md_items['internal']:
             ensembles[ens_nums[0]+1]['engine'].clean_up()
@@ -55,6 +70,10 @@ def run_md(md_items):
 
     else:
         ensembles_l = [ensembles[i+1] for i in ens_nums]
+        pnums = [ensembles_l[0]['path_ensemble'].last_path.path_number,
+                 ensembles_l[1]['path_ensemble'].last_path.path_number]
+        logger.info(f"Shooting sh sh in ensembles: 000 001"\
+                    f" with paths: {pnums} and worker: {md_items['pin']}")
         if not md_items['internal']:
             ensembles_l[0]['engine'].clean_up()
             ensembles_l[1]['engine'].clean_up()
@@ -66,9 +85,13 @@ def run_md(md_items):
         md_items['trial_len'].append(trial.length)
         md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
         md_items['generated'] = trial.generated
+        logger.info(f'Move finished with trial path lenght of {trial.length}')
         if status == 'ACC':
             trial.traj_v = calc_cv_vector(trial, ifaces, md_items['mc_moves'])
             ensembles[ens_num+1]['path_ensemble'].last_path = trial
+            logger.info('The move was accepted!\n')
+        else:
+            logger.info('The move was rejected!\n')
 
     md_items.update({'status': status,
                      'interfaces': interfaces,
@@ -150,6 +173,14 @@ def treat_output(state, md_items):
 
 def setup_internal(input_file):
 
+    # setup logger
+    fileh = logging.FileHandler('sim.log', mode='a')
+    log_levl = getattr(logging, 'info'.upper(),
+                       logging.INFO)
+    fileh.setLevel(log_levl)
+    fileh.setFormatter(get_log_formatter(log_levl))
+    logger.addHandler(fileh)
+
     # read input_file.toml
     with open(input_file, mode="rb") as f:
         config = tomli.load(f)
@@ -175,7 +206,7 @@ def setup_internal(input_file):
         if equal:
             restart['current']['restarted_from'] = restart['current']['cstep']
             config = restart
-            print('We use restart.toml instead.')
+            logger.info('We use restart.toml instead.')
 
     # parse retis.rst
     inp = config['simulation']['pyretis_inp']
@@ -243,6 +274,8 @@ def setup_dask(config, workers):
     for module in config['dask'].get('files', []):
         client.upload_file(module)
     futures = as_completed(None, with_results=True)
+    # create worker logs
+    client.run(set_logger)
     return client, futures
 
 def pwd_checker(state):
@@ -278,10 +311,10 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
             add = state.config['dask']['wmdrun'][md_items['pin']]
             mdrun = 'gmx mdrun ' + add + ' -s {} -deffnm {} -c {}'
             mdrun_c = 'gmx mdrun ' + add + ' -s {} -cpi {} -append -deffnm {} -c {}'
-            print('crow 0', md_items['ensembles'][ens_num+1]['engine'].mdrun)
-            print('crow 1', mdrun)
-            print('crow 2', md_items['ensembles'][ens_num+1]['engine'].mdrun_c)
-            print('crow 3', mdrun_c)
+            logger.info('crow 0' + md_items['ensembles'][ens_num+1]['engine'].mdrun)
+            logger.info('crow 1' + mdrun)
+            logger.info('crow 2' + md_items['ensembles'][ens_num+1]['engine'].mdrun_c)
+            logger.info('crow 3' + mdrun_c)
             md_items['ensembles'][ens_num+1]['engine'].mdrun = mdrun
             md_items['ensembles'][ens_num+1]['engine'].mdrun_c = mdrun_c
 
@@ -325,7 +358,6 @@ def calc_cv_vector(path, interfaces, moves):
             cv.append(1. if intf_i <= path_max else 0.)
     cv.append(0.)
     return(tuple(cv))
-
 
 def write_to_pathens(state, pn_archive):
     traj_num_dic = state.traj_num_dic
@@ -422,3 +454,16 @@ def setup_repex(config, sim):
     state.pstore = pstore
 
     return state
+
+def set_logger():
+    pin = get_worker().name
+    log = logging.getLogger()
+    fileh = logging.FileHandler(f"worker{pin}.log", mode='a')
+    log_levl = getattr(logging, 'info'.upper(),
+                       logging.INFO)
+    fileh.setLevel(log_levl)
+    fileh.setFormatter(get_log_formatter(log_levl))
+    logger.addHandler(fileh)
+    logger.info(f'=============================')
+    logger.info(f'Logging file for worker {pin}')
+    logger.info(f'=============================\n')

@@ -340,9 +340,9 @@ class test_infretisrun(unittest.TestCase):
             os.system("infretisbm -i infretis.toml >| out.txt")
 
             collect_true = []
-            with open('out.txt', 'r') as read:
+            with open('sim.log', 'r') as read:
                 for line in read:
-                    if 'shooted' in line:
+                    if 'with status' in line:
                         if 'BMA' in line and 'len: 100' in line:
                             collect_true.append(True)
                         else:
