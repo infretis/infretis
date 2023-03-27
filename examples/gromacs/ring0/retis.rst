@@ -38,7 +38,7 @@ seed = 0
 
 Initial-path
 ------------
-method = load
+method = restart
 load_folder = trajs
 
 RETIS settings
