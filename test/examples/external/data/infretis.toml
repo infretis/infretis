@@ -39,3 +39,5 @@ store_paths = true
 screen = 1
 pattern = true
 data_dir = "./"
+data_file = "./infretis_data.txt"
+pattern_file = "./pattern.txt"

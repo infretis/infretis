@@ -3,6 +3,7 @@ import numpy as np
 import time
 import tomli
 import logging
+from datetime import datetime
 from pyretis.inout.formats.formatter import get_log_formatter
 from pyretis.core.tis import select_shoot
 from pyretis.core.retis import retis_swap_zero
@@ -22,6 +23,7 @@ console = logging.StreamHandler()
 console.setLevel(logging.WARNING)
 console.setFormatter(get_log_formatter(logging.WARNING))
 logger.addHandler(console)
+DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
 def run_bm(md_items):
     md_items['wmd_start'] = time.time()
@@ -52,7 +54,7 @@ def run_md(md_items):
     ens_nums = md_items['ens_nums']
     ensembles = md_items['ensembles']
     interfaces = md_items['interfaces']
-
+    logger.info(datetime.now().strftime(DATE_FORMAT))
 
     if len(ens_nums) == 1:
         pnum = ensembles[ens_nums[0]+1]['path_ensemble'].last_path.path_number
@@ -89,10 +91,10 @@ def run_md(md_items):
         if status == 'ACC':
             trial.traj_v = calc_cv_vector(trial, ifaces, md_items['mc_moves'])
             ensembles[ens_num+1]['path_ensemble'].last_path = trial
-            logger.info('The move was accepted!\n')
+            logger.info('The move was accepted!')
         else:
-            logger.info('The move was rejected!\n')
-
+            logger.info('The move was rejected!')
+    logger.info(datetime.now().strftime(DATE_FORMAT) + '\n')
     md_items.update({'status': status,
                      'interfaces': interfaces,
                      'wmd_end': time.time()})
@@ -192,8 +194,7 @@ def setup_internal(input_file):
             restart = tomli.load(f)
         # check if they are similar to use restart over input_file
         equal = True
-        for key in ['dask', 'simulation', 'engine', 'order_parameter',
-                    'output']:
+        for key in ['dask', 'simulation', 'output']:
             if config[key] != restart[key]:
                 equal = False
                 break
@@ -261,7 +262,7 @@ def setup_internal(input_file):
                 'ensembles': {}, 
                 'internal': config['simulation']['internal']}
 
-    if state.pattern:
+    if state.pattern_file:
         writemode = 'a' if 'restarted_from' in state.config['current'] else 'w'
         with open(state.pattern_file, writemode) as fp:
             fp.write(f"# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end"
@@ -304,22 +305,15 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
         state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
         md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
 
-        # for non slurm internal pc only..
         # in retis.rst, gmx = gmx, mdrun = gmx mdrun
         # config['dask']['wmdrun'] a list of commands with len equal no works.
-        if state.config['dask'].get('wmdrun', False):
-            add = state.config['dask']['wmdrun'][md_items['pin']]
-            mdrun = 'gmx mdrun ' + add + ' -s {} -deffnm {} -c {}'
-            mdrun_c = 'gmx mdrun ' + add + ' -s {} -cpi {} -append -deffnm {} -c {}'
-            logger.info('crow 0' + md_items['ensembles'][ens_num+1]['engine'].mdrun)
-            logger.info('crow 1' + mdrun)
-            logger.info('crow 2' + md_items['ensembles'][ens_num+1]['engine'].mdrun_c)
-            logger.info('crow 3' + mdrun_c)
+        if not md_items['internal'] and state.config['dask'].get('wmdrun', False):
+            mdrun0 = state.config['dask']['wmdrun'][md_items['pin']]
+            mdrun = mdrun0 + ' -s {} -deffnm {} -c {}'
+            mdrun_c = mdrun0 + ' -s {} -cpi {} -append -deffnm {} -c {}'
             md_items['ensembles'][ens_num+1]['engine'].mdrun = mdrun
             md_items['ensembles'][ens_num+1]['engine'].mdrun_c = mdrun_c
 
-    md_items['settings'] = None
-    md_items['interfaces'] = None
     interfaces = state.pyretis_settings['simulation']['interfaces']
     if len(ens_nums) == 1:
         interfaces = [interfaces] if ens_nums[0] >= 0 else [interfaces[0:1]]
@@ -330,17 +324,14 @@ def prep_pyretis(state, md_items, inp_traj, ens_nums):
         md_items['interfaces'] = [interfaces[0:1], interfaces]
 
     # write pattern:
-    if state.config['output']['pattern'] and state.toinitiate == -1:
+    if state.pattern_file and state.toinitiate == -1:
         state.write_pattern(md_items)
     else:
         md_items['md_start'] = time.time()
 
     # empty / update md_items:
-    md_items['moves'] = []
-    md_items['pnum_old'] = []
-    md_items['trial_len'] = []
-    md_items['trial_op'] = []
-    md_items['generated'] = []
+    for key in ['moves', 'pnum_old', 'trial_len', 'trial_op', 'generated']:
+        md_items[key] = []
     md_items.update({'ens_nums': ens_nums})
 
 def calc_cv_vector(path, interfaces, moves):
@@ -358,6 +349,79 @@ def calc_cv_vector(path, interfaces, moves):
             cv.append(1. if intf_i <= path_max else 0.)
     cv.append(0.)
     return(tuple(cv))
+
+def setup_config(config, size):
+
+    data_dir = config['output']['data_dir']
+    data_file = os.path.join(data_dir, 'infretis_data.txt')
+    config['output']['data_file'] = data_file
+
+    # check if we restart or not
+    if 'current' not in config:
+        config['current'] = {'traj_num': size, 'cstep': 0,
+                             'active': list(range(size)),
+                             'locked': [], 'size': size, 'frac': {}}
+        # write/overwrite infretis_data.txt
+        with open(data_file, 'w') as fp:
+            fp.write('# ' + '='*(34+8*size)+ '\n')
+            ens_str = '\t'.join([f'{i:03.0f}' for i in range(size)])
+            fp.write('# ' + f'\txxx\tlen\tmax OP\t\t{ens_str}\n')
+            fp.write('# ' + '='*(34+8*size)+ '\n')
+    else:
+        config['current']['restarted_from'] = config['current']['cstep']
+        if config['current']['cstep'] == config['simulation']['steps']:
+            print('current step and total steps are equal so we exit ',
+                  'without doing anything.')
+            return True
+    return False
+
+def setup_pyretis(config, sim_settings):
+    # give path to the active paths
+    sim_settings['current'] = {'active': config['current']['active']}
+
+    sim = create_simulation(sim_settings)
+    for idx, pn in enumerate(config['current']['active']):
+        sim.ensembles[idx]['path_ensemble'].path_number = pn
+
+    sim.set_up_output(sim_settings)
+    sim.initiate(sim_settings)
+    return sim
+
+def setup_repex(config, sim):
+    state = REPEX_state(n=config['current']['size'],
+                        workers=config['dask']['workers'],
+                        minus=True)
+    state.tsteps = config['simulation']['steps']
+    state.cstep = config['current']['cstep']
+    state.screen = config['output']['screen']
+    state.output_tasks = sim.output_tasks
+    state.mc_moves = sim.settings['tis']['shooting_moves']
+    state.config = config
+    if config['output'].get('pattern', False):
+        state.pattern_file = os.path.join('pattern.txt')
+    state.data_file = config['output']['data_file']
+    if 'restarted_from' in config['current']:
+        state.set_rng()
+    state.locked0 = list(config['current'].get('locked', []))
+    state.locked = list(config['current'].get('locked', []))
+
+    pstore = PathStorage()
+    state.pstore = pstore
+
+    return state
+
+def set_logger():
+    pin = get_worker().name
+    log = logging.getLogger()
+    fileh = logging.FileHandler(f"worker{pin}.log", mode='a')
+    log_levl = getattr(logging, 'info'.upper(),
+                       logging.INFO)
+    fileh.setLevel(log_levl)
+    fileh.setFormatter(get_log_formatter(log_levl))
+    logger.addHandler(fileh)
+    logger.info(f'=============================')
+    logger.info(f'Logging file for worker {pin}')
+    logger.info(f'=============================\n')
 
 def write_to_pathens(state, pn_archive):
     traj_num_dic = state.traj_num_dic
@@ -390,80 +454,3 @@ def write_to_pathens(state, pn_archive):
                     weight.append('----' if f0 == 0.0 else str(w0))
             fp.write(string + '\t'.join(frac) + '\t' + '\t'.join(weight) + '\t\n')
             traj_num_dic.pop(pn)
-
-def setup_config(config, size):
-
-    data_dir = config['output']['data_dir']
-    data_file = os.path.join(data_dir, 'infretis_data.txt')
-    config['output']['data_file'] = data_file
-    config['output']['pattern'] = config['output'].get('pattern', False)
-    config['output']['pattern_file'] = os.path.join(data_dir, 'pattern.txt')
-
-    # check if we restart or not
-    if 'current' not in config:
-        config['current'] = {}
-        config['current']['traj_num'] = size
-        config['current']['cstep'] = 0
-        config['current']['active'] = list(range(size))
-        config['current']['locked'] = []
-        config['current']['size'] = size
-        config['current']['frac'] = {}
-        with open(data_file, 'w') as fp:
-            fp.write('# ' + '='*(34+8*size)+ '\n')
-            ens_str = '\t'.join([f'{i:03.0f}' for i in range(size)])
-            fp.write('# ' + f'\txxx\tlen\tmax OP\t\t{ens_str}\n')
-            fp.write('# ' + '='*(34+8*size)+ '\n')
-    else:
-        config['current']['restarted_from'] = config['current']['cstep']
-        if config['current']['cstep'] == config['simulation']['steps']:
-            print('current step and total steps are equal so we exit ',
-                  'without doing anything.')
-            return True
-    return False
-
-def setup_pyretis(config, sim_settings):
-    # give path to the active paths
-    sim_settings['current'] = {'active': config['current']['active']}
-    sim = create_simulation(sim_settings)
-    for idx, pn in enumerate(config['current']['active']):
-        sim.ensembles[idx]['path_ensemble'].path_number = pn
-
-    sim.set_up_output(sim_settings)
-    sim.initiate(sim_settings)
-    return sim
-
-def setup_repex(config, sim):
-    state = REPEX_state(n=config['current']['size'],
-                        workers=config['dask']['workers'],
-                        minus=True)
-    state.tsteps = config['simulation']['steps']
-    state.cstep = config['current']['cstep']
-    state.screen = config['output']['screen']
-    state.output_tasks = sim.output_tasks
-    state.mc_moves = sim.settings['tis']['shooting_moves']
-    state.config = config
-    state.pattern_file = config['output']['pattern_file']
-    state.pattern = config['output']['pattern']
-    state.data_file = config['output']['data_file']
-    if 'restarted_from' in config['current']:
-        state.set_rng()
-    state.locked0 = list(config['current'].get('locked', []))
-    state.locked = list(config['current'].get('locked', []))
-
-    pstore = PathStorage()
-    state.pstore = pstore
-
-    return state
-
-def set_logger():
-    pin = get_worker().name
-    log = logging.getLogger()
-    fileh = logging.FileHandler(f"worker{pin}.log", mode='a')
-    log_levl = getattr(logging, 'info'.upper(),
-                       logging.INFO)
-    fileh.setLevel(log_levl)
-    fileh.setFormatter(get_log_formatter(log_levl))
-    logger.addHandler(fileh)
-    logger.info(f'=============================')
-    logger.info(f'Logging file for worker {pin}')
-    logger.info(f'=============================\n')

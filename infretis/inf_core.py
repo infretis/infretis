@@ -1,12 +1,14 @@
 import numpy as np
 import os
 import time
+from datetime import datetime
 import tomli_w
 import pickle
 import logging
 from pyretis.inout.formats.formatter import get_log_formatter
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
+DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
 
 # Define some infRETIS infrastructure
@@ -120,10 +122,9 @@ class REPEX_state(object):
         self.mc_moves = []
         self.ensembles = {}
         self.toinitiate = self.workers
-        self.pattern = None
         self.output_tasks = None
         self.data_file = None
-        self.pattern_file = None
+        self.pattern_file = False
         self.locked0 = []
         self.locked = []
         self.pyretis_settings = None
@@ -295,7 +296,8 @@ class REPEX_state(object):
     def loop(self):
         if self.printing():
             if self.cstep not in (0, self.config['current'].get('restarted_from', 0)):
-                logger.info(f'------- infinity {self.cstep:5.0f} END -------\n')
+                logger.info('date: ' + datetime.now().strftime(DATE_FORMAT))
+                logger.info(f'------- infinity {self.cstep:5.0f} END ------- ' + '\n')
 
         if self.cstep >= self.tsteps:
             # should probably add a check for stopping when all workers are free
@@ -304,14 +306,15 @@ class REPEX_state(object):
             self.save_rng()
             self.print_end()
             self.write_toml()
+            logger.info('date: ' + datetime.now().strftime(DATE_FORMAT))
             return False
 
         self.cstep += 1
         self.config['current']['cstep'] = self.cstep
         
-        if self.cstep <= self.tsteps:
-            if self.screen > 0 and np.mod(self.cstep, self.screen) == 0:
-                 logger.info(f'------- infinity {self.cstep:5.0f} START -------')
+        if self.printing() and self.cstep <= self.tsteps:
+            logger.info(f'------- infinity {self.cstep:5.0f} START ------- ')
+            logger.info('date: ' + datetime.now().strftime(DATE_FORMAT))
 
         return self.cstep <= self.tsteps
 
@@ -327,10 +330,12 @@ class REPEX_state(object):
                 self.print_start()
         if self.toinitiate < self.workers:
             if self.screen > 0:
-                logger.info(f'------- submit worker {self.cworker-1} END -------\n')
+                logger.info(f'------- submit worker {self.cworker-1} END ------- ' +
+                             datetime.now().strftime(DATE_FORMAT) + '\n')
         if self.toinitiate > 0:
             if self.screen > 0:
-                logger.info(f'------- submit worker {self.cworker} START -------')
+                logger.info(f'------- submit worker {self.cworker} START ------- ' +
+                             datetime.now().strftime(DATE_FORMAT))
         self.toinitiate -= 1
         return self.toinitiate >= 0
 
@@ -682,8 +687,8 @@ class REPEX_state(object):
                     oil = True
                 for prob in self._last_prob[idx][:-1]:
                     to_print += f'{prob:.2f}\t' if prob != 0 else '----\t'
-                to_print += ' ' + f"{self.traj_num_dic[live]['max_op'][0]:.5f} |"
-                to_print += ' ' + f"{self.traj_num_dic[live]['length']:5.0f}"
+                to_print += f"{self.traj_num_dic[live]['max_op'][0]:8.5f} |"
+                to_print += f"{self.traj_num_dic[live]['length']:5.0f}"
                 logger.info(to_print)
             else:
                 to_print = f'p{live:02.0f} |\t'
