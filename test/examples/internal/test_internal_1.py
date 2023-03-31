@@ -766,8 +766,8 @@ class test_infretisrun(unittest.TestCase):
                             collect_true.append(True)
                         else:
                             collect_true.append(False)
-            # os.chdir(file_path)
-        # os.chdir(curr_path)
+            os.chdir(file_path)
+        os.chdir(curr_path)
         self.assertTrue(len(collect_true)>0)
         self.assertTrue(all(collect_true))
 

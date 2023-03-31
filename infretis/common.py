@@ -54,7 +54,8 @@ def run_md(md_items):
     ens_nums = md_items['ens_nums']
     ensembles = md_items['ensembles']
     interfaces = md_items['interfaces']
-    logger.info(datetime.now().strftime(DATE_FORMAT))
+    start_time = datetime.now()
+    logger.info(start_time.strftime(DATE_FORMAT))
 
     if len(ens_nums) == 1:
         pnum = ensembles[ens_nums[0]+1]['path_ensemble'].last_path.path_number
@@ -88,17 +89,31 @@ def run_md(md_items):
         md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
         md_items['generated'] = trial.generated
         logger.info(f'Move finished with trial path lenght of {trial.length}')
+        log_mdlogs(f'{ens_num+1:03}/generate/')
         if status == 'ACC':
             trial.traj_v = calc_cv_vector(trial, ifaces, md_items['mc_moves'])
             ensembles[ens_num+1]['path_ensemble'].last_path = trial
             logger.info('The move was accepted!')
         else:
             logger.info('The move was rejected!')
-    logger.info(datetime.now().strftime(DATE_FORMAT) + '\n')
+
+    end_time = datetime.now()
+    delta_time = end_time - start_time
+    logger.info(end_time.strftime(DATE_FORMAT) +
+                f', {delta_time.days} days {delta_time.seconds} seconds' + '\n')
     md_items.update({'status': status,
                      'interfaces': interfaces,
                      'wmd_end': time.time()})
     return md_items
+
+def log_mdlogs(inp):
+    logs = [log for log in os.listdir(inp) if 'log' in log]
+    speed = []
+    for log in logs:
+        with open(os.path.join(inp, log), 'r') as read:
+            for line in read:
+                if 'Performance' in line:
+                    logger.info(log + ' '+ line.rstrip().split()[1] + ' ns/day')
 
 def treat_output(state, md_items):
     traj_num_dic = state.traj_num_dic
