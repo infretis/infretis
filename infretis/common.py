@@ -7,7 +7,8 @@ from datetime import datetime
 from pyretis.inout.formats.formatter import get_log_formatter
 from pyretis.core.tis import select_shoot
 from pyretis.core.retis import retis_swap_zero
-from pyretis.setup import create_simulation
+# from pyretis.setup import create_simulation
+from infretis.pyretis_stuff import create_simulation
 from pyretis.inout.settings import parse_settings_file
 from pyretis.inout.restart import write_ensemble_restart
 from pyretis.inout.archive import PathStorage
