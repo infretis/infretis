@@ -7,8 +7,9 @@ import os
 import pickle
 from numpy.random import RandomState
 from pyretis.core.random_gen import RandomGeneratorBorg
-from pyretis.engines.gromacs import GromacsEngine
-from pyretis.engines.gromacs2 import GromacsEngine2
+from infretis.pyretis_stuff import GromacsEngine
+# from pyretis.engines.gromacs import GromacsEngine
+# from pyretis.engines.gromacs2 import GromacsEngine2
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
@@ -84,22 +85,22 @@ class GromacsEngineR(GromacsEngine):
         return prepare_shooting_point(self, input_file)
 
 
-class GromacsEngine2R(GromacsEngine2):
-    """A class for interfacing GROMACS.
-
-    This class uses a set of reproducible seeds for generation velocities.
-    Otherwise, it is equal to :py:class:`.GromacsEngine2`.
-
-    """
-
-    def __init__(self, gmx, mdrun, input_path, timestep, subcycles,
-                 maxwarn=0, gmx_format='g96', write_vel=True,
-                 write_force=False):
-        """Set up the engine."""
-        super().__init__(gmx, mdrun, input_path, timestep, subcycles,
-                         maxwarn=maxwarn, gmx_format=gmx_format,
-                         write_vel=write_vel, write_force=write_force)
-
-    def _prepare_shooting_point(self, input_file):
-        """Create initial configuration for a shooting move."""
-        return prepare_shooting_point(self, input_file)
+# class GromacsEngine2R(GromacsEngine2):
+#     """A class for interfacing GROMACS.
+# 
+#     This class uses a set of reproducible seeds for generation velocities.
+#     Otherwise, it is equal to :py:class:`.GromacsEngine2`.
+# 
+#     """
+# 
+#     def __init__(self, gmx, mdrun, input_path, timestep, subcycles,
+#                  maxwarn=0, gmx_format='g96', write_vel=True,
+#                  write_force=False):
+#         """Set up the engine."""
+#         super().__init__(gmx, mdrun, input_path, timestep, subcycles,
+#                          maxwarn=maxwarn, gmx_format=gmx_format,
+#                          write_vel=write_vel, write_force=write_force)
+# 
+#     def _prepare_shooting_point(self, input_file):
+#         """Create initial configuration for a shooting move."""
+#         return prepare_shooting_point(self, input_file)

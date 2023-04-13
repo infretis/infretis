@@ -13,7 +13,7 @@ units = gromacs
 
 Engine
 ------
-class = GromacsEngine2R
+class = GromacsEngineR
 module = gromacs.py
 gmx = gmx_d
 mdrun = gmx_d mdrun

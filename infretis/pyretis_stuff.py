@@ -2154,7 +2154,7 @@ def engine_factory(settings):
 
     """
     engine_map = {
-        'gromacs2': {'cls': GromacsEngine2},
+        'gromacs2': {'cls': GromacsEngine},
     }
     return generic_factory(settings, engine_map, name='engine')
 
@@ -2516,23 +2516,23 @@ class EngineBase(metaclass=ABCMeta):
         information about the integrator.
     exe_dir : string
         A directory where the engine is going to be executed.
-    engine_type : string or None
-        Describe the type of engine as an "internal" or "external"
-        engine. If this is undefined, this variable is set to None.
     needs_order : boolean
         Determines if the engine needs an internal order parameter
         or not. If not, it is assumed that the order parameter is
         calculated by the engine.
 
     """
-
-    engine_type = None
     needs_order = True
+    engine_type = None
 
-    def __init__(self, description):
+    def __init__(self, description, timestep, subcycles):
         """Just add the description."""
         self.description = description
         self._exe_dir = None
+        self.timestep = timestep
+        self.subcycles = subcycles
+        self.ext = 'xyz'
+        self.input_files = {}
 
     @property
     def exe_dir(self):
@@ -2545,14 +2545,31 @@ class EngineBase(metaclass=ABCMeta):
         self._exe_dir = exe_dir
         if exe_dir is not None:
             logger.debug('Setting exe_dir to "%s"', exe_dir)
-            if self.engine_type == 'external' and not os.path.isdir(exe_dir):
+            if not os.path.isdir(exe_dir):
                 logger.warning(('"Exe dir" for "%s" is set to "%s" which does'
                                 ' not exist!'), self.description, exe_dir)
 
-    @abstractmethod
     def integration_step(self, ensemble):
-        """Perform one time step of the integration."""
-        return
+        """
+        Perform a single time step of the integration.
+
+        For external engines, it does not make much sense to run single
+        steps unless we absolutely have to. We therefore just fail here.
+        I.e. the external engines are not intended for performing pure
+        MD simulations.
+
+        If it's absolutely needed, there is a :py:meth:`self.step()`
+        method which can be used, for instance in the initialisation.
+
+        Parameters
+        ----------
+        system : object like :py:class:`.System`
+            A system to run the integration step on.
+
+        """
+        msg = 'External engine does **NOT** support "integration_step()"!'
+        logger.error(msg)
+        raise NotImplementedError(msg)
 
     @staticmethod
     def add_to_path(path, phase_point, left, right):
@@ -2599,11 +2616,6 @@ class EngineBase(metaclass=ABCMeta):
         return status, success, stop, add
 
     @abstractmethod
-    def propagate(self, path, ensemble, reverse=False):
-        """Propagate equations of motion."""
-        return
-
-    @abstractmethod
     def modify_velocities(self, ensemble, vel_settings):
         """Modify the velocities of the current state.
 
@@ -2645,25 +2657,281 @@ class EngineBase(metaclass=ABCMeta):
         """
         return
 
-    @abstractmethod
     def calculate_order(self, ensemble, xyz=None, vel=None, box=None):
-        """Obtain the order parameter."""
-        return
+        """
+        Calculate order parameter from configuration in a file.
+
+        Note, if ``xyz``, ``vel`` or ``box`` are given, we will
+        **NOT** read positions, velocity and box information from the
+        current configuration file.
+
+        Parameters
+        ----------
+        ensemble : dict
+            It contains:
+
+            * `system` : object like :py:class:`.System`
+              This is the system that contains the particles we are
+              investigating
+            * `order_function` : object like :py:class:`.OrderParameter`
+              The object used for calculating the order parameter.
+
+        xyz : numpy.array, optional
+            The positions to use, in case we have already read them
+            somewhere else. We will then not attempt to read them again.
+        vel : numpy.array, optional
+            The velocities to use, in case we already have read them.
+        box : numpy.array, optional
+            The current box vectors, in case we already have read them.
+
+        Returns
+        -------
+        out : list of floats
+            The calculated order parameter(s).
+
+        """
+        # Convert system into an internal representation:
+        system = ensemble['system']
+        order_function = ensemble['order_function']
+        if any((xyz is None, vel is None, box is None)):
+            out = self._read_configuration(system.particles.config[0])
+            box = out[0]
+            xyz = out[1]
+            vel = out[2]
+        system.particles.pos = xyz
+        if system.particles.vel_rev:
+            if vel is not None:
+                system.particles.vel = -1.0 * vel
+        else:
+            system.particles.vel = vel
+        if box is None and self.input_files.get('template', False):
+            # CP2K specific box initiation:
+            box, _ = read_cp2k_box(ensemble['engine'].input_files['template'])
+
+        system.update_box(box)
+        return order_function.calculate(system)
+
+    def dump_phasepoint(self, phasepoint, deffnm='conf'):
+        """Just dump the frame from a system object."""
+        pos_file = self.dump_config(phasepoint.particles.get_pos(),
+                                    deffnm=deffnm)
+        phasepoint.particles.set_pos((pos_file, None))
+
+    def _name_output(self, basename):
+        """
+        Create a file name for the output file.
+
+        This method is used when we dump a configuration to add
+        the correct extension for GROMACS (either gro or g96).
+
+        Parameters
+        ----------
+        basename : string
+            The base name to give to the file.
+
+        Returns
+        -------
+        out : string
+            A file name with an extension.
+
+        """
+        out_file = f'{basename}.{self.ext}'
+        return os.path.join(self.exe_dir, out_file)
+
+    def dump_config(self, config, deffnm='conf'):
+        """Extract configuration frame from a system if needed.
+
+        Parameters
+        ----------
+        config : tuple
+            The configuration given as (filename, index).
+        deffnm : string, optional
+            The base name for the file we dump to.
+
+        Returns
+        -------
+        out : string
+            The file name we dumped to. If we did not in fact dump, this is
+            because the system contains a single frame and we can use it
+            directly. Then we return simply this file name.
+
+        Note
+        ----
+        If the velocities should be reversed, this is handled elsewhere.
+
+        """
+        pos_file, idx = config
+        out_file = os.path.join(self.exe_dir, self._name_output(deffnm))
+        if idx is None:
+            if pos_file != out_file:
+                self._copyfile(pos_file, out_file)
+        else:
+            logger.debug('Config: %s', (config, ))
+            self._extract_frame(pos_file, idx, out_file)
+        return out_file
+
+    def dump_frame(self, system, deffnm='conf'):
+        """Just dump the frame from a system object."""
+        return self.dump_config(system.particles.config, deffnm=deffnm)
 
     @abstractmethod
-    def dump_phasepoint(self, phasepoint, deffnm=None):
-        """Dump phase point to a file."""
+    def _extract_frame(self, traj_file, idx, out_file):
+        """Extract a frame from a trajectory file.
+
+        Parameters
+        ----------
+        traj_file : string
+            The trajectory file to open.
+        idx : integer
+            The frame number we look for.
+        out_file : string
+            The file to dump to.
+
+        """
         return
 
-    @abstractmethod
-    def kick_across_middle(self, ensemble, middle,
-                           tis_settings):
-        """Force a phase point across the middle interface."""
-        return
-
-    @abstractmethod
     def clean_up(self):
-        """Perform clean up after using the engine."""
+        """Will remove all files from the current directory."""
+        dirname = self.exe_dir
+        logger.debug('Running engine clean-up in "%s"', dirname)
+        files = [item.name for item in os.scandir(dirname) if item.is_file()]
+        self._remove_files(dirname, files)
+
+    def propagate(self, path, ensemble, reverse=False):
+        """
+        Propagate the equations of motion with the external code.
+
+        This method will explicitly do the common set-up, before
+        calling more specialised code for doing the actual propagation.
+
+        Parameters
+        ----------
+        path : object like :py:class:`.PathBase`
+            This is the path we use to fill in phase-space points.
+            We are here not returning a new path - this since we want
+            to delegate the creation of the path to the method
+            that is running `propagate`.
+        ensemble: dict
+            It contains:
+
+            * `system` : object like :py:class:`.System`
+              The system object gives the initial state for the
+              integration. The initial state is stored and the system is
+              reset to the initial state when the integration is done.
+            * `order_function` : object like :py:class:`.OrderParameter`
+              The object used for calculating the order parameter.
+            * `interfaces` : list of floats
+              These interfaces define the stopping criterion.
+
+        reverse : boolean, optional
+            If True, the system will be propagated backward in time.
+
+        Returns
+        -------
+        success : boolean
+            This is True if we generated an acceptable path.
+        status : string
+            A text description of the current status of the propagation.
+
+        """
+        logger.debug('Running propagate with: "%s"', self.description)
+
+        prefix = str(counter())
+        if ensemble.get('path_ensemble', False):
+            prefix = ensemble['path_ensemble'].ensemble_name_simple + '_' \
+                     + prefix
+
+        if reverse:
+            logger.debug('Running backward in time.')
+            name = prefix + '_trajB'
+        else:
+            logger.debug('Running forward in time.')
+            name = prefix + '_trajF'
+        logger.debug('Trajectory name: "%s"', name)
+        # Also create a message file for inspecting progress:
+        msg_file_name = os.path.join(self.exe_dir, f'msg-{name}.txt')
+        logger.debug('Writing propagation progress to: %s', msg_file_name)
+        msg_file = FileIO(msg_file_name, 'w', None, backup=False)
+        msg_file.open()
+        msg_file.write(f'# Preparing propagation with {self.description}')
+        msg_file.write(f'# Trajectory label: {name}')
+
+        initial_state = ensemble['system'].copy()
+        system = ensemble['system']
+        initial_file = self.dump_frame(system, deffnm=prefix + '_conf')
+        msg_file.write(f'# Initial file: {initial_file}')
+        logger.debug('Initial state: %s', system)
+
+        if reverse != system.particles.vel_rev:
+            logger.debug('Reversing velocities in initial config.')
+            msg_file.write('# Reversing velocities')
+            basepath = os.path.dirname(initial_file)
+            localfile = os.path.basename(initial_file)
+            initial_conf = os.path.join(basepath, f'r_{localfile}')
+            self._reverse_velocities(initial_file, initial_conf)
+        else:
+            initial_conf = initial_file
+        msg_file.write(f'# Initial config: {initial_conf}')
+
+        # Update system to point to the configuration file:
+        system.particles.set_pos((initial_conf, None))
+        system.particles.set_vel(reverse)
+        # Propagate from this point:
+        msg_file.write(f'# Interfaces: {ensemble["interfaces"]}')
+        success, status = self._propagate_from(
+            name,
+            path,
+            ensemble,
+            msg_file,
+            reverse=reverse
+        )
+        # Reset to initial state:
+        ensemble['system'] = initial_state
+        msg_file.close()
+        return success, status
+
+    @abstractmethod
+    def _propagate_from(self, name, path, ensemble, msg_file, reverse=False):
+        """
+        Run the actual propagation using the specific engine.
+
+        This method is called after :py:meth:`.propagate`. And we
+        assume that the necessary preparations before the actual
+        propagation (e.g. dumping of the configuration etc.) is
+        handled in that method.
+
+        Parameters
+        ----------
+        name : string
+            A name to use for the trajectory we are generating.
+        path : object like :py:class:`.PathBase`
+            This is the path we use to fill in phase-space points.
+        ensemble: dict
+            It contains:
+
+            * `system` : object like :py:class:`.System`
+              The system object gives the initial state for the
+              integration. The initial state is stored and the system is
+              reset to the initial state when the integration is done.
+            * `order_function` : object like :py:class:`.OrderParameter`
+              The object used for calculating the order parameter.
+            * `interfaces` : list of floats
+              These interfaces define the stopping criterion.
+
+        msg_file : object like :py:class:`.FileIO`
+            An object we use for writing out messages that are useful
+            for inspecting the status of the current propagation.
+        reverse : boolean, optional
+            If True, the system will be propagated backward in time.
+
+        Returns
+        -------
+        success : boolean
+            This is True if we generated an acceptable path.
+        status : string
+            A text description of the current status of the propagation.
+
+        """
         return
 
     @staticmethod
@@ -2680,182 +2948,6 @@ class EngineBase(metaclass=ABCMeta):
             if hasattr(particles, external) and external in snapshot:
                 setattr(particles, external, snapshot[external])
         return system_copy
-
-    def __eq__(self, other):
-        """Check if two engines are equal."""
-        if self.__class__ != other.__class__:
-            logger.debug('%s and %s.__class__ differ', self, other)
-            return False
-
-        if set(self.__dict__) != set(other.__dict__):
-            logger.debug('%s and %s.__dict__ differ', self, other)
-            return False
-
-        for i in ['engine_type', 'needs_order',
-                  'description', '_exe_dir', 'timestep']:
-            if hasattr(self, i):
-                if getattr(self, i) != getattr(other, i):
-                    logger.debug('%s for %s and %s, attributes are %s and %s',
-                                 i, self, other,
-                                 getattr(self, i), getattr(other, i))
-                    return False
-
-        if hasattr(self, 'rgen'):
-            # pylint: disable=no-member
-            if (self.rgen.__class__ != other.rgen.__class__
-                    or set(self.rgen.__dict__) != set(other.rgen.__dict__)):
-                logger.debug('rgen class differs')
-                return False
-
-            # pylint: disable=no-member
-            for att1, att2 in zip(self.rgen.__dict__, other.rgen.__dict__):
-                # pylint: disable=no-member
-                if self.rgen.__dict__[att1] != other.rgen.__dict__[att2]:
-                    logger.debug('rgen class attribute %s and %s differs',
-                                 att1, att2)
-                    return False
-
-        return True
-
-    def __ne__(self, other):
-        """Check if two engines are not equal."""
-        return not self == other
-
-    @classmethod
-    def can_use_order_function(cls, order_function):
-        """Fail if the engine can't be used with an empty order parameter."""
-        if order_function is None and cls.needs_order:
-            raise ValueError(
-                'No order parameter was defined, but the '
-                'engine *does* require it.'
-            )
-
-    def restart_info(self):
-        """General method.
-
-        Returns the info to allow an engine exact restart.
-
-        Returns
-        -------
-        info : dict
-            Contains all the updated simulation settings and counters.
-
-        """
-        info = {'description': self.description}
-
-        return info
-
-    def load_restart_info(self, info=None):
-        """Load restart information.
-
-        Parameters
-        ----------
-        info : dict
-            The dictionary with the restart information, should be
-            similar to the dict produced by :py:func:`.restart_info`.
-
-        """
-        self.description = info.get('description')
-
-    def __str__(self):
-        """Return the string description of the integrator."""
-        return self.description
-
-class ExternalMDEngine(EngineBase):
-    """
-    Base class for interfacing external MD engines.
-
-    This class defines the interface to external programs. The
-    interface will define how we interact with the external programs,
-    how we write input files for them and read output files from them.
-    New engines should inherit from this class and implement the
-    following methods:
-
-    * :py:meth:`ExternalMDEngine.step`
-        A method for performing a MD step with the external
-        engine. Note that the MD step can consist of a number
-        of subcycles.
-    * :py:meth:`ExternalMDEngine._read_configuration`
-        For reading output (configurations) from the external engine.
-        This is used for calculating the order parameter(s).
-    * :py:meth:`ExternalMDEngine._reverse_velocities`
-        For reversing velocities in a snapshot. This method
-        will typically make use of the method
-        :py:meth:`ExternalMDEngine._read_configuration`.
-    * :py:meth:`ExternalMDEngine._extract_frame`
-        For extracting a single frame from a trajectory.
-    * :py:meth:`ExternalMDEngine._propagate_from`
-        The method for propagating the equations of motion using
-        the external engine.
-    * :py:meth:`ExternalMDEngine.modify_velocities`
-        The method used for generating random velocities for
-        shooting points. Note that this method is defined in
-        :py:meth:`EngineBase.modify_velocities`.
-
-    Attributes
-    ----------
-    description : string
-        A string with a description of the external engine.
-        This can, for instance, be what program we are interfacing with.
-        This is used for outputting information to the user.
-    timestep : float
-        The time step used for the external engine.
-    subcycles : integer
-        The number of steps the external step is composed of. That is:
-        each external step is really composed of ``subcycles`` number
-        of iterations.
-
-    """
-
-    engine_type = 'external'
-
-    def __init__(self, description, timestep, subcycles):
-        """
-        Set up the external engine.
-
-        Here we just set up some common properties which are useful
-        for the execution.
-
-        Parameters
-        ----------
-        description : string
-            A string with a description of the external engine.
-            This can, for instance, be what program we are interfacing
-            with. This is used for outputting information to the user.
-        timestep : float
-            The time step used in the simulation.
-        subcycles : integer
-            The number of sub-cycles each external integration step is
-            composed of.
-
-        """
-        super().__init__(description)
-        self.timestep = timestep
-        self.subcycles = subcycles
-        self.ext = 'xyz'
-        self.input_files = {}
-
-    def integration_step(self, ensemble):
-        """
-        Perform a single time step of the integration.
-
-        For external engines, it does not make much sense to run single
-        steps unless we absolutely have to. We therefore just fail here.
-        I.e. the external engines are not intended for performing pure
-        MD simulations.
-
-        If it's absolutely needed, there is a :py:meth:`self.step()`
-        method which can be used, for instance in the initialisation.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            A system to run the integration step on.
-
-        """
-        msg = 'External engine does **NOT** support "integration_step()"!'
-        logger.error(msg)
-        raise NotImplementedError(msg)
 
     @abstractmethod
     def step(self, system, name):
@@ -3098,395 +3190,84 @@ class ExternalMDEngine(EngineBase):
         """
         for i in files:
             self._removefile(os.path.join(dirname, i))
+    def __eq__(self, other):
+        """Check if two engines are equal."""
+        if self.__class__ != other.__class__:
+            logger.debug('%s and %s.__class__ differ', self, other)
+            return False
 
-    def clean_up(self):
-        """Will remove all files from the current directory."""
-        dirname = self.exe_dir
-        logger.debug('Running engine clean-up in "%s"', dirname)
-        files = [item.name for item in os.scandir(dirname) if item.is_file()]
-        self._remove_files(dirname, files)
+        if set(self.__dict__) != set(other.__dict__):
+            logger.debug('%s and %s.__dict__ differ', self, other)
+            return False
 
-    def calculate_order(self, ensemble, xyz=None, vel=None, box=None):
-        """
-        Calculate order parameter from configuration in a file.
+        for i in ['needs_order', 'description', '_exe_dir', 'timestep']:
+            if hasattr(self, i):
+                if getattr(self, i) != getattr(other, i):
+                    logger.debug('%s for %s and %s, attributes are %s and %s',
+                                 i, self, other,
+                                 getattr(self, i), getattr(other, i))
+                    return False
 
-        Note, if ``xyz``, ``vel`` or ``box`` are given, we will
-        **NOT** read positions, velocity and box information from the
-        current configuration file.
+        if hasattr(self, 'rgen'):
+            # pylint: disable=no-member
+            if (self.rgen.__class__ != other.rgen.__class__
+                    or set(self.rgen.__dict__) != set(other.rgen.__dict__)):
+                logger.debug('rgen class differs')
+                return False
 
-        Parameters
-        ----------
-        ensemble : dict
-            It contains:
+            # pylint: disable=no-member
+            for att1, att2 in zip(self.rgen.__dict__, other.rgen.__dict__):
+                # pylint: disable=no-member
+                if self.rgen.__dict__[att1] != other.rgen.__dict__[att2]:
+                    logger.debug('rgen class attribute %s and %s differs',
+                                 att1, att2)
+                    return False
 
-            * `system` : object like :py:class:`.System`
-              This is the system that contains the particles we are
-              investigating
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
+        return True
 
-        xyz : numpy.array, optional
-            The positions to use, in case we have already read them
-            somewhere else. We will then not attempt to read them again.
-        vel : numpy.array, optional
-            The velocities to use, in case we already have read them.
-        box : numpy.array, optional
-            The current box vectors, in case we already have read them.
+    def __ne__(self, other):
+        """Check if two engines are not equal."""
+        return not self == other
 
-        Returns
-        -------
-        out : list of floats
-            The calculated order parameter(s).
+    @classmethod
+    def can_use_order_function(cls, order_function):
+        """Fail if the engine can't be used with an empty order parameter."""
+        if order_function is None and cls.needs_order:
+            raise ValueError(
+                'No order parameter was defined, but the '
+                'engine *does* require it.'
+            )
 
-        """
-        # Convert system into an internal representation:
-        system = ensemble['system']
-        order_function = ensemble['order_function']
-        if any((xyz is None, vel is None, box is None)):
-            out = self._read_configuration(system.particles.config[0])
-            box = out[0]
-            xyz = out[1]
-            vel = out[2]
-        system.particles.pos = xyz
-        if system.particles.vel_rev:
-            if vel is not None:
-                system.particles.vel = -1.0 * vel
-        else:
-            system.particles.vel = vel
-        if box is None and self.input_files.get('template', False):
-            # CP2K specific box initiation:
-            box, _ = read_cp2k_box(ensemble['engine'].input_files['template'])
+    def restart_info(self):
+        """General method.
 
-        system.update_box(box)
-        return order_function.calculate(system)
-
-    def kick_across_middle(self, ensemble, middle, tis_settings):
-        """
-        Force a phase point across the middle interface.
-
-        This is accomplished by repeatedly kicking the phase point so
-        that it crosses the middle interface.
-
-        Parameters
-        ----------
-        ensemble: dict
-            It contains:
-
-            * `system`: object like :py:class:`.System`
-              This is the system that contains the particles we are
-              investigating.
-            * `order_function`: object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-            * `rgen`: object like :py:class:`.RandomGenerator`
-              This is the random generator that will be used.
-
-        middle : float
-            This is the value for the middle interface.
-        tis_settings : dict
-            This dictionary contains settings for TIS. Explicitly used here:
-
-            * `zero_momentum`: boolean, determines if the momentum is zeroed.
-            * `rescale_energy`: boolean, determines if energy is re-scaled.
+        Returns the info to allow an engine exact restart.
 
         Returns
         -------
-        out[0] : object like :py:class:`.System`
-            The phase-point just before the crossing the interface.
-        out[1] : object like :py:class:`.System`
-            The phase-point just after crossing the interface.
-
-        Note
-        ----
-        This function will update the input system state.
+        info : dict
+            Contains all the updated simulation settings and counters.
 
         """
-        system = ensemble['system'].copy()
-        logger.info('Kicking with external integrator: %s', self.description)
-        # We search for crossing with the middle interface and do this
-        # by sequentially kicking the initial phase point
-        # Let's get the starting point:
-        initial_file = self.dump_frame(system)
-        # Create a "previous file" for storing the state before a new kick:
-        prev_file = os.path.join(
-            self.exe_dir, f'p_{os.path.basename(initial_file)}'
-        )
-        msg_file_name = os.path.join(self.exe_dir, 'msg-kick.txt')
-        msg_file = FileIO(msg_file_name, 'w', None, backup=False)
-        msg_file.open()
-        msg_file.write(f'Kick initiation for {self.description}')
-        self._copyfile(initial_file, prev_file)
-        # Update so that we use the prev_file:
-        ensemble['system'].particles.set_pos((prev_file, None, None))
-        logger.info('Searching for crossing with: %9.6g', middle)
-        print_to_screen(f'Searching for crossing with: {middle}')
-        print_to_screen(f'Writing progress to: {msg_file_name}')
+        info = {'description': self.description}
 
-        while True:
-            msg_file.write('New kick:')
-            # Do kick from current state:
-            msg_file.write('\tModify velocities...')
-            vel_settings = {'sigma_v': None, 'aimless': True,
-                            'momentum': False, 'rescale': None}
-            self.modify_velocities(ensemble, vel_settings)
-            # Update order parameter in case it's velocity dependent:
-            curr = self.calculate_order(ensemble)[0]
-            msg_file.write(f'\tAfter kick: {curr}')
-            previous = ensemble['system'].copy()
-            previous.order = [curr]
-            # Update system by integrating forward:
-            msg_file.write('\tIntegrate forward...')
-            conf = self.step(ensemble['system'], 'kicked')
-            curr_file = os.path.join(self.exe_dir, conf)
-            # Compare previous order parameter and the new one:
-            prev = curr
-            curr = self.calculate_order(ensemble)[0]
-            txt = f'{prev} -> {curr} | {middle}'
-            msg_file.write(f'\t{txt}')
-            if (prev <= middle < curr) or (curr < middle <= prev):
-                logger.info('Crossed middle interface: %s', txt)
-                msg_file.write('\tCrossed middle interface!')
-                # Middle interface was crossed, just stop the loop.
-                self._copyfile(curr_file, prev_file)
-                # Update file name after moving:
-                system.particles.set_pos((prev_file, None, None))
-                break
-            if (prev <= curr < middle) or (middle < curr <= prev):
-                # Getting closer, keep the new point:
-                logger.debug('Getting closer to middle: %s', txt)
-                msg_file.write(
-                    '\tGetting closer to middle, keeping new point.'
-                )
-                self._movefile(curr_file, prev_file)
-                # Update file name after moving:
-                ensemble['system'].particles.set_pos((prev_file, None, None))
-            else:  # We did not get closer, fall back to previous point:
-                logger.debug('Did not get closer to middle: %s', txt)
-                msg_file.write(
-                    '\tDid not get closer, fall back to previous point.'
-                )
-                ensemble['system'] = previous.copy()
-                curr = previous.order
-                self._removefile(curr_file)
-            msg_file.flush()
-        msg_file.close()
-        self._removefile(msg_file_name)
-        return previous, system
+        return info
 
-    @abstractmethod
-    def _extract_frame(self, traj_file, idx, out_file):
-        """Extract a frame from a trajectory file.
+    def load_restart_info(self, info=None):
+        """Load restart information.
 
         Parameters
         ----------
-        traj_file : string
-            The trajectory file to open.
-        idx : integer
-            The frame number we look for.
-        out_file : string
-            The file to dump to.
+        info : dict
+            The dictionary with the restart information, should be
+            similar to the dict produced by :py:func:`.restart_info`.
 
         """
-        return
+        self.description = info.get('description')
 
-    def propagate(self, path, ensemble, reverse=False):
-        """
-        Propagate the equations of motion with the external code.
-
-        This method will explicitly do the common set-up, before
-        calling more specialised code for doing the actual propagation.
-
-        Parameters
-        ----------
-        path : object like :py:class:`.PathBase`
-            This is the path we use to fill in phase-space points.
-            We are here not returning a new path - this since we want
-            to delegate the creation of the path to the method
-            that is running `propagate`.
-        ensemble: dict
-            It contains:
-
-            * `system` : object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-            * `interfaces` : list of floats
-              These interfaces define the stopping criterion.
-
-        reverse : boolean, optional
-            If True, the system will be propagated backward in time.
-
-        Returns
-        -------
-        success : boolean
-            This is True if we generated an acceptable path.
-        status : string
-            A text description of the current status of the propagation.
-
-        """
-        logger.debug('Running propagate with: "%s"', self.description)
-
-        prefix = str(counter())
-        if ensemble.get('path_ensemble', False):
-            prefix = ensemble['path_ensemble'].ensemble_name_simple + '_' \
-                     + prefix
-
-        if reverse:
-            logger.debug('Running backward in time.')
-            name = prefix + '_trajB'
-        else:
-            logger.debug('Running forward in time.')
-            name = prefix + '_trajF'
-        logger.debug('Trajectory name: "%s"', name)
-        # Also create a message file for inspecting progress:
-        msg_file_name = os.path.join(self.exe_dir, f'msg-{name}.txt')
-        logger.debug('Writing propagation progress to: %s', msg_file_name)
-        msg_file = FileIO(msg_file_name, 'w', None, backup=False)
-        msg_file.open()
-        msg_file.write(f'# Preparing propagation with {self.description}')
-        msg_file.write(f'# Trajectory label: {name}')
-
-        initial_state = ensemble['system'].copy()
-        system = ensemble['system']
-        initial_file = self.dump_frame(system, deffnm=prefix + '_conf')
-        msg_file.write(f'# Initial file: {initial_file}')
-        logger.debug('Initial state: %s', system)
-
-        if reverse != system.particles.vel_rev:
-            logger.debug('Reversing velocities in initial config.')
-            msg_file.write('# Reversing velocities')
-            basepath = os.path.dirname(initial_file)
-            localfile = os.path.basename(initial_file)
-            initial_conf = os.path.join(basepath, f'r_{localfile}')
-            self._reverse_velocities(initial_file, initial_conf)
-        else:
-            initial_conf = initial_file
-        msg_file.write(f'# Initial config: {initial_conf}')
-
-        # Update system to point to the configuration file:
-        system.particles.set_pos((initial_conf, None))
-        system.particles.set_vel(reverse)
-        # Propagate from this point:
-        msg_file.write(f'# Interfaces: {ensemble["interfaces"]}')
-        success, status = self._propagate_from(
-            name,
-            path,
-            ensemble,
-            msg_file,
-            reverse=reverse
-        )
-        # Reset to initial state:
-        ensemble['system'] = initial_state
-        msg_file.close()
-        return success, status
-
-    @abstractmethod
-    def _propagate_from(self, name, path, ensemble, msg_file, reverse=False):
-        """
-        Run the actual propagation using the specific engine.
-
-        This method is called after :py:meth:`.propagate`. And we
-        assume that the necessary preparations before the actual
-        propagation (e.g. dumping of the configuration etc.) is
-        handled in that method.
-
-        Parameters
-        ----------
-        name : string
-            A name to use for the trajectory we are generating.
-        path : object like :py:class:`.PathBase`
-            This is the path we use to fill in phase-space points.
-        ensemble: dict
-            It contains:
-
-            * `system` : object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-            * `interfaces` : list of floats
-              These interfaces define the stopping criterion.
-
-        msg_file : object like :py:class:`.FileIO`
-            An object we use for writing out messages that are useful
-            for inspecting the status of the current propagation.
-        reverse : boolean, optional
-            If True, the system will be propagated backward in time.
-
-        Returns
-        -------
-        success : boolean
-            This is True if we generated an acceptable path.
-        status : string
-            A text description of the current status of the propagation.
-
-        """
-        return
-
-    def _name_output(self, basename):
-        """
-        Create a file name for the output file.
-
-        This method is used when we dump a configuration to add
-        the correct extension for GROMACS (either gro or g96).
-
-        Parameters
-        ----------
-        basename : string
-            The base name to give to the file.
-
-        Returns
-        -------
-        out : string
-            A file name with an extension.
-
-        """
-        out_file = f'{basename}.{self.ext}'
-        return os.path.join(self.exe_dir, out_file)
-
-    def dump_config(self, config, deffnm='conf'):
-        """Extract configuration frame from a system if needed.
-
-        Parameters
-        ----------
-        config : tuple
-            The configuration given as (filename, index).
-        deffnm : string, optional
-            The base name for the file we dump to.
-
-        Returns
-        -------
-        out : string
-            The file name we dumped to. If we did not in fact dump, this is
-            because the system contains a single frame and we can use it
-            directly. Then we return simply this file name.
-
-        Note
-        ----
-        If the velocities should be reversed, this is handled elsewhere.
-
-        """
-        pos_file, idx = config
-        out_file = os.path.join(self.exe_dir, self._name_output(deffnm))
-        if idx is None:
-            if pos_file != out_file:
-                self._copyfile(pos_file, out_file)
-        else:
-            logger.debug('Config: %s', (config, ))
-            self._extract_frame(pos_file, idx, out_file)
-        return out_file
-
-    def dump_frame(self, system, deffnm='conf'):
-        """Just dump the frame from a system object."""
-        return self.dump_config(system.particles.config, deffnm=deffnm)
-
-    def dump_phasepoint(self, phasepoint, deffnm='conf'):
-        """Just dump the frame from a system object."""
-        pos_file = self.dump_config(phasepoint.particles.get_pos(),
-                                    deffnm=deffnm)
-        phasepoint.particles.set_pos((pos_file, None))
+    def __str__(self):
+        """Return the string description of the integrator."""
+        return self.description
 
 
 def create_simulation(settings):
@@ -5115,7 +4896,6 @@ class Particles:
         """Reverse the velocities in the system."""
         self.vel = self.vel * -1
 
-
 class System:
     """This class defines a generic system for simulations.
 
@@ -5879,461 +5659,6 @@ def create_engine(settings):
         raise ValueError('Could not create engine from settings!')
     return engine
 
-
-
-class MDEngine(EngineBase):
-    """Base class for internal MD integrators.
-
-    This class defines an internal MD integrator. This class of
-    integrators work with the positions and velocities of the system
-    object directly. Further, we make use of the system object in
-    order to update forces etc.
-
-    Attributes
-    ----------
-    timestep : float
-        Time step for the integration.
-    description : string
-        Description of the MD integrator.
-    dynamics : str
-        A short string to represent the type of dynamics produced
-        by the integrator (NVE, NVT, stochastic, ...).
-
-    """
-
-    engine_type = 'internal'
-
-    def __init__(self, timestep, description, dynamics=None):
-        """Set up the integrator.
-
-        Parameters
-        ----------
-        timestep : float
-            The time step for the integrator in internal units.
-        description : string
-            A short description of the integrator.
-        dynamics : string or None, optional
-            Description of the kind of dynamics the integrator does.
-
-        """
-        super().__init__(description)
-        self.timestep = timestep
-        self.dynamics = dynamics
-
-    def integration_step(self, system):
-        """Perform a single time step of the integration.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we are acting on.
-
-        Returns
-        -------
-        out : None
-            Does not return anything, in derived classes it will
-            typically update the given `System`.
-
-        """
-        raise NotImplementedError
-
-    def select_thermo_function(self, thermo='full'):
-        """Select function for calculating thermodynamic properties.
-
-        Parameters
-        ----------
-        thermo : string, or None, optional
-            String which selects the kind of thermodynamic output.
-
-        Returns
-        -------
-        thermo_func : callable or None
-            The function matching the requested thermodynamic output.
-
-        """
-        thermo_func = None
-        if thermo is not None:
-            if thermo not in ('full', 'path'):
-                logger.debug(
-                    'Unknown thermo "%s" requested: Using "path"!',
-                    thermo,
-                )
-                thermo = 'path'
-            logger.debug('Thermo output for %s.integrate(): "%s"',
-                         self.__class__.__name__, thermo)
-            if thermo == 'full':
-                thermo_func = calculate_thermo
-            elif thermo == 'path':
-                thermo_func = calculate_thermo_path
-        return thermo_func
-
-    def integrate(self, ensemble, steps, thermo='full'):
-        """Perform several integration steps.
-
-        This method will perform several integration steps, but it will
-        also calculate order parameter(s) if requested and energy
-        terms.
-
-        Parameters
-        ----------
-        ensemble: dict
-            It contains:
-
-            * `system` : object like :py:class:`.System`
-              The system we are integrating.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              An order function can be specified if we want to
-              calculate the order parameter along with the simulation.
-
-        steps : integer
-            The number of steps we are going to perform. Note that we
-            do not integrate on the first step (e.g. step 0) but we do
-            obtain the other properties. This is to output the starting
-            configuration.
-        thermo : string, optional
-            Select the thermodynamic properties we are to calculate.
-
-        Yields
-        ------
-        results : dict
-            The result of a MD step. This contains the state of the
-            system and also the order parameter(s) (if calculated) and
-            the thermodynamic quantities (if calculated).
-
-        """
-        thermo_func = self.select_thermo_function(thermo=thermo)
-        system = ensemble['system']
-        order_function = ensemble.get('order_function')
-        system.potential_and_force()
-        for i in range(steps):
-            if i == 0:
-                pass
-            else:
-                self.integration_step(system)
-            results = {'system': system}
-            if order_function is not None:
-                results['order'] = self.calculate_order(ensemble)
-            if thermo_func:
-                results['thermo'] = thermo_func(system)
-            yield results
-
-    def invert_dt(self):
-        """Invert the time step for the integration.
-
-        Returns
-        -------
-        out : boolean
-            True if the time step is positive, False otherwise.
-
-        """
-        self.timestep *= -1.0
-        return self.timestep > 0.0
-
-    def propagate(self, path, ensemble, reverse=False):
-        """Generate a path by integrating until a criterion is met.
-
-        This function will generate a path by calling the function
-        specifying the integration step repeatedly. The integration is
-        carried out until the order parameter has passed the specified
-        interfaces or if we have integrated for more than a specified
-        maximum number of steps. The given system defines the initial
-        state and the system is reset to its initial state when this
-        method is done.
-
-        Parameters
-        ----------
-        path : object like :py:class:`.PathBase`
-            This is the path we use to fill in phase-space points.
-            We are here not returning a new path, this since we want
-            to delegate the creation of the path (type) to the method
-            that is running `propagate`.
-        ensemble: dict
-            It contains:
-
-            * `system` : object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              An order function can be specified if we want to
-              calculate the order parameter along with the simulation.
-            * `interfaces` : list of floats
-              These interfaces define the stopping criterion.
-
-        reverse : boolean, optional
-            If True, the system will be propagated backward in time.
-
-        Returns
-        -------
-        success : boolean
-            This is True if we generated an acceptable path.
-        status : string
-            A text description of the current status of the propagation.
-
-        """
-        status = 'Propagate w/internal engine'
-        logger.debug(status)
-        success = False
-        # Copy the system, so that we can propagate without altering it:
-        system = ensemble['system']
-        system.potential_and_force()  # Make sure forces are set.
-        left, _, right = ensemble['interfaces']
-        for i in range(path.maxlen):
-            system.order = self.calculate_order(ensemble)
-            ekin = calculate_kinetic_energy(system.particles)[0]
-            system.particles.ekin = ekin
-            status, success, stop, _ = self.add_to_path(path, system.copy(),
-                                                        left, right)
-            if stop:
-                logger.debug('Stopping propagate at step: %i ', i)
-                break
-            if reverse:
-                system.particles.vel *= -1.0
-                self.integration_step(system)
-                system.particles.vel *= -1.0
-            else:
-                self.integration_step(system)
-        logger.debug('Propagate done: "%s" (success: %s)', status, success)
-        return success, status
-
-    @staticmethod
-    def modify_velocities(ensemble, vel_settings):
-        """Modify the velocities of the current state.
-
-        This method will modify the velocities of a time slice.
-        And it is part of the integrator since it, conceptually,
-        fits here:  we are acting on the system and modifying it.
-
-        Parameters
-        ----------
-        ensemble : dict
-            It contains:
-
-            * `system : object like :py:class:`.System`
-              This is the system that contains the particles we are
-              investigating
-            * `rgen` : object like :py:class:`.RandomGenerator`
-              This is the random generator that will be used.
-
-        vel_settings: dict.
-            It contains all the info for the velocity:
-
-            * `sigma_v` : numpy.array, optional
-              These values can be used to set a standard deviation (one
-              for each particle) for the generated velocities.
-            * `aimless` : boolean, optional
-              Determines if we should do aimless shooting or not.
-            * `momentum` : boolean, optional
-              If True, we reset the linear momentum to zero after
-              generating.
-            * `rescale or rescale_energy` : float, optional
-              In some NVE simulations, we may wish to re-scale the
-              energy to a fixed value. If `rescale` is a float > 0,
-              we will re-scale the energy (after modification of
-              the velocities) to match the given float.
-
-        Returns
-        -------
-        dek : float
-            The change in the kinetic energy.
-        kin_new : float
-            The new kinetic energy.
-
-        """
-        rgen = ensemble['rgen']
-        system = ensemble['system']
-        rescale = vel_settings.get('rescale_energy',
-                                   vel_settings.get('rescale'))
-        particles = system.particles
-        if rescale is not None and rescale is not False:
-            if rescale > 0:
-                kin_old = rescale - particles.vpot
-                do_rescale = True
-            else:
-                logger.warning('Ignored re-scale 6.2%f < 0.0.', rescale)
-                return 0.0, calculate_kinetic_energy(particles)[0]
-        else:
-            kin_old = calculate_kinetic_energy(particles)[0]
-            do_rescale = False
-        if vel_settings.get('aimless', False):
-            vel, _ = rgen.draw_maxwellian_velocities(system)
-            particles.vel = vel
-        else:  # Soft velocity change, from a Gaussian distribution:
-            dvel, _ = rgen.draw_maxwellian_velocities(
-                system, sigma_v=vel_settings['sigma_v'])
-            particles.vel = particles.vel + dvel
-        if vel_settings.get('momentum', False):
-            reset_momentum(particles)
-        if do_rescale:
-            system.rescale_velocities(rescale)
-        kin_new = calculate_kinetic_energy(particles)[0]
-        dek = kin_new - kin_old
-        return dek, kin_new
-
-    def __call__(self, system):
-        """To allow calling `MDEngine(system)`.
-
-        Here, we are just calling `self.integration_step(system)`.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we are integrating.
-
-        Returns
-        -------
-        out : None
-            Does not return anything, but will update the particles.
-
-        """
-        return self.integration_step(system)
-
-    @staticmethod
-    def calculate_order(ensemble, xyz=None, vel=None, box=None):
-        """Return the order parameter.
-
-        This method is just to help to calculate the order parameter
-        in cases where only the engine can do it.
-
-        Parameters
-        ----------
-        ensemble : dict
-            It contains:
-
-            * `system` : object like :py:class:`.System`
-              This is the system that contains the particles we are
-              investigating
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-
-        xyz : numpy.array, optional
-            The positions to use. Typically for internal engines, this
-            is not needed. It is included here as it can be used for
-            testing and also to be compatible with the generic function
-            defined by the parent.
-        vel : numpy.array, optional
-            The velocities to use.
-        box : numpy.array, optional
-            The current box vectors.
-
-        Returns
-        -------
-        out : list of floats
-            The calculated order parameter(s).
-
-        """
-        system = ensemble['system']
-        order_function = ensemble['order_function']
-        if any((xyz is None, vel is None, box is None)):
-            return order_function.calculate(system)
-        system.particles.pos = xyz
-        system.particles.vel = vel
-        system.box.update_size(box)
-        return order_function.calculate(system)
-
-    def kick_across_middle(self, ensemble, middle, tis_settings):
-        """Force a phase point across the middle interface.
-
-        This is accomplished by repeatedly kicking the phase point so
-        that it crosses the middle interface.
-
-        Parameters
-        ----------
-        ensemble : dict
-            It contains:
-
-            * `system` : object like :py:class:`.System`
-              This is the system that contains the particles we are
-              investigating
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-            * `rgen` : object like :py:class:`.RandomGenerator`
-              This is the random generator that will be used.
-
-        middle : float
-            This is the value for the middle interface.
-        tis_settings : dict
-            This dictionary contains settings for TIS. Explicitly used here:
-
-            * `zero_momentum`: boolean, determines if the momentum is zeroed.
-            * `rescale_energy`: boolean, determines if energy is re-scaled.
-
-        Returns
-        -------
-        out[0] : object like :py:class:`.System`
-            The phase-point just before the interface.
-        out[1] : object like :py:class:`.System`
-            The phase-point just after the interface.
-
-        Note
-        ----
-        This function will update the system state.
-
-        """
-        # We search for crossing with the middle interface and do this
-        # by sequentially kicking the initial phase point:
-        system = ensemble['system']
-        previous = system.copy()
-        system.potential_and_force()  # Make sure forces are set.
-        curr = self.calculate_order(ensemble)[0]
-        logger.info('Kicking from: %9.6f', curr)
-        while True:
-            # Save current state:
-            previous = system.copy()
-            # Modify velocities:
-            self.modify_velocities(
-                ensemble, {'sigma_v': None,
-                           'aimless': True,
-                           'momentum': tis_settings['zero_momentum'],
-                           'rescale': tis_settings['rescale_energy']})
-            # Update order parameter in case it is velocity dependent:
-            curr = self.calculate_order(ensemble)[0]
-            previous.order = curr
-            # Store modified velocities:
-            previous.particles.set_vel(system.particles.get_vel())
-            # Integrate forward one step:
-            self.integration_step(system)
-            # Compare previous order parameter and the new one:
-            prev = curr
-            curr = self.calculate_order(ensemble)[0]
-            if curr == middle:
-                # By construction we want two points, one left and one
-                # right of the interface, and these two points should
-                # be connected by a MD step. If we hit exactly on the
-                # interface we just fall back:
-                system.particles = previous.particles.copy()
-                curr = previous.order
-                # TODO: This method should be improved and generalized.
-                # The generalization should be done so that this method
-                # is only defined once and not as it is now - defined
-                # for several engines.
-            else:
-                if (prev <= middle < curr) or (curr < middle <= prev):
-                    # Middle interface was crossed, just stop the loop.
-                    logger.info('Crossing found: %9.6f %9.6f ', prev, curr)
-                    break
-                elif (prev <= curr < middle) or (middle < curr <= prev):
-                    # We are getting closer, keep the new point.
-                    pass
-                else:  # We did not get closer, fall back to previous point.
-                    system.particles = previous.particles.copy()
-                    curr = previous.order
-        system.order = curr
-        return previous, system
-
-    def dump_phasepoint(self, phasepoint, deffnm=None):
-        """For compatibility with external integrators."""
-        return
-
-    def clean_up(self):
-        """Clean up after using the engine.
-
-        Currently, this is only included for compatibility with external
-        integrators.
-
-        """
-        return
-
 def gromacs_settings(settings, input_path):
     """Read and processes GROMACS settings.
 
@@ -6435,7 +5760,7 @@ def look_for_input_files(input_path, required_files,
 
     return input_files
 
-class GromacsEngine(ExternalMDEngine):
+class GromacsEngine(EngineBase):
     """
     A class for interfacing GROMACS.
 
@@ -6912,18 +6237,18 @@ class GromacsEngine(ExternalMDEngine):
         ----------
         name : string
             A name to use for the trajectory we are generating.
-        path : object like :py:class:`pyretis.core.path.PathBase`
+        path : object like :py:class:`pyretis.core.Path.PathBase`
             This is the path we use to fill in phase-space points.
         ensemble: dict
-            It contains:
+            it contains:
 
-            * `system`: object like :py:class:`.System`
+            * `system` : object like :py:class:`.System`
               The system object gives the initial state for the
               integration. The initial state is stored and the system is
               reset to the initial state when the integration is done.
-            * `order_function`: object like :py:class:`.OrderParameter`
+            * `order_function` : object like :py:class:`.OrderParameter`
               The object used for calculating the order parameter.
-            * `interfaces`: list of floats
+            * `interfaces` : list of floats
               These interfaces define the stopping criterion.
 
         msg_file : object like :py:class:`.FileIO`
@@ -6941,70 +6266,78 @@ class GromacsEngine(ExternalMDEngine):
 
         """
         status = f'propagating with GROMACS (reverse = {reverse})'
+        system = ensemble['system']
+        interfaces = ensemble['interfaces']
+        order_function = ensemble['order_function']
         logger.debug(status)
         success = False
-        interfaces = ensemble['interfaces']
         left, _, right = interfaces
         # Dumping of the initial config were done by the parent, here
         # we will just use it:
-        initial_conf = ensemble['system'].particles.get_pos()[0]
+        initial_conf = system.particles.get_pos()[0]
         # Get the current order parameter:
         order = self.calculate_order(ensemble)
         msg_file.write(
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
-        # In some cases, we don't really have to perform a step as the
-        # initial config might be left/right of the interface in
-        # question. Here, we will perform a step anyway. This is to be
-        # sure that we obtain energies and also a trajectory segment.
-        # Note that all the energies are obtained after we are done
-        # with the integration from the .edr file of the trajectory.
-        msg_file.write('# Running grompp and mdrun (initial step).')
-        out_files = self._execute_grompp_and_mdrun(initial_conf, name)
-        # Define name of some files:
+        # So, here we will just blast off GROMACS and check the .trr
+        # output when we can.
+        # 1) Create mdp_file with updated number of steps:
+        settings = {'gen_vel': 'no',
+                    'nsteps': path.maxlen * self.subcycles,
+                    'continuation': 'no'}
+        mdp_file = os.path.join(self.exe_dir, f'{name}.mdp')
+        self._modify_input(self.input_files['input'], mdp_file, settings,
+                           delim='=')
+        # 2) Run GROMACS preprocessor:
+        out_files = self._execute_grompp(mdp_file, initial_conf, name)
+        # Generate some names that will be created by mdrun:
+        confout = f'{name}.{self.ext}'
+        out_files['conf'] = confout
+        out_files['cpt_prev'] = f'{name}_prev.cpt'
+        for key in ('cpt', 'edr', 'log', 'trr'):
+            out_files[key] = f'{name}.{key}'
+        # Remove some of these files if present (e.g. left over from a
+        # crashed simulation). This is so that GromacsRunner will not
+        # start reading a .trr left from a previous simulation.
+        remove = [val for key, val in out_files.items() if key != 'tpr']
+        self._remove_files(self.exe_dir, remove)
         tpr_file = out_files['tpr']
-        cpt_file = out_files['cpt']
-        traj_file = os.path.join(self.exe_dir, out_files['trr'])
-        msg_file.write(f'# Trajectory file is: {traj_file}')
-        conf_abs = os.path.join(self.exe_dir, out_files['conf'])
-        # Note: The order parameter is calculated AT THE END of each iteration.
+        trr_file = os.path.join(self.exe_dir, out_files['trr'])
+        edr_file = os.path.join(self.exe_dir, out_files['edr'])
+        cmd = shlex.split(self.mdrun.format(tpr_file, name, confout))
+        # 3) Fire off GROMACS mdrun:
+        logger.debug('Executing GROMACS.')
+        msg_file.write(f'# Trajectory file is: {trr_file}')
         msg_file.write('# Starting GROMACS.')
         msg_file.write('# Step order parameter cv1 cv2 ...')
-        for i in range(path.maxlen):
-            msg_file.write(
-                f'{i} {" ".join([str(j) for j in order])}'
-            )
-            # We first add the previous phase point, and then we propagate.
-            snapshot = {'order': order,
-                        'config': (traj_file, i),
-                        'vel_rev': reverse}
-            phase_point = self.snapshot_to_system(ensemble['system'],
-                                                  snapshot)
-            status, success, stop, _ = self.add_to_path(path, phase_point,
-                                                        left, right)
-            if stop:
-                logger.debug('GROMACS propagation ended at %i. Reason: %s',
-                             i, status)
-                break
-            if i == 0:
-                # This step was performed before entering the main loop.
-                pass
-            elif i > 0:
-                out_extnd = self._extend_and_execute_mdrun(tpr_file, cpt_file,
-                                                           name)
-                out_files.update(out_extnd)
-            # Calculate the order parameter using the current system:
-            ensemble['system'].particles.set_vel(reverse)
-            ensemble['system'].particles.set_pos((conf_abs, None))
-            order = self.calculate_order(ensemble)
-            # We now have the order parameter, for GROMACS just remove the
-            # config file to avoid the GROMACS #conf_abs# backup clutter:
-            self._removefile(conf_abs)
-            msg_file.flush()
-        logger.debug('GROMACS propagation done, obtaining energies')
+        with GromacsRunner(cmd, trr_file, edr_file, self.exe_dir) as gro:
+            for i, data in enumerate(gro.get_gromacs_frames()):
+                # Update the configuration file:
+                system.particles.set_pos((trr_file, i))
+                # Also provide the loaded positions since they are
+                # available:
+                system.particles.pos = data['x']
+                system.particles.vel = data.get('v', None)
+                if system.particles.vel is not None and reverse:
+                    system.particles.vel *= -1
+                length = box_matrix_to_list(data['box'])
+                system.update_box(length)
+                order = order_function.calculate(system)
+                msg_file.write(f'{i} {" ".join([str(j) for j in order])}')
+                snapshot = {'order': order,
+                            'config': (trr_file, i),
+                            'vel_rev': reverse}
+                phase_point = self.snapshot_to_system(system, snapshot)
+                status, success, stop, _ = self.add_to_path(path, phase_point,
+                                                            left, right)
+                if stop:
+                    logger.debug('Ending propagate at %i. Reason: %s',
+                                 i, status)
+                    break
+        logger.debug('GROMACS propagation done, obtaining energies!')
         msg_file.write('# Propagation done.')
         msg_file.write(f'# Reading energies from: {out_files["edr"]}')
-        msg_file.flush()
         energy = self.get_energies(out_files['edr'])
         path.update_energies(energy['kinetic en.'], energy['potential'])
         logger.debug('Removing GROMACS output after propagate.')
@@ -7012,6 +6345,7 @@ class GromacsEngine(ExternalMDEngine):
                   if key not in ('trr', 'gro', 'g96')]
         self._remove_files(self.exe_dir, remove)
         self._remove_gromacs_backup_files(self.exe_dir)
+        msg_file.flush()
         return success, status
 
     def step(self, system, name):
@@ -7219,263 +6553,6 @@ class GromacsEngine(ExternalMDEngine):
         else:
             dek = kin_new - kin_old
         return dek, kin_new
-
-    def integrate(self, ensemble, steps, thermo='full'):
-        """
-        Perform several integration steps.
-
-        This method will perform several integration steps using
-        GROMACS. It will also calculate order parameter(s) and energy
-        terms if requested.
-
-        Parameters
-        ----------
-        ensemble: dict
-            It contains:
-
-            * `system`: object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function`: object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-
-        steps : integer
-            The number of steps we are going to perform. Note that we
-            do not integrate on the first step (e.g. step 0) but we do
-            obtain the other properties. This is to output the starting
-            configuration.
-        thermo : string, optional
-            Select the thermodynamic properties we are to calculate.
-
-        Yields
-        ------
-        results : dict
-            The results from a MD step. This contains the state of the system
-            and order parameter(s) and energies (if calculated).
-
-        """
-        logger.debug('Integrating with GROMACS')
-        # Dump the initial config:
-        system = ensemble['system']
-        order_function = ensemble.get('order_function')
-        initial_file = self.dump_frame(system)
-        out_files = {}
-        conf_abs = None
-        self.energy_terms = self.select_energy_terms(thermo)
-        # For step zero, obtain the order parameter:
-        if order_function:
-            order = self.calculate_order(ensemble)
-        else:
-            order = None
-
-        for i in range(steps):
-            if i == 0:
-                out_files = self._execute_grompp_and_mdrun(
-                    initial_file,
-                    'pyretis-gmx'
-                )
-                conf_abs = os.path.join(self.exe_dir, out_files['conf'])
-            elif 0 < i < steps - 1:
-                out_extnd = self._extend_and_execute_mdrun(
-                    out_files['tpr'],
-                    out_files['cpt'],
-                    'pyretis-gmx'
-                )
-                out_files.update(out_extnd)
-            else:
-                pass
-            # Update with results from previous step:
-            results = {}
-            if order:
-                results['order'] = order
-            # Update for order parameter:
-            if order_function:
-                system.particles.set_pos((conf_abs, None, None))
-                order = self.calculate_order(ensemble)
-            # Obtain latest energies:
-            time1 = i * self.timestep * self.subcycles
-            time2 = (i + 1) * self.timestep * self.subcycles
-            # time1 and time2 should be correct now, but we are victims
-            # of floating points. Subtract/add something small so that
-            # we round to correct time.
-            time1 -= self.timestep * 0.1
-            time2 += self.timestep * 0.1
-            energy = self.get_energies(out_files['edr'], begin=time1,
-                                       end=time2)
-            # Rename energies into the PyRETIS convention:
-            results['thermo'] = self.rename_energies(energy)
-            yield results
-
-class GromacsEngine2(GromacsEngine):
-    """
-    A class for interfacing GROMACS.
-
-    This class defines an interface to GROMACS. Attributes are similar
-    to :py:class:`.GromacsEngine`. In this particular interface,
-    GROMACS is executed without starting and stopping and we rely on
-    reading the output TRR file from GROMACS while a simulation is
-    running.
-    """
-
-    def __init__(self, gmx, mdrun, input_path, timestep, subcycles,
-                 exe_path=os.path.abspath('.'),
-                 maxwarn=0, gmx_format='gro', write_vel=True,
-                 write_force=False):
-        """Set up the GROMACS engine.
-
-        Parameters
-        ----------
-        gmx : string
-            The GROMACS executable.
-        mdrun : string
-            The GROMACS mdrun executable.
-        input_path : string
-            The absolute path to where the input files are stored.
-        timestep : float
-            The time step used in the GROMACS MD simulation.
-        subcycles : integer
-            The number of steps each GROMACS MD run is composed of.
-        exe_path : string, optional
-            The absolute path at which the main PyRETIS simulation will be run.
-        maxwarn : integer, optional
-            Setting for the GROMACS ``grompp -maxwarn`` option.
-        gmx_format : string, optional
-            The format used for GROMACS configurations.
-        write_vel : boolean, optional
-            Determines if GROMACS should write velocities or not.
-        write_force : boolean, optional
-            Determines if GROMACS should write forces or not.
-
-        """
-        super().__init__(gmx, mdrun, input_path, timestep, subcycles,
-                         exe_path=exe_path,
-                         maxwarn=maxwarn, gmx_format=gmx_format,
-                         write_vel=write_vel, write_force=write_force)
-
-    def _propagate_from(self, name, path, ensemble, msg_file, reverse=False):
-        """
-        Propagate with GROMACS from the current system configuration.
-
-        Here, we assume that this method is called after the propagate()
-        has been called in the parent. The parent is then responsible
-        for reversing the velocities and also for setting the initial
-        state of the system.
-
-        Parameters
-        ----------
-        name : string
-            A name to use for the trajectory we are generating.
-        path : object like :py:class:`pyretis.core.Path.PathBase`
-            This is the path we use to fill in phase-space points.
-        ensemble: dict
-            it contains:
-
-            * `system` : object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-            * `interfaces` : list of floats
-              These interfaces define the stopping criterion.
-
-        msg_file : object like :py:class:`.FileIO`
-            An object we use for writing out messages that are useful
-            for inspecting the status of the current propagation.
-        reverse : boolean, optional
-            If True, the system will be propagated backward in time.
-
-        Returns
-        -------
-        success : boolean
-            This is True if we generated an acceptable path.
-        status : string
-            A text description of the current status of the propagation.
-
-        """
-        status = f'propagating with GROMACS (reverse = {reverse})'
-        system = ensemble['system']
-        interfaces = ensemble['interfaces']
-        order_function = ensemble['order_function']
-        logger.debug(status)
-        success = False
-        left, _, right = interfaces
-        # Dumping of the initial config were done by the parent, here
-        # we will just use it:
-        initial_conf = system.particles.get_pos()[0]
-        # Get the current order parameter:
-        order = self.calculate_order(ensemble)
-        msg_file.write(
-            f'# Initial order parameter: {" ".join([str(i) for i in order])}'
-        )
-        # So, here we will just blast off GROMACS and check the .trr
-        # output when we can.
-        # 1) Create mdp_file with updated number of steps:
-        settings = {'gen_vel': 'no',
-                    'nsteps': path.maxlen * self.subcycles,
-                    'continuation': 'no'}
-        mdp_file = os.path.join(self.exe_dir, f'{name}.mdp')
-        self._modify_input(self.input_files['input'], mdp_file, settings,
-                           delim='=')
-        # 2) Run GROMACS preprocessor:
-        out_files = self._execute_grompp(mdp_file, initial_conf, name)
-        # Generate some names that will be created by mdrun:
-        confout = f'{name}.{self.ext}'
-        out_files['conf'] = confout
-        out_files['cpt_prev'] = f'{name}_prev.cpt'
-        for key in ('cpt', 'edr', 'log', 'trr'):
-            out_files[key] = f'{name}.{key}'
-        # Remove some of these files if present (e.g. left over from a
-        # crashed simulation). This is so that GromacsRunner will not
-        # start reading a .trr left from a previous simulation.
-        remove = [val for key, val in out_files.items() if key != 'tpr']
-        self._remove_files(self.exe_dir, remove)
-        tpr_file = out_files['tpr']
-        trr_file = os.path.join(self.exe_dir, out_files['trr'])
-        edr_file = os.path.join(self.exe_dir, out_files['edr'])
-        cmd = shlex.split(self.mdrun.format(tpr_file, name, confout))
-        # 3) Fire off GROMACS mdrun:
-        logger.debug('Executing GROMACS.')
-        msg_file.write(f'# Trajectory file is: {trr_file}')
-        msg_file.write('# Starting GROMACS.')
-        msg_file.write('# Step order parameter cv1 cv2 ...')
-        with GromacsRunner(cmd, trr_file, edr_file, self.exe_dir) as gro:
-            for i, data in enumerate(gro.get_gromacs_frames()):
-                # Update the configuration file:
-                system.particles.set_pos((trr_file, i))
-                # Also provide the loaded positions since they are
-                # available:
-                system.particles.pos = data['x']
-                system.particles.vel = data.get('v', None)
-                if system.particles.vel is not None and reverse:
-                    system.particles.vel *= -1
-                length = box_matrix_to_list(data['box'])
-                system.update_box(length)
-                order = order_function.calculate(system)
-                msg_file.write(f'{i} {" ".join([str(j) for j in order])}')
-                snapshot = {'order': order,
-                            'config': (trr_file, i),
-                            'vel_rev': reverse}
-                phase_point = self.snapshot_to_system(system, snapshot)
-                status, success, stop, _ = self.add_to_path(path, phase_point,
-                                                            left, right)
-                if stop:
-                    logger.debug('Ending propagate at %i. Reason: %s',
-                                 i, status)
-                    break
-        logger.debug('GROMACS propagation done, obtaining energies!')
-        msg_file.write('# Propagation done.')
-        msg_file.write(f'# Reading energies from: {out_files["edr"]}')
-        energy = self.get_energies(out_files['edr'])
-        path.update_energies(energy['kinetic en.'], energy['potential'])
-        logger.debug('Removing GROMACS output after propagate.')
-        remove = [val for key, val in out_files.items()
-                  if key not in ('trr', 'gro', 'g96')]
-        self._remove_files(self.exe_dir, remove)
-        self._remove_gromacs_backup_files(self.exe_dir)
-        msg_file.flush()
-        return success, status
 
     def integrate(self, ensemble, steps, thermo='full'):
         """
