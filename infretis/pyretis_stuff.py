@@ -1248,6 +1248,7 @@ class BoxBase(metaclass=ABCMeta):
     def __ne__(self, other):
         """Compare two box objects."""
         return not self == other
+
 class RectangularBox(BoxBase):
     """An orthogonal box."""
 
@@ -1511,23 +1512,7 @@ def create_ensembles(settings):
         ensembles.append(create_ensemble(settings['ensemble'][i]))
 
     return ensembles
-def get_path_ensemble_class(ensemble_type):
-    """Return the path ensemble class consistent with the given engine.
 
-    Parameters
-    ----------
-    ensemble_type : string
-        The type of ensemble we are requesting.
-
-    """
-    path_ensemble_map = {'internal': PathEnsemble,
-                         'external': PathEnsembleExt}
-    try:
-        return path_ensemble_map[ensemble_type]
-    except KeyError as err:
-        msg = f'Unknown ensemble type "{ensemble_type}" requested.'
-        logger.critical(msg)
-        raise ValueError(msg) from err
 def generate_ensemble_name(ensemble_number, zero_pad=3):
     """Generate a simple name for an ensemble.
 
@@ -2123,10 +2108,9 @@ def create_ensemble(settings):
 
     system = prepare_system(settings)
     engine = prepare_engine(settings)
-    klass = get_path_ensemble_class(settings['particles']['type'])
     interfaces = settings['simulation']['interfaces']
     exe_dir = settings['simulation'].get('exe_path', os.path.abspath('.'))
-    path_ensemble = klass(i_ens, interfaces, rgen=rgen_path, exe_dir=exe_dir)
+    path_ensemble = PathEnsembleExt(i_ens, interfaces, rgen=rgen_path, exe_dir=exe_dir)
 
     order_function = create_orderparameter(settings)
     if i_ens == 0 and settings['simulation'].get("permeability", False):
@@ -3701,7 +3685,7 @@ class PathSimulation(Simulation):
 
         # Additional setup for shooting:
         for i, ensemble in enumerate(ensembles):
-            ensemble['system'].potential_and_force()
+            # ensemble['system'].potential_and_force()
 
             if self.settings['ensemble'][i]['tis']['sigma_v'] < 0.0:
                 self.settings['ensemble'][i]['tis']['aimless'] = True
@@ -4039,9 +4023,6 @@ def add_specific_default_settings(settings):
         # Checks engine specific settings
         if engine_checker.get(eng_name[:7].lower()):
             engine_checker[eng_name[:7].lower()](settings, input_path)
-    else:
-        settings['particles']['type'] = 'internal'
-        settings['engine']['type'] = settings['engine'].get('type', 'internal')
 
 def check_ensemble(settings):
     """Check that the ensemble input parameters are complete.
@@ -4110,12 +4091,6 @@ def prepare_system(settings):
     print_to_screen(logtxt, level='info')
     logger.info(logtxt)
     system = create_system(settings)
-
-    logtxt = 'Creating force field.'
-    print_to_screen(logtxt, level='info')
-    logger.info(logtxt)
-    system.forcefield = create_force_field(settings)
-    system.particles.vpot = system.evaluate_potential()
 
     system.extra_setup()
     return system
@@ -4547,40 +4522,32 @@ def create_system(settings):
         return system
 
     vel = None
-    if ('engine' not in settings or
-            settings['engine'].get('type', 'internal') == 'internal'):
-        particles, box, vel = create_initial_positions(settings)
-        box = set_up_box(settings, box, dim=particles.dim)
-    elif settings['engine'].get('type', None).lower() == 'openmm':
-        return openmm_system(settings)
-    else:
-        # Engine is not None and not internal => external.
-        klass = get_particle_type('external')
-        particles = klass(dim=3)
-        if 'input_path' in settings['engine']:
-            required_file = {}
-            # Get the engine input files
-            if 'cp2k' in settings['engine']['class'].lower():
-                required_file = {'conf': 'initial.{}'.format(
-                    settings['engine'].get('cp2k_format', 'xyz'))}
-            elif 'gromacs' in settings['engine']['class'].lower():
-                required_file = {
-                    'conf': 'conf.{}'.format(
-                        settings['engine'].get('gmx_format', 'gro'))}
+    # Engine is not None and not internal => external.
+    particles = ParticlesExt(dim=3)
+    if 'input_path' in settings['engine']:
+        required_file = {}
+        # Get the engine input files
+        if 'cp2k' in settings['engine']['class'].lower():
+            required_file = {'conf': 'initial.{}'.format(
+                settings['engine'].get('cp2k_format', 'xyz'))}
+        elif 'gromacs' in settings['engine']['class'].lower():
+            required_file = {
+                'conf': 'conf.{}'.format(
+                    settings['engine'].get('gmx_format', 'gro'))}
 
-            input_file = look_for_input_files(settings['engine']['input_path'],
-                                              required_file)
-            particles.set_pos((input_file['conf'], None))
-            # gromacs tests fail without this if-statement.
-            # _get_snapshot_from_file() has issues with reading .g96 format.
-            if settings['engine']['class'].lower() == 'cp2k':
-                particles.mass, particles.imass = _assign_mass_from_file(
-                    input_file['conf'],
-                    settings['system']['units'])
-        else:
-            particles.set_pos((None, None))
-        particles.set_vel(False)
-        box = None
+        input_file = look_for_input_files(settings['engine']['input_path'],
+                                          required_file)
+        particles.set_pos((input_file['conf'], None))
+        # gromacs tests fail without this if-statement.
+        # _get_snapshot_from_file() has issues with reading .g96 format.
+        if settings['engine']['class'].lower() == 'cp2k':
+            particles.mass, particles.imass = _assign_mass_from_file(
+                input_file['conf'],
+                settings['system']['units'])
+    else:
+        particles.set_pos((None, None))
+    particles.set_vel(False)
+    box = None
 
     system = System(
         temperature=settings['system']['temperature'],
@@ -5297,9 +5264,6 @@ class System:
         should only be called after the system is fully set up. The
         tuples should correspond to ('function', args) where
         such that ``system.function(*args)`` can be called.
-    forcefield : object like :py:class:`.ForceField`
-        Defines the force field to use and implements the actual force
-        and potential calculation.
     units : string
         Units to use for the system/simulation. Should match the defined
         units in :py:mod:`pyretis.core.units`.
@@ -5331,7 +5295,6 @@ class System:
         self.box = box
         self._adjust_dof_according_to_box()
         self.particles = None
-        self.forcefield = None
         self.post_setup = []
         self.order = None
         self.temperature['beta'] = self.calculate_beta()
@@ -5462,120 +5425,6 @@ class System:
             force = np.zeros_like(pos)
         self.particles.add_particle(pos, vel, force, mass=mass,
                                     name=name, ptype=ptype)
-
-    def force(self):
-        """Update the forces and the virial.
-
-        The update is done by calling `self._evaluate_potential_force`.
-
-        Returns
-        -------
-        out[1] : numpy.array
-            Forces on the particles. Note that `self.particles.force`
-            will also be updated.
-        out[2] : numpy.array
-            The virial. Note that `self.particles.virial` will be
-            updated.
-
-        """
-        force, virial = self.forcefield.evaluate_force(self)
-        self.particles.force = force
-        self.particles.virial = virial
-        return self.particles.force, virial
-
-    def potential(self):
-        """Update the potential energy.
-
-        Returns
-        -------
-        out : float
-            The potential energy.
-
-        """
-        self.particles.vpot = self.forcefield.evaluate_potential(self)
-        return self.particles.vpot
-
-    def potential_and_force(self):
-        """Update the potential energy and forces.
-
-        The potential in `self.particles.vpot` and the forces in
-        `self.particles.force` are here updated by calling
-        `forcefield.evaluate_potential_force()`.
-
-        Returns
-        -------
-        out[1] : float
-            The potential energy, note `self.particles.vpot` is also
-            updated.
-        out[2] : numpy.array
-            Forces on the particles. Note that `self.particles.force`
-            will also be updated.
-        out[3] : numpy.array
-            The virial. Note that `self.particles.virial` will also be
-            updated.
-
-        """
-        pot, force, viri = self.forcefield.evaluate_potential_and_force(self)
-        self.particles.vpot = pot
-        self.particles.force = force
-        self.particles.virial = viri
-        return pot, force, viri
-
-    def evaluate_force(self):
-        """Evaluate forces on the particles.
-
-        Returns
-        -------
-        out[1] : numpy.array
-            Forces on the particles.
-        out[2] : numpy.array
-            The virial.
-
-        Note
-        ----
-        This function will not update the forces, just calculate them.
-        Use `self.force` to update the forces.
-
-        """
-        return self.forcefield.evaluate_force(self)
-
-    def evaluate_potential(self):
-        """Evaluate the potential energy.
-
-        Returns
-        -------
-        out : float
-            The potential energy.
-
-        Note
-        ----
-        This function will not update the potential, but it will just
-        return its value for the (possibly given) configuration.
-        The function `self.potential` can be used to update the
-        potential for the particles in the system.
-
-        """
-        return self.forcefield.evaluate_potential(self)
-
-    def evaluate_potential_and_force(self):
-        """Evaluate the potential and/or the force.
-
-        Returns
-        -------
-        out[1] : float
-            The potential energy.
-        out[2] : numpy.array
-            Forces on the particles.
-        out[3] : numpy.array
-            The virial.
-
-        Note
-        ----
-        This function will not update the forces/potential energy for the
-        particles. To update these, call `self.potential_and_force`.
-
-        """
-        return self.forcefield.evaluate_potential_and_force(self)
 
     def generate_velocities(self, rgen=None, seed=0, momentum=True,
                             temperature=None, distribution='maxwell'):
@@ -5763,7 +5612,6 @@ class System:
         # that is, if the force field were to change for some reason,
         # then that change should be mediated to all copies of the
         # system.
-        system_copy.forcefield = self.forcefield
         return system_copy
 
     def __eq__(self, other):
@@ -5796,96 +5644,6 @@ class System:
         msg.append('{}'.format(self.particles))
         return '\n'.join(msg)
 
-def create_force_field(settings):
-    """Create a force field from input settings.
-
-    This method will create the required potential functions with the
-    specified parameters from `settings`.
-
-    Parameters
-    ----------
-    settings : dict
-        This dictionary contains the settings for a single potential.
-
-    Returns
-    -------
-    out : object like :py:class:`.ForceField`
-        This object represents the force field.
-
-    """
-    try:
-        desc = settings['forcefield']['description']
-    except KeyError:
-        desc = 'Generic force field'
-    potentials, pot_param = create_potentials(settings)
-    ffield = ForceField(desc, potential=potentials, params=pot_param)
-    msg = ['Created force field:', '{}'.format(ffield)]
-    msgtxt = '\n'.join(msg)
-    logger.info(msgtxt)
-    return ffield
-
-def create_potential(settings, key_settings):
-    """Create a potential from settings.
-
-    Parameters
-    ----------
-    settings : dict
-        This dictionary contains the settings for the simulation.
-    key_settings : dict
-        Settings for the potential we are creating.
-
-    Returns
-    -------
-    out : object like :py:class:`.PotentialFunction`
-        The object representing the potential function.
-
-    """
-    return create_external(settings, 'potential', potential_factory,
-                           ['force', 'potential', 'potential_and_force'],
-                           key_settings=key_settings)
-
-def create_potentials(settings):
-    """Create potential functions from given simulations settings.
-
-    This method will basically loop over the given potential settings
-    and just run :py:func:`.create_potential` for each setting.
-
-    Parameters
-    ----------
-    settings : dict
-        This dictionary contains the settings for the simulation.
-
-    Returns
-    -------
-    out[0] : list
-        A list of potential functions.
-    out[1] : list
-        A list of parameters for the potential functions.
-
-    """
-    potentials = settings.get('potential', [])
-    try:
-        ndim = settings['system']['dimensions']
-    except KeyError:
-        ndim = None
-    out_pot, out_par = [], []
-    for i, pot_settings in enumerate(potentials):
-        potential_function = create_potential(settings, pot_settings)
-        if potential_function is None:
-            msg = 'The following potential settings were ignored!\n{}'
-            msgtxt = msg.format(pot_settings)
-            logger.warning(msgtxt)
-        pdim = getattr(potential_function, 'dim', None)
-        if pdim is not None and ndim is not None:
-            if ndim != pdim:
-                msg = ('Inconsistent dimensions in potential!'
-                       '\nSettings gives: {}D, potential {} is {}D')
-                msgtxt = msg.format(ndim, i, pdim)
-                logger.error(msgtxt)
-                raise ValueError(msgtxt)
-        out_pot.append(potential_function)
-        out_par.append(pot_settings.get('parameter', None))
-    return out_pot, out_par
 
 def create_external(settings, key, factory, required_methods,
                     key_settings=None):
@@ -5968,213 +5726,6 @@ def create_external(settings, key, factory, required_methods,
                 logger.critical(msg)
                 raise ValueError(msg)
     return initiate_instance(obj, key_settings)
-
-def potential_factory(settings):
-    """Create a potential according to the given settings.
-
-    This function is included as a convenient way of setting up and
-    selecting a potential function.
-
-    Parameters
-    ----------
-    settings : dict
-        This defines how we set up and select the potential.
-
-    Returns
-    -------
-    out[0] : object like :py:class:`.PotentialFunction`
-        This object represents the potential.
-
-    """
-    potential_map = {'doublewell': {'cls': DoubleWell}}
-    return generic_factory(settings, potential_map, name='potential')
-
-class PotentialFunction:
-    """Base class for a generic potential function.
-
-    Generic class for potential functions.
-
-    Attributes
-    ----------
-    desc : string
-        Short description of the potential.
-    dim : int
-        Represents the spatial dimensionality of the potential.
-    params : dict
-        The parameters for the potential. This dict defines,
-        on initiation, the parameters the potential will handle
-        and store.
-
-    """
-
-    def __init__(self, dim=1, desc=''):
-        """Initialise the potential.
-
-        Parameters
-        ----------
-        dim : int, optional
-            Represents the dimensionality.
-        desc : string, optional
-            Description of the potential function. Used to print out
-            information about the potential.
-
-        """
-        self.dim = dim
-        self.desc = desc
-        self.params = {}
-
-    def set_parameters(self, parameters):
-        """Update all parameters. Input is assumed to be a dict."""
-        for key in parameters:
-            if key in self.params:
-                self.params[key] = parameters[key]
-            else:
-                msg = 'Could not find "{}" in parameters. Ignoring!'
-                msg = msg.format(key)
-                logger.warning(msg)
-        self.check_parameters()
-
-    def check_parameters(self):
-        """Check the consistency of the parameters.
-
-        Returns
-        -------
-        out : boolean
-            True if the check(s) pass.
-
-        """
-        if not self.params:
-            logger.warning('No parameters are set for the potential')
-            return False
-        return True
-
-    def __str__(self):
-        """Return the string description of the potential."""
-        msg = ['Potential: {}'.format(self.desc)]
-        strinfo = '{}: {}'
-        for key in sorted(self.params):
-            msg.append(strinfo.format(key, self.params[key]))
-        return '\n'.join(msg)
-
-class DoubleWell(PotentialFunction):
-    r"""A 1D double well potential.
-
-    This class defines a one-dimensional double well potential.
-    The potential energy (:math:`V_\text{pot}`) is given by
-
-    .. math::
-
-       V_\text{pot} = a x^4 - b (x - c)^2
-
-    where :math:`x` is the position and :math:`a`, :math:`b`
-    and :math:`c` are parameters for the potential. These parameters
-    are stored as attributes of the class. Typically, both :math:`a`
-    and :math:`b` are positive quantities, however, we do not explicitly
-    check that here.
-
-    Attributes
-    ----------
-    params : dict
-        Contains the parameters. The keys are:
-
-        * `a`: The ``a`` parameter for the potential.
-        * `b`: The ``b`` parameter for the potential.
-        * `c`: The ``c`` parameter for the potential.
-
-        These keys corresponds to the parameters in the potential,
-        :math:`V_\text{pot} = a x^4 - b (x - c)^2`.
-
-    """
-
-    def __init__(self, a=1.0, b=1.0, c=0.0, desc='1D double well potential'):
-        """Initialise the one dimensional double well potential.
-
-        Parameters
-        ----------
-        a : float, optional
-            Parameter for the potential.
-        b : float, optional
-            Parameter for the potential.
-        c : float, optional
-            Parameter for the potential.
-        desc : string, optional
-            Description of the force field.
-
-        """
-        super().__init__(dim=1, desc=desc)
-        self.params = {'a': a, 'b': b, 'c': c}
-
-    def potential(self, system):
-        """Evaluate the potential for the one-dimensional double well.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we evaluate the potential for. Here, we
-            make use of the positions only.
-
-        Returns
-        -------
-        out : float
-            The potential energy.
-
-        """
-        pos = system.particles.pos
-        v_pot = (self.params['a'] * pos**4 -
-                 self.params['b'] * (pos - self.params['c'])**2)
-        return v_pot.sum()
-
-    def force(self, system):
-        """Evaluate forces for the 1D double well potential.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we evaluate the potential for. Here, we
-            make use of the positions only.
-
-        Returns
-        -------
-        out[0] : numpy.array
-            The calculated force.
-        out[1] : numpy.array
-            The virial, currently not implemented for this potential!
-
-        """
-        pos = system.particles.pos
-        forces = (-4.0*(self.params['a'] * pos**3) +
-                  2.0*(self.params['b'] * (pos - self.params['c'])))
-        virial = np.zeros((self.dim, self.dim))  # just return zeros here
-        return forces, virial
-
-    def potential_and_force(self, system):
-        """Evaluate the potential and the force.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we evaluate the potential for. Here, we
-            make use of the positions only.
-
-        Returns
-        -------
-        out[0] : float
-            The potential energy as a float.
-        out[1] : numpy.array
-            The force as a numpy.array of the same shape as the
-            positions in `particles.pos`.
-        out[2] : numpy.array
-            The virial, currently not implemented for this potential!
-
-        """
-        pos = system.particles.pos
-        dist = pos - self.params['c']
-        pos3 = pos**3
-        v_pot = self.params['a'] * pos3 * pos - self.params['b'] * dist**2
-        forces = (-4.0 * (self.params['a'] * pos3) +
-                  2.0 * (self.params['b'] * dist))
-        virial = np.zeros((self.dim, self.dim))  # just return zeros here
-        return v_pot.sum(), forces, virial
 
 def generic_factory(settings, object_map, name='generic'):
     """Create instances of classes based on settings.
@@ -6355,250 +5906,6 @@ def _arg_kind(arg):
         kind = 'kwargs'
     return kind
 
-class ForceField:
-    """Represents a generic force field.
-
-    This class described a generic Force Field.
-    A force field is assumed to consist of a number of potential
-    functions with parameters.
-
-    Attributes
-    ----------
-    desc : string
-        Description of the force field.
-    potential : list
-        The potential functions that the force field is built up from.
-    params : list
-        The parameters for the corresponding potential functions.
-
-    """
-
-    def __init__(self, desc, potential=None, params=None):
-        """Initialise the force field object.
-
-        Parameters
-        ----------
-        desc : string
-            Description of the force field.
-        potential : list, optional
-            Potential functions that the force field is built up from.
-        params : list, optional
-            Parameters for the potential(s). If too few parameters are
-            given, we will just assume a `None`.
-
-        """
-        self.desc = desc
-        self.potential = []
-        self.params = []
-        if potential is not None:
-            if params is None:
-                for pot in potential:
-                    self.add_potential(pot)
-            else:
-                for i, pot in enumerate(potential):
-                    try:
-                        param = params[i]
-                    except IndexError:
-                        param = None
-                        msg = 'No parameters given for potential no. {} ({})'
-                        msgtxt = msg.format(i, pot)
-                        logger.warning(msgtxt)
-                    self.add_potential(pot, parameters=param)
-
-    def add_potential(self, potential, parameters=None):
-        """Add a potential with parameters to the force field.
-
-        Parameters
-        ----------
-        potential : object like :py:class:`.PotentialFunction`
-            Potential function to add.
-        parameters : dict, optional
-            Parameters for the potential.
-
-        Returns
-        -------
-        out : boolean
-            Returns `True` and updates `self.potential` and
-            `self.params` if the potential was added. Returns
-            `False` otherwise.
-
-        """
-        if potential is None:
-            msg = ('Trying to add empty potential to force field.\n'
-                   'This was ignored -- please check your settings.')
-            logger.warning(msg)
-            return False
-        self.potential.append(potential)
-        if parameters is not None:
-            potential.set_parameters(parameters)
-        self.params.append(parameters)
-        return True
-
-    def remove_potential(self, potential):
-        """Remove a selected potential from the force field.
-
-        Parameters
-        ----------
-        potential : object like :py:class:`.PotentialFunction`
-            The potential function to remove.
-
-        Returns
-        -------
-        out : None or tuple
-            Returns `None` if not potential was removed, otherwise it
-            will return the removed potential and its parameters.
-
-        """
-        if potential in self.potential:
-            idx = self.potential.index(potential)
-            potrm = self.potential.pop(idx)
-            paramrm = self.params.pop(idx)
-            return potrm, paramrm
-        logger.warning('Potential not found in the force field functions')
-        return None, None
-
-    def update_potential_parameters(self, potential, params):
-        """Update the potential parameters of the given potential function.
-
-        Parameters
-        ----------
-        potential : object like :py:class:`.PotentialFunction`
-            Potential to update. Should be in `self.potential`.
-        params : dict
-            The new parameters to set.
-
-        Returns
-        -------
-        out : None
-            Returns `None` but will update parameters of the selected
-            potential and modify the corresponding `self.params`.
-
-        """
-        if potential in self.potential:
-            potential.set_parameters(params)
-            self.params[self.potential.index(potential)] = params
-        else:
-            logger.warning('Unknow potential. Will not update!')
-
-    def evaluate_force(self, system):
-        """Evaluate the force on the particles.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we evaluate the forces in.
-
-        Returns
-        -------
-        out[0] : numpy.array
-            The forces on the particles.
-        out[1] : numpy.array
-            The virial.
-
-        """
-        force = None
-        virial = None
-        for pot in self.potential:
-            if force is None or virial is None:
-                force, virial = pot.force(system)
-            else:
-                forcei, viriali = pot.force(system)
-                force += forcei
-                virial += viriali
-        return force, virial
-
-    def evaluate_potential(self, system):
-        """Evaluate the potential energy.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we evaluate the potential in.
-
-        Returns
-        -------
-        out : float
-            The potential energy.
-
-        """
-        v_pot = None
-        for pot in self.potential:
-            if v_pot is None:
-                v_pot = pot.potential(system)
-            else:
-                v_pot += pot.potential(system)
-        return v_pot
-
-    def evaluate_potential_and_force(self, system):
-        """Evaluate the potential energy and the force.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we evaluate the potential energy and force in.
-
-        Returns
-        -------
-        out[0] : float
-            The potential energy.
-        out[1] : numpy.array
-            The calculated forces.
-        out[2] : numpy.array
-            The calculated virial.
-
-        """
-        v_pot = None
-        force = None
-        virial = None
-        for pot in self.potential:
-            if v_pot is None or force is None or virial is None:
-                v_pot, force, virial = pot.potential_and_force(system)
-            else:
-                v_poti, forcei, viriali = pot.potential_and_force(system)
-                v_pot += v_poti
-                force += forcei
-                virial += viriali
-        return v_pot, force, virial
-
-    def __str__(self):
-        """Return a string representation of the force field.
-
-        The string representation is built using the string
-        descriptions of the potential functions.
-
-        Returns
-        -------
-        out : string
-            Description of the force field and the potential functions
-            included in the force field.
-
-        """
-        msg = ['Force field: {}'.format(self.desc)]
-        if len(self.potential) < 1:
-            msg.append('No potential functions added yet!')
-        else:
-            msg.append('Potential functions:')
-            for i, pot in enumerate(self.potential):
-                msg.append('{}: {}'.format(i + 1, pot))
-        return '\n'.join(msg)
-
-    def print_potentials(self):
-        """Print information on potentials in the force field.
-
-        This is intended as a lighter alternative to `self.__str__`
-        which can be verbose. This function will not actually do the
-        printing, but it returns a string which can be printed.
-
-        Returns
-        -------
-        out : string
-            Description of the potential functions in this force field.
-
-        """
-        msg = ['Force field: {}'.format(self.desc)]
-        for i, pot in enumerate(self.potential):
-            msg.append('\t{}: {}'.format(i + 1, pot.desc))
-        return '\n'.join(msg)
 
 def prepare_engine(settings):
     """Create an engine from given settings.
@@ -7171,41 +6478,6 @@ def gromacs_settings(settings, input_path):
             settings['engine'].get(key,
                                    os.path.join(input_path,
                                                 default_files[key]))
-
-def get_particle_type(engine_type):
-    """Return the particle class consistent with a given engine.
-
-    Parameters
-    ----------
-    engine_type : string
-        The type of particles we are requesting.
-
-    """
-    particle_map = {'internal': Particles,
-                    'external': ParticlesExt}
-    try:
-        return particle_map[engine_type]
-    except KeyError:
-        msg = 'Unknown particle type "{}" requested.'.format(engine_type)
-        logger.critical(msg)
-        raise ValueError(msg)
-def get_particle_type(engine_type):
-    """Return the particle class consistent with a given engine.
-
-    Parameters
-    ----------
-    engine_type : string
-        The type of particles we are requesting.
-
-    """
-    particle_map = {'internal': Particles,
-                    'external': ParticlesExt}
-    try:
-        return particle_map[engine_type]
-    except KeyError:
-        msg = 'Unknown particle type "{}" requested.'.format(engine_type)
-        logger.critical(msg)
-        raise ValueError(msg)
 
 def look_for_input_files(input_path, required_files,
                          extra_files=None):
@@ -8581,238 +7853,6 @@ class OrderParameter:
     def restart_info(self):
         """Save any mutatable parameters for the restart."""
 
-
-class Position(OrderParameter):
-    """A positional order parameter.
-
-    This class defines a very simple order parameter which is just
-    the position of a given particle.
-
-    Attributes
-    ----------
-    index : integer
-        This is the index of the atom which will be used, i.e.
-        ``system.particles.pos[index]`` will be used.
-    dim : integer
-        This is the dimension of the coordinate to use.
-        0, 1 or 2 for 'x', 'y' or 'z'.
-    periodic : boolean
-        This determines if periodic boundaries should be applied to
-        the position or not.
-
-    """
-
-    def __init__(self, index, dim='x', periodic=False, description=None):
-        """Initialise the order parameter.
-
-        Parameters
-        ----------
-        index : int
-            This is the index of the atom we will use the position of.
-        dim : string
-            This select what dimension we should consider,
-            it should equal 'x', 'y' or 'z'.
-        periodic : boolean, optional
-            This determines if periodic boundary conditions should be
-            applied to the position.
-
-        """
-        if description is None:
-            description = f'Position of particle {index} (dim: {dim})'
-        super().__init__(description=description, velocity=False)
-        self.periodic = periodic
-        self.index = index
-        self.dim = {'x': 0, 'y': 1, 'z': 2}.get(dim, None)
-        if self.dim is None:
-            msg = f'Unknown dimension {dim} requested'
-            logger.critical(msg)
-            raise ValueError(msg)
-
-    def calculate(self, system):
-        """Calculate the position order parameter.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The object containing the positions.
-
-        Returns
-        -------
-        out : list of floats
-            The position order parameter.
-
-        """
-        particles = system.particles
-        pos = particles.pos[self.index]
-        lamb = pos[self.dim]
-        if self.periodic:
-            lamb = system.box.pbc_coordinate_dim(lamb, self.dim)
-        return [lamb]
-
-
-class Permeability(Position):
-    """A positional order parameter for calculating parmeability.
-
-    This class defines a very simple order parameter which is just
-    the position of a given particle, but it allows for the mirror move.
-
-    Attributes
-    ----------
-    index : integer
-        This is the index of the atom which will be used, i.e.
-        ``system.particles.pos[index]`` will be used.
-    dim : integer
-        This is the dimension of the coordinate to user:
-        0, 1 or 2 for 'x', 'y' or 'z'.
-    periodic : boolean
-        This determines if periodic boundaries should be applied to
-        the position or not.
-    offset : float
-        The offset to apply before returning, l(x) = pos(x+offset).
-        This allows for effectively moving the periodic boundary position.
-        Should be defined in the same space as this orderparameter
-        (relative or not).
-    mirror_pos : float
-        The position of the mirror plane around which we mirror when the
-        mirror function is called. Should be defined in the same space as this
-        orderparameter (relative or not).
-    relative : boolean
-        If we should map the position to be relative to the box-vector.
-        Defaults to True as that is the only correct option for NPT.
-        For NVT sampling it can be set to False.
-
-    """
-
-    def __init__(self, index, dim='z', offset=0., mirror_pos=0.,
-                 relative=True):
-        """Initialise the order parameter.
-
-        Parameters
-        ----------
-        index : int
-            This is the index of the atom we will use the position of.
-        dim : string
-            This select what dimension we should consider,
-            it should equal 'x', 'y' or 'z'.
-        offset : float,
-            The offset to add to the position, used to change the
-            effective location of the periodic boundary.
-        mirror_pos : float
-            The value of the position to mirror around. Allowing for the mirror
-            move.
-        relative : boolean
-            This determines wether the position is returned as a relative value
-            to the boxsize.
-
-        """
-        description = (f"Permeability position of particle {index} "
-                       f"(dim: {dim})")
-        super().__init__(index=index, dim=dim, periodic=True,
-                         description=description)
-
-        self.offset = offset
-        self.mirror_pos = mirror_pos
-        self.relative = relative
-        self._mirror = False
-        if relative and abs(offset) >= 1:
-            raise ValueError("Mapping to relative space, but offset is not "
-                             f"between -1 and 1, offset was : {offset}")
-        if relative and abs(mirror_pos) >= 1:
-            raise ValueError("Mapping to relative space, but mirror_pos is"
-                             "not between -1 and 1, mirror_pos was : "
-                             f"{mirror_pos}")
-
-    def calculate_s(self, system):
-        """Calculate a value that we the alter in the `calculate` function.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The object containing the positions.
-
-        Returns
-        -------
-        out : list of floats
-            The position order parameter.
-
-        """
-        return super().calculate(system)
-
-    def calculate(self, system):
-        """Calculate the `compute_s` order parameter and alters it.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The object containing the positions.
-
-        Returns
-        -------
-        out : list of floats
-            The position order parameter.
-
-        """
-        # Just get the position and unwrap it
-        values = self.calculate_s(system)
-        value = values.pop(0)
-
-        # Now map to relative space or not
-        if self.relative and system.box is not None:
-            value /= system.box.length[self.dim]
-            box = 1
-            l_box = system.box.low[self.dim]/system.box.length[self.dim]
-        elif system.box is not None:
-            box = system.box.length[self.dim]
-            l_box = system.box.low[self.dim]
-        else:
-            box = None
-            l_box = 0
-        # Map to mirrored space if required
-        if self._mirror:
-            value = 2*self.mirror_pos-value
-        # Apply lowest_box
-        value -= l_box
-
-        # Add offset
-        value += self.offset
-
-        # Wrap box
-        if box is not None:
-            value = np.mod(value, box)
-        # Reapply lowest box if  not in relative space
-
-        if not self.relative:
-            value += l_box
-        return [value, self.index, (-1)**self._mirror]+values
-
-    def mirror(self):
-        """Swap this object around the mirror plane."""
-        # Make mirror of the OP
-        self._mirror = not self._mirror
-
-    def restart_info(self):
-        """Return the mutable attributes for the restart."""
-        info = {'index': self.index,
-                'mirror': self._mirror}
-
-        return info
-
-    def load_restart_info(self, info):
-        """Load the mutable attributes from restart."""
-        self.index = info['index']
-        self._mirror = info['mirror']
-
-
-class PermeabilityMinusOffset(Permeability):
-    """A positional order parameter for calculating parmeability - offset."""
-
-    def calculate(self, system):
-        """Calculate the permeability op and subtract the offset."""
-        # Just get the permeability and unwrap it
-        values = super().calculate(system)
-        return [values[0]-self.offset]+values[1:]
-
-
 class Velocity(OrderParameter):
     """Initialise the order parameter.
 
@@ -8941,6 +7981,73 @@ class Distance(OrderParameter):
         if self.periodic:
             delta = system.box.pbc_dist_coordinate(delta)
         lamb = np.sqrt(np.dot(delta, delta))
+        return [lamb]
+
+class Position(OrderParameter):
+    """A positional order parameter.
+
+    This class defines a very simple order parameter which is just
+    the position of a given particle.
+
+    Attributes
+    ----------
+    index : integer
+        This is the index of the atom which will be used, i.e.
+        ``system.particles.pos[index]`` will be used.
+    dim : integer
+        This is the dimension of the coordinate to use.
+        0, 1 or 2 for 'x', 'y' or 'z'.
+    periodic : boolean
+        This determines if periodic boundaries should be applied to
+        the position or not.
+
+    """
+
+    def __init__(self, index, dim='x', periodic=False, description=None):
+        """Initialise the order parameter.
+
+        Parameters
+        ----------
+        index : int
+            This is the index of the atom we will use the position of.
+        dim : string
+            This select what dimension we should consider,
+            it should equal 'x', 'y' or 'z'.
+        periodic : boolean, optional
+            This determines if periodic boundary conditions should be
+            applied to the position.
+
+        """
+        if description is None:
+            description = f'Position of particle {index} (dim: {dim})'
+        super().__init__(description=description, velocity=False)
+        self.periodic = periodic
+        self.index = index
+        self.dim = {'x': 0, 'y': 1, 'z': 2}.get(dim, None)
+        if self.dim is None:
+            msg = f'Unknown dimension {dim} requested'
+            logger.critical(msg)
+            raise ValueError(msg)
+
+    def calculate(self, system):
+        """Calculate the position order parameter.
+
+        Parameters
+        ----------
+        system : object like :py:class:`.System`
+            The object containing the positions.
+
+        Returns
+        -------
+        out : list of floats
+            The position order parameter.
+
+        """
+        particles = system.particles
+        pos = particles.pos[self.index]
+        lamb = pos[self.dim]
+        if self.periodic:
+            lamb = system.box.pbc_coordinate_dim(lamb, self.dim)
         return [lamb]
 
 
@@ -9241,8 +8348,7 @@ def particles_from_restart(restart):
     if restart_particles is None:
         logger.info('No particles were created from restart information.')
         return None
-    klass = get_particle_type(restart_particles['type'])
-    particles = klass(dim=restart_particles['dim'])
+    particles = ParticlesExt(dim=restart_particles['dim'])
     particles.load_restart_info(restart_particles)
     return particles
 
