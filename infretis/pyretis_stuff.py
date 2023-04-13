@@ -4523,7 +4523,7 @@ def create_system(settings):
 
     vel = None
     # Engine is not None and not internal => external.
-    particles = ParticlesExt(dim=3)
+    particles = Particles(dim=3)
     if 'input_path' in settings['engine']:
         required_file = {}
         # Get the engine input files
@@ -4805,10 +4805,11 @@ class Particles:
 
     """
 
-    particle_type = 'internal'
+    particle_type = 'external'
 
     # Attributes to store when restarting/copying:
-    _copy_attr = {'npart', 'name', 'ptype', 'dim'}
+    _copy_attr = {'npart', 'name', 'ptype', 'dim',
+                  'config', 'vel_rev'}
     # Attributes which are numpy arrays:
     _numpy_attr = {'pos', 'vel', 'force', 'virial', 'mass', 'imass',
                    'ptype', 'ekin', 'vpot'}
@@ -4837,6 +4838,8 @@ class Particles:
         self.ptype = None
         self.virial = None
         self.dim = dim
+        self.config = (None, None)
+        self.vel_rev = False
 
     def empty_list(self):
         """Reset the particle list.
@@ -4864,6 +4867,8 @@ class Particles:
         self.name = []
         self.ptype = None
         self.virial = None
+        self.config = (None, None)
+        self.vel_rev = False
 
     def _copy_attribute(self, attr, copy_function):
         """Copy an attribute.
@@ -4913,32 +4918,43 @@ class Particles:
     def set_pos(self, pos):
         """Set positions for the particles.
 
+        This will copy the input positions, for this class, the
+        input positions are assumed to be a file name with a
+        corresponding integer which determines the index for the
+        positions in the file for cases where the file contains
+        several snapshots.
+
         Parameters
         ----------
-        pos : numpy.array
-            The positions to set.
+        pos : tuple of (string, int)
+            The positions to set, this represents the file name and the
+            index for the frame in this file.
 
         """
-        self.pos = np.copy(pos)
+        self.config = (pos[0], pos[1])
 
     def get_pos(self):
-        """Return (a copy of) positions."""
-        return np.copy(self.pos)
+        """Just return the positions of the particles."""
+        return self.config
 
-    def set_vel(self, vel):
+    def set_vel(self, rev_vel):
         """Set velocities for the particles.
+
+        Here we store information which tells if the
+        velocities should be reversed or not.
 
         Parameters
         ----------
-        vel : numpy.array
-            The velocities to set.
+        rev_vel : boolean
+            The velocities to set. If True, the velocities should
+            be reversed before used.
 
         """
-        self.vel = np.copy(vel)
+        self.vel_rev = rev_vel
 
     def get_vel(self):
-        """Return (a copy of) the velocities."""
-        return np.copy(self.vel)
+        """Return info about the velocities."""
+        return self.vel_rev
 
     def set_force(self, force):
         """Set the forces for the particles.
@@ -4961,11 +4977,11 @@ class Particles:
 
         Parameters
         ----------
-        pos : numpy.array
+        pos : tuple
             Positions of new particle.
-        vel :  numpy.array
+        vel : boolean
             Velocities of new particle.
-        force : numpy.array
+        force : tuple
             Forces on the new particle.
         mass : float, optional
             The mass of the particle.
@@ -4975,27 +4991,17 @@ class Particles:
             The particle type.
 
         """
-        if self.npart == 0:
-            self.name = [name]
-            self.ptype = np.array(ptype, dtype=np.int16)
-            self.pos = np.zeros((1, self.dim))
-            self.pos[0] = pos
-            self.vel = np.zeros((1, self.dim))
-            self.vel[0] = vel
-            self.force = np.zeros((1, self.dim))
-            self.force[0] = force
-            self.mass = np.zeros((1, 1))  # Column matrix.
-            self.mass[0] = mass
-            self.imass = 1.0 / self.mass
-        else:
-            self.name.append(name)
-            self.ptype = np.append(self.ptype, ptype)
-            self.pos = np.vstack([self.pos, pos])
-            self.vel = np.vstack([self.vel, vel])
-            self.force = np.vstack([self.force, force])
-            self.mass = np.vstack([self.mass, mass])
-            self.imass = np.vstack([self.imass, 1.0/mass])
-        self.npart += 1
+        self.name = [name]
+        self.ptype = np.array(ptype, dtype=np.int16)
+        self.pos = None
+        self.set_pos(pos)
+        self.vel = None
+        self.set_vel(vel)
+        self.force = force
+        self.mass = np.zeros((1, 1))  # Column matrix.
+        self.mass[0] = mass
+        self.imass = 1.0 / self.mass
+        self.npart = 1
 
     def get_selection(self, properties, selection=None):
         """Return selected properties for a selection of particles.
@@ -5070,8 +5076,8 @@ class Particles:
 
     def __str__(self):
         """Print out basic info about the particle list."""
-        return 'Particles: {}\nTypes: {}\nNames: {}'.format(
-            self.npart, np.unique(self.ptype), set(self.name)
+        return 'Config: {}\nReverse velocities: {}'.format(
+            self.config, self.vel_rev
         )
 
     def restart_info(self):
@@ -5109,133 +5115,6 @@ class Particles:
         """Reverse the velocities in the system."""
         self.vel = self.vel * -1
 
-
-class ParticlesExt(Particles):
-    """A particle list, when positions and velocities are stored in files.
-
-    Attributes
-    ----------
-    config : tuple
-        The file name and index in this file for the configuration
-        the particle list is representing.
-    vel_rev : boolean
-        If this is True, the velocities in the file represeting
-        the configuration will have to be reversed before they are
-        used.
-
-    """
-
-    particle_type = 'external'
-
-    # Attributes to store when restarting/copying:
-    _copy_attr = {'npart', 'name', 'ptype', 'dim',
-                  'config', 'vel_rev'}
-    # Attributes which are numpy arrays:
-    _numpy_attr = {'pos', 'vel', 'force', 'virial', 'mass', 'imass',
-                   'ptype', 'ekin', 'vpot'}
-
-    def __init__(self, dim=1):
-        """Create an empty ParticleExt list.
-
-        Parameters
-        ----------
-        dim : integer, optional
-            The number of dimensions we are considering for positions,
-            velocities and forces.
-
-        """
-        super().__init__(dim=dim)
-        self.config = (None, None)
-        self.vel_rev = False
-
-    def add_particle(self, pos, vel, force, mass=1.0,
-                     name='?', ptype=0):
-        """Add a particle to the system.
-
-        Parameters
-        ----------
-        pos : tuple
-            Positions of new particle.
-        vel : boolean
-            Velocities of new particle.
-        force : tuple
-            Forces on the new particle.
-        mass : float, optional
-            The mass of the particle.
-        name : string, optional
-            The name of the particle.
-        ptype : integer, optional
-            The particle type.
-
-        """
-        self.name = [name]
-        self.ptype = np.array(ptype, dtype=np.int16)
-        self.pos = None
-        self.set_pos(pos)
-        self.vel = None
-        self.set_vel(vel)
-        self.force = force
-        self.mass = np.zeros((1, 1))  # Column matrix.
-        self.mass[0] = mass
-        self.imass = 1.0 / self.mass
-        self.npart = 1
-
-    def empty_list(self):
-        """Just empty the list."""
-        super().empty_list()
-        self.config = (None, None)
-        self.vel_rev = False
-
-    def reverse_velocities(self):
-        """Reverse the velocities in the system."""
-        self.vel_rev = not self.vel_rev
-
-    def set_pos(self, pos):
-        """Set positions for the particles.
-
-        This will copy the input positions, for this class, the
-        input positions are assumed to be a file name with a
-        corresponding integer which determines the index for the
-        positions in the file for cases where the file contains
-        several snapshots.
-
-        Parameters
-        ----------
-        pos : tuple of (string, int)
-            The positions to set, this represents the file name and the
-            index for the frame in this file.
-
-        """
-        self.config = (pos[0], pos[1])
-
-    def get_pos(self):
-        """Just return the positions of the particles."""
-        return self.config
-
-    def set_vel(self, rev_vel):
-        """Set velocities for the particles.
-
-        Here we store information which tells if the
-        velocities should be reversed or not.
-
-        Parameters
-        ----------
-        rev_vel : boolean
-            The velocities to set. If True, the velocities should
-            be reversed before used.
-
-        """
-        self.vel_rev = rev_vel
-
-    def get_vel(self):
-        """Return info about the velocities."""
-        return self.vel_rev
-
-    def __str__(self):
-        """Print out basic info about the particle list."""
-        return 'Config: {}\nReverse velocities: {}'.format(
-            self.config, self.vel_rev
-        )
 
 class System:
     """This class defines a generic system for simulations.
@@ -8348,7 +8227,7 @@ def particles_from_restart(restart):
     if restart_particles is None:
         logger.info('No particles were created from restart information.')
         return None
-    particles = ParticlesExt(dim=restart_particles['dim'])
+    particles = Particles(dim=restart_particles['dim'])
     particles.load_restart_info(restart_particles)
     return particles
 
@@ -8704,10 +8583,9 @@ class PathBase:
         new_path.traj_v = self.traj_v
         return new_path
 
-    @staticmethod
-    def reverse_velocities(system):
-        """Reverse the velocities in the phase points."""
-        system.particles.reverse_velocities()
+    def reverse_velocities(self):
+        """Reverse the velocities in the system."""
+        self.vel_rev = not self.vel_rev
 
     def reverse(self, order_function=False, rev_v=True):
         """Reverse a path and return the reverse path as a new path.
