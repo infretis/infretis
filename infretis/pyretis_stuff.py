@@ -1537,6 +1537,7 @@ def generate_ensemble_name(ensemble_number, zero_pad=3):
         zero_pad = 3
     fmt = f'{{:0{zero_pad}d}}'
     return fmt.format(ensemble_number)
+
 def _generate_file_names(path, target_dir, prefix=None):
     """Generate new file names for moving copying paths.
 
@@ -7274,7 +7275,7 @@ def particles_from_restart(restart):
     particles.load_restart_info(restart_particles)
     return particles
 
-class PathBase:
+class Path:
     """Base class for representation of paths.
 
     This class represents a path. A path consists of a series of
@@ -7467,19 +7468,65 @@ class PathBase:
             logger.debug('Undefined starting point.')
         return start
 
-    @abstractmethod
-    def get_shooting_point(self):
+    def get_shooting_point(self, criteria='rnd', interfaces=None):
         """Return a shooting point from the path.
+
+        This will simply draw a shooting point from the path at
+        random. All points can be selected with equal probability with
+        the exception of the end points which are not considered.
+
+        Parameters
+        ----------
+        criteria : string, optional
+            The criteria to select the shooting point:
+            'rnd': random, except the first and last point, standard sh.
+            'exp': selection towards low density region.
+        list/tuple of floats, optional
+          These are the interface positions of the form
+          ``[left, middle, right]``.
 
         Returns
         -------
-        phasepoint : object like :py:class:`.System`
-            A phase point which will be the state to shoot from.
-        idx : int
-            The index of the shooting point.
+        out[0] : object like :py:class:`.System`
+            The phase point we selected.
+        out[1] : int
+            The shooting point index.
 
         """
-        return
+        keep_list = []
+        rnd_idx = self.rgen.random_integers(1, self.length - 2)
+
+        # The method is not done to be working on the 0^- ensemble.
+        if criteria == 'exp' and interfaces[0] != float('-inf'):
+            n_slabs = 42
+            hyst = [0]*n_slabs
+            for p_p in self.phasepoints:
+                idx = abs(int((p_p.order[0] - interfaces[0]) /
+                              (interfaces[-1] - interfaces[0])*n_slabs))
+                hyst[idx] += 1
+
+            # Exclude the extremis, no much interesting and always low value
+            for i in [0, 1, 2, -3, -2, -1]:
+                hyst[i] = max(hyst)
+
+            # find the not zero minimum
+            h_min = hyst.index(min(hyst))
+            while hyst[h_min] == 0:
+                hyst[h_min] = max(hyst)
+                h_min = hyst.index(min(hyst))
+
+            for idx, p_p in enumerate(self.phasepoints):
+                i_slab = abs(int((p_p.order[0] - interfaces[0]) /
+                                 (interfaces[-1] - interfaces[0])*n_slabs))
+                if i_slab == h_min:
+                    keep_list.append(idx)
+
+        idx = rnd_idx if len(keep_list) < 4 else keep_list[
+            self.rgen.random_integers(1, len(keep_list) - 2)]
+
+        logger.debug("Selected point with orderp %s",
+                     self.phasepoints[idx].order[0])
+        return self.phasepoints[idx], idx
 
     @abstractmethod
     def phasepoint(self, idx):
@@ -7683,24 +7730,38 @@ class PathBase:
             msg += ['Weight: {}'.format(self.weight)]
         return '\n'.join(msg)
 
-    @abstractmethod
     def restart_info(self):
         """Return a dictionary with restart information."""
-        return
+        info = {
+            'rgen': self.rgen.get_state(),
+            'generated': self.generated,
+            'maxlen': self.maxlen,
+            'time_origin': self.time_origin,
+            'status': self.status,
+            'weight': self.weight,
+            'phasepoints': [i.restart_info() for i in self.phasepoints]
+        }
+        return info
 
-    @abstractmethod
-    def load_restart_info(self):
-        """Read a dictionary with restart information."""
-        return
+    def load_restart_info(self, info):
+        """Set up the path using restart information."""
+        for key, val in info.items():
+            # For phasepoints, create new System objects
+            # and load the information for these.
+            # The snaps still need to forcefield to be re-initiated.
+            if key == 'phasepoints':
+                for point in val:
+                    system = System()
+                    system.load_restart_info(point)
+                    self.append(system)
+            elif key == 'rgen':
+                self.rgen = create_random_generator(info['rgen'])
+            else:
+                if hasattr(self, key):
+                    setattr(self, key, val)
 
-    @abstractmethod
     def empty_path(self, **kwargs):
         """Return an empty path of same class as the current one.
-
-        This function is intended to spawn sibling paths that share some
-        properties and also some characteristics of the current path.
-        The idea here is that a path of a certain class should only be
-        able to create paths of the same class.
 
         Returns
         -------
@@ -7708,7 +7769,10 @@ class PathBase:
             A new empty path.
 
         """
-        return
+        maxlen = kwargs.get('maxlen', None)
+        time_origin = kwargs.get('time_origin', 0)
+        return self.__class__(self.rgen, maxlen=maxlen,
+                              time_origin=time_origin)
 
     def __eq__(self, other):
         """Check if two paths are equal."""
@@ -7835,119 +7899,7 @@ class PathBase:
             phasepoint.particles.ekin = ekini
 
 
-class Path(PathBase):
-    """A path where the full trajectory is stored in memory.
 
-    This class represents a path. A path consists of a series of
-    consecutive snapshots (the trajectory) with the corresponding
-    order parameter. Here we store all information for all phase points
-    on the path.
-
-    """
-
-    def get_shooting_point(self, criteria='rnd', interfaces=None):
-        """Return a shooting point from the path.
-
-        This will simply draw a shooting point from the path at
-        random. All points can be selected with equal probability with
-        the exception of the end points which are not considered.
-
-        Parameters
-        ----------
-        criteria : string, optional
-            The criteria to select the shooting point:
-            'rnd': random, except the first and last point, standard sh.
-            'exp': selection towards low density region.
-        list/tuple of floats, optional
-          These are the interface positions of the form
-          ``[left, middle, right]``.
-
-        Returns
-        -------
-        out[0] : object like :py:class:`.System`
-            The phase point we selected.
-        out[1] : int
-            The shooting point index.
-
-        """
-        keep_list = []
-        rnd_idx = self.rgen.random_integers(1, self.length - 2)
-
-        # The method is not done to be working on the 0^- ensemble.
-        if criteria == 'exp' and interfaces[0] != float('-inf'):
-            n_slabs = 42
-            hyst = [0]*n_slabs
-            for p_p in self.phasepoints:
-                idx = abs(int((p_p.order[0] - interfaces[0]) /
-                              (interfaces[-1] - interfaces[0])*n_slabs))
-                hyst[idx] += 1
-
-            # Exclude the extremis, no much interesting and always low value
-            for i in [0, 1, 2, -3, -2, -1]:
-                hyst[i] = max(hyst)
-
-            # find the not zero minimum
-            h_min = hyst.index(min(hyst))
-            while hyst[h_min] == 0:
-                hyst[h_min] = max(hyst)
-                h_min = hyst.index(min(hyst))
-
-            for idx, p_p in enumerate(self.phasepoints):
-                i_slab = abs(int((p_p.order[0] - interfaces[0]) /
-                                 (interfaces[-1] - interfaces[0])*n_slabs))
-                if i_slab == h_min:
-                    keep_list.append(idx)
-
-        idx = rnd_idx if len(keep_list) < 4 else keep_list[
-            self.rgen.random_integers(1, len(keep_list) - 2)]
-
-        logger.debug("Selected point with orderp %s",
-                     self.phasepoints[idx].order[0])
-        return self.phasepoints[idx], idx
-
-    def empty_path(self, **kwargs):
-        """Return an empty path of same class as the current one.
-
-        Returns
-        -------
-        out : object like :py:class:`.PathBase`
-            A new empty path.
-
-        """
-        maxlen = kwargs.get('maxlen', None)
-        time_origin = kwargs.get('time_origin', 0)
-        return self.__class__(self.rgen, maxlen=maxlen,
-                              time_origin=time_origin)
-
-    def restart_info(self):
-        """Return a dictionary with restart information."""
-        info = {
-            'rgen': self.rgen.get_state(),
-            'generated': self.generated,
-            'maxlen': self.maxlen,
-            'time_origin': self.time_origin,
-            'status': self.status,
-            'weight': self.weight,
-            'phasepoints': [i.restart_info() for i in self.phasepoints]
-        }
-        return info
-
-    def load_restart_info(self, info):
-        """Set up the path using restart information."""
-        for key, val in info.items():
-            # For phasepoints, create new System objects
-            # and load the information for these.
-            # The snaps still need to forcefield to be re-initiated.
-            if key == 'phasepoints':
-                for point in val:
-                    system = System()
-                    system.load_restart_info(point)
-                    self.append(system)
-            elif key == 'rgen':
-                self.rgen = create_random_generator(info['rgen'])
-            else:
-                if hasattr(self, key):
-                    setattr(self, key, val)
 
 def read_trr_frame(filename, index):
     """Return a given frame from a TRR file."""
