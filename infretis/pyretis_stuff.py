@@ -1774,19 +1774,21 @@ class PathEnsemble:
             self.nstats[key] = 0
 
     def store_path(self, path):
-        """Store a new accepted path in the path ensemble.
+        """Store a path by explicitly moving it.
 
         Parameters
         ----------
         path : object like :py:class:`.PathBase`
-            The path we are going to store.
-
-        Returns
-        -------
-        None, but we update `self.last_path`.
+            This is the path object we are going to store.
 
         """
+        self._move_path(path, self.directory['accepted'])
         self.last_path = path
+        for entry in self.list_superfluous():
+            try:
+                os.remove(entry)
+            except OSError:  # pragma: no cover
+                pass
 
     def add_path_data(self, path, status, cycle=0):
         """Append data from the given path to `self.path_data`.
@@ -1893,7 +1895,7 @@ class PathEnsemble:
 
     def move_path_to_generate(self, path, prefix=None):
         """Move a path for temporary storing."""
-        return
+        self._move_path(path, self.directory['generate'], prefix=prefix)
 
     def __str__(self):
         """Return a string with some info about the path ensemble."""
@@ -1953,15 +1955,34 @@ class PathEnsemble:
             elif hasattr(self, key):
                 setattr(self, key, info[key])
 
+        # Update file names:
+        directory = self.directory['accepted']
+        self._copy_path(self.last_path, self.directory['accepted'])
+        for entry in self.list_superfluous():
+            try:
+                os.remove(entry)
+            except OSError:  # pragma: no cover
+                pass
 
-class PathEnsembleExt(PathEnsemble):
-    """Representation of a path ensemble.
+        for phasepoint in self.last_path.phasepoints:
+            filename = os.path.basename(phasepoint.particles.get_pos()[0])
+            new_file_name = os.path.join(directory, filename)
+            if not os.path.isfile(new_file_name):
+                logger.critical('The restart path "%s" does not exist',
+                                new_file_name)
+            phasepoint.particles.set_pos((new_file_name,
+                                          phasepoint.particles.get_pos()[1]))
 
-    This class is similar to :py:class:`.PathEnsemble` but it is made
-    to work with external paths. That is, some extra file handling is
-    done when accepting a path.
-
-    """
+    def list_superfluous(self):
+        """List files in accepted directory that we do not need."""
+        last = set()
+        if self.last_path:
+            for phasepoint in self.last_path.phasepoints:
+                pos_file, _ = phasepoint.particles.get_pos()
+                last.add(os.path.split(pos_file)[-1])
+        for entry in os.scandir(self.directory['accepted']):
+            if entry.is_file() and os.path.split(entry.path)[-1] not in last:
+                yield entry.path
 
     @staticmethod
     def _move_path(path, target_dir, prefix=None):
@@ -2028,60 +2049,6 @@ class PathEnsembleExt(PathEnsemble):
                 shutil.copy(src, dest)
         return path_copy
 
-    def store_path(self, path):
-        """Store a path by explicitly moving it.
-
-        Parameters
-        ----------
-        path : object like :py:class:`.PathBase`
-            This is the path object we are going to store.
-
-        """
-        self._move_path(path, self.directory['accepted'])
-        self.last_path = path
-        for entry in self.list_superfluous():
-            try:
-                os.remove(entry)
-            except OSError:  # pragma: no cover
-                pass
-
-    def list_superfluous(self):
-        """List files in accepted directory that we do not need."""
-        last = set()
-        if self.last_path:
-            for phasepoint in self.last_path.phasepoints:
-                pos_file, _ = phasepoint.particles.get_pos()
-                last.add(os.path.split(pos_file)[-1])
-        for entry in os.scandir(self.directory['accepted']):
-            if entry.is_file() and os.path.split(entry.path)[-1] not in last:
-                yield entry.path
-
-    def move_path_to_generate(self, path, prefix=None):
-        """Move a path for temporary storing."""
-        self._move_path(path, self.directory['generate'], prefix=prefix)
-
-    def load_restart_info(self, info, cycle=0):
-        """Load restart for external path."""
-        super().load_restart_info(info, cycle=cycle)
-        # Update file names:
-        directory = self.directory['accepted']
-        self._copy_path(self.last_path, self.directory['accepted'])
-        for entry in self.list_superfluous():
-            try:
-                os.remove(entry)
-            except OSError:  # pragma: no cover
-                pass
-
-        for phasepoint in self.last_path.phasepoints:
-            filename = os.path.basename(phasepoint.particles.get_pos()[0])
-            new_file_name = os.path.join(directory, filename)
-            if not os.path.isfile(new_file_name):
-                logger.critical('The restart path "%s" does not exist',
-                                new_file_name)
-            phasepoint.particles.set_pos((new_file_name,
-                                          phasepoint.particles.get_pos()[1]))
-
-
 def create_ensemble(settings):
     """Create the path ensemble from (ensemble) simulation settings.
 
@@ -2110,7 +2077,7 @@ def create_ensemble(settings):
     engine = prepare_engine(settings)
     interfaces = settings['simulation']['interfaces']
     exe_dir = settings['simulation'].get('exe_path', os.path.abspath('.'))
-    path_ensemble = PathEnsembleExt(i_ens, interfaces, rgen=rgen_path, exe_dir=exe_dir)
+    path_ensemble = PathEnsemble(i_ens, interfaces, rgen=rgen_path, exe_dir=exe_dir)
 
     order_function = create_orderparameter(settings)
     if i_ens == 0 and settings['simulation'].get("permeability", False):
@@ -4303,7 +4270,6 @@ def create_system(settings):
         return system
 
     vel = None
-    # Engine is not None and not internal => external.
     particles = Particles(dim=3)
     if 'input_path' in settings['engine']:
         required_file = {}
