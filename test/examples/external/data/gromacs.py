@@ -6,7 +6,7 @@ import logging
 import os
 import pickle
 from numpy.random import RandomState
-from pyretis.core.random_gen import RandomGeneratorBorg
+from infretis.classes.randomgen import RandomGeneratorBorg
 from infretis.classes.external.gromacs import GromacsEngine
 # from pyretis.engines.gromacs import GromacsEngine
 # from pyretis.engines.gromacs2 import GromacsEngine2

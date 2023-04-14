@@ -1,18 +1,339 @@
 from infretis.classes.external.gromacs import GromacsEngine
 from infretis.classes.particles import Particles
 from infretis.classes.system import System
-
-from pyretis.inout.screen import print_to_screen
+from infretis.classes.randomgen import create_random_generator
+from infretis.classes.tasks import OutputTask
+from infretis.classes.fileio import FileIO
+from infretis.classes.screen import ScreenOutput
+from infretis.classes.formatter import (
+    EnergyFormatter,
+    OrderFormatter,
+    CrossFormatter,
+    SnapshotFormatter,
+    ThermoTableFormatter,
+    PathTableFormatter,
+    EnergyPathFormatter,
+    OrderPathFormatter,
+    PathEnsembleFormatter,
+    RETISResultFormatter,
+    PathStorage,
+)
 from collections import deque
 import os
+import errno
+import colorama
+import re
+import copy
+import ast
 import sys
+import pickle
 import numpy as np
 import inspect
 import importlib
 import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+SECTIONS = {}
 
+PROGRAM_NAME = 'PyRETIS'
+URL = 'http://www.pyretis.org'
+GIT_URL = 'https://gitlab.com/pyretis/pyretis'
+CITE = """
+[1] A. Lervik, E. Riccardi and T. S. van Erp, J. Comput. Chem., 2017
+    doi: https://dx.doi.org/10.1002/jcc.24900
+[2] E. Riccardi, A. Lervik, S. Roet, O. Aarøen and T. S. van Erp,
+    J. Comput. Chem., 2019, doi: https://dx.doi.org/10.1002/jcc.26112
+
+"""
+LOGO = r"""
+
+  _______                                     _______________
+ /   ___ \       _____  ____  ____________   / __        ___/
+/_/\ \_/ /_  __  \  _ \/ __/ /_  _/ / ___/  /_/ / // // /
+   /  __  / / /  / /_)  _/    / // /\ \        / // // / __
+  / /   \ \/ /  / _  \ /__   / // /__\ \   ___/ // // /_/ /
+ /_/    _\  /  /_/ |_|___/  /_//_/_____/  /______________/.beta
+       /___/
+"""
+TITLE = f'{PROGRAM_NAME} input settings'
+HEADING = '{}\n{}\nFor more info, please see: {}\nHave Fun!'
+SECTIONS['heading'] = {'text': HEADING.format(TITLE, '=' * len(TITLE), URL)}
+HERE = os.path.abspath('.')
+
+SECTIONS['simulation'] = {
+    'endcycle': None,
+    'exe_path': HERE,
+    'flux': None,
+    'interfaces': None,
+    'restart': None,
+    'rgen': 'rgen',
+    'seed': None,
+    'startcycle': None,
+    'steps': None,
+    'task': 'md',
+    'zero_ensemble': None,
+    'zero_left': None,
+    'permeability': None,
+    'swap_attributes': None,
+    'priority_shooting': False,
+    'umbrella': None,
+    'overlap': None,
+    'maxdx': None,
+    'mincycle': None
+}
+
+SECTIONS['system'] = {
+    'dimensions': 3,
+    'input_file': None,
+    'temperature': 1.0,
+    'units': 'lj',
+}
+
+SECTIONS['unit-system'] = {
+    'charge': None,
+    'energy': None,
+    'length': None,
+    'mass': None,
+    'name': None,
+}
+
+SECTIONS['engine'] = {
+    'class': None,
+    'exe_path': HERE,
+    'module': None,
+    'rgen': 'rgen',
+}
+
+SECTIONS['box'] = {
+    'cell': None,
+    'high': None,
+    'low': None,
+    'periodic': None,
+}
+
+SECTIONS['particles'] = {
+    'mass': None,
+    'name': None,
+    'npart': None,
+    'position': None,
+    'ptype': None,
+    'type': 'internal',
+    'velocity': None,
+}
+
+SECTIONS['forcefield'] = {
+    'description': None
+}
+
+SECTIONS['potential'] = {
+    'class': None,
+    'parameter': None
+}
+
+SECTIONS['orderparameter'] = {
+    'class': None,
+    'module': None,
+    'name': 'Order Parameter'
+}
+
+SECTIONS['collective-variable'] = {
+    'class': None,
+    'module': None,
+    'name': None
+}
+
+SECTIONS['output'] = {
+    'backup': 'append',
+    'cross-file': 1,
+    'energy-file': 1,
+    'pathensemble-file': 1,
+    'prefix': None,
+    'order-file': 1,
+    'restart-file': 1,
+    'screen': 10,
+    'trajectory-file': 100,
+}
+
+SECTIONS['tis'] = {
+    'allowmaxlength': False,
+    'aimless': True,
+    'ensemble_number': None,
+    'detect': None,
+    'freq': None,
+    'maxlength': None,
+    'nullmoves': None,
+    'n_jumps': None,
+    'high_accept': False,
+    'interface_sour': None,
+    'interface_cap': None,
+    'relative_shoots': None,
+    'rescale_energy': False,
+    'rgen': 'rgen',
+    'seed': None,
+    'shooting_move': 'sh',
+    'shooting_moves': [],
+    'sigma_v': -1,
+    'zero_momentum': False,
+    'mirror_freq': 0,
+    'target_freq': 0,
+    'target_indices': [],
+}
+
+SECTIONS['initial-path'] = {
+    'method': None
+}
+
+SECTIONS['retis'] = {
+    'nullmoves': None,
+    'relative_shoots': None,
+    'rgen': None,
+    'seed': None,
+    'swapfreq': None,
+    'swapsimul': None,
+}
+
+SECTIONS['ensemble'] = {
+    'interface': None
+}
+
+SECTIONS['analysis'] = {
+    'blockskip': 1,
+    'bins': 100,
+    'maxblock': 1000,
+    'maxordermsd': -1,
+    'ngrid': 1001,
+    'plot': {'plotter': 'mpl', 'output': 'png',
+             'style': 'pyretis'},
+    'report': ['latex', 'rst', 'html'],
+    'report-dir': None,
+    'skipcross': 1000,
+    'txt-output': 'txt.gz',
+    'tau_ref_bin': [],
+    'skip': 0
+}
+
+
+SPECIAL_KEY = {'parameter'}
+
+# This dictionary contains sections where the keywords
+# can not be defined before we parse the input. The reason
+# for this is that we support user-defined external modules
+# and that the user should have the freedom to define keywords
+# for these modules:
+ALLOW_MULTIPLE = {
+    'collective-variable',
+    'engine',
+    'ensemble',
+    'initial-path',
+    'orderparameter',
+    'potential',
+}
+
+# This dictionary contains sections that can be defined
+# multiple times. When parsing, these sections will be
+# prefixed with a number to distinguish them.
+SPECIAL_MULTIPLE = {
+    'collective-variable',
+    'ensemble',
+    'potential',
+}
+
+OUTPUT_TASKS = {}
+OUTPUT_TASKS['energy'] = {
+    'target': 'file',
+    'filename': 'energy.txt',
+    'result': ('thermo',),
+    'when': 'energy-file',
+    'formatter': EnergyFormatter,
+}
+OUTPUT_TASKS['order'] = {
+    'target': 'file',
+    'filename': 'order.txt',
+    'result': ('order',),
+    'when': 'order-file',
+    'formatter': OrderFormatter,
+}
+OUTPUT_TASKS['cross'] = {
+    'target': 'file',
+    'filename': 'cross.txt',
+    'result': ('cross',),
+    'when': 'cross-file',
+    'formatter': CrossFormatter,
+}
+OUTPUT_TASKS['traj-txt'] = {
+    'target': 'file',
+    'filename': 'traj.txt',
+    'result': ('system',),
+    'when': 'trajectory-file',
+    'formatter': SnapshotFormatter,
+}
+OUTPUT_TASKS['traj-xyz'] = {
+    'target': 'file',
+    'filename': 'traj.xyz',
+    'result': ('system',),
+    'when': 'trajectory-file',
+    'formatter': SnapshotFormatter,
+}
+OUTPUT_TASKS['thermo-screen'] = {
+    'target': 'screen',
+    'result': ('thermo',),
+    'when': 'screen',
+    'formatter': ThermoTableFormatter,
+}
+OUTPUT_TASKS['thermo-file'] = {
+    'target': 'file',
+    'filename': 'thermo.txt',
+    'result': ('thermo',),
+    'when': 'energy-file',
+    'formatter': ThermoTableFormatter,
+}
+OUTPUT_TASKS['pathensemble'] = {
+    'target': 'file',
+    'filename': 'pathensemble.txt',
+    'result': ('pathensemble',),
+    'when': 'pathensemble-file',
+    'formatter': PathEnsembleFormatter,
+}
+OUTPUT_TASKS['pathensemble-screen'] = {
+    'target': 'screen',
+    'result': ('pathensemble',),
+    'when': 'screen',
+    'formatter': PathTableFormatter,
+}
+OUTPUT_TASKS['pathensemble-retis-screen'] = {
+    'target': 'screen',
+    'result': ('pathensemble',),
+    'when': 'screen',
+    'formatter': RETISResultFormatter,
+}
+OUTPUT_TASKS['path-order'] = {
+    'target': 'file',
+    'filename': 'order.txt',
+    'result': ('path', 'status'),
+    'when': 'order-file',
+    'formatter': OrderPathFormatter,
+}
+OUTPUT_TASKS['path-energy'] = {
+    'target': 'file',
+    'filename': 'energy.txt',
+    'result': ('path', 'status'),
+    'when': 'energy-file',
+    'formatter': EnergyPathFormatter,
+}
+OUTPUT_TASKS['path-traj-ext'] = {
+    'target': 'file-archive',
+    'filename': 'traj.txt',
+    'result': ('path', 'status', 'pathensemble'),
+    'when': 'trajectory-file',
+    'writer': PathStorage,
+}
+_PRINT_COLORS = {
+    'error': colorama.Fore.RED,
+    'info': colorama.Fore.BLUE,
+    'warning': colorama.Fore.YELLOW,
+    'message': colorama.Fore.CYAN,
+    'success': colorama.Fore.GREEN
+}
 CAL = 4184
 CONSTANTS = { }
 CONSTANTS['kB'] = {
@@ -1113,6 +1434,33 @@ def engine_factory(settings):
     }
     return generic_factory(settings, engine_map, name='engine')
 
+def generate_file_name(basename, directory, settings):
+    """Generate file name for an output task, from settings.
+
+    Parameters
+    ----------
+    basename : string
+        The base file name to use.
+    directory : string
+        A directory to output to. Can be None to output to the
+        current working directory.
+    settings : dict
+        The input settings
+
+    Returns
+    -------
+    filename : string
+        The file name to use.
+
+    """
+    prefix = settings['output'].get('prefix', None)
+    if prefix is not None:
+        filename = f'{prefix}{basename}'
+    else:
+        filename = basename
+    filename = add_dirname(filename, directory)
+    return filename
+
 def _generate_file_names(path, target_dir, prefix=None):
     """Generate new file names for moving copying paths.
 
@@ -1186,3 +1534,1242 @@ def import_from(module_path, function_name):
         msg = f'Could not import "{function_name}" from "{module_path}"'
         logger.critical(msg)
     raise ValueError(msg)
+
+
+def print_to_screen(txt=None, level=None):  # pragma: no cover
+    """Print output to standard out.
+
+    This method is included to ensure that output from PyRETIS to the
+    screen is written out in a uniform way across the library and
+    application(s).
+
+    Parameters
+    ----------
+    txt : string, optional
+        The text to write to the screen.
+    level : string, optional
+        The level can be used to color the output.
+
+    """
+    if txt is None:
+        print()
+    else:
+        out = '{}'.format(txt)
+        color = _PRINT_COLORS.get(level, None)
+        if color is None:
+            print(out)
+        else:
+            print(color + out)
+
+def soft_partial_exit(exe_path=''):
+    """Check the presence of the EXIT file.
+
+    Parameters
+    ----------
+    exe_path: string, optional
+        Path for the EXIT file.
+
+    Returns
+    -------
+    out : boolean
+        True if EXIT is present.
+        False if EXIT in not present.
+
+    """
+    exit_file = 'EXIT'
+    if exe_path:
+        exit_file = os.path.join(exe_path, exit_file)
+    if os.path.isfile(exit_file):
+        logger.info('Exit file found - will exit between steps.')
+        print_to_screen('Exit file found - will exit between steps.',
+                        level='warning')
+
+        return True
+    return False
+
+def task_from_settings(task, settings, directory, engine, progress=False):
+    """Create output task from simulation settings.
+
+    Parameters
+    ----------
+    task : dict
+        Settings for creating a task. This dict contains the type and
+        name of the task to create. It can also contain overrides to
+        the default settings in :py:data:`OUTPUT_TASKS`.
+    settings : dict
+        Settings for the simulation.
+    directory : string
+        The directory to write output files to.
+    engine : object like :py:class:`.EngineBase`
+        This object is used to determine if we need to do something
+        special for external engines. If no engine is given, we do
+        not do anything special.
+    progress : boolean, optional
+        For some simulations, the user may select to display a
+        progress bar. We will then just disable the other screen
+        output.
+
+    Returns
+    -------
+    out : object like :py:class:`.OutputTask`
+        An output task we can use in the simulation.
+
+    """
+    task_type = get_task_type(task, engine)
+    task_settings = OUTPUT_TASKS[task_type].copy()
+    # Override defaults if any:
+    for key in task_settings:
+        if key in task:
+            task_settings[key] = task[key]
+
+    when = {'every': settings['output'][task_settings['when']]}
+    if when['every'] < 1:
+        logger.info('Skipping output task %s (freq < 1)', task_type)
+        return None
+
+    target = task_settings['target']
+    if target == 'screen' and progress:
+        logger.info(
+            'Disabling output to screen %s since progress bar is ON',
+            task['name'],
+        )
+        return None
+    formatter = None
+    # Initiate the formatter, note that here we can customize the formatter
+    # by supplying arguments to it. This was supported in a previous version
+    # of PyRETIS, but for now, none of the formatters needs settings to be
+    # created.
+    if task_settings.get('formatter', None) is not None:
+        formatter = initiate_instance(
+            task_settings['formatter'],
+            task_settings.get('formatter-settings', {}),
+        )
+    # Create writer:
+    writer = None
+    if target == 'screen':
+        klass = task_settings.get('writer', ScreenOutput)
+        writer = klass(formatter)
+    if target in ('file', 'file-archive'):
+        filename = generate_file_name(task_settings['filename'], directory,
+                                      settings)
+        file_mode = get_file_mode(settings)
+        if target == 'file':
+            klass = task_settings.get('writer', FileIO)
+            writer = klass(filename, file_mode, formatter, backup=True)
+        if target == 'file-archive':
+            klass = task_settings.get('writer', PathStorage)
+            writer = klass()
+    # Finally make the output task:
+    if writer is not None:
+        return OutputTask(task['name'], task_settings['result'], writer, when)
+    logger.warning('Unknown target "%s". Ignoring task: %s',
+                   target, task_type)
+    return None
+
+def write_restart_file(filename, simulation):
+    """Write restart info for a simulation.
+
+    Parameters
+    ----------
+    filename : string
+        The file we are going to write to.
+    simulation : object like :py:class:`.Simulation`
+        A simulation object we will get information from.
+
+    """
+    info = simulation.restart_info()
+
+    with open(filename, 'wb') as outfile:
+        pickle.dump(info, outfile)
+
+def write_ensemble_restart(ensemble, settings_ens, save='ens'):
+    """Write a restart file for a path ensemble.
+
+    Parameters
+    ----------
+    ensemble : dict
+        it contains:
+
+        * `path_ensemble` : object like :py:class:`.PathEnsemble`
+          The path ensemble we are writing restart info for.
+        * ` system` : object like :py:class:`.System`
+          System is used here since we need access to the temperature
+          and to the particle list.
+        * `order_function` : object like :py:class:`.OrderParameter`
+          The class used for calculating the order parameter(s).
+        * `engine` : object like :py:class:`.EngineBase`
+          The engine to use for propagating a path.
+
+    settings_ens : dict
+        A dictionary with the ensemble settings.
+
+    """
+    info = copy.deepcopy(settings_ens)
+    if ensemble.get('path_ensemble') is not None:
+        info['path_ensemble'] = ensemble['path_ensemble'].restart_info()
+    if ensemble.get('system') is not None:
+        info['system'] = ensemble['system'].restart_info()
+    if ensemble.get('engine') is not None:
+        info['engine'] = ensemble['engine'].restart_info()
+    if ensemble.get('rgen') is not None:
+        info['rgen'] = ensemble['rgen'].get_state()
+    if ensemble.get('order_function') is not None:
+        info['order_function'] = ensemble['order_function'].restart_info()
+
+    if save == 'path':
+        filename = os.path.join(
+            settings_ens['simulation']['exe_path'],
+            settings_ens['initial-path']['load_folder'],
+            str(ensemble['path_ensemble'].last_path.path_number),
+            'ensemble.restart')
+    else:
+        filename = os.path.join(
+            settings_ens['simulation']['exe_path'],
+            settings_ens['initial-path']['load_folder'],
+            save,
+            'ensemble.restart')
+    with open(filename, 'wb') as outfile:
+        if save == 'path':
+            toprint = os.path.join(str(ensemble['path_ensemble'].last_path.path_number), 'ensemble.restart')
+        else:
+            toprint = os.path.join(save, 'ensemble.restart')
+        # logger.info('write restart ' +  toprint)
+        pickle.dump(info, outfile)
+
+def get_initiation_method(settings):
+    """Return the initiation method from given settings.
+
+    Parameters
+    ----------
+    settings : dict
+        This dictionary contains the settings for the initiation.
+
+    Returns
+    -------
+    out : callable
+        The method to be used for the initiation.
+
+    """
+    _methods = {
+        'restart': initiate_restart,
+    }
+    method = settings['initial-path']['method'].lower()
+    if method not in _methods:
+        logger.error('Unknown initiation method "%s" requested', method)
+        logger.error('Known methods: %s', _methods.keys())
+        raise ValueError('Unknown initiation method requested!')
+    print_to_screen('Will initiate paths using method "{}".'.format(method))
+    logger.info('Initiation method "%s" selected', method)
+    return _methods[method]
+
+
+def initiate_path_simulation(simulation, settings):
+    """Initialise a path simulation.
+
+    Parameters
+    ----------
+    simulation : object like :py:class:`.PathSimulation`
+        The simulation we are doing the initiation for.
+    settings : dict
+        A dictionary with settings for the initiation.
+
+    Returns
+    -------
+    out : callable
+        The method to be used for the initiation.
+
+    """
+    cycle = simulation.cycle['step']
+    method = get_initiation_method(settings)
+    return method(simulation, settings, cycle)
+
+def initiate_restart(simulation, settings, cycle):
+    """Initialise paths by loading restart data.
+
+    Parameters
+    ----------
+    simulation : object like :py:class:`.Simulation`
+        The simulation we are setting up.
+    settings : dictionary
+        A dictionary with settings for the initiation.
+    cycle : integer
+        The simulation cycles we are starting at.
+
+    """
+    for idx, ensemble in enumerate(simulation.ensembles):
+        path_ensemble = ensemble['path_ensemble']
+        name = path_ensemble.ensemble_name
+        logger.info('Loading restart data for path ensemble %s:', name)
+        print_to_screen(
+            'Loading restart data for path ensemble {}:'.format(name),
+            level='warning'
+        )
+        restart_file = os.path.join('trajs',
+            f'e{idx}',
+            'ensemble.restart')
+        restart_file2 = os.path.join('trajs',
+            str(path_ensemble.path_number),
+            'ensemble.restart')
+
+        restart_info = read_restart_file(restart_file)
+        restart_info2 = read_restart_file(restart_file2)
+        logger.info('go restart ensemble' + restart_file)
+        logger.info('go restart path' + restart_file2)
+        ensemble['engine'].load_restart_info(restart_info['engine'])
+        ensemble['engine'].exe_dir = path_ensemble.directory['generate']
+        ensemble['system'].load_restart_info(restart_info['system'])
+        ensemble['rgen'] = create_random_generator(restart_info['rgen'])
+        ensemble['order_function'].load_restart_info(
+            restart_info.get('order_function', []))
+
+        if settings['engine']['type'] != 'internal':
+            for pp in restart_info2['path_ensemble']['last_path']['phasepoints']:
+                bname = os.path.basename(pp['particles']['config'][0])
+                pname = os.path.join('trajs', str(path_ensemble.path_number), 'accepted', bname)
+                idx = pp['particles']['config'][1]
+                pp['particles']['config'] = (pname, idx)
+
+        restart_info2['path_ensemble']
+        path_ensemble.load_restart_info(restart_info2['path_ensemble'],
+                                        cycle)
+        # This allows ensemble renumbering
+        if settings['simulation']['task'] == 'retis':
+            path_ensemble.ensemble_number = idx
+
+        # The Force field is not part of the restart, just explicitly
+        # set it:
+        path = path_ensemble.last_path
+
+        yield True, path, path.status, path_ensemble
+
+def read_restart_file(filename):
+    """Read restart info for a simulation.
+
+    Parameters
+    ----------
+    filename : string
+        The file we are going to read from.
+
+    """
+    with open(filename, 'rb') as infile:
+        info = pickle.load(infile)
+    return info
+
+def task_from_settings(task, settings, directory, engine, progress=False):
+    """Create output task from simulation settings.
+
+    Parameters
+    ----------
+    task : dict
+        Settings for creating a task. This dict contains the type and
+        name of the task to create. It can also contain overrides to
+        the default settings in :py:data:`OUTPUT_TASKS`.
+    settings : dict
+        Settings for the simulation.
+    directory : string
+        The directory to write output files to.
+    engine : object like :py:class:`.EngineBase`
+        This object is used to determine if we need to do something
+        special for external engines. If no engine is given, we do
+        not do anything special.
+    progress : boolean, optional
+        For some simulations, the user may select to display a
+        progress bar. We will then just disable the other screen
+        output.
+
+    Returns
+    -------
+    out : object like :py:class:`.OutputTask`
+        An output task we can use in the simulation.
+
+    """
+    task_type = get_task_type(task, engine)
+    task_settings = OUTPUT_TASKS[task_type].copy()
+    # Override defaults if any:
+    for key in task_settings:
+        if key in task:
+            task_settings[key] = task[key]
+
+    when = {'every': settings['output'][task_settings['when']]}
+    if when['every'] < 1:
+        logger.info('Skipping output task %s (freq < 1)', task_type)
+        return None
+
+    target = task_settings['target']
+    if target == 'screen' and progress:
+        logger.info(
+            'Disabling output to screen %s since progress bar is ON',
+            task['name'],
+        )
+        return None
+    formatter = None
+    # Initiate the formatter, note that here we can customize the formatter
+    # by supplying arguments to it. This was supported in a previous version
+    # of PyRETIS, but for now, none of the formatters needs settings to be
+    # created.
+    if task_settings.get('formatter', None) is not None:
+        formatter = initiate_instance(
+            task_settings['formatter'],
+            task_settings.get('formatter-settings', {}),
+        )
+    # Create writer:
+    writer = None
+    if target == 'screen':
+        klass = task_settings.get('writer', ScreenOutput)
+        writer = klass(formatter)
+    if target in ('file', 'file-archive'):
+        filename = generate_file_name(task_settings['filename'], directory,
+                                      settings)
+        file_mode = get_file_mode(settings)
+        if target == 'file':
+            klass = task_settings.get('writer', FileIO)
+            writer = klass(filename, file_mode, formatter, backup=True)
+        if target == 'file-archive':
+            klass = task_settings.get('writer', PathStorage)
+            writer = klass()
+    # Finally make the output task:
+    if writer is not None:
+        return OutputTask(task['name'], task_settings['result'], writer, when)
+    logger.warning('Unknown target "%s". Ignoring task: %s',
+                   target, task_type)
+    return None
+
+def get_task_type(task, engine):
+    """Do additional handling for a path task.
+
+    The path task is special since we do very different things for
+    external paths. The set-up required to do this is handled here.
+
+    Parameters
+    ----------
+    task : dict
+        Settings related to the specific task.
+    engine : object like :py:class:`.EngineBase`
+        This object is used to determine if we need to do something
+        special for external engines. If no engine is given, we do
+        not do anything special.
+
+    Returns
+    -------
+    out : string
+        The task type we are going to be creating for.
+
+    """
+    if task['type'] == 'path-traj-{}':
+        if engine is None or engine.engine_type in ('internal', 'openmm'):
+            fmt = 'int'
+        else:
+            fmt = 'ext'
+        return task['type'].format(fmt)
+    return task['type']
+
+def add_dirname(filename, dirname):
+    """Add a directory as a prefix to a filename, i.e. `dirname/filename`.
+
+    Parameters
+    ----------
+    filename : string
+        The filename.
+    dirname : string
+        The directory we want to prefix. It can be None, in which
+        case we ignore it.
+
+    Returns
+    -------
+    out : string
+        The path to the resulting file.
+
+    """
+    if dirname is not None:
+        return os.path.join(dirname, filename)
+    return filename
+
+def get_file_mode(settings):
+    """Determine if we should append or backup existing files.
+
+    This method translates the backup settings into a file mode string.
+    We assume here that the file is opened for writing.
+
+    Parameters
+    ----------
+    settings : dict
+        The simulation settings.
+
+    Returns
+    -------
+    file_mode : string
+        A string representing the file mode to use.
+
+    """
+    file_mode = 'w'
+    try:
+        old = settings['output']['backup'].lower()
+        if old == 'append':
+            logger.debug('Will append to existing files.')
+            file_mode = 'a'
+    except AttributeError:
+        logger.warning('Could not understand setting for "backup"'
+                       ' in "output" section.')
+        old = 'backup'
+        logger.warning('Handling of existing files is set to: "%s"', old)
+        settings['output']['backup'] = old
+    return file_mode
+
+
+def make_dirs(dirname):
+    """Create directories for path simulations.
+
+    This function will create a folder using a specified path.
+    If the path already exists and if it's a directory, we will do
+    nothing. If the path exists and is a file we will raise an
+    `OSError` exception here.
+
+    Parameters
+    ----------
+    dirname : string
+        This is the directory to create.
+
+    Returns
+    -------
+    out : string
+        A string with some info on what this function did. Intended for
+        output.
+
+    """
+    try:
+        os.makedirs(dirname)
+        msg = f'Created directory: "{dirname}"'
+    except OSError as err:
+        if err.errno != errno.EEXIST:  # pragma: no cover
+            raise err
+        if os.path.isfile(dirname):
+            msg = f'"{dirname}" is a file. Will abort!'
+            raise OSError(errno.EEXIST, msg) from err
+        if os.path.isdir(dirname):
+            msg = f'Directory "{dirname}" already exist.'
+    return msg
+
+def parse_settings_file(filename, add_default=True):
+    """Parse settings from a file name.
+
+    Here, we read the file line-by-line and check if the current line
+    contains a keyword, if so, we parse that keyword.
+
+    Parameters
+    ----------
+    filename : string
+        The file to parse.
+    add_default : boolean
+        If True, we will add default settings as well for keywords
+        not found in the input.
+
+    Returns
+    -------
+    settings : dict
+        A dictionary with settings for PyRETIS.
+
+    """
+    with open(filename, 'r', encoding='utf-8') as fileh:
+        raw_sections = _parse_sections(fileh)
+    settings = _parse_all_raw_sections(raw_sections)
+    if add_default:
+        logger.debug('Adding default settings')
+        add_default_settings(settings)
+        add_specific_default_settings(settings)
+    if settings['simulation']['task'] in {'retis', 'tis',
+                                          'explore', 'make-tis-files'}:
+        fill_up_tis_and_retis_settings(settings)
+        # Set up checks before to continue. This section shall GROW.
+        check_interfaces(settings)
+        check_for_bullshitt(settings)
+    return _clean_settings(settings)
+
+def add_default_settings(settings):
+    """Add default settings.
+
+    Parameters
+    ----------
+    settings : dict
+        The current input settings.
+
+    Returns
+    -------
+    None, but this method might add data to the input settings.
+
+    """
+    if settings.get('initial-path', {}).get('method') == 'restart':
+        if settings['simulation'].get('restart') is None:
+            settings['simulation']['restart'] = 'pyretis.restart'
+
+    for sec, sec_val in SECTIONS.items():
+        if sec not in settings:
+            settings[sec] = {}
+        for key, val in sec_val.items():
+            if val is not None and key not in settings[sec]:
+                settings[sec][key] = val
+    to_remove = [key for key in settings if len(settings[key]) == 0]
+    for key in to_remove:
+        settings.pop(key, None)
+
+
+def add_specific_default_settings(settings):
+    """Add specific default settings for each simulation task.
+
+    Parameters
+    ----------
+    settings : dict
+        The current input settings.
+
+    Returns
+    -------
+    None, but this method might add data to the input settings.
+
+    """
+    task = settings['simulation'].get('task')
+    if task not in settings:
+        settings[task] = {}
+
+    if 'exp' in task:
+        settings['tis']['shooting_move'] = 'exp'
+
+    if task in {'tis', 'make-tis-files'}:
+        if 'flux' not in settings['simulation']:
+            settings['simulation']['flux'] = False
+        if 'zero_ensemble' not in settings['simulation']:
+            settings['simulation']['zero_ensemble'] = False
+
+    if task == 'retis':
+        if 'flux' not in settings['simulation']:
+            settings['simulation']['flux'] = True
+        if 'zero_ensemble' not in settings['simulation']:
+            settings['simulation']['zero_ensemble'] = True
+
+    eng_name = settings['engine'].get('class', 'NoneEngine')
+    if eng_name[:7].lower() in {'gromacs', 'cp2k', 'lammps'}:
+        settings['particles']['type'] = 'external'
+        settings['engine']['type'] = 'external'
+        input_path = os.path.join(settings['engine'].get('exe_path', '.'),
+                                  settings['engine'].get('input_path', '.'))
+        engine_checker = {'gromacs': gromacs_settings,
+                          'cp2k': cp2k_settings}
+        # Checks engine specific settings
+        if engine_checker.get(eng_name[:7].lower()):
+            engine_checker[eng_name[:7].lower()](settings, input_path)
+    else:
+        settings['particles']['type'] = 'internal'
+        settings['engine']['type'] = settings['engine'].get('type', 'internal')
+
+def check_for_bullshitt(settings):
+    """Do what is stated.
+
+    Just for the input settings.
+
+    Parameters
+    ----------
+    settings : dict
+        The current input settings.
+
+    """
+    if (settings['simulation']['task'] in {'retis', 'tis'} and
+            len(settings['simulation']['interfaces']) < 3):
+        msg = "Insufficient number of interfaces for "\
+            f"{settings['simulation']['task']}"
+
+    elif settings['simulation']['task'] in {'tis', 'retis'}:
+        if not is_sorted(settings['simulation']['interfaces']):
+            msg = "Interface lambda positions in the simulation "\
+                "entry are NOT sorted (small to large)"
+
+        if 'ensemble' in settings:
+            savelambda = []
+            for i_ens, ens in enumerate(settings['ensemble']):
+                if 'ensemble_number' not in ens and \
+                        'interface' not in ens:
+                    msg = "An ensemble has been introduced without "\
+                        "references (interface in ensemble settings)"
+                else:
+                    savelambda.append(settings['simulation']['interfaces']
+                                      [i_ens])
+                    if 'interface' in ens and ens['interface'] \
+                            not in settings['simulation']['interfaces']:
+                        msg = "An ensemble has been introduced with an "\
+                            "interface not listed in the simulation interfaces"
+
+    if 'msg' in locals():
+        raise ValueError(msg)
+
+def check_interfaces(settings):
+    """Check that the interfaces are properly defined.
+
+    Parameters
+    ----------
+    settings : dict
+        The current input settings.
+
+    """
+    msg = []
+    if settings['simulation'].get('flux', False) and \
+            not settings['simulation']['zero_ensemble']:
+        msg += ['Settings for flux and zero_ensemble are inconsistent.']
+
+    if settings['simulation']['task'] in ['retis', 'tis']:
+        if len(settings['simulation']['interfaces']) < 3:
+            msg += ['Insufficient number of interfaces for {}'
+                    .format(settings['simulation']['task'])]
+
+        if not is_sorted(settings['simulation']['interfaces']):
+            msg += ['Interface positions in the simulation interfaces ']
+            msg += ['input are NOT properly sorted (ascending order)']
+
+    if msg:
+        msgtxt = '\n'.join(msg)
+        logger.critical(msgtxt)
+        return False
+
+    return True
+
+def _parse_sections(inputtxt):
+    """Find sections in the input file with raw data.
+
+    This method will find sections in the input file and
+    collect the corresponding raw data.
+
+    Parameters
+    ----------
+    inputtxt : list of strings or iterable file object
+        The raw data to parse.
+
+    Returns
+    -------
+    raw_data : dict
+        A dictionary with keys corresponding to the sections found
+        in the input file. `raw_data[key]` contains the raw data
+        for the section corresponding to `key`.
+
+    """
+    multiple = {key: 0 for key in SPECIAL_MULTIPLE}
+    raw_data = {'heading': []}
+    previous_line = None
+    add_section = 'heading'
+    data = []
+    for lines in inputtxt:
+        current_line, _, _ = lines.strip().partition('#')
+        if not current_line:
+            continue
+        if current_line.startswith('---'):
+            if previous_line is None:
+                continue
+            section_title = previous_line.split()[0].lower()
+            if section_title in SPECIAL_MULTIPLE:
+                new_section_title = f'{section_title}{multiple[section_title]}'
+                multiple[section_title] += 1
+                section_title = new_section_title
+            if section_title not in raw_data:
+                raw_data[section_title] = []
+            raw_data[add_section].extend(data[:-1])
+            data = []
+            add_section = section_title
+        else:
+            data += [current_line]
+        previous_line = current_line
+    if add_section is not None:
+        raw_data[add_section].extend(data)
+    return raw_data
+
+
+def _parse_section_heading(raw_section):
+    """Parse the heading section.
+
+    Parameters
+    ----------
+    raw_section : list of strings
+        The text data for a given section which will be parsed.
+
+    Returns
+    -------
+    setting : dict
+        A dict with keys corresponding to the settings.
+
+    """
+    if not raw_section:
+        return None
+    return {'text': '\n'.join(raw_section)}
+
+
+def _merge_section_text(raw_section):
+    """Merge text for settings that are split across lines.
+
+    This method supports keyword settings that are split across several
+    lines. Here we merge these lines by assuming that keywords separate
+    different settings.
+
+    Parameters
+    ----------
+    raw_section : string
+        The text we will merge.
+
+    """
+    merged = []
+    for line in raw_section:
+        _, _, found_keyword = look_for_keyword(line)
+        if found_keyword or not merged:
+            merged.append(line)
+        else:
+            merged[-1] = ''.join((merged[-1], line))
+    return merged
+
+
+def _parse_section_default(raw_section):
+    """Parse a raw section.
+
+    This is the default parser for sections.
+
+    Parameters
+    ----------
+    raw_section : list of strings
+        The text data for a given section which will be parsed.
+
+    Returns
+    -------
+    setting : dict
+        A dict with keys corresponding to the settings.
+
+    """
+    merged = _merge_section_text(raw_section)
+    setting = {}
+    for line in merged:
+        match, keyword, found_keyword = look_for_keyword(line)
+        if found_keyword:
+            raw = line[len(match):].strip()
+            parsed, success = parse_primitive(raw)
+            if success:
+                special = None
+                for skey in SPECIAL_MULTIPLE:
+                    # To avoid a false True for ensemble_number
+                    if keyword.startswith(skey) and keyword[len(skey)] != '_':
+                        special = skey
+
+                if special is not None:
+                    var = [''.join(line.split(keyword.split()[0])[1])]
+                    new_setting = _parse_section_default(var)
+                    var = line.split(special)[1].split()[0]
+                    num = 0 if not var.isdigit() else int(var)
+
+                    if special not in setting:
+                        setting[special] = [{}]
+                    while num >= len(setting[special]):
+                        setting[special].append({})
+                    setting[special][num].update(new_setting)
+
+                elif keyword in SPECIAL_KEY:
+                    if keyword not in setting:
+                        setting[keyword] = {}
+                    var = line.split(keyword)[1].split()[0]
+                    # Yes, in some cases we really want an integer.
+                    # Note: This will only work for positive numbers
+                    # (which we are assuming here).
+                    if var.isdigit():
+                        setting[keyword][int(var)] = parsed
+                    else:
+                        setting[keyword][var] = parsed
+
+                elif len(keyword.split()) > 1:
+                    key_0 = match.split()[0]
+                    var = [' '.join(line.split()[1:])]
+                    new_setting = _parse_section_default(var)
+                    if key_0 not in setting:
+                        setting[key_0] = {}
+                    for key, val in new_setting.items():
+                        if key in setting[key_0]:
+                            setting[key_0][key].update(val)
+                        else:
+                            setting[key_0][key] = val
+                else:
+                    setting[keyword] = parsed
+
+            else:  # pragma: no cover
+                msg = [f'Could read keyword {keyword}']
+                msg += ['Keyword was skipped, please check your input!']
+                msg += [f'Input setting: {raw}']
+                msgtxt = '\n'.join(msg)
+                logger.critical(msgtxt)
+    return setting
+
+
+def _parse_raw_section(raw_section, section):
+    """Parse the raw data from a section.
+
+    Parameters
+    ----------
+    raw_section : list of strings
+        The text data for a given section which will be parsed.
+    section : string
+        A text identifying the section we are parsing for. This is
+        used to get a list over valid keywords for the section.
+
+    Returns
+    -------
+    out : dict
+        A dict with keys corresponding to the settings.
+
+    """
+    if section not in SECTIONS:
+        # Unknown section, just ignore it and give a warning.
+        msgtxt = f'Ignoring unknown input section "{section}"'
+        logger.warning(msgtxt)
+        return None
+    if section == 'heading':
+        return _parse_section_heading(raw_section)
+    return _parse_section_default(raw_section)
+
+
+def _parse_all_raw_sections(raw_sections):
+    """Parse all raw sections.
+
+    This method is helpful for running tests etc.
+
+    Parameters
+    ----------
+    raw_sections : dict
+        The dictionary with the raw data in sections.
+
+    Returns
+    -------
+    settings : dict
+        The parsed settings, with one key for each section parsed.
+
+    """
+    settings = {}
+    for key, val in raw_sections.items():
+        special = None
+        for i in SPECIAL_MULTIPLE:
+            if key.startswith(i):
+                special = i
+        if special is not None:
+            new_setting = _parse_raw_section(val, special)
+            if special not in settings:
+                settings[special] = []
+            settings[special].append(new_setting)
+        else:
+            new_setting = _parse_raw_section(val, key)
+            if new_setting is None:
+                continue
+            if key not in settings:
+                settings[key] = {}
+            for sub_key in new_setting:
+                settings[key][sub_key] = new_setting[sub_key]
+    return settings
+
+def look_for_keyword(line):
+    """Search for a keyword in the given string.
+
+    A string is assumed to define a keyword if the keyword appears as
+    the first word in the string, ending with a `=`.
+
+    Parameters
+    ----------
+    line : string
+        A string to check for a keyword.
+
+    Returns
+    -------
+    out[0] : string
+        The matched keyword. It may contain spaces and it will also
+        contain the matched `=` separator.
+    out[1] : string
+        A lower-case, stripped version of `out[0]`.
+    out[2] : boolean
+        `True` if we found a possible keyword.
+
+    """
+    # Match a word followed by a '=':
+    key = re.match(r'(.*?)=', line)
+    if key:
+        keyword = ''.join([key.group(1), '='])
+        keyword_low = key.group(1).strip().lower()
+        for i in SPECIAL_KEY:
+            if keyword_low.startswith(i):
+                return keyword, i, True
+
+        # Here we assume that keys with len One or Two are Atoms names
+        if len(keyword_low) <= 2:
+            keyword_low = key.group(1).strip()
+
+        return keyword, keyword_low, True
+    return None, None, False
+
+def parse_primitive(text):
+    """Parse text to Python using the ast module.
+
+    Parameters
+    ----------
+    text : string
+        The text to parse.
+
+    Returns
+    -------
+    out[0] : string, dict, list, boolean, or other type
+        The parsed text.
+    out[1] : boolean
+        True if we managed to parse the text, False otherwise.
+
+    """
+    parsed = None
+    success = False
+    try:
+        parsed = ast.literal_eval(text.strip())
+        success = True
+    except SyntaxError:
+        parsed = text.strip()
+        success = True
+    except ValueError:
+        parsed = text.strip()
+        success = True
+    return parsed, success
+
+def gromacs_settings(settings, input_path):
+    """Read and processes GROMACS settings.
+
+    Parameters
+    ----------
+    settings : dict
+        The current input settings..
+    input_path : string
+        The GROMACS input path
+
+    """
+    ext = settings['engine'].get('gmx_format', 'gro')
+    default_files = {'conf': f'conf.{ext}',
+                     'input_o': 'grompp.mdp',
+                     'topology': 'topol.top',
+                     'index': 'index.ndx'}
+    settings['engine']['input_files'] = {}
+    for key in ('conf', 'input_o', 'topology', 'index'):
+        # Add input path and the input files if input is no given:
+        settings['engine']['input_files'][key] = \
+            settings['engine'].get(key,
+                                   os.path.join(input_path,
+                                                default_files[key]))
+
+def cp2k_settings(settings, input_path):
+    """Read and processes cp2k settings.
+
+    Parameters
+    ----------
+    settings : dict
+        The current input settings..
+    input_path : string
+        The CP2K input path
+
+    """
+    ext = settings['engine'].get('cp2k_format', 'xyz')
+    default_files = {'conf': f'initial.{ext}',
+                     'template': 'cp2k.inp'}
+    settings['engine']['input_files'] = {}
+    for key in ('conf', 'template'):
+        # Add input path and the input files if input is no given:
+        settings['engine']['input_files'][key] = \
+            settings['engine'].get(key,
+                                   os.path.join(input_path,
+                                                default_files[key]))
+    nodes = read_cp2k_input(
+        settings['engine']['input_files']['template'])
+    MD_data = set_parents(nodes)['MOTION->MD'].data
+
+    # Checks temperature
+    cp2k_temp_inp = False
+    for lines in MD_data:
+        if lines.startswith('TEMPERATURE'):
+            cp2k_temp_inp = True
+            cp2k_temp = float(lines.split()[1])
+            if 'temperature' not in settings['system']:
+                settings['system']['temperature'] = cp2k_temp
+            elif abs(cp2k_temp - settings['system']['temperature']) < 10e-8:
+                pass
+            else:
+                msg = 'Inequal Pyretis and CP2K input temperatures!' +\
+                        ' Temperature is set to CP2K input temperature.'
+                logger.warning(msg)
+                settings['system']['temperature'] = cp2k_temp
+            break
+    if not cp2k_temp_inp:
+        if 'temperature' not in settings['system']:
+            msg = 'Temperature not set in CP2K file!' +\
+                ' Temperature is set to CP2K default temperature.'
+            logger.warning(msg)
+        elif abs(300.0 - settings['system']['temperature']) > 10e-8:
+            msg = 'Temperature not set in CP2K file!' +\
+                ' And temperature in input rst file does not equal 300.0 K!' +\
+                ' Temperature is set to CP2K default temperature.'
+            logger.warning(msg)
+        # CP2K defaults to 300K when temperature is unspecified.
+        settings['system']['temperature'] = 300.0
+
+def fill_up_tis_and_retis_settings(settings):
+    """Make the life of sloppy users easier.
+
+    The full input set-up will be here completed.
+
+    Parameters
+    ----------
+    settings : dict
+        The current input settings.
+
+    Returns
+    -------
+    None, but this method might add data to the input settings.
+
+    """
+    create_empty_ensembles(settings)
+    ensemble_save = copy.deepcopy(settings['ensemble'])
+
+    # The previously constructed dictionary is inserted in the settings.
+    # This is done such that the specific input given per ensemble
+    # OVERWRITES the general input.
+    for i_ens, val in enumerate(ensemble_save):
+        for key in settings:
+            if key in val:
+                if key not in SPECIAL_MULTIPLE:
+                    val[key] = {**copy.deepcopy(settings[key]),
+                                **copy.deepcopy(val[key])}
+                else:
+                    for i_sub, sub in enumerate(settings[key]):
+                        while len(val[key]) < len(settings[key]):
+                            val[key].append({})
+                        val[key][i_sub] = {
+                            **copy.deepcopy(sub),
+                            **copy.deepcopy(val[key][i_sub])
+                            }
+
+        ensemble_save[i_ens] = {**copy.deepcopy(settings),
+                                **copy.deepcopy(val)}
+        del ensemble_save[i_ens]['ensemble']
+
+    for i_ens, ens in enumerate(ensemble_save):
+        add_default_settings(settings)
+        add_specific_default_settings(settings)
+        settings['ensemble'][i_ens] = copy.deepcopy(ens)
+        if 'make-tis-files' in settings['simulation']['task']:
+            settings['ensemble'][i_ens]['simulation']['task'] = 'tis'
+    if settings['tis'].get('shooting_moves', False):
+        for i_ens, ens_set in enumerate(settings['ensemble']):
+            ens_set['tis']['shooting_move'] = \
+                settings['tis']['shooting_moves'][i_ens]
+
+def create_empty_ensembles(settings):
+    """Create missing ensembles in the settings.
+
+    Checks the input and allocate it to the right ensemble. In theory
+    inouts shall include all these info, but it is not practical.
+
+    Parameters
+    ----------
+    settings : dict
+        The current input settings.
+
+    Returns
+    -------
+    None, but this method might add data to the input settings.
+
+    """
+    ints = settings['simulation']['interfaces']
+
+    # Determine how many ensembles are needed.
+    add0 = 0
+    if not settings['simulation'].get('flux', False):
+        add0 += 1
+    if not settings['simulation'].get('zero_ensemble', True):
+        add0 += 1
+
+    # if some ensembles have inputs, they need to be kept.
+    if 'ensemble' in settings:
+        orig_set = settings['ensemble'].copy()
+    else:
+        orig_set = []
+
+    settings['ensemble'] = []
+    add = add0
+
+    # if in the main settings an ensemble_number is defined, then only
+    # that ensemble will be considered.
+    if 'tis' in settings:
+        idx = settings['tis'].get('ensemble_number')
+        detect = settings['tis'].get('detect', ints[2])
+        if idx is not None:
+            settings['ensemble'].append({'interface': ints[1],
+                                         'tis': {'ensemble_number': idx,
+                                                 'detect': detect}})
+            for sav in orig_set:
+                settings['ensemble'][0] = {**settings['ensemble'][0], **sav}
+            return
+    # if one wants to compute the flux, the 000 ensemble is for it
+    # todo remove this labelling mismatch, and give to the flux
+    # a flux name folder (instead of 000), and leave 000 for the O^+ ens.
+    if settings['simulation'].get('flux', False):
+        settings['ensemble'].append({'interface': ints[0],
+                                     'tis': {'ensemble_number': 0,
+                                             'detect': ints[1]}})
+        add = add0 + 1
+    for i in range(add, len(ints)):
+        settings['ensemble'].append({'interface': ints[i - 1],
+                                     'tis': {'ensemble_number': i,
+                                             'detect': ints[i]}})
+
+    # create the ensembles in setting, keeping eventual inputs.
+    # nb. in the settings, specific input for an ensemble can be now given.
+    for i_ens, ens in enumerate(settings['ensemble']):
+        for sav in orig_set:
+            if 'tis' in sav and 'ensemble_number' in sav['tis']:
+                if ens['tis']['ensemble_number'] ==\
+                        sav['tis']['ensemble_number']:
+                    settings['ensemble'][i_ens].update(sav)
+            elif ens['interface'] == sav['interface']:
+                settings['ensemble'][i_ens].update(sav)
+
+    return
+
+def is_sorted(lll):
+    """Check if a list is sorted."""
+    return all(aaa <= bbb for aaa, bbb in zip(lll[:-1], lll[1:]))
+
+def _clean_settings(settings):
+    """Clean up input settings.
+
+    Here, we attempt to remove unwanted stuff from the input settings.
+
+    Parameters
+    ----------
+    settings : dict
+        The current input settings.
+
+    Returns
+    -------
+    settingsc : dict
+        The cleaned input settings.
+
+    """
+    settingc = {}
+    # Add other sections:
+    for sec in settings:
+        if sec not in SECTIONS:  # Well, ignore unknown ones:
+            msgtxt = f'Ignoring unknown section "{sec}"'
+            logger.warning(msgtxt)
+            continue
+        if sec in SPECIAL_MULTIPLE:
+            settingc[sec] = list(settings[sec])
+        else:
+            settingc[sec] = {}
+            if sec in ALLOW_MULTIPLE:  # Here, just add multiple sections:
+                for key in settings[sec]:
+                    settingc[sec][key] = settings[sec][key]
+            else:
+                for key in settings[sec]:
+                    if key not in SECTIONS[sec]:  # Ignore junk:
+                        msgtxt = f'Ignoring unknown "{key}" in "{sec}"'
+                        logger.warning(msgtxt)
+                    else:
+                        settingc[sec][key] = settings[sec][key]
+    to_remove = [key for key, val in settingc.items() if len(val) == 0]
+    for key in to_remove:
+        settingc.pop(key, None)
+    return settingc

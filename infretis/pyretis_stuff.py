@@ -1,20 +1,18 @@
-from pyretis.core.retis import make_retis_step
-from pyretis.core.random_gen import create_random_generator
-from pyretis.core.common import soft_partial_exit, priority_checker
-from pyretis.inout.common import make_dirs
-from pyretis.initiation import initiate_path_simulation
-from pyretis.inout.restart import write_ensemble_restart
-from pyretis.inout.screen import print_to_screen
-from pyretis.inout.simulationio import task_from_settings
-from pyretis.simulation.simulation import Simulation
-
 from infretis.classes.system import System
 from infretis.classes.particles import Particles
 from infretis.classes.pathensemble import PathEnsemble
+from infretis.classes.simulation import Simulation
 from infretis.classes.orderparameter import create_orderparameter
 from infretis.core.gromacs import gromacs_settings
-from infretis.core.common import prepare_engine, prepare_system
 from infretis.core.gromacs import read_gromacs_file, read_gromos96_file
+from infretis.core.common import (prepare_engine,
+                                  prepare_system,
+                                  print_to_screen,
+                                  write_ensemble_restart,
+                                  initiate_path_simulation,
+                                  create_random_generator,
+                                  task_from_settings,
+                                  make_dirs)
 
 from datetime import datetime
 import os
@@ -190,12 +188,6 @@ def read_xyz_file(filename):
         This dict contains the snapshot.
 
     Examples
-    --------
-    >>> from pyretis.inout.formats.xyz import read_xyz_file
-    >>> for snapshot in read_xyz_file('traj.xyz'):
-    ...     print(snapshot['x'][0])
-
-    Note
     ----
     The positions will **NOT** be converted to a specified set of units.
 

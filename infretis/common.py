@@ -4,18 +4,16 @@ import time
 import tomli
 import logging
 from datetime import datetime
-from pyretis.inout.formats.formatter import get_log_formatter
-from pyretis.core.tis import select_shoot
-from pyretis.core.retis import retis_swap_zero
-# from pyretis.setup import create_simulation
+
+from infretis.core.retis import retis_swap_zero
+from infretis.classes.formatter import PathStorage, get_log_formatter
+from infretis.core.tis import select_shoot
+from infretis.core.common import write_ensemble_restart, make_dirs, parse_settings_file
 from infretis.pyretis_stuff import create_simulation
-from pyretis.inout.settings import parse_settings_file
-from pyretis.inout.restart import write_ensemble_restart
-from pyretis.inout.archive import PathStorage
-from pyretis.inout.common import make_dirs
+from infretis.core.tis import compute_weight
 from infretis.inf_core import REPEX_state
+
 from dask.distributed import dask, Client, as_completed, get_worker
-from pyretis.core.common import compute_weight
 dask.config.set({'distributed.scheduler.work-stealing': False})
 logger = logging.getLogger('')
 logger.setLevel(logging.DEBUG)
