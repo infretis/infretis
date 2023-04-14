@@ -1,7 +1,7 @@
 from infretis.classes.system import System
+from infretis.classes.randomgen import create_random_generator
 
 from abc import ABCMeta, abstractmethod
-from pyretis.core.random_gen import create_random_generator
 import numpy as np
 import logging
 logger = logging.getLogger(__name__)
@@ -691,3 +691,73 @@ class Path:
                 ekini = None
             phasepoint.particles.vpot = vpoti
             phasepoint.particles.ekin = ekini
+
+def paste_paths(path_back, path_forw, overlap=True, maxlen=None):
+    """Merge a backward with a forward path into a new path.
+
+    The resulting path is equal to the two paths stacked, in correct
+    time. Note that the ordering is important here so that:
+    ``paste_paths(path1, path2) != paste_paths(path2, path1)``.
+
+    There are two things we need to take care of here:
+
+    - `path_back` must be iterated in reverse (it is assumed to be a
+      backward trajectory).
+    - we may have to remove one point in `path2` (if the paths overlap).
+
+    Parameters
+    ----------
+    path_back : object like :py:class:`.PathBase`
+        This is the backward trajectory.
+    path_forw : object like :py:class:`.PathBase`
+        This is the forward trajectory.
+    overlap : boolean, optional
+        If True, `path_back` and `path_forw` have a common
+        starting-point, that is, the first point in `path_forw` is
+        identical to the first point in `path_back`. In time-space, this
+        means that the *first* point in `path_forw` is identical to the
+        *last* point in `path_back` (the backward and forward path
+        started at the same location in space).
+    maxlen : float, optional
+        This is the maximum length for the new path. If it's not given,
+        it will just be set to the largest of the `maxlen` of the two
+        given paths.
+
+    Note
+    ----
+    Some information about the path will not be set here. This must be
+    set elsewhere. This includes how the path was generated
+    (`path.generated`) and the status of the path (`path.status`).
+
+    """
+    if maxlen is None:
+        if path_back.maxlen == path_forw.maxlen:
+            maxlen = path_back.maxlen
+        else:
+            # They are unequal and both is not None, just pick the largest.
+            # In case one is None, the other will be picked.
+            # Note that now there is a chance of truncating the path while
+            # pasting!
+            maxlen = max(path_back.maxlen, path_forw.maxlen)
+            msg = 'Unequal length: Using {} for the new path!'.format(maxlen)
+            logger.warning(msg)
+    time_origin = path_back.time_origin - path_back.length + 1
+    new_path = path_back.empty_path(maxlen=maxlen, time_origin=time_origin)
+    for phasepoint in reversed(path_back.phasepoints):
+        app = new_path.append(phasepoint)
+        if not app:
+            msg = 'Truncated while pasting backwards at: {}'
+            msg = msg.format(new_path.length)
+            logger.warning(msg)
+            return new_path
+    first = True
+    for phasepoint in path_forw.phasepoints:
+        if first and overlap:
+            first = False
+            continue
+        app = new_path.append(phasepoint)
+        if not app:
+            msg = 'Truncated path at: {}'.format(new_path.length)
+            logger.warning(msg)
+            return new_path
+    return new_path

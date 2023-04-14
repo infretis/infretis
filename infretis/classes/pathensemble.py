@@ -1,8 +1,7 @@
 from infretis.classes.path import Path
-from infretis.core.common import _generate_file_names
+from infretis.classes.randomgen import create_random_generator
 
 import collections
-from pyretis.core.random_gen import create_random_generator
 import os
 import shutil
 
@@ -510,3 +509,38 @@ def generate_ensemble_name(ensemble_number, zero_pad=3):
         zero_pad = 3
     fmt = f'{{:0{zero_pad}d}}'
     return fmt.format(ensemble_number)
+
+def _generate_file_names(path, target_dir, prefix=None):
+    """Generate new file names for moving copying paths.
+
+    Parameters
+    ----------
+    path : object like :py:class:`.PathBase`
+        This is the path object we are going to store.
+    target_dir : string
+        The location where we are moving the path to.
+    prefix : string, optional
+        The prefix can be used to prefix the name of the files.
+
+    Returns
+    -------
+    out[0] : list
+        A list with new file names.
+    out[1] : dict
+        A dict which defines the unique "source -> destination" for
+        copy/move operations.
+
+    """
+    source = {}
+    new_pos = []
+    for phasepoint in path.phasepoints:
+        pos_file, idx = phasepoint.particles.get_pos()
+        if pos_file not in source:
+            localfile = os.path.basename(pos_file)
+            if prefix is not None:
+                localfile = f'{prefix}{localfile}'
+            dest = os.path.join(target_dir, localfile)
+            source[pos_file] = dest
+        dest = source[pos_file]
+        new_pos.append((dest, idx))
+    return new_pos, source

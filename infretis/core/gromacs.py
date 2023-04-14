@@ -163,12 +163,6 @@ def read_gromacs_file(filename):
     out : dict
         This dict contains the snapshot.
 
-    Examples
-    --------
-    >>> from pyretis.inout.formats.gromacs import read_gromacs_file
-    >>> for snapshot in read_gromacs_file('traj.gro'):
-    ...     print(snapshot['x'][0])
-
     """
     with open(filename, 'r', encoding='utf-8') as fileh:
         for snapshot in read_gromacs_lines(fileh):

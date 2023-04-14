@@ -1,7 +1,7 @@
 from infretis.classes.box import create_box, box_from_restart
 from infretis.classes.particles import particles_from_restart, Particles
-from pyretis.inout.screen import print_to_screen
 
+import colorama
 import numpy as np
 from collections import deque
 from copy import copy as copy0
@@ -10,6 +10,14 @@ import os
 import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
+_PRINT_COLORS = {
+    'error': colorama.Fore.RED,
+    'info': colorama.Fore.BLUE,
+    'warning': colorama.Fore.YELLOW,
+    'message': colorama.Fore.CYAN,
+    'success': colorama.Fore.GREEN
+}
 
 CAL = 4184
 CONSTANTS = { }
@@ -573,3 +581,28 @@ class System:
         msg.append('Particles:')
         msg.append('{}'.format(self.particles))
         return '\n'.join(msg)
+
+def print_to_screen(txt=None, level=None):  # pragma: no cover
+    """Print output to standard out.
+
+    This method is included to ensure that output from PyRETIS to the
+    screen is written out in a uniform way across the library and
+    application(s).
+
+    Parameters
+    ----------
+    txt : string, optional
+        The text to write to the screen.
+    level : string, optional
+        The level can be used to color the output.
+
+    """
+    if txt is None:
+        print()
+    else:
+        out = '{}'.format(txt)
+        color = _PRINT_COLORS.get(level, None)
+        if color is None:
+            print(out)
+        else:
+            print(color + out)
