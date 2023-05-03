@@ -15,12 +15,13 @@ Engine
 ------
 class = GromacsEngineR
 module = gromacs.py
-gmx = gmx_d
-mdrun = gmx_d mdrun
+gmx = gmx
+mdrun = gmx mdrun
 input_path = ../data/gromacs_input
 timestep = 0.002
 subcycles = 5
 gmx_format = g96
+maxwarn = 15
 
 TIS
 ---
