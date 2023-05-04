@@ -61,9 +61,7 @@ SECTIONS['simulation'] = {
     'permeability': None,
     'swap_attributes': None,
     'priority_shooting': False,
-    'umbrella': None,
     'overlap': None,
-    'maxdx': None,
     'mincycle': None }
 SECTIONS['engine'] = {
     'class': None,
@@ -148,25 +146,6 @@ SECTIONS['retis'] = {
     'swapsimul': None }
 SECTIONS['ensemble'] = {
     'interface': None }
-SECTIONS['analysis'] = {
-    'blockskip': 1,
-    'bins': 100,
-    'maxblock': 1000,
-    'maxordermsd': -1,
-    'ngrid': 1001,
-    'plot': {
-        'plotter': 'mpl',
-        'output': 'png',
-        'style': 'pyretis' },
-    'report': [
-        'latex',
-        'rst',
-        'html'],
-    'report-dir': None,
-    'skipcross': 1000,
-    'txt-output': 'txt.gz',
-    'tau_ref_bin': [],
-    'skip': 0 }
 SPECIAL_KEY = {
     'parameter'}
 
@@ -320,7 +299,6 @@ def create_ensembles(settings):
 
     return ensembles
 
-
 def create_ensemble(settings):
     """Create the path ensemble from (ensemble) simulation settings.
 
@@ -375,7 +353,6 @@ def create_ensemble(settings):
                 'rgen': rgen_ens}
     return ensemble
 
-
 def reopen_file(filename, fileh, inode, bytes_read):
     """Reopen a file if the inode has changed.
 
@@ -426,58 +403,20 @@ def create_simulation(settings):
         This object will correspond to the selected simulation type.
 
     """
-    sim_type = settings['simulation']['task'].lower()
-
-    sim_map = {
-        'retis': create_retis_simulation,
-    }
 
     # Improve setting quality
     add_default_settings(settings)
-    add_specific_default_settings(settings)
-
-    # if settings['simulation'].get('restart', False):
-    #     settings, info_restart = settings_from_restart(settings)
-
-    if sim_type not in sim_map:  # TODO put in check_sim_type
-        msgtxt = 'Unknown simulation task {}'.format(sim_type)
-        logger.error(msgtxt)
-        raise ValueError(msgtxt)
-
-    simulation = sim_map[sim_type](settings)
-    msgtxt = '{}'.format(simulation)
-    logger.info('Created simulation:\n%s', msgtxt)
-
-    # if settings['simulation'].get('restart', False):
-    #     simulation.load_restart_info(info_restart)
-
-    return simulation
-
-def create_retis_simulation(settings):
-    """Set up and create a RETIS simulation.
-
-    Parameters
-    ----------
-    settings : dict
-        This dictionary contains the settings for the simulation.
-
-    Returns
-    -------
-    SimulationRETIS : object like :py:class:`.SimulationRETIS`
-        The object representing the simulation to run.
-
-    """
     check_ensemble(settings)
     ensembles = create_ensembles(settings)
-
-    key_check('steps', settings)
 
     controls = {'rgen': create_random_generator(settings['simulation']),
                 'steps': settings['simulation']['steps'],
                 'startcycle': settings['simulation'].get('startcycle', 0)}
+    simulation = SimulationRETIS(ensembles, settings, controls)
+    msgtxt = '{}'.format(simulation)
+    logger.info('Created simulation:\n%s', msgtxt)
 
-    return SimulationRETIS(ensembles, settings, controls)
-
+    return simulation
 
 class PathSimulation(Simulation):
     """A base class for TIS/RETIS simulations.
@@ -761,81 +700,6 @@ class PathSimulation(Simulation):
                 return False
         return True
 
-    def step(self):
-        """Perform a TIS/RETIS simulation step.
-
-        Returns
-        -------
-        out : dict
-            This list contains the results of the defined tasks.
-
-        """
-        sim_type = self.settings['simulation']['task'].lower()
-        sim_map = {'tis': make_tis,
-                   'explore': make_tis,
-                   'retis': make_retis_step}
-
-        prio_skip = priority_checker(self.ensembles, self.settings)
-        if True not in prio_skip:
-            self.cycle['step'] += 1
-            self.cycle['stepno'] += 1
-        msgtxt = f' {sim_type} step. Cycle {self.cycle["stepno"]}'
-        logger.info(msgtxt)
-        prepare = sim_map[sim_type]
-        runner = prepare(self.ensembles, self.rgen,
-                         self.settings, self.cycle['step'])
-        results = {}
-        for i_ens, res in enumerate(runner):
-            if prio_skip[i_ens]:
-                continue
-            idx = res['ensemble_number']
-            result = {'cycle': self.cycle}
-            result[f'move-{idx}'] = res['mc-move']
-            result[f'status-{idx}'] = res['status']
-            result[f'path-{idx}'] = res['trial']
-            result[f'accept-{idx}'] = res['accept']
-            result[f'all-{idx}'] = res
-            # This is to fix swaps needs
-            idx_ens = i_ens if sim_type in {'tis', 'explore'} else idx
-            result[f'pathensemble-{idx}'] = \
-                self.ensembles[idx_ens]['path_ensemble']
-            for task in self.output_tasks:
-                task.output(result)
-            results.update(result)
-            if soft_partial_exit(self.settings['simulation']['exe_path']):
-                self.cycle['endcycle'] = self.cycle['step']
-                break
-        return results
-
-    def run(self):
-        """Run a path simulation.
-
-        The intended usage is for simulations where all tasks have
-        been defined in :py:attr:`self.tasks`.
-
-        Note
-        ----
-        This function will just run the tasks via executing
-        :py:meth:`.step` In general, this is probably too generic for
-        the simulation you want, if you are creating a custom simulation.
-        Please consider customizing the :py:meth:`.run` (or the
-        :py:meth:`.step`) method of your simulation class.
-
-        Yields
-        ------
-        out : dict
-            This dictionary contains the results from the simulation.
-
-        """
-        while not self.is_finished():
-            result = self.step()
-            self.write_restart()
-            if self.soft_exit():
-                yield result
-                break
-            yield result
-
-
 class SimulationRETIS(PathSimulation):
     """A RETIS simulation.
 
@@ -883,10 +747,6 @@ def add_default_settings(settings):
     None, but this method might add data to the input settings.
 
     """
-    if settings.get('initial-path', {}).get('method') == 'restart':
-        if settings['simulation'].get('restart') is None:
-            settings['simulation']['restart'] = 'pyretis.restart'
-
     for sec, sec_val in SECTIONS.items():
         if sec not in settings:
             settings[sec] = {}
@@ -897,38 +757,9 @@ def add_default_settings(settings):
     for key in to_remove:
         settings.pop(key, None)
 
-
-def add_specific_default_settings(settings):
-    """Add specific default settings for each simulation task.
-
-    Parameters
-    ----------
-    settings : dict
-        The current input settings.
-
-    Returns
-    -------
-    None, but this method might add data to the input settings.
-
-    """
     task = settings['simulation'].get('task')
     if task not in settings:
         settings[task] = {}
-
-    if 'exp' in task:
-        settings['tis']['shooting_move'] = 'exp'
-
-    if task in {'tis', 'make-tis-files'}:
-        if 'flux' not in settings['simulation']:
-            settings['simulation']['flux'] = False
-        if 'zero_ensemble' not in settings['simulation']:
-            settings['simulation']['zero_ensemble'] = False
-
-    if task == 'retis':
-        if 'flux' not in settings['simulation']:
-            settings['simulation']['flux'] = True
-        if 'zero_ensemble' not in settings['simulation']:
-            settings['simulation']['zero_ensemble'] = True
 
     eng_name = settings['engine'].get('class', 'NoneEngine')
     if eng_name[:7].lower() in {'gromacs', 'cp2k', 'lammps'}:
@@ -966,7 +797,9 @@ def check_ensemble(settings):
                 msg = "An ensemble is present without reference interface"
                 break
 
-        if not is_sorted(savelambda):
+        is_sorted = all(aaa <= bbb for aaa, bbb in zip(savelambda[:-1],
+                                                       savelambda[1:]))
+        if not is_sorted:
             msg = "Interface positions in the ensemble simulation "\
                 "are NOT properly sorted (ascending order)"
 
@@ -977,13 +810,6 @@ def check_ensemble(settings):
         raise ValueError(msg)
 
     return True
-
-def is_sorted(lll):
-    """Check if a list is sorted."""
-    return all(aaa <= bbb for aaa, bbb in zip(lll[:-1], lll[1:]))
-
-
-
 
 def create_initial_positions(settings):
     """Set up the initial positions from the given settings.
@@ -1179,15 +1005,6 @@ def _get_snapshot_from_file(pos_settings, units):
         raise ValueError(msg)
     return snapshot, convert
 
-
-def key_check(key, settings):
-    """Check for the presence of a key in settings."""
-    # todo These checks shall be done earlier, when cleaning the input.
-    if key not in settings['simulation']:
-        msgtxt = 'Simulation setting "{}" is missing!'.format(key)
-        logger.critical(msgtxt)
-        raise ValueError(msgtxt)
-
 def look_for_input_files(input_path, required_files,
                          extra_files=None):
     """Check that required files for external engines are present.
@@ -1264,4 +1081,3 @@ def look_for_input_files(input_path, required_files,
                 logger.info(msg)
 
     return input_files
-

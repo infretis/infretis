@@ -24,30 +24,6 @@ console.setFormatter(get_log_formatter(logging.WARNING))
 logger.addHandler(console)
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
-def run_bm(md_items):
-    md_items['wmd_start'] = time.time()
-    ens_nums = md_items['ens_nums']
-    ensembles = md_items['ensembles']
-    settings = md_items['settings']
-    interfaces = md_items['interfaces']
-
-    # set shooting_move = 'md'
-    if 'shooting_move' in settings:
-        settings['shooting_move'] = 'md'
-
-    start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
-    accept, trials, status = select_shoot(ensembles[ens_nums[0]+1],
-                                          md_items['settings'],
-                                          start_cond)
-
-    md_items['pnum_old'].append(ensembles[ens_nums[0]+1]['path_ensemble'].last_path.path_number)
-    md_items['trial_len'].append(trials.length)
-    md_items['trial_op'].append((trials.ordermin[0], trials.ordermax[0]))
-    md_items.update({'status': 'BMA',
-                     'interfaces': interfaces,
-                     'wmd_end': time.time()})
-    return md_items
-
 def run_md(md_items):
     md_items['wmd_start'] = time.time()
     ens_nums = md_items['ens_nums']
@@ -226,6 +202,15 @@ def setup_internal(input_file):
     # parse retis.rst
     inp = config['simulation']['pyretis_inp']
     sim_settings = parse_settings_file(inp)
+    for key in sim_settings.keys():
+        if key != 'ensemble':
+            print(key, sim_settings[key])
+        else:
+            print('whdaa', key)
+            for ao in sim_settings[key]:
+                print(ao)
+    # print(sim_settings)
+    # exit('banana')
     interfaces = sim_settings['simulation']['interfaces']
     size = len(interfaces)
 

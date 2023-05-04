@@ -1,5 +1,5 @@
 import argparse
-from infretis.scheduler import scheduler, bm_scheduler
+from infretis.scheduler import scheduler
 from infretis.conv_inf_py import print_pathens
 from infretis.pattern import pattern
 
@@ -13,16 +13,6 @@ def infretisrun():
     args_dict = vars(parser.parse_args())
     input_file = args_dict['input']
     scheduler(input_file)
-
-def infretisbm():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input',
-                    help=f'Location of infretis input file',
-                    required=True)
-
-    args_dict = vars(parser.parse_args())
-    input_file = args_dict['input']
-    bm_scheduler(input_file)
 
 
 def infretisanalyze():
