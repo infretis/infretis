@@ -211,8 +211,6 @@ def select_shoot(ensemble, tis_settings, start_cond):
         logger.info('Performing a Wire Fencing move')
         accept, new_path, status = wire_fencing(ensemble, tis_settings,
                                                 start_cond)
-    elif shooting_move == 'md':
-        accept, new_path, status = run_md(ensemble, tis_settings, start_cond)
     else:
         logger.info('Performing a shooting move')
         accept, new_path, status = shoot(ensemble, tis_settings, start_cond)
@@ -1098,19 +1096,6 @@ def prepare_shooting_point(path, ensemble, tis_settings):
     orderp = engine.calculate_order(ensemble)
     shooting_copy.order = orderp
     return shooting_copy, idx, dek
-
-def run_md(ensemble, tis_settings, start_cond, shooting_point=None):
-    engine = ensemble['engine']
-    path_ensemble = ensemble['path_ensemble']
-    path = path_ensemble.last_path
-    interfaces = ensemble['interfaces']
-    trial_path = path.empty_path(maxlen=path.maxlen)
-    shooting_point, idx, dek = prepare_shooting_point(
-        path, ensemble, tis_settings
-    )
-    ensemble['system'] = shooting_point.copy()
-    engine.propagate(trial_path, ensemble)
-    return False, trial_path, 'NOO'
 
 def counter():
     """Return how many times this function is called."""
