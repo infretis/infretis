@@ -121,6 +121,7 @@ class REPEX_state(object):
         self.screen = None
         self.mc_moves = []
         self.ensembles = {}
+        self.engines = {}
         self.toinitiate = self.workers
         self.output_tasks = None
         self.data_file = None
@@ -152,7 +153,39 @@ class REPEX_state(object):
             trajs.append(self._trajs[ens])
         if self.printing():
             self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
-        return tuple(enss), tuple(trajs)
+        picked = {}
+        for ens_num, inp_traj in zip(enss, inp_trajs):
+            picked[ens_num] = {'ens': tuple(ens_num),
+                               'traj': tuple(inp_traj),
+                               'engine': self.engines[self.ensembles[ens_num].engine]}
+
+        # return tuple(enss), tuple(trajs)
+        return picked
+
+    def prep_md_items(self, md_items):
+        # pick/lock ens & path 
+        if self.toinitiate >= 0:
+            md_items['picked'] = self.pick_lock()
+        else:
+            md_items['picked'] = self.pick()
+
+        # allocate worker pin:
+        if self.config['dask'].get('wmdrun', False):
+            base = self.config['dask']['wmdrun'][md_items['pin']]
+            md_items['md_worker'] = base
+
+        # write pattern:
+        if self.pattern_file and self.toinitiate == -1:
+            self.write_pattern(md_items)
+        else:
+            md_items['md_start'] = time.time()
+
+        # empty / update md_items:
+        for key in ['moves', 'pnum_old', 'trial_len', 'trial_op', 'generated']:
+            md_items[key] = []
+        # md_items.update({'ens_nums': ens_nums})
+
+        return md_items
 
     def pick(self):
         prob = self.prob.astype("float64").flatten()
@@ -189,7 +222,13 @@ class REPEX_state(object):
         if self.printing():
             self.print_pick(ens_nums, pat_nums, self.cworker)
 
-        return ens_nums, inp_trajs
+        picked = {}
+        for ens_num, inp_traj in zip(ens_nums, inp_trajs):
+            picked[ens_num] = {'ens': ens_nums,
+                               'traj': inp_traj,
+                               'engine': self.engines[self.ensembles[ens_num].engine]}
+        
+        return picked
 
     def pick_traj_ens(self, ens):
         prob = self.prob.astype("float64")[:, ens].flatten()

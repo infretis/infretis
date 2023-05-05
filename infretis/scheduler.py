@@ -12,11 +12,12 @@ def scheduler(input_file):
 
     # submit the first number of workers
     while state.initiate(md_items):
-        # chose ens and path for the next job
-        ens_nums, input_traj = state.pick_lock()
-        prep_pyretis(state, md_items, input_traj, ens_nums)
+        # pick and prep ens and path for the next job
+        md_items = state.prep_md_items(md_items)
 
         # submit job
+        run_md(md_items)
+        exit('babi')
         fut = client.submit(run_md, md_items, pure=False)
         futures.add(fut)
 
@@ -29,8 +30,7 @@ def scheduler(input_file):
         # submit new job:
         if state.cstep + state.workers <= state.tsteps:
             # chose ens and path for the next job
-            ens_nums, inp_traj = state.pick()
-            prep_pyretis(state, md_items, inp_traj, ens_nums)
+            md_items = state.prep_md_items(md_items)
 
             # submit job
             fut = client.submit(run_md, md_items, pure=False)
@@ -38,3 +38,6 @@ def scheduler(input_file):
 
     # end client
     client.close()
+
+
+# move prep_pyretis -> inside repex?

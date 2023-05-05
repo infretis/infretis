@@ -8,10 +8,13 @@ from datetime import datetime
 from infretis.core.retis import retis_swap_zero
 from infretis.classes.formatter import PathStorage, get_log_formatter
 from infretis.core.tis import select_shoot
-from infretis.core.common import write_ensemble_restart, make_dirs, parse_settings_file
-from infretis.pyretis_stuff import create_simulation
+from infretis.core.common import write_ensemble_restart, make_dirs
 from infretis.core.tis import compute_weight
 from infretis.inf_core import REPEX_state
+
+from infretis.newc.ensemble import create_ensembles
+from infretis.newc.engine import create_engines
+from infretis.newc.path import load_paths
 
 from dask.distributed import dask, Client, as_completed, get_worker
 dask.config.set({'distributed.scheduler.work-stealing': False})
@@ -30,6 +33,7 @@ def run_md(md_items):
     ensembles = md_items['ensembles']
     interfaces = md_items['interfaces']
     start_time = datetime.now()
+    exit('down bad')
     logger.info(start_time.strftime(DATE_FORMAT))
 
     if len(ens_nums) == 1:
@@ -39,8 +43,7 @@ def run_md(md_items):
         logger.info(f"Shooting {move} in ensemble: {enum}"\
                     f" with path: {pnum} and worker: {md_items['pin']}")
         start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
-        if not md_items['internal']:
-            ensembles[ens_nums[0]+1]['engine'].clean_up()
+        ensembles[ens_nums[0]+1]['engine'].clean_up()
         accept, trials, status = select_shoot(ensembles[ens_nums[0]+1],
                                               md_items['settings'],
                                               start_cond)
@@ -52,9 +55,8 @@ def run_md(md_items):
                  ensembles_l[1]['path_ensemble'].last_path.path_number]
         logger.info(f"Shooting sh sh in ensembles: 000 001"\
                     f" with paths: {pnums} and worker: {md_items['pin']}")
-        if not md_items['internal']:
-            ensembles_l[0]['engine'].clean_up()
-            ensembles_l[1]['engine'].clean_up()
+        ensembles_l[0]['engine'].clean_up()
+        ensembles_l[1]['engine'].clean_up()
         accept, trials, status = retis_swap_zero(ensembles_l, md_items['settings'], 0)
 
     for trial, ens_num, ifaces in zip(trials, ens_nums, interfaces):
@@ -124,9 +126,8 @@ def treat_output(state, md_items):
 
             # NB! Saving can take some time..
             # add setting where we save .trr file or not (we always save restart)
-            if md_items['internal'] and state.config['output']['store_paths']:
+            if state.config['output']['store_paths']:
                 make_dirs(f'./trajs/{out_traj.path_number}')
-            if state.config['output']['store_paths'] and not md_items['internal']:
                 state.pstore.output(state.cstep, state.ensembles[ens_num+1]['path_ensemble'])
                 if state.config['output'].get('delete_old', False) and pn_old > state.n - 2:
                     # if pn is larger than ensemble number ...
@@ -200,18 +201,7 @@ def setup_internal(input_file):
             logger.info('We use restart.toml instead.')
 
     # parse retis.rst
-    inp = config['simulation']['pyretis_inp']
-    sim_settings = parse_settings_file(inp)
-    for key in sim_settings.keys():
-        if key != 'ensemble':
-            print(key, sim_settings[key])
-        else:
-            print('whdaa', key)
-            for ao in sim_settings[key]:
-                print(ao)
-    # print(sim_settings)
-    # exit('banana')
-    interfaces = sim_settings['simulation']['interfaces']
+    interfaces = config['simulation']['interfaces']
     size = len(interfaces)
 
     # setup config
@@ -220,46 +210,44 @@ def setup_internal(input_file):
         return None, None, None
 
     # setup pyretis and infretis
-    sim = setup_pyretis(config, sim_settings)
-    state = setup_repex(config, sim)
+    state = setup_repex(config)
+    state.ensembles = create_ensembles(config)
+    state.engines = create_engines(config)
+    paths = load_paths(config)
 
     # initiate by adding paths from retis sim to repex
     traj_num_dic = state.traj_num_dic
     for i in range(size-1):
         # we add all the i+ paths.
-        path = sim.ensembles[i+1]['path_ensemble'].last_path
-        path.traj_v = calc_cv_vector(path, interfaces, state.mc_moves)
-        state.add_traj(ens=i, traj=path, valid=path.traj_v, count=False)
-        pnum = path.path_number
+        paths[i+1].weights= calc_cv_vector(paths[i+1], interfaces, state.mc_moves)
+        state.add_traj(ens=i, traj=paths[i+1], valid=paths[i+1].weights, count=False)
+        pnum = paths[i+1].path_number
+        print('bumba', pnum)
         frac = config['current']['frac'].get(str(pnum), np.zeros(size+1))
         traj_num_dic[pnum] = {'ens_save_idx': i + 1,
-                              'max_op': path.ordermax,
-                              'length': path.length,
-                              'traj_v': path.traj_v,
+                              'max_op': paths[i+1].ordermax,
+                              'length': paths[i+1].length,
+                              'adress': paths[i+1].adress,
+                              'weights': paths[i+1].weights,
                               'frac': np.array(frac, dtype='float128')}
-        if not config['simulation']['internal']:
-            traj_num_dic[pnum]['adress'] = set(os.path.basename(kk.particles.config[0]) for kk in path.phasepoints)
     
     # add minus path:
-    path = sim.ensembles[0]['path_ensemble'].last_path
-    pnum = path.path_number
-    path.traj_v = (1.,)
-    state.add_traj(ens=-1, traj=path, valid=path.traj_v, count=False)
+    paths[0].weights = (1.,)
+    pnum = paths[0].path_number
+    state.add_traj(ens=-1, traj=paths[0], valid=paths[0].weights, count=False)
     frac = config['current']['frac'].get(str(pnum), np.zeros(size+1))
     traj_num_dic[pnum]= {'ens_save_idx': 0,
-                         'max_op': path.ordermax,
-                         'length': path.length,
-                         'traj_v': path.traj_v,
+                         'max_op': paths[0].ordermax,
+                         'length': paths[0].length,
+                         'traj_v': paths[0].weights,
+                         'adress': paths[0].adress,
                          'frac': np.array(frac, dtype='float128')}
-    if not config['simulation']['internal']:
-        traj_num_dic[pnum]['adress'] = set(os.path.basename(kk.particles.config[0]) for kk in path.phasepoints)
 
-    state.ensembles = {i: sim.ensembles[i] for i in range(len(sim.ensembles))}
-    sim.settings['initial-path']['load_folder'] = 'trajs'
-    state.pyretis_settings = sim.settings
+    # state.ensembles = {i: sim.ensembles[i] for i in range(len(sim.ensembles))}
+    # sim.settings['initial-path']['load_folder'] = 'trajs'
+    # state.pyretis_settings = sim.settings
     md_items = {'mc_moves': state.mc_moves,
-                'ensembles': {}, 
-                'internal': config['simulation']['internal']}
+                'ensembles': {}}
 
     if state.pattern_file:
         writemode = 'a' if 'restarted_from' in state.config['current'] else 'w'
@@ -284,7 +272,7 @@ def pwd_checker(state):
 
     tot = []
     for path_temp in state._trajs[:-1]:
-        tot += list(set([pp.particles.config[0] for pp in path_temp.phasepoints]))
+        tot += list(path_temp.adress)
     for ppath in tot:
         if not os.path.isfile(ppath):
             print('warning! this path does not exist', ppath)
@@ -295,25 +283,26 @@ def pwd_checker(state):
 def prep_pyretis(state, md_items, inp_traj, ens_nums):
 
     # pwd_checker
-    if not md_items['internal']:
-        if not pwd_checker(state):
-            exit('sumtin fishy goin on here')
+    if not pwd_checker(state):
+        exit('sumtin fishy goin on here')
 
     # prep path and ensemble
+    md_items['path-ens'] = []
     for ens_num, traj_inp in zip(ens_nums, inp_traj):
-        state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
-        md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
+        md_items['path-ens'].append(ens_num, traj_inp)
+        # state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
+        # md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
 
         # in retis.rst, gmx = gmx, mdrun = gmx mdrun
         # config['dask']['wmdrun'] a list of commands with len equal no works.
-        if not md_items['internal'] and state.config['dask'].get('wmdrun', False):
+        if state.config['dask'].get('wmdrun', False):
             mdrun0 = state.config['dask']['wmdrun'][md_items['pin']]
             mdrun = mdrun0 + ' -s {} -deffnm {} -c {}'
             mdrun_c = mdrun0 + ' -s {} -cpi {} -append -deffnm {} -c {}'
             md_items['ensembles'][ens_num+1]['engine'].mdrun = mdrun
             md_items['ensembles'][ens_num+1]['engine'].mdrun_c = mdrun_c
 
-    interfaces = state.pyretis_settings['simulation']['interfaces']
+    interfaces = state.config['simulation']['interfaces']
     if len(ens_nums) == 1:
         interfaces = [interfaces] if ens_nums[0] >= 0 else [interfaces[0:1]]
         md_items['settings'] = state.pyretis_settings['ensemble'][ens_nums[0]+1]['tis']
@@ -374,27 +363,15 @@ def setup_config(config, size):
             return True
     return False
 
-def setup_pyretis(config, sim_settings):
-    # give path to the active paths
-    sim_settings['current'] = {'active': config['current']['active']}
-
-    sim = create_simulation(sim_settings)
-    for idx, pn in enumerate(config['current']['active']):
-        sim.ensembles[idx]['path_ensemble'].path_number = pn
-
-    sim.set_up_output(sim_settings)
-    sim.initiate(sim_settings)
-    return sim
-
-def setup_repex(config, sim):
+def setup_repex(config):
     state = REPEX_state(n=config['current']['size'],
                         workers=config['dask']['workers'],
                         minus=True)
     state.tsteps = config['simulation']['steps']
     state.cstep = config['current']['cstep']
     state.screen = config['output']['screen']
-    state.output_tasks = sim.output_tasks
-    state.mc_moves = sim.settings['tis']['shooting_moves']
+    state.mc_moves = config['simulation']['shooting_moves']
+
     state.config = config
     if config['output'].get('pattern', False):
         state.pattern_file = os.path.join('pattern.txt')

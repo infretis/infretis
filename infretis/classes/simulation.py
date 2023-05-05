@@ -44,7 +44,6 @@ class Simulation:
         This is the list of simulation tasks to execute.
 
     """
-
     simulation_type = 'generic'
     simulation_output = []
 
@@ -83,67 +82,6 @@ class Simulation:
         self.restart_freq = None
         self.exe_dir = None
         self.settings = settings
-
-    def extend_cycles(self, steps):
-        """Extend a simulation with the given number of steps.
-
-        Parameters
-        ----------
-        steps :  int
-            The number of steps to extend the simulation with.
-
-        Returns
-        -------
-        out : None
-            Returns `None` but modifies `self.cycle`.
-
-        """
-        self.cycle['startcycle'] = self.cycle['stepno']
-        self.cycle['endcycle'] = self.cycle['startcycle'] + steps
-
-    def is_finished(self):
-        """Determine if the simulation is finished.
-
-        In this object, the simulation is done if the current step
-        number is larger than the end cycle. Note that the number of
-        steps performed is dependent on the value of
-        `self.cycle['startcycle']`.
-
-        Returns
-        -------
-        out : boolean
-            True if the simulation is finished, False otherwise.
-
-        """
-        return self.cycle['step'] >= self.cycle['endcycle']
-
-    def step(self):
-        """Execute a simulation step.
-
-        Here, the tasks in :py:attr:`.tasks` will be executed
-        sequentially.
-
-        Returns
-        -------
-        out : dict
-            This dictionary contains the results of the defined tasks.
-
-        Note
-        ----
-        This function will have 'side effects' and update/change
-        the state of other attached variables such as the system or
-        other variables that are not explicitly shown. This is intended
-        and the behavior is defined by the tasks in
-        :py:attr:`.tasks`.
-
-        """
-        if not self.first_step:
-            self.cycle['step'] += 1
-            self.cycle['stepno'] += 1
-        results = self.execute_tasks()
-        if self.first_step:
-            self.first_step = False
-        return results
 
     def execute_tasks(self):
         """Execute all the tasks in sequential order.
@@ -211,48 +149,6 @@ class Simulation:
         except AssertionError:
             logger.warning('Could not add task: %s', task)
             return False
-
-    def run(self):
-        """Run a simulation.
-
-        The intended usage is for simulations where all tasks have
-        been defined in :py:attr:`self.tasks`.
-
-        Note
-        ----
-        This function will just run the tasks via executing
-        :py:meth:`.step` In general, this is probably too generic for
-        the simulation you want, if you are creating a custom simulation.
-        Please consider customizing the :py:meth:`.run` (or the
-        :py:meth:`.step`) method of your simulation class.
-
-        Yields
-        ------
-        out : dict
-            This dictionary contains the results from the simulation.
-
-        """
-        while not self.is_finished():
-            result = self.step()
-            for task in self.output_tasks:
-                task.output(result)
-            self.write_restart()
-            if self.soft_exit():
-                yield result
-                break
-            yield result
-
-    def __str__(self):
-        """Just a small function to return some info about the simulation."""
-        ntask = len(self.tasks)
-        mtask = 'task' if ntask == 1 else 'tasks'
-        msg = ['Generic simulation with {} {}.'.format(ntask, mtask)]
-        for i, task in enumerate(self.tasks):
-            msg += ['* Task no. {}'.format(i)]
-            for j, line in enumerate(str(task).split('\n')):
-                if j > 0:
-                    msg += [line]
-        return '\n'.join(msg)
 
     def set_up_output(self, settings, progress=False):
         """Set up output from the simulation.

@@ -196,22 +196,6 @@ SECTIONS['ensemble'] = {
     'interface': None
 }
 
-SECTIONS['analysis'] = {
-    'blockskip': 1,
-    'bins': 100,
-    'maxblock': 1000,
-    'maxordermsd': -1,
-    'ngrid': 1001,
-    'plot': {'plotter': 'mpl', 'output': 'png',
-             'style': 'pyretis'},
-    'report': ['latex', 'rst', 'html'],
-    'report-dir': None,
-    'skipcross': 1000,
-    'txt-output': 'txt.gz',
-    'tau_ref_bin': [],
-    'skip': 0
-}
-
 
 SPECIAL_KEY = {'parameter'}
 
@@ -897,91 +881,6 @@ def _add_conversion_and_inverse(conv_dict, value, unit1, unit2):
     conv_dict[unit2, unit1] = 1.0 / conv_dict[unit1, unit2]
 
 
-def check_engine(settings):
-    """Check the engine settings.
-
-    Checks that the input engine settings are correct, and
-    automatically determine the 'internal' or 'external'
-    engine setting.
-
-    Parameters
-    ----------
-    settings : dict
-        The current input settings.
-
-    """
-    msg = []
-    if 'engine' not in settings:
-        msg += ['The section engine is missing']
-
-    elif settings['engine'].get('type') == 'external':
-
-        if 'input_path' not in settings['engine']:
-            msg += ['The section engine requires an input_path entry']
-
-        if 'gmx' in settings['engine'] and \
-                'gmx_format' not in settings['engine']:
-            msg += ['File format is not specified for the engine']
-        elif 'cp2k' in settings['engine'] and \
-                'cp2k_format' not in settings['engine']:
-            msg += ['File format is not specified for the engine']
-
-    if msg:
-        msgtxt = '\n'.join(msg)
-        logger.critical(msgtxt)
-        return False
-
-    return True
-
-def prepare_engine(settings):
-    """Create an engine from given settings.
-
-    Parameters
-    ----------
-    settings : dict
-        This dictionary contains the settings for the simulation.
-
-    Returns
-    -------
-    engine : object like :py:class:`.engine`
-        This object will correspond to the selected simulation type.
-
-    """
-    if settings.get('engine', {}).get('obj', False):
-        return settings['engine']['obj']
-
-    logtxt = units_from_settings(settings)
-    print_to_screen(logtxt, level='info')
-    logger.info(logtxt)
-
-    check_engine(settings)
-    engine = create_engine(settings)
-    logtxt = f'Created engine "{engine}" from settings.'
-    print_to_screen(logtxt, level='info')
-    logger.info(logtxt)
-    return engine
-
-def create_engine(settings):
-    """Create an engine from settings.
-
-    Parameters
-    ----------
-    settings : dict
-        This dictionary contains the settings for the simulation.
-
-    Returns
-    -------
-    out : object like :py:class:`.EngineBase`
-        This object represents the engine.
-
-    """
-    engine = create_external(settings, 'engine', engine_factory,
-                             ['integration_step'])
-    if not engine:
-        raise ValueError('Could not create engine from settings!')
-    return engine
-
-
 def prepare_system(settings):
     """Create a system from given settings.
 
@@ -1188,12 +1087,15 @@ def create_external(settings, key, factory, required_methods,
 
     """
     if key_settings is None:
+        print('clown 1')
         try:
             key_settings = settings[key]
         except KeyError:
             logger.debug('No "%s" setting found. Skipping set-up', key)
             return None
+    print('clown 2')
     module = key_settings.get('module', None)
+    print(key_settings)
     klass = None
     try:
         klass = key_settings['class']
@@ -1201,15 +1103,20 @@ def create_external(settings, key, factory, required_methods,
         logger.debug('No "class" setting for "%s" specified. Skipping set-up',
                      key)
         return None
+    print('clown 3')
     if module is None:
+        print('clown 4')
         return factory(key_settings)
     # Here we assume we are to load from a file. Before we import
     # we need to check that the path is ok or if we should include
     # the 'exe_path' from settings.
     # 1) Check if we can find the module:
+    print('clown 5')
     if os.path.isfile(module):
+        print('clown 6')
         obj = import_from(module, klass)
     else:
+        print('clown 7')
         if 'exe_path' in settings['simulation']:
             module = os.path.join(settings['simulation']['exe_path'],
                                   module)
@@ -1218,6 +1125,7 @@ def create_external(settings, key, factory, required_methods,
             msg = 'Could not find module "{}" for {}!'.format(module, key)
             raise ValueError(msg)
     # run some checks:
+    print('clown 8')
     for function in required_methods:
         objfunc = getattr(obj, function, None)
         if not objfunc:
@@ -1412,27 +1320,6 @@ def _arg_kind(arg):
         kind = 'kwargs'
     return kind
 
-def engine_factory(settings):
-    """Create an engine according to the given settings.
-
-    This function is included as a convenient way of setting up and
-    selecting an engine. It will return the created engine.
-
-    Parameters
-    ----------
-    settings : dict
-        This defines how we set up and select the engine.
-
-    Returns
-    -------
-    out : object like :py:class:`.EngineBase`
-        The object representing the engine to use in a simulation.
-
-    """
-    engine_map = {
-        'gromacs2': {'cls': GromacsEngine},
-    }
-    return generic_factory(settings, engine_map, name='engine')
 
 def generate_file_name(basename, directory, settings):
     """Generate file name for an output task, from settings.
@@ -2773,3 +2660,30 @@ def _clean_settings(settings):
     for key in to_remove:
         settingc.pop(key, None)
     return settingc
+def compare_objects(obj1, obj2, attrs, numpy_attrs=None):
+    if not obj1.__class__ == obj2.__class__:
+        logger.debug(
+            'The classes are different %s != %s',
+            obj1.__class__, obj2.__class__
+        )
+        return False
+    if not len(obj1.__dict__) == len(obj2.__dict__):
+        logger.debug('Number of attributes differ.')
+        return False
+    # Compare the requested attributes:
+    for key in attrs:
+        try:
+            val1 = getattr(obj1, key)
+            val2 = getattr(obj2, key)
+        except AttributeError:
+            logger.debug('Failed to compare attribute "%s"', key)
+            return False
+        if numpy_attrs and key in numpy_attrs:
+            if not numpy_allclose(val1, val2):
+                logger.debug('Attribute "%s" differ.', key)
+                return False
+        else:
+            if not val1 == val2:
+                logger.debug('Attribute "%s" differ.', key)
+                return False
+    return True
