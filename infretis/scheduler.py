@@ -1,6 +1,6 @@
 import numpy as np
-from infretis.common import run_md, treat_output, pwd_checker
-from infretis.common import setup_internal, setup_dask, prep_pyretis
+from infretis.common import run_md, treat_output, pwd_checker, run_md2
+from infretis.common import setup_internal, setup_dask
 
 
 def scheduler(input_file):
@@ -8,7 +8,7 @@ def scheduler(input_file):
     md_items, state, config = setup_internal(input_file)
     if None in (md_items, state):
         return
-    client, futures = setup_dask(config, state.workers)
+    client, futures = setup_dask(state)
 
     # submit the first number of workers
     while state.initiate(md_items):
@@ -16,7 +16,7 @@ def scheduler(input_file):
         md_items = state.prep_md_items(md_items)
 
         # submit job
-        run_md(md_items)
+        run_md2(md_items)
         exit('babi')
         fut = client.submit(run_md, md_items, pure=False)
         futures.add(fut)

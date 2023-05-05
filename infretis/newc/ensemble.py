@@ -8,7 +8,7 @@ logger.addHandler(logging.NullHandler())
 
 class PathEnsemble:
     def __init__(self, ens_num, interfaces,
-                 rgen=None, engine='turtle'):
+                 rgen=None, engine='turtle', mc_move=None):
         if rgen is None:
             rgen = create_random_generator()
         self.rgen = rgen
@@ -17,6 +17,8 @@ class PathEnsemble:
         self.last_path = None
         self.engine = engine
         self.worker = None
+        self.mc_move = mc_move
+        self.start_cond = None
 
         if self.ens_num == 0:
             self.ensemble_name = '[0^-]'
@@ -76,10 +78,10 @@ def create_ensembles(config):
 
     # create all path ensembles
     pensembles = {}
-    # for i, intf in enumerate(range(len(settings['ensemble'])):
     for i, ens_intf in enumerate(ens_intfs):
         rgen_ens = create_random_generator()   ##############RESTART SEED FROM RESTART...
         engine = config['engine']['engine']    ##############GROMACS
-        pensembles[i] = PathEnsemble(i, ens_intf, rgen_ens, engine)
+        move = config['simulation']['shooting_moves'][i]
+        pensembles[i] = PathEnsemble(i, ens_intf, rgen_ens, engine, move)
 
     return pensembles

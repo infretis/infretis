@@ -4,6 +4,11 @@ files = [
     "orderp.py",
     "gromacs.py",
 ]
+wmdrun = [
+    "gmx mdrun",
+    "gmx mdrun",
+]
+
 
 [simulation]
 pyretis_inp = "retis.rst"
