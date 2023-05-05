@@ -155,8 +155,8 @@ class REPEX_state(object):
             self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
         picked = {}
         for ens_num, inp_traj in zip(enss, inp_trajs):
-            picked[ens_num] = {'ens': tuple(ens_num),
-                               'traj': tuple(inp_traj),
+            picked[ens_num] = {'ens': self.ensembles[ens_num],
+                               'traj': inp_traj,
                                'engine': self.engines[self.ensembles[ens_num].engine]}
 
         # return tuple(enss), tuple(trajs)
@@ -224,7 +224,7 @@ class REPEX_state(object):
 
         picked = {}
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
-            picked[ens_num] = {'ens': ens_nums,
+            picked[ens_num] = {'ens': self.ensembles[ens_num],
                                'traj': inp_traj,
                                'engine': self.engines[self.ensembles[ens_num].engine]}
         

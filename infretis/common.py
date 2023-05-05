@@ -7,7 +7,7 @@ from datetime import datetime
 
 from infretis.core.retis import retis_swap_zero
 from infretis.classes.formatter import PathStorage, get_log_formatter
-from infretis.core.tis import select_shoot
+# from infretis.core.tis import select_shoot
 from infretis.core.common import write_ensemble_restart, make_dirs
 from infretis.core.tis import compute_weight
 from infretis.inf_core import REPEX_state
@@ -15,6 +15,8 @@ from infretis.inf_core import REPEX_state
 from infretis.newc.ensemble import create_ensembles
 from infretis.newc.engine import create_engines
 from infretis.newc.path import load_paths
+
+from infretis.newf.tis import select_shoot
 
 from dask.distributed import dask, Client, as_completed, get_worker
 dask.config.set({'distributed.scheduler.work-stealing': False})
@@ -26,6 +28,39 @@ console.setLevel(logging.WARNING)
 console.setFormatter(get_log_formatter(logging.WARNING))
 logger.addHandler(console)
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
+
+def run_md2(md_items):
+    # store info before md run
+    picked = md_items['picked']
+    # ..
+    # ..
+
+    # set the worker hw
+    if 'md_worker' in md_items:
+        base = md_items['md_worker']
+        mdrun = base + ' -s {} -deffnm {} -c {}'
+        mdrun_c = base + ' -s {} -cpi {} -append -deffnm {} -c {}'
+        for ens in picked.keys():
+            picked[ens]['engine'].mdrun = mdrun
+            picked[ens]['engine'].mdrun_c = mdrun_c
+
+    accept, trials, status = select_shoot(picked)
+    exit('apez')
+    # perform the hw move:
+
+    for trial, ens_num in zip(trials, ens_nums):
+        md_items['moves'].append(md_items['mc_moves'][ens_num+1])
+        md_items['trial_len'].append(trial.length)
+        md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
+        md_items['generated'].append(trial.generated)
+        if status == 'ACC':
+            trial.weights = calc_cv_vector(trial, intfs, md_items['mc_moves'])
+
+    md_items.update({'status': status,
+                     'interfaces': interfaces,
+                     'wmd_end': time.time()})
+    return md_items
+
 
 def run_md(md_items):
     md_items['wmd_start'] = time.time()
@@ -257,9 +292,10 @@ def setup_internal(input_file):
 
     return md_items, state, config
 
-def setup_dask(config, workers):
-    client = Client(n_workers=workers)
-    for module in config['dask'].get('files', []):
+def setup_dask(state):
+
+    client = Client(n_workers=state.workers)
+    for module in state.config['dask'].get('files', []):
         client.upload_file(module)
     futures = as_completed(None, with_results=True)
     # create worker logs
@@ -279,48 +315,6 @@ def pwd_checker(state):
             all_good = False
 
     return all_good
-
-def prep_pyretis(state, md_items, inp_traj, ens_nums):
-
-    # pwd_checker
-    if not pwd_checker(state):
-        exit('sumtin fishy goin on here')
-
-    # prep path and ensemble
-    md_items['path-ens'] = []
-    for ens_num, traj_inp in zip(ens_nums, inp_traj):
-        md_items['path-ens'].append(ens_num, traj_inp)
-        # state.ensembles[ens_num+1]['path_ensemble'].last_path = traj_inp
-        # md_items['ensembles'][ens_num+1] = state.ensembles[ens_num+1]
-
-        # in retis.rst, gmx = gmx, mdrun = gmx mdrun
-        # config['dask']['wmdrun'] a list of commands with len equal no works.
-        if state.config['dask'].get('wmdrun', False):
-            mdrun0 = state.config['dask']['wmdrun'][md_items['pin']]
-            mdrun = mdrun0 + ' -s {} -deffnm {} -c {}'
-            mdrun_c = mdrun0 + ' -s {} -cpi {} -append -deffnm {} -c {}'
-            md_items['ensembles'][ens_num+1]['engine'].mdrun = mdrun
-            md_items['ensembles'][ens_num+1]['engine'].mdrun_c = mdrun_c
-
-    interfaces = state.config['simulation']['interfaces']
-    if len(ens_nums) == 1:
-        interfaces = [interfaces] if ens_nums[0] >= 0 else [interfaces[0:1]]
-        md_items['settings'] = state.pyretis_settings['ensemble'][ens_nums[0]+1]['tis']
-        md_items['interfaces'] = interfaces
-    else:
-        md_items['settings'] = state.pyretis_settings
-        md_items['interfaces'] = [interfaces[0:1], interfaces]
-
-    # write pattern:
-    if state.pattern_file and state.toinitiate == -1:
-        state.write_pattern(md_items)
-    else:
-        md_items['md_start'] = time.time()
-
-    # empty / update md_items:
-    for key in ['moves', 'pnum_old', 'trial_len', 'trial_op', 'generated']:
-        md_items[key] = []
-    md_items.update({'ens_nums': ens_nums})
 
 def calc_cv_vector(path, interfaces, moves):
     path_max, _ = path.ordermax
