@@ -8,10 +8,8 @@ files = [
 [simulation]
 pyretis_inp = "retis.rst"
 internal = false
-states_ab = [
-    0.27,
-    0.45,
-]
+interfaces = [-0.26, -0.24, -0.22]
+shooting_moves = ['sh', 'sh', 'sh']
 steps = 10
 seed = 0
 save_loc = "./"
@@ -19,10 +17,14 @@ load_dir = "trajs"
 
 [engine]
 engine = "gromacs"
+class = "GromacsEngine2R"
 input_path = "gromacs_input"
-gmx = "gmx_mpi"
-mdrun = "srun --exclusive --ntasks 2 --mem-per-cpu 500 gmx_mpi mdrun -ntomp 1"
+module = "gromacs.py"
+gmx = "gmx"
+mdrun = "mdrun"
+timestep = 0.002
 subcycles = 1
+gmx_format = "gro"
 maxwarn = 15
 
 [order_parameter]
