@@ -6,8 +6,6 @@ from infretis.common import setup_internal, setup_dask
 def scheduler(input_file):
     # setup pyretis, repex, dask client and futures
     md_items, state, config = setup_internal(input_file)
-    if None in (md_items, state):
-        return
     client, futures = setup_dask(state)
 
     # submit the first number of workers
@@ -38,6 +36,3 @@ def scheduler(input_file):
 
     # end client
     client.close()
-
-
-# move prep_pyretis -> inside repex?

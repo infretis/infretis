@@ -209,7 +209,7 @@ def select_shoot(picked):
 
     return accept, new_paths, status
 
-def shoot(picked):
+def shoot(picked, shooting_point=None):
     print('whada', picked)
     ensemble = picked['ens']
     engine = picked['engine']
@@ -221,7 +221,7 @@ def shoot(picked):
     trial_path = path.empty_path()  # The trial path we will generate.
     if shooting_point is None:
         shooting_point, idx, dek = prepare_shooting_point(
-            path, ensemble, tis_settings
+            path, ensemble, engine
         )
         kick = check_kick(shooting_point, interfaces, trial_path, path.rgen,
                           dek, tis_settings)
@@ -983,7 +983,7 @@ def shoot_backwards(path_back, trial_path, ensemble,
         return False
     return True
 
-def prepare_shooting_point(path, ensemble, tis_settings):
+def prepare_shooting_point(path, ensemble, engine):
     """Select and modify velocities for a shooting move.
 
     This method will randomly select a shooting point from a given
@@ -1022,24 +1022,24 @@ def prepare_shooting_point(path, ensemble, tis_settings):
         The change in kinetic energy when modifying the velocities.
 
     """
-    shooting_point, idx = path.get_shooting_point(
-        criteria=tis_settings.get('shooting_move', 'rnd'),
-        interfaces=ensemble.get('interfaces'))
-    engine = ensemble['engine']
+    shooting_point, idx = ensemble.get_shooting_point(path)
+    # shooting_point, idx = path.get_shooting_point()
+    # engine = ensemble['engine']
     orderp = shooting_point.order
+    shpt_copy = shooting_point.copy()
     logger.info('Shooting from order parameter/index: %f, %d', orderp[0], idx)
     # Copy the shooting point, so that we can modify velocities without
     # altering the original path:
-    shooting_copy = shooting_point.copy()
-    ensemble['system'] = shooting_copy
     # Modify the velocities:
+    tis_settings = {}
+    print('whampi', shpt_copy)
     dek, _, = engine.modify_velocities(
-        ensemble,
-        {'sigma_v': tis_settings['sigma_v'],
-         'aimless': tis_settings['aimless'],
-         'zero_momentum': tis_settings['zero_momentum'],
-         'rescale': tis_settings['rescale_energy']})
-    orderp = engine.calculate_order(ensemble)
+        shpt_copy,
+        {'sigma_v': tis_settings.get('sigma_v', False),
+         'aimless': tis_settings.get('aimless', True),
+         'zero_momentum': tis_settings.get('zero_momentum', False),
+         'rescale': tis_settings.get('rescale_energy', False)})
+    orderp = engine.calculate_order(shpt_copy)
     shooting_copy.order = orderp
     return shooting_copy, idx, dek
 
