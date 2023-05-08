@@ -1,0 +1,35 @@
+classes/box.py:    8) We are given none of the values, and assume all to infinite.
+classes/box.py:                msgwarn = 'The box was assumed nonperiodic in all directions.'
+classes/box.py:        we will only return the 3 non-zero ones.
+classes/box.py:    if np.count_nonzero(matrix) <= 3 and not full:
+newc/engines/enginebase.py:        exit('non')
+core/common.py:        return none.
+core/common.py:    # of PyRETIS, but for now, none of the formatters needs settings to be
+core/common.py:    # of PyRETIS, but for now, none of the formatters needs settings to be
+core/tis.py:    This function will perform the non famous wire fencing move
+pyretis_stuff.py:        * `sigma_v`: Scale used for non-aimless shooting.
+inf_core.py:        # get non_locked minus interfaces
+inf_core.py:        non_locked = input_mat[~bool_locks, :][:, ~bool_locks]
+inf_core.py:        # Sort based on the index of the last non-zero values in the rows
+inf_core.py:        # argmax(a>0) gives back the first column index that is nonzero
+inf_core.py:        minus_idx = np.argsort(np.argmax(non_locked[:offset] > 0, axis=1))
+inf_core.py:                              np.argmax(non_locked[offset:, ::-1] > 0, axis=1)
+inf_core.py:        sorted_non_locked = non_locked[sort_idx]
+inf_core.py:        sorted_non_locked_T = sorted_non_locked.T
+inf_core.py:        equal_minus = np.all(sorted_non_locked_T[
+inf_core.py:            np.where(sorted_non_locked_T[:, :offset] !=
+inf_core.py:                     sorted_non_locked_T[offset-1, :offset])
+inf_core.py:        if len(sorted_non_locked_T) <= offset:
+inf_core.py:            equal_pos = np.all(sorted_non_locked_T[:, offset:][
+inf_core.py:                np.where(sorted_non_locked_T[:, offset:] !=
+inf_core.py:                         sorted_non_locked_T[offset, offset:])
+inf_core.py:        out = np.zeros(shape=sorted_non_locked.shape, dtype="float128")
+inf_core.py:            out[:offset, ::-1] = self.quick_prob(sorted_non_locked[:offset,
+inf_core.py:                out[offset:] = self.quick_prob(sorted_non_locked[offset:])
+inf_core.py:            blocks = self.find_blocks(sorted_non_locked, offset=offset)
+inf_core.py:                subarr = sorted_non_locked[start:stop, cstart:cstop:direction]
+inf_core.py:        non_zero = np.count_nonzero(temp_arr, axis=1)
+inf_core.py:        for i, e in enumerate(non_zero):
+inf_core.py:        working_mat = np.where(arr != 0, 1, 0)  # convert non-zero numbers to 1
+newf/tis.py:    This function will perform the non famous wire fencing move
+newf/core.py:        return none.

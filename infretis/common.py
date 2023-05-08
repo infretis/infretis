@@ -12,6 +12,7 @@ from infretis.core.common import write_ensemble_restart, make_dirs
 from infretis.core.tis import compute_weight
 from infretis.inf_core import REPEX_state
 
+from infretis.newc.orderparameter import create_orderparameters
 from infretis.newc.ensemble import create_ensembles
 from infretis.newc.engine import create_engines
 from infretis.newc.path import load_paths
@@ -248,6 +249,7 @@ def setup_internal(input_file):
     state = setup_repex(config)
     state.ensembles = create_ensembles(config)
     state.engines = create_engines(config)
+    create_orderparameters(state.engines, config)
     paths = load_paths(config)
 
     # initiate by adding paths from retis sim to repex
@@ -289,6 +291,9 @@ def setup_internal(input_file):
         with open(state.pattern_file, writemode) as fp:
             fp.write(f"# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end"
                      + f"[s]\tMD_end [s]\t Dask_end [s]\tEnsembles\t{state.start_time}\n")
+
+    if None in (md_items, state):
+        exit('None in md_items, state')
 
     return md_items, state, config
 

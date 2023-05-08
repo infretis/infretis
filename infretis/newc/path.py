@@ -123,12 +123,11 @@ class Path:
             logger.debug('Undefined starting point.')
         return start
 
-    def get_shooting_point(self, criteria='rnd', interfaces=None):
-        keep_list = []
-        idx = self.rgen.random_integers(1, self.length - 2)
-        logger.debug("Selected point with orderp %s",
-                     self.phasepoints[idx].order[0])
-        return self.phasepoints[idx], idx
+    # def get_shooting_point(self):
+    #     idx = self.rgen.random_integers(1, self.length - 2)
+    #     logger.debug("Selected point with orderp %s",
+    #                  self.phasepoints[idx].order[0])
+    #     return self.phasepoints[idx], idx
 
     def append(self, phasepoint):
         """Append a new phase point to the path.
@@ -313,7 +312,7 @@ class Path:
         """
         maxlen = kwargs.get('maxlen', None)
         time_origin = kwargs.get('time_origin', 0)
-        return self.__class__(self.rgen, maxlen=maxlen,
+        return self.__class__(maxlen=maxlen,
                               time_origin=time_origin)
 
     def __eq__(self, other):

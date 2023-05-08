@@ -37,6 +37,12 @@ class PathEnsemble:
         for key in self.directory:
             yield self.directory[key]
 
+    def get_shooting_point(self, path):
+        idx = self.rgen.random_integers(1, path.length - 2)
+        logger.debug("Selected point with orderp %s",
+                     path.phasepoints[idx].order[0])
+        return path.phasepoints[idx], idx
+
 def generate_ensemble_name(ensemble_number, zero_pad=3):
     """Generate a simple name for an ensemble.
 

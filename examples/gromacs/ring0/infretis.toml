@@ -22,7 +22,7 @@ load_dir = "trajs"
 
 [engine]
 engine = "gromacs"
-class = "GromacsEngine2R"
+class = "gromacs"
 input_path = "gromacs_input"
 module = "gromacs.py"
 gmx = "gmx"
