@@ -144,7 +144,7 @@ def wirefence_weight_and_pick(path, intf_l, intf_r, return_seg=False):
     return n_frames, segment
 
 
-def select_shoot(picked):
+def select_shoot(picked, start_cond=('L',)):
     """Select the shooting move to generate a new path.
 
     The new path will be generated from the input path, either by
@@ -209,7 +209,7 @@ def select_shoot(picked):
 
     return accept, new_paths, status
 
-def shoot(picked, shooting_point=None):
+def shoot(picked, shooting_point=None, start_cond=('L',)):
     print('whada', picked)
     ensemble = picked['ens']
     engine = picked['engine']
@@ -223,8 +223,8 @@ def shoot(picked, shooting_point=None):
         shooting_point, idx, dek = prepare_shooting_point(
             path, ensemble, engine
         )
-        kick = check_kick(shooting_point, interfaces, trial_path, path.rgen,
-                          dek, tis_settings)
+        kick = check_kick(shooting_point, interfaces, trial_path, ensemble.rgen,
+                          dek)
     else:
         kick = True
         idx = getattr(shooting_point, 'idx', 0)
@@ -240,20 +240,21 @@ def shoot(picked, shooting_point=None):
     # we should now generate trajectories, but first check how long
     # it should be (if the path comes from a load, it is assumed to not
     # respect the detail balance anyway):
-    if path.get_move() == 'ld' or tis_settings['allowmaxlength']:
-        maxlen = tis_settings['maxlength']
+    if path.get_move() == 'ld' or ensemble.tis_set.get('allowmaxlength', False):
+        maxlen = ensemble.tis_set.get('maxlength', 100000)
     else:
-        maxlen = min(int((path.length - 2) / path.rgen.rand()) + 2,
-                     tis_settings['maxlength'])
+        maxlen = min(int((path.length - 2) / ensemble.rgen.rand()) + 2,
+                     ensemble.tis_set.get('maxlength', 100000))
     # Since the forward path must be at least one step, the maximum
     # length for the backward path is maxlen-1.
     # Generate the backward path:
     path_back = path.empty_path(maxlen=maxlen - 1)
     # todo this inputs are a mess
     # Set ensemble state to the selected shooting point:
-    ensemble['system'] = shooting_point.copy()
-    if not shoot_backwards(path_back, trial_path, ensemble,
-                           tis_settings, start_cond):
+    # ensemble['system'] = shooting_point.copy()
+    shpt_copy = shooting_point.copy()
+    if not shoot_backwards(path_back, trial_path, shpt_copy,
+                           ensemble, engine, start_cond):
         return False, trial_path, trial_path.status
 
     # Everything seems fine, now propagate forward.
@@ -267,15 +268,16 @@ def shoot(picked, shooting_point=None):
     logger.debug('Propagating forwards for shooting move...')
     # Set ensemble state to the selected shooting point:
     # change the system state.
-    ensemble['system'] = shooting_point.copy()
-    success_forw, _ = engine.propagate(path_forw, ensemble, reverse=False)
+    # ensemble['system'] = shooting_point.copy()
+    shpt_copy = shooting_point.copy()
+    success_forw, _ = engine.propagate(path_forw, ensemble, shpt_copy, reverse=False)
     path_forw.time_origin = trial_path.time_origin
     # Now, the forward propagation could have failed by exceeding the
     # maximum length for the forward path. However, it could also fail
     # when we paste together so that the length is larger than the
     # allowed maximum. We paste first and ask later:
     trial_path = paste_paths(path_back, path_forw, overlap=True,
-                             maxlen=tis_settings['maxlength'])
+                             maxlen=ensemble.tis_set.get('maxlength', 100000))
 
     # Also update information about the shooting:
     trial_path.generated = ('sh', shooting_point.order[0], idx,
@@ -288,7 +290,7 @@ def shoot(picked, shooting_point=None):
         # the maximum length given in the TIS settings. Thus we only
         # need to check this here, i.e. when given that the backward
         # was successful and the forward not:
-        if trial_path.length == tis_settings['maxlength']:
+        if trial_path.length == ensemble.tis_set.get('maxlength', 100000):
             trial_path.status = 'FTX'  # exceeds "memory".
         return False, trial_path, trial_path.status
 
@@ -297,7 +299,7 @@ def shoot(picked, shooting_point=None):
     # Deal with the rejections for path properties.
     # Make sure we did not hit the left interface on {0-}
     # Which is the only ensemble that allows paths starting in R
-    if ('L' not in set(path_ensemble.start_condition) and
+    if ('L' not in set(ensemble.start_condn) and
             'L' in trial_path.check_interfaces(interfaces)[:2]):
         trial_path.status = '0-L'
         return False, trial_path, trial_path.status
@@ -925,8 +927,10 @@ def extender(source_seg, ensemble, tis_set, start_cond=('R', 'L')):
     trial_path.status = 'ACC'
     return True, trial_path, trial_path.status
 
-def shoot_backwards(path_back, trial_path, ensemble,
-                    tis_settings, start_cond):
+# def shoot_backwards(path_back, trial_path, ensemble,
+#                     tis_settings, start_cond):
+def shoot_backwards(path_back, trial_path, system,
+                    ensemble, engine, start_cond):
     """Shoot in the backward time direction.
 
     Parameters
@@ -963,8 +967,8 @@ def shoot_backwards(path_back, trial_path, ensemble,
     """
     logger.debug('Propagating backwards for the shooting move.')
     path_back.time_origin = trial_path.time_origin
-    engine = ensemble['engine']
-    success_back, _ = engine.propagate(path_back, ensemble, reverse=True)
+    # engine = ensemble['engine']
+    success_back, _ = engine.propagate(path_back, ensemble, system, reverse=True)
     if not success_back:
         # Something went wrong, most probably the path length was exceeded.
         trial_path.status = 'BTL'  # BTL = backward trajectory too long.
@@ -975,7 +979,8 @@ def shoot_backwards(path_back, trial_path, ensemble,
             trial_path.status = 'BTX'
         return False
     # Backward seems OK so far, check if the ending point is correct:
-    left, _, right = ensemble['interfaces']
+    # left, _, right = ensemble['interfaces']
+    left, _, right = ensemble.interfaces
     if path_back.get_end_point(left, right) not in set(start_cond):
         # Nope, backward trajectory end at wrong interface.
         trial_path += path_back  # Store path for analysis.
@@ -1027,12 +1032,13 @@ def prepare_shooting_point(path, ensemble, engine):
     # engine = ensemble['engine']
     orderp = shooting_point.order
     shpt_copy = shooting_point.copy()
+    print('ape 1', shpt_copy.config)
+    print('ape 2', shpt_copy.pos)
     logger.info('Shooting from order parameter/index: %f, %d', orderp[0], idx)
     # Copy the shooting point, so that we can modify velocities without
     # altering the original path:
     # Modify the velocities:
     tis_settings = {}
-    print('whampi', shpt_copy)
     dek, _, = engine.modify_velocities(
         shpt_copy,
         {'sigma_v': tis_settings.get('sigma_v', False),
@@ -1040,8 +1046,8 @@ def prepare_shooting_point(path, ensemble, engine):
          'zero_momentum': tis_settings.get('zero_momentum', False),
          'rescale': tis_settings.get('rescale_energy', False)})
     orderp = engine.calculate_order(shpt_copy)
-    shooting_copy.order = orderp
-    return shooting_copy, idx, dek
+    shpt_copy.order = orderp
+    return shpt_copy, idx, dek
 
 def counter():
     """Return how many times this function is called."""
@@ -1176,8 +1182,7 @@ def priority_checker(ensembles, settings):
             prio_skip = [i == max(lst_cycles) for i in lst_cycles]
     return prio_skip
 
-def check_kick(shooting_point, interfaces, trial_path, rgen, dek,
-               tis_settings):
+def check_kick(shooting_point, interfaces, trial_path, rgen, dek):
     """Check the modification of the shooting point.
 
     After generating velocities for a shooting point, we
@@ -1210,16 +1215,18 @@ def check_kick(shooting_point, interfaces, trial_path, rgen, dek,
     """
     # 1) Check if the kick was too violent:
     left, _, right = interfaces
+    tis_settings = {}
     if 'exp' in tis_settings.get('shooting_move', {}):
         return True
     if not left <= shooting_point.order[0] < right:
         # Shooting point was velocity dependent and was kicked outside
+        print('wut', left, shooting_point.order[0], right)
         # of boundaries when modifying velocities.
         trial_path.append(shooting_point)
         trial_path.status = 'KOB'
         return False
     # 2) If the kick is not aimless, we check if we reject it or not:
-    if not tis_settings['aimless']:
+    if not tis_settings.get('aimless', True):
         accept_kick = metropolis_accept_reject(rgen, shooting_point, dek)
         # If one wish to implement a bias call, this can be done here.
         if not accept_kick:

@@ -32,7 +32,7 @@ subcycles = 1
 gmx_format = "gro"
 maxwarn = 15
 
-[order_parameter]
+[orderparameter]
 class = "Distance"
 index = [
     0,

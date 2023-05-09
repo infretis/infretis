@@ -1,5 +1,6 @@
 bash clean.sh
 rm -r trajs ;
+rm -r worker0
 cp -r ../../../test/examples/external/data/trajs/ .
 cd trajs ;
 cp -r 0 e0

@@ -2,6 +2,9 @@ from abc import ABCMeta, abstractmethod
 from datetime import datetime
 import os
 
+import logging
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 class OutputBase(metaclass=ABCMeta):
     """A generic class for handling output.

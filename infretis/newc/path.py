@@ -42,7 +42,7 @@ class Path:
     @property
     def adress(self):
         """Compute the maximum order parameter of the path."""
-        adresses = set([i.pos[0] for i in self.phasepoints])
+        adresses = set([i.config[0] for i in self.phasepoints])
         return adresses
 
     def check_interfaces(self, interfaces):
@@ -399,6 +399,53 @@ class Path:
             idx = idx[::-1]
         self.phasepoints = [self.phasepoints[i] for i in idx]
 
+    def update_energies(self, ekin, vpot):
+        """Update the energies for the phase points.
+    
+        This method is useful in cases where the energies are
+        read from external engines and returned as a list of
+        floats.
+    
+        Parameters
+        ----------
+        ekin : list of floats
+            The kinetic energies to set.
+        vpot : list of floats
+            The potential energies to set.
+    
+        """
+        if len(ekin) != len(vpot):
+            logger.debug(
+                'Kinetic and potential energies have different length.'
+            )
+        if len(ekin) != len(self.phasepoints):
+            logger.debug(
+                'Length of kinetic energy and phase points differ %d != %d.',
+                len(ekin), len(self.phasepoints)
+            )
+        if len(vpot) != len(self.phasepoints):
+            logger.debug(
+                'Length of potential energy and phase points differ %d != %d.',
+                len(vpot), len(self.phasepoints)
+            )
+        for i, phasepoint in enumerate(self.phasepoints):
+            try:
+                vpoti = vpot[i]
+            except IndexError:
+                logger.warning(
+                    'Ran out of potential energies, setting to None.'
+                )
+                vpoti = None
+            try:
+                ekini = ekin[i]
+            except IndexError:
+                logger.warning(
+                    'Ran out of kinetic energies, setting to None.'
+                )
+                ekini = None
+            phasepoint.vpot = vpoti
+            phasepoint.ekin = ekini
+
 def paste_paths(path_back, path_forw, overlap=True, maxlen=None):
     """Merge a backward with a forward path into a new path.
 
@@ -469,52 +516,6 @@ def paste_paths(path_back, path_forw, overlap=True, maxlen=None):
             return new_path
     return new_path
 
-def update_energies(path, ekin, vpot):
-    """Update the energies for the phase points.
-
-    This method is useful in cases where the energies are
-    read from external engines and returned as a list of
-    floats.
-
-    Parameters
-    ----------
-    ekin : list of floats
-        The kinetic energies to set.
-    vpot : list of floats
-        The potential energies to set.
-
-    """
-    if len(ekin) != len(vpot):
-        logger.debug(
-            'Kinetic and potential energies have different length.'
-        )
-    if len(ekin) != len(path.phasepoints):
-        logger.debug(
-            'Length of kinetic energy and phase points differ %d != %d.',
-            len(ekin), len(path.phasepoints)
-        )
-    if len(vpot) != len(path.phasepoints):
-        logger.debug(
-            'Length of potential energy and phase points differ %d != %d.',
-            len(vpot), len(path.phasepoints)
-        )
-    for i, phasepoint in enumerate(path.phasepoints):
-        try:
-            vpoti = vpot[i]
-        except IndexError:
-            logger.warning(
-                'Ran out of potential energies, setting to None.'
-            )
-            vpoti = None
-        try:
-            ekini = ekin[i]
-        except IndexError:
-            logger.warning(
-                'Ran out of kinetic energies, setting to None.'
-            )
-            ekini = None
-        phasepoint.vpot = vpoti
-        phasepoint.ekin = ekini
 
 def load_trajtxt(dirname):
     traj_file_name = os.path.join(dirname, 'traj.txt')
@@ -576,7 +577,7 @@ def load_path(pdir):
     for snapshot, order in zip(traj['data'], orderdata):
         frame = System()
         frame.order = order
-        frame.pos = (snapshot[1], snapshot[2])
+        frame.config = (snapshot[1], snapshot[2])
         frame.vel = snapshot[3]
         path.phasepoints.append(frame)
     _load_energies_for_path(path, pdir)

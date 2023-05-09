@@ -203,11 +203,8 @@ class EngineBase(metaclass=ABCMeta):
 
         """
         # Convert system into an internal representation:
-        print(self)
-        exit('non')
-        order_function = ensemble['order_function']
         if any((xyz is None, vel is None, box is None)):
-            out = self._read_configuration(system.pos[0])
+            out = self._read_configuration(system.config[0])
             box = out[0]
             xyz = out[1]
             vel = out[2]
@@ -221,8 +218,10 @@ class EngineBase(metaclass=ABCMeta):
             # CP2K specific box initiation:
             box, _ = read_cp2k_box(ensemble['engine'].input_files['template'])
 
-        system.update_box(box)
-        return order_function.calculate(system)
+        # system.update_box(box)
+        # print(system.pos)
+        system.box = box
+        return self.order_function.calculate(system)
 
     def dump_phasepoint(self, phasepoint, deffnm='conf'):
         """Just dump the frame from a system object."""
@@ -273,19 +272,23 @@ class EngineBase(metaclass=ABCMeta):
         If the velocities should be reversed, this is handled elsewhere.
 
         """
-        pos_file, idx = config
         out_file = os.path.join(self.exe_dir, self._name_output(deffnm))
+        print('milk 0', config)
+        pos_file, idx = config
+        # out_file = self._name_output(deffnm)
         if idx is None:
             if pos_file != out_file:
                 self._copyfile(pos_file, out_file)
         else:
             logger.debug('Config: %s', (config, ))
             self._extract_frame(pos_file, idx, out_file)
+        # exit('bibimbap')
         return out_file
 
     def dump_frame(self, system, deffnm='conf'):
         """Just dump the frame from a system object."""
-        return self.dump_config(system.pos, deffnm=deffnm)
+        print('bilk 0', system.config)
+        return self.dump_config(system.config, deffnm=deffnm)
 
     @abstractmethod
     def _extract_frame(self, traj_file, idx, out_file):
@@ -310,7 +313,8 @@ class EngineBase(metaclass=ABCMeta):
         files = [item.name for item in os.scandir(dirname) if item.is_file()]
         self._remove_files(dirname, files)
 
-    def propagate(self, path, ensemble, reverse=False):
+    # def propagate(self, path, ensemble, reverse=False):
+    def propagate(self, path, ensemble, system, reverse=False):
         """
         Propagate the equations of motion with the external code.
 
@@ -350,10 +354,9 @@ class EngineBase(metaclass=ABCMeta):
         logger.debug('Running propagate with: "%s"', self.description)
 
         prefix = str(counter())
-        if ensemble.get('path_ensemble', False):
-            prefix = ensemble['path_ensemble'].ensemble_name_simple + '_' \
-                     + prefix
-
+        # if ensemble.get('path_ensemble', False):
+        #     prefix = ensemble['path_ensemble'].ensemble_name_simple + '_' \
+        #              + prefix
         if reverse:
             logger.debug('Running backward in time.')
             name = prefix + '_trajB'
@@ -369,13 +372,15 @@ class EngineBase(metaclass=ABCMeta):
         msg_file.write(f'# Preparing propagation with {self.description}')
         msg_file.write(f'# Trajectory label: {name}')
 
-        initial_state = ensemble['system'].copy()
-        system = ensemble['system']
+        # initial_state = ensemble['system'].copy()
+        # system = ensemble['system']
+
+        initial_state = system.copy()
         initial_file = self.dump_frame(system, deffnm=prefix + '_conf')
         msg_file.write(f'# Initial file: {initial_file}')
         logger.debug('Initial state: %s', system)
 
-        if reverse != system.particles.vel_rev:
+        if reverse != system.vel_rev:
             logger.debug('Reversing velocities in initial config.')
             msg_file.write('# Reversing velocities')
             basepath = os.path.dirname(initial_file)
@@ -387,19 +392,20 @@ class EngineBase(metaclass=ABCMeta):
         msg_file.write(f'# Initial config: {initial_conf}')
 
         # Update system to point to the configuration file:
-        system.particles.set_pos((initial_conf, None))
-        system.particles.set_vel(reverse)
+        system.set_pos((initial_conf, None))
+        system.set_vel(reverse)
         # Propagate from this point:
-        msg_file.write(f'# Interfaces: {ensemble["interfaces"]}')
+        # msg_file.write(f'# Interfaces: {ensemble["interfaces"]}')
         success, status = self._propagate_from(
             name,
             path,
+            system, 
             ensemble,
             msg_file,
             reverse=reverse
         )
         # Reset to initial state:
-        ensemble['system'] = initial_state
+        # ensemble['system'] = initial_state
         msg_file.close()
         return success, status
 
@@ -452,14 +458,14 @@ class EngineBase(metaclass=ABCMeta):
         """Convert a snapshot to a system object."""
         system_copy = system.copy()
         system_copy.order = snapshot.get('order', None)
-        particles = system_copy.particles
-        particles.pos = snapshot.get('pos', None)
-        particles.vel = snapshot.get('vel', None)
-        particles.vpot = snapshot.get('vpot', None)
-        particles.ekin = snapshot.get('ekin', None)
-        for external in ('config', 'vel_rev', 'top'):
-            if hasattr(particles, external) and external in snapshot:
-                setattr(particles, external, snapshot[external])
+        # # particles = system_copy.particles
+        system_copy.pos = snapshot.get('pos', None)
+        system_copy.vel = snapshot.get('vel', None)
+        system_copy.vpot = snapshot.get('vpot', None)
+        system_copy.ekin = snapshot.get('ekin', None)
+        for external in ('config', 'vel_rev'): #, 'top'
+            if hasattr(system_copy, external) and external in snapshot:
+                setattr(system_copy, external, snapshot[external])
         return system_copy
 
     @abstractmethod

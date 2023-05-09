@@ -1,6 +1,9 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 import os
+import logging
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger.addHandler(logging.NullHandler())
 
 def _read_line_data(ncol, stripline, line_parser):
     """Read data for :py:func:`.read_some_lines.`.
