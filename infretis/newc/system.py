@@ -7,6 +7,7 @@ logger.addHandler(logging.NullHandler())
 
 class System:
     def __init__(self):
+        self.config = None
         self.order = None
         self.pos = None
         self.vel = None
@@ -33,7 +34,6 @@ class System:
 
         """
         system_copy = copy(self)
-        print('cake', self, self==system_copy, system_copy)
         return system_copy
 
     def set_pos(self, pos):
@@ -52,7 +52,7 @@ class System:
             index for the frame in this file.
 
         """
-        self.config = (pos[0], pos[1])
+        self.config= (pos[0], pos[1])
 
     def set_vel(self, rev_vel):
         """Set velocities for the particles.
@@ -68,6 +68,20 @@ class System:
 
         """
         self.vel_rev = rev_vel
+
+    def update_box(self, length):
+        """Update the system box, create if needed.
+
+        Parameters
+        ----------
+        length : numpy.array, list or iterable.
+            The box vectors represented as a list.
+
+        """
+        if self.box is None:
+            self.box = create_box(cell=length)
+        else:
+            self.box.update_size(length)
 
 def system_from_snapshot(system, snapshot):                 
     """Create a system from a given snapshot."""            

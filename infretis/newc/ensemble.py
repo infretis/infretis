@@ -19,6 +19,7 @@ class PathEnsemble:
         self.worker = None
         self.mc_move = mc_move
         self.start_cond = None
+        self.tis_set = None
 
         if self.ens_num == 0:
             self.ensemble_name = '[0^-]'
@@ -89,5 +90,6 @@ def create_ensembles(config):
         engine = config['engine']['engine']    ##############GROMACS
         move = config['simulation']['shooting_moves'][i]
         pensembles[i] = PathEnsemble(i, ens_intf, rgen_ens, engine, move)
+        pensembles[i].tis_set = config['simulation']['tis_set']
 
     return pensembles

@@ -30,6 +30,7 @@ _HEAD_FMT = '{}13i'
 _HEAD_ITEMS = ('ir_size', 'e_size', 'box_size', 'vir_size', 'pres_size',
                'top_size', 'sym_size', 'x_size', 'v_size', 'f_size',
                'natoms', 'step', 'nre', 'time', 'lambda')
+TRR_HEAD_SIZE = 1000
 TRR_DATA_ITEMS = ('box_size', 'vir_size', 'pres_size',
                   'x_size', 'v_size', 'f_size')
 
@@ -497,7 +498,7 @@ class GromacsEngine(EngineBase):
         self._removefile(xvg_file)
         return energy
 
-    def _propagate_from(self, name, path, ensemble, msg_file, reverse=False):
+    def _propagate_from(self, name, path, system, ensemble, msg_file, reverse=False):
         """
         Propagate with GROMACS from the current system configuration.
 
@@ -539,17 +540,18 @@ class GromacsEngine(EngineBase):
 
         """
         status = f'propagating with GROMACS (reverse = {reverse})'
-        system = ensemble['system']
-        interfaces = ensemble['interfaces']
-        order_function = ensemble['order_function']
+        # system = ensemble['system']
+        interfaces = ensemble.interfaces
+        order_function = self.order_function
         logger.debug(status)
         success = False
         left, _, right = interfaces
         # Dumping of the initial config were done by the parent, here
         # we will just use it:
-        initial_conf = system.particles.get_pos()[0]
+        initial_conf = system.config[0]
         # Get the current order parameter:
-        order = self.calculate_order(ensemble)
+        # order = self.calculate_order(ensemble)
+        order = self.calculate_order(system)
         msg_file.write(
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
@@ -587,15 +589,15 @@ class GromacsEngine(EngineBase):
         with GromacsRunner(cmd, trr_file, edr_file, self.exe_dir) as gro:
             for i, data in enumerate(gro.get_gromacs_frames()):
                 # Update the configuration file:
-                system.particles.set_pos((trr_file, i))
+                system.set_pos((trr_file, i))
                 # Also provide the loaded positions since they are
                 # available:
-                system.particles.pos = data['x']
-                system.particles.vel = data.get('v', None)
-                if system.particles.vel is not None and reverse:
-                    system.particles.vel *= -1
-                length = box_matrix_to_list(data['box'])
-                system.update_box(length)
+                system.pos = data['x']
+                system.vel = data.get('v', None)
+                if system.vel is not None and reverse:
+                    system.vel *= -1
+                ###### length = box_matrix_to_list(data['box'])
+                ###### system.update_box(length)
                 order = order_function.calculate(system)
                 msg_file.write(f'{i} {" ".join([str(j) for j in order])}')
                 snapshot = {'order': order,
@@ -680,6 +682,7 @@ class GromacsEngine(EngineBase):
             The energy terms read from the GROMACS .edr file.
 
         """
+        # gen_mdp = os.path.join(self.exe_dir, 'genvel.mdp')
         gen_mdp = os.path.join(self.exe_dir, 'genvel.mdp')
         if os.path.isfile(gen_mdp):
             logger.debug('%s found. Re-using it!', gen_mdp)
@@ -690,6 +693,7 @@ class GromacsEngine(EngineBase):
             self._modify_input(self.input_files['input'], gen_mdp, settings,
                                delim='=')
         # Run GROMACS grompp for this input file:
+        # out_grompp = self._execute_grompp(os.path.basename(gen_mdp), os.path.basename(input_file), 'genvel')
         out_grompp = self._execute_grompp(gen_mdp, input_file, 'genvel')
         remove = [val for _, val in out_grompp.items()]
         # Run GROMACS mdrun for this tpr file:
@@ -793,6 +797,7 @@ class GromacsEngine(EngineBase):
             The new kinetic energy.
 
         """
+        print('yipppp')
         dek = None
         kin_old = None
         kin_new = None
@@ -804,6 +809,7 @@ class GromacsEngine(EngineBase):
             raise NotImplementedError(msgtxt)
         kin_old = system.ekin
         if vel_settings.get('aimless', False):
+            print('bilk 1', system.config)
             pos = self.dump_frame(system)
             posvel, energy = self._prepare_shooting_point(pos)
             kin_new = energy['kinetic en.'][-1]
@@ -880,7 +886,8 @@ class GromacsEngine(EngineBase):
         self._modify_input(self.input_files['input'], mdp_file, settings,
                            delim='=')
         # 2) Run GROMACS preprocessor:
-        out_files = self._execute_grompp(mdp_file, initial_file, name)
+        print('budda 0', os.path.basename(mdp_file), os.path.basename(initial_file))
+        out_files = self._execute_grompp(os.path.basename(mdp_file), os.path.basename(initial_file), name)
         # Generate some names that will be created by mdrun:
         confout = f'{name}.{self.ext}'
         out_files['conf'] = confout

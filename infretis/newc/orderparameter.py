@@ -270,8 +270,8 @@ class Distance(OrderParameter):
             The distance order parameter.
 
         """
-        particles = system.particles
-        delta = particles.pos[self.index[1]] - particles.pos[self.index[0]]
+        #particles = system.particles
+        delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic:
             delta = system.box.pbc_dist_coordinate(delta)
         lamb = np.sqrt(np.dot(delta, delta))
@@ -330,7 +330,6 @@ class Velocity(OrderParameter):
         """
         return [system.particles.vel[self.index][self.dim]]
 
-
 def create_orderparameters(engines, settings):
     for engine in engines.keys():
         engines[engine].order_function = create_orderparameter(settings)
@@ -357,6 +356,7 @@ def create_orderparameter(settings):
     )
     if main_order is None:
         logger.info('No order parameter created')
+        print('omg..')
         return None
     logger.info('Created main order parameter:\n%s', main_order)
 
@@ -535,3 +535,16 @@ def order_factory(settings):
         },
     }
     return generic_factory(settings, factory_map, name='orderparameter')
+
+def _verify_pair(index):
+    """Check that the given index contains a pair."""
+    try:
+        if len(index) != 2:
+            msg = ('Wrong number of atoms for pair definition. '
+                   f'Expected 2 got {len(index)}')
+            logger.error(msg)
+            raise ValueError(msg)
+    except TypeError as err:
+        msg = 'Atom pair should be defined as a tuple/list of integers.'
+        logger.error(msg)
+        raise TypeError(msg) from err

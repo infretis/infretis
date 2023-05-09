@@ -41,13 +41,16 @@ def run_md2(md_items):
         base = md_items['md_worker']
         mdrun = base + ' -s {} -deffnm {} -c {}'
         mdrun_c = base + ' -s {} -cpi {} -append -deffnm {} -c {}'
+        # set the worker folder
+        w_folder = os.path.join(os.getcwd(), f"worker{md_items['pin']}")
+        make_dirs(w_folder)
         for ens in picked.keys():
             picked[ens]['engine'].mdrun = mdrun
             picked[ens]['engine'].mdrun_c = mdrun_c
+            picked[ens]['engine'].exe_dir = w_folder
 
-    accept, trials, status = select_shoot(picked)
-    exit('apez')
     # perform the hw move:
+    accept, trials, status = select_shoot(picked)
 
     for trial, ens_num in zip(trials, ens_nums):
         md_items['moves'].append(md_items['mc_moves'][ens_num+1])
@@ -60,6 +63,8 @@ def run_md2(md_items):
     md_items.update({'status': status,
                      'interfaces': interfaces,
                      'wmd_end': time.time()})
+
+    exit('apez')
     return md_items
 
 
