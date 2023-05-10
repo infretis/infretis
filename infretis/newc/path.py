@@ -646,8 +646,7 @@ def _load_energies_for_path(path, dirname):
             update_energies(path, energy['data']['ekin'],
                             energy['data']['vpot'])
     except FileNotFoundError:
-        print(f'Could not read file: {energy_file_name}')
-        print('Energies are not set.')
+        pass
 
 
 def load_paths(config):

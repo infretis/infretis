@@ -44,6 +44,53 @@ class PathEnsemble:
                      path.phasepoints[idx].order[0])
         return path.phasepoints[idx], idx
 
+    @staticmethod
+    def _move_path(path, target_dir, prefix=None):
+        """Move a path to a given target directory.
+
+        Parameters
+        ----------
+        path : object like :py:class:`.PathBase`
+            This is the path object we are going to move.
+        target_dir : string
+            The location where we are moving the path to.
+        prefix : string, optional
+            To give a prefix to the name of moved files.
+
+        """
+        logger.debug('Moving path to %s', target_dir)
+        new_pos, source = _generate_file_names(path, target_dir,
+                                               prefix=prefix)
+        for pos, phasepoint in zip(new_pos, path.phasepoints):
+            phasepoint.particles.set_pos(pos)
+        for src, dest in source.items():
+            if src == dest:
+                logger.debug('Skipping move %s -> %s', src, dest)
+            else:
+                if os.path.exists(dest):
+                    if os.path.isfile(dest):
+                        logger.debug('Removing %s as it exists', dest)
+                        os.remove(dest)
+                logger.debug('Moving %s -> %s', src, dest)
+                os.rename(src, dest)
+
+    def store_path(self, path):
+        """Store a path by explicitly moving it.
+
+        Parameters
+        ----------
+        path : object like :py:class:`.PathBase`
+            This is the path object we are going to store.
+
+        """
+        self._move_path(path, self.directory['accepted'])
+        self.last_path = path
+        for entry in self.list_superfluous():
+            try:
+                os.remove(entry)
+            except OSError:  # pragma: no cover
+                pass
+
 def generate_ensemble_name(ensemble_number, zero_pad=3):
     """Generate a simple name for an ensemble.
 
@@ -93,3 +140,38 @@ def create_ensembles(config):
         pensembles[i].tis_set = config['simulation']['tis_set']
 
     return pensembles
+
+def _generate_file_names(path, target_dir, prefix=None):
+    """Generate new file names for moving copying paths.
+
+    Parameters
+    ----------
+    path : object like :py:class:`.PathBase`
+        This is the path object we are going to store.
+    target_dir : string
+        The location where we are moving the path to.
+    prefix : string, optional
+        The prefix can be used to prefix the name of the files.
+
+    Returns
+    -------
+    out[0] : list
+        A list with new file names.
+    out[1] : dict
+        A dict which defines the unique "source -> destination" for
+        copy/move operations.
+
+    """
+    source = {}
+    new_pos = []
+    for phasepoint in path.phasepoints:
+        pos_file, idx = phasepoint.particles.get_pos()
+        if pos_file not in source:
+            localfile = os.path.basename(pos_file)
+            if prefix is not None:
+                localfile = f'{prefix}{localfile}'
+            dest = os.path.join(target_dir, localfile)
+            source[pos_file] = dest
+        dest = source[pos_file]
+        new_pos.append((dest, idx))
+    return new_pos, source

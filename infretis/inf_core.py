@@ -157,6 +157,7 @@ class REPEX_state(object):
         for ens_num, inp_traj in zip(enss, inp_trajs):
             picked[ens_num] = {'ens': self.ensembles[ens_num],
                                'traj': inp_traj,
+                               'pn_old': inp_traj.path_number,
                                'engine': self.engines[self.ensembles[ens_num].engine]}
 
         # return tuple(enss), tuple(trajs)
@@ -171,6 +172,12 @@ class REPEX_state(object):
             md_items['picked'] = self.pick_lock()
         else:
             md_items['picked'] = self.pick()
+
+        # md_items['ens_nums'] = list(md_items['picked'].keys())
+        # md_items['pnum_old'] = []
+        # for key in md_items['picked'].keys():
+        #     md_items['pnum_old'].append(md_items['picked'][key]['traj'].path_number)
+        # md_items['pn_old'] = list(md_items['picked'])
 
         # allocate worker pin:
         if self.config['dask'].get('wmdrun', False):
@@ -229,8 +236,8 @@ class REPEX_state(object):
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
             picked[ens_num] = {'ens': self.ensembles[ens_num],
                                'traj': inp_traj,
+                               'pn_old': inp_traj.path_number,
                                'engine': self.engines[self.ensembles[ens_num].engine]}
-        
         return picked
 
     def pick_traj_ens(self, ens):
