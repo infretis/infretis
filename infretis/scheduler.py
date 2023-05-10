@@ -1,11 +1,11 @@
 import numpy as np
-from infretis.common import treat_output, pwd_checker, run_md2
+from infretis.common import treat_output, run_md2
 from infretis.common import setup_internal, setup_dask
 
 
 def scheduler(input_file):
-    # setup pyretis, repex, dask client and futures
-    md_items, state, config = setup_internal(input_file)
+    # setup repex, dask and futures
+    md_items, state = setup_internal(input_file)
     client, futures = setup_dask(state)
 
     # submit the first number of workers

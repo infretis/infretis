@@ -697,3 +697,149 @@ class OrderPathFile(FileIO):
         """Create the order path file with correct formatter."""
         super().__init__(filename, file_mode, OrderPathFormatter(),
                          backup=backup)
+
+class PathStorage(OutputBase):
+    """A class for handling storage of external trajectories.
+
+    Attributes
+    ----------
+    target : string
+        Determines the target for this output class. Here it will
+        be a file archive (i.e. a directory based collection of
+        files).
+    archive_acc : string
+        Basename for the archive with accepted trajectories.
+    archive_rej : string
+        Basename for the archive with rejected trajectories.
+    archive_traj : string
+        Basename for a sub-folder containing the actual files
+        for a trajectory.
+    formatters : dict
+        This dict contains the formatters for writing path data,
+        with default filenames used for them.
+    out_dir_fmt : string
+        A format to use for creating directories within the archive.
+        This one is applied to the step number for the output.
+
+    """
+
+    target = 'file-archive'
+    archive_acc = 'traj-acc'
+    archive_rej = 'traj-rej'
+    archive_traj = 'traj'
+    formatters = {
+        'order': {'fmt': OrderPathFormatter(), 'file': 'order.txt'},
+        'energy': {'fmt': EnergyPathFormatter(), 'file': 'energy.txt'},
+        'traj': {'fmt': PathExtFormatter(), 'file': 'traj.txt'},
+    }
+    out_dir_fmt = '{}'
+
+    def __init__(self):
+        """Set up the storage.
+
+        Note that we here do not pass any formatters to the parent
+        class. This is because this class is less flexible and
+        only intended to do one thing - write path data for external
+        trajectories.
+
+        """
+        super().__init__(None)
+
+    def archive_name_from_status(self, status):
+        """Return the name of the archive to use."""
+        return self.archive_acc if status == 'ACC' else self.archive_rej
+
+    def output_path_files(self, step, data, target_dir):
+        """Write the output files for energy, path and order parameter.
+
+        Parameters
+        ----------
+        step : integer
+            The current simulation step.
+        data : list
+            Here, ``data[0]`` is assumed to be an object like
+            :py:class:`.Path` and `data[1]`` a string containing the
+            status of this path.
+        target_dir : string
+            The path to where we archive the files.
+
+        Returns
+        -------
+        files : list of tuple of strings
+            These are the files created. The tuple contains the files as
+            a full path and a relative path (to the given
+            target directory). The form is
+            ``files[i] = (full_path[i], relative_path[i])``.
+            The relative path is useful for organizing internally in
+            archives.
+
+        """
+        path, status, = data[0], data[1]
+        files = []
+        for key, val in self.formatters.items():
+            logger.debug('Storing: %s', key)
+            fmt = val['fmt']
+            full_path = os.path.join(target_dir, val['file'])
+            relative_path = os.path.join(
+                self.out_dir_fmt.format(step), val['file']
+            )
+            files.append((full_path, relative_path))
+            with open(full_path, 'w', encoding="utf8") as output:
+                for line in fmt.format(step, (path, status)):
+                    output.write('{}\n'.format(line))
+        return files
+
+    def output(self, step, data):
+        """Format the path data and store the path.
+
+        Parameters
+        ----------
+        step : integer
+            The current simulation step.
+        data : list
+            Here, ``data[0]`` is assumed to be an object like
+            :py:class:`.Path`, ``data[1]`` a string containing the
+            status of this path and ``data[2]`` the path ensemble for
+            which the path was generated.
+
+        Returns
+        -------
+        files : list of tuples of strings
+            The files added to the archive.
+
+        """
+        path_ensemble = data
+        path = path_ensemble.last_path
+        home_dir = path_ensemble.directory['home_dir'] + '/trajs'
+        archive = self.archive_name_from_status('ACC')
+        # This is the path on form: /path/to/000/traj/11
+        archive_path = os.path.join(
+            home_dir,
+            f'{path.path_number}',
+        )
+
+        # To organize things we create a subfolder for storing the
+        # files. This is on form: /path/to/000/traj/11/traj
+        traj_dir = os.path.join(archive_path, 'accepted')
+        # Create the needed directories:
+        make_dirs(traj_dir)
+        # Write order, energy and traj files to the archive:
+        files = self.output_path_files(step, (path, 'ACC'), archive_path)
+        path_ensemble.last_path = path_ensemble._copy_path(path, traj_dir)
+
+        return files
+
+    def write(self, towrite, end='\n'):
+        """We do not need the write method for this object."""
+        logger.critical(
+            '%s does *not* support the "write" method!',
+            self.__class__.__name__
+        )
+
+    def formatter_info(self):
+        """Return info about the formatters."""
+        return [val['fmt'].__class__ for val in self.formatters.values()]
+
+    def __str__(self):
+        """Return basic info."""
+        return '{} - archive writer.'.format(self.__class__.__name__)

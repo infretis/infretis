@@ -1569,7 +1569,7 @@ def write_restart_file(filename, simulation):
     with open(filename, 'wb') as outfile:
         pickle.dump(info, outfile)
 
-def write_ensemble_restart(ensemble, settings_ens, save='ens'):
+def write_ensemble_restart(ensemble, config, save):
     """Write a restart file for a path ensemble.
 
     Parameters
@@ -1591,36 +1591,17 @@ def write_ensemble_restart(ensemble, settings_ens, save='ens'):
         A dictionary with the ensemble settings.
 
     """
-    info = copy.deepcopy(settings_ens)
-    if ensemble.get('path_ensemble') is not None:
-        info['path_ensemble'] = ensemble['path_ensemble'].restart_info()
-    if ensemble.get('system') is not None:
-        info['system'] = ensemble['system'].restart_info()
-    if ensemble.get('engine') is not None:
-        info['engine'] = ensemble['engine'].restart_info()
-    if ensemble.get('rgen') is not None:
-        info['rgen'] = ensemble['rgen'].get_state()
-    if ensemble.get('order_function') is not None:
-        info['order_function'] = ensemble['order_function'].restart_info()
+    info = {}
+    info['rgen'] = ensemble.rgen.get_state()
 
-    if save == 'path':
-        filename = os.path.join(
-            settings_ens['simulation']['exe_path'],
-            settings_ens['initial-path']['load_folder'],
-            str(ensemble['path_ensemble'].last_path.path_number),
-            'ensemble.restart')
-    else:
-        filename = os.path.join(
-            settings_ens['simulation']['exe_path'],
-            settings_ens['initial-path']['load_folder'],
-            save,
-            'ensemble.restart')
+    filename = os.path.join(
+        os.getcwd(),
+        config['simulation']['load_dir'],
+        save,
+        'ensemble.restart')
+
     with open(filename, 'wb') as outfile:
-        if save == 'path':
-            toprint = os.path.join(str(ensemble['path_ensemble'].last_path.path_number), 'ensemble.restart')
-        else:
-            toprint = os.path.join(save, 'ensemble.restart')
-        # logger.info('write restart ' +  toprint)
+        toprint = os.path.join(save, 'ensemble.restart')
         pickle.dump(info, outfile)
 
 def get_initiation_method(settings):

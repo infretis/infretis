@@ -31,6 +31,7 @@ logger.addHandler(console)
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
 def run_md2(md_items):
+    md_items['wmd_start'] = time.time()
     # store info before md run
     picked = md_items['picked']
     # ..
@@ -52,6 +53,7 @@ def run_md2(md_items):
     # perform the hw move:
     accept, trials, status = select_shoot(picked)
 
+    md_items['out_trajs'] = []
     for trial, ens_num in zip(trials, picked.keys()):
         md_items['moves'].append(md_items['mc_moves'][ens_num+1])
         md_items['trial_len'].append(trial.length)
@@ -60,9 +62,17 @@ def run_md2(md_items):
         interfaces = picked[ens_num]['ens'].interfaces
         if status == 'ACC':
             trial.weights = calc_cv_vector(trial, interfaces, md_items['mc_moves'])
+            picked[ens_num]['out_traj'] = trial
+            # md_items['out_trajs'].append(trial)
 
     md_items.update({'status': status,
                      'wmd_end': time.time()})
+
+    md_items['ens_nums'] = list(md_items['picked'].keys())
+    md_items['pnum_old'] = []
+    for key in md_items['picked'].keys():
+        md_items['pnum_old'].append(md_items['picked'][key]['traj'].path_number)
+
     return md_items
 
 
@@ -137,37 +147,38 @@ def treat_output(state, md_items):
     ensembles = md_items['ensembles']
     pn_news = []
     md_items['md_end'] = time.time()
+    picked = md_items['picked']
 
     # analyse and record worker data
-    for ens_num, pn_old in zip(md_items['ens_nums'],
-                               md_items['pnum_old']):
-        out_traj = ensembles[ens_num+1]['path_ensemble'].last_path
+    # for ens_num, pn_old, out_traj  in zip(md_items['ens_nums'],
+    #                            md_items['pnum_old']):
+    for ens_num in picked.keys():
+        pn_old = picked[ens_num]['pn_old']
+        out_traj = picked[ens_num]['traj']
+        state.ensembles[ens_num+1] = picked[ens_num]['ens']
 
         for idx, lock in enumerate(state.locked):
             if str(pn_old) in lock[1]:
                 state.locked.pop(idx)
 
-        state.ensembles[ens_num+1] = ensembles[ens_num+1]
         # if path is new: number and save the path:
         if out_traj.path_number == None or md_items['status'] == 'ACC':
             # move to accept:
             ens_save_idx = traj_num_dic[pn_old]['ens_save_idx']
-            state.ensembles[ens_save_idx]['path_ensemble'].store_path(out_traj)
             out_traj.path_number = traj_num
             traj_num_dic[traj_num] = {'frac': np.zeros(state.n, dtype="float128"),
                                       'max_op': out_traj.ordermax,
                                       'length': out_traj.length,
-                                      'traj_v': out_traj.traj_v,
+                                      'traj_v': out_traj.weights,
+                                      'adress': out_traj.adress,
                                       'ens_save_idx': ens_save_idx}
-            if not md_items['internal']:
-                traj_num_dic[traj_num]['adress'] = set(os.path.basename(kk.particles.config[0]) for kk in out_traj.phasepoints)
             traj_num += 1
 
             # NB! Saving can take some time..
             # add setting where we save .trr file or not (we always save restart)
             if state.config['output']['store_paths']:
                 make_dirs(f'./trajs/{out_traj.path_number}')
-                state.pstore.output(state.cstep, state.ensembles[ens_num+1]['path_ensemble'])
+                state.pstore.output(state.cstep, state.ensembles[ens_num+1])
                 if state.config['output'].get('delete_old', False) and pn_old > state.n - 2:
                     # if pn is larger than ensemble number ...
                     for adress in traj_num_dic[pn_old]['adress']:
@@ -175,12 +186,12 @@ def treat_output(state, md_items):
 
         if state.config['output']['store_paths']:
             # save ens-path_ens-rgen (not used) and ens-path
-            write_ensemble_restart(state.ensembles[ens_num+1], state.pyretis_settings, save='path')
+            # write_ensemble_restart(state.ensembles[ens_num+1], state.pyretis_settings, save='path')
             # save ens-rgen, ens-engine-rgen
-            write_ensemble_restart(state.ensembles[ens_num+1], state.pyretis_settings, save=f'e{ens_num+1}')
+            write_ensemble_restart(state.ensembles[ens_num+1], state.config, save=f'e{ens_num+1}')
 
         pn_news.append(out_traj.path_number)
-        state.add_traj(ens_num, out_traj, out_traj.traj_v)
+        state.add_traj(ens_num, out_traj, out_traj.weights)
         ensembles.pop(ens_num+1)
         
     # record weights 
@@ -300,7 +311,7 @@ def setup_internal(input_file):
     if None in (md_items, state):
         exit('None in md_items, state')
 
-    return md_items, state, config
+    return md_items, state
 
 def setup_dask(state):
 
