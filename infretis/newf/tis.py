@@ -203,7 +203,8 @@ def select_shoot(picked, start_cond=('L',)):
     if len(picked) == 1:
         pens = next(iter(picked.values()))
         move = pens['ens'].mc_move
-        accept, new_paths, status = sh_moves[move](pens)
+        accept, new_path, status = sh_moves[move](pens)
+        new_paths = [new_path]
     else:
         accept, new_paths, status = retis_swap_zero(picked)
 
@@ -299,14 +300,14 @@ def shoot(picked, shooting_point=None, start_cond=('L',)):
     # Deal with the rejections for path properties.
     # Make sure we did not hit the left interface on {0-}
     # Which is the only ensemble that allows paths starting in R
-    if ('L' not in set(ensemble.start_condn) and
+    if ('L' not in set(ensemble.start_cond) and
             'L' in trial_path.check_interfaces(interfaces)[:2]):
         trial_path.status = '0-L'
         return False, trial_path, trial_path.status
 
     # Last check - Did we cross the middle interface?
     # Don't do this for paths that can start everywhere
-    if set(('R', 'L')) == set(path_ensemble.start_condition):
+    if set(('R', 'L')) == set(ensemble.start_cond):
         pass
     elif not trial_path.check_interfaces(interfaces)[-1][1]:
         # No, we did not cross the middle interface:
@@ -974,7 +975,7 @@ def shoot_backwards(path_back, trial_path, system,
         trial_path.status = 'BTL'  # BTL = backward trajectory too long.
         # Add the failed path to trial path for analysis:
         trial_path += path_back
-        if path_back.length >= tis_settings['maxlength'] - 1:
+        if path_back.length >= ensemble.tis_set.get('maxlength', 100000) - 1:
             # BTX is backward trajectory longer than maximum memory.
             trial_path.status = 'BTX'
         return False

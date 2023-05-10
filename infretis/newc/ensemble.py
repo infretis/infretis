@@ -23,11 +23,11 @@ class PathEnsemble:
 
         if self.ens_num == 0:
             self.ensemble_name = '[0^-]'
-            self.start_condition = 'R'
+            self.start_cond= 'R'
         else:
             ens_num = self.ens_num - 1
             self.ensemble_name = f'[{ens_num}^+]'
-            self.start_condition = 'L'
+            self.start_cond= 'L'
         self.ensemble_name_simple = generate_ensemble_name(
             self.ens_num
         )

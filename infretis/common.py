@@ -52,19 +52,17 @@ def run_md2(md_items):
     # perform the hw move:
     accept, trials, status = select_shoot(picked)
 
-    for trial, ens_num in zip(trials, ens_nums):
+    for trial, ens_num in zip(trials, picked.keys()):
         md_items['moves'].append(md_items['mc_moves'][ens_num+1])
         md_items['trial_len'].append(trial.length)
         md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
         md_items['generated'].append(trial.generated)
+        interfaces = picked[ens_num]['ens'].interfaces
         if status == 'ACC':
-            trial.weights = calc_cv_vector(trial, intfs, md_items['mc_moves'])
+            trial.weights = calc_cv_vector(trial, interfaces, md_items['mc_moves'])
 
     md_items.update({'status': status,
-                     'interfaces': interfaces,
                      'wmd_end': time.time()})
-
-    exit('apez')
     return md_items
 
 
@@ -204,6 +202,8 @@ def treat_output(state, md_items):
     # save for possible restart
     state.save_rng()
     state.write_toml()
+
+    return md_items
 
 def setup_internal(input_file):
 

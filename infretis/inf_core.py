@@ -165,6 +165,9 @@ class REPEX_state(object):
     def prep_md_items(self, md_items):
         # pick/lock ens & path 
         if self.toinitiate >= 0:
+            # assign pin
+            md_items.update({'pin': self.cworker})
+            # pick lock
             md_items['picked'] = self.pick_lock()
         else:
             md_items['picked'] = self.pick()
@@ -357,12 +360,11 @@ class REPEX_state(object):
 
         return self.cstep <= self.tsteps
 
-    def initiate(self, md_items):
+    def initiate(self):
         if not self.cstep < self.tsteps:
             return False
 
         self.cworker = self.workers - self.toinitiate
-        md_items.update({'pin': self.cworker})
 
         if self.toinitiate == self.workers:
             if self.screen > 0:

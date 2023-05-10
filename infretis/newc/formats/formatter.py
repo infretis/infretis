@@ -516,12 +516,13 @@ class FileIO(OutputBase):
         try:
             self.fileh = open(self.filename, self.file_mode)
         except (OSError, IOError) as error:
-            logger.critical(
-                'Could not open file "%s" for reading', self.filename
-            )
-            logger.critical(
-                'I/O error ({%d}): {%s}', error.errno, error.strerror
-            )
+            if 'energy' not in self.filename:
+                logger.critical(
+                    'Could not open file "%s" for reading', self.filename
+                )
+                logger.critical(
+                    'I/O error ({%d}): {%s}', error.errno, error.strerror
+                )
         return self.fileh
 
     def open_file_write(self):
