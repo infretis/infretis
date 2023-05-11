@@ -202,7 +202,7 @@ def select_shoot(picked, start_cond=('L',)):
 
     if len(picked) == 1:
         pens = next(iter(picked.values()))
-        move = pens['ens'].mc_move
+        move = pens['ens'].mc_move['move']
         accept, new_path, status = sh_moves[move](pens)
         new_paths = [new_path]
     else:
@@ -210,11 +210,10 @@ def select_shoot(picked, start_cond=('L',)):
 
     return accept, new_paths, status
 
-def shoot(picked, shooting_point=None, start_cond=('L',)):
-    print('whada', picked)
-    ensemble = picked['ens']
-    engine = picked['engine']
-    path = picked['traj']
+def shoot(pens, shooting_point=None, start_cond=('L',)):
+    ensemble = pens['ens']
+    engine = pens['engine']
+    path = pens['traj']
 
     # path_ensemble = ensemble['path_ensemble']
     # path = path_ensemble.last_path
@@ -1033,8 +1032,6 @@ def prepare_shooting_point(path, ensemble, engine):
     # engine = ensemble['engine']
     orderp = shooting_point.order
     shpt_copy = shooting_point.copy()
-    print('ape 1', shpt_copy.config)
-    print('ape 2', shpt_copy.pos)
     logger.info('Shooting from order parameter/index: %f, %d', orderp[0], idx)
     # Copy the shooting point, so that we can modify velocities without
     # altering the original path:
@@ -1222,6 +1219,7 @@ def check_kick(shooting_point, interfaces, trial_path, rgen, dek):
     if not left <= shooting_point.order[0] < right:
         # Shooting point was velocity dependent and was kicked outside
         print('wut', left, shooting_point.order[0], right)
+        # exit('lel')
         # of boundaries when modifying velocities.
         trial_path.append(shooting_point)
         trial_path.status = 'KOB'
@@ -1236,7 +1234,8 @@ def check_kick(shooting_point, interfaces, trial_path, rgen, dek):
             return False
     return True
 
-def retis_swap_zero(ensembles, settings, cycle):
+# def retis_swap_zero(ensembles, settings, cycle):
+def retis_swap_zero(picked):
     """Perform the RETIS swapping for ``[0^-] <-> [0^+]`` swaps.
 
     The RETIS swapping move for ensembles [0^-] and [0^+] requires some
@@ -1296,49 +1295,74 @@ def retis_swap_zero(ensembles, settings, cycle):
         The result of the swapping move.
 
     """
-    path_ensemble0 = ensembles[0]['path_ensemble']
-    path_ensemble1 = ensembles[1]['path_ensemble']
-    engine0, engine1 = ensembles[0]['engine'], ensembles[1]['engine']
-    maxlen0 = settings['ensemble'][0]['tis']['maxlength']
-    maxlen1 = settings['ensemble'][1]['tis']['maxlength']
+    print(picked.keys())
+    ensemble0 = picked[-1]['ens']
+    ensemble1 = picked[0]['ens']
+    engine0 = picked[-1]['engine']
+    engine1 = picked[0]['engine']
+    path_old0 = picked[-1]['traj']
+    path_old1 = picked[0]['traj']
+    maxlen0 = ensemble0.tis_set.get('maxlength', 100000)
+    maxlen1 = ensemble1.tis_set.get('maxlength', 100000)
 
-    ens_moves = [settings['ensemble'][i]['tis'].get('shooting_move', 'sh')
-                 for i in [0, 1]]
-    intf_w = [list(i) for i in (path_ensemble0.interfaces,
-                                path_ensemble1.interfaces)]
-    for i, j in enumerate([settings['ensemble'][k] for k in (0, 1)]):
-        if ens_moves[i] == 'wf':
-            intf_w[i][2] = j['tis'].get('interface_cap', intf_w[i][2])
+    # path_ensemble0 = ensembles[0]['path_ensemble']
+    # path_ensemble1 = ensembles[1]['path_ensemble']
+    # engine0, engine1 = ensembles[0]['engine'], ensembles[1]['engine']
+    # maxlen0 = settings['ensemble'][0]['tis']['maxlength']
+    # maxlen1 = settings['ensemble'][1]['tis']['maxlength']
+
+    # ens_moves = [settings['ensemble'][i]['tis'].get('shooting_move', 'sh')
+    #              for i in [0, 1]]
+    ens_moves = [ensemble0.mc_move['move'], ensemble1.mc_move['move']]
+    intf_w = [list(ensemble0.interfaces), list(ensemble1.interfaces)]
+
+    # intf_w = [list(i) for i in (path_ensemble0.interfaces,
+    #                             path_ensemble1.interfaces)]
+    for i, mc_move in enumerate([ensemble0.mc_move, ensemble1.mc_move]):
+        intf_w[i][2] = mc_move.get('interface_cap', intf_w[i][2])
+
+    # for i, j in enumerate([settings['ensemble'][k] for k in (0, 1)]):
+    #     if ens_moves[i] == 'wf':
+    #         intf_w[i][2] = j['tis'].get('interface_cap', intf_w[i][2])
 
     # 0. check if MD is allowed
-    allowed = (path_ensemble0.last_path.get_end_point(
-                path_ensemble0.interfaces[0],
-                path_ensemble0.interfaces[-1]) == 'R')
+    # allowed = (path_ensemble0.last_path.get_end_point(
+    #             path_ensemble0.interfaces[0],
+    #             path_ensemble0.interfaces[-1]) == 'R')
+    allowed = (path_old0.get_end_point(ensemble0.interfaces[0],
+                                       ensemble0.interfaces[-1]) == 'R')
+    for i in path_old0.phasepoints:
+        print('sword 0 |', i.order)
     if allowed:
-        swap_ensemble_attributes(ensembles[0], ensembles[1], settings)
+        swap_ensemble_attributes(ensemble0, ensemble1, settings)
+    # exit('hwht')
     # 1. Generate path for [0^-] from [0^+]:
     # We generate from the first point of the path in [0^+]:
     logger.debug('Swapping [0^-] <-> [0^+]')
     logger.debug('Creating path for [0^-]')
-    system = path_ensemble1.last_path.phasepoints[0].copy()
-    logger.debug('Initial point is: %s', system)
-    ensembles[0]['system'] = system
+    # system = path_ensemble1.last_path.phasepoints[0].copy()
+    shpt_copy = path_old1.phasepoints[0].copy()
+    logger.debug('Initial point is: %s', shpt_copy)
+    # ensembles[0]['system'] = system
     # Propagate it backward in time:
-    path_tmp = path_ensemble1.last_path.empty_path(maxlen=maxlen1-1)
+    # path_tmp = path_ensemble1.last_path.empty_path(maxlen=maxlen1-1)
+    path_tmp = path_old1.empty_path(maxlen=maxlen1-1)
     if allowed:
         logger.debug('Propagating for [0^-]')
-        engine0.propagate(path_tmp, ensembles[0], reverse=True)
+        engine0.propagate(path_tmp, ensemble0, shpt_copy, reverse=True)
     else:
         logger.debug('Not propagating for [0^-]')
-        path_tmp.append(system)
+        path_tmp.append(shpt_copy)
     path0 = path_tmp.empty_path(maxlen=maxlen0)
+    print('lobster 0 |', path_tmp.length, allowed)
     for phasepoint in reversed(path_tmp.phasepoints):
         path0.append(phasepoint)
     # Add second point from [0^+] at the end:
     logger.debug('Adding second point from [0^+]:')
     # Here we make a copy of the phase point, as we will update
     # the configuration and append it to the new path:
-    phase_point = path_ensemble1.last_path.phasepoints[1].copy()
+    # phase_point = path_ensemble1.last_path.phasepoints[1].copy()
+    phase_point = path_old1.phasepoints[1].copy()
     logger.debug('Point is %s', phase_point)
     engine1.dump_phasepoint(phase_point, 'second')
     path0.append(phase_point)
@@ -1346,8 +1370,8 @@ def retis_swap_zero(ensembles, settings, cycle):
         path0.status = 'BTX'
     elif path0.length < 3:
         path0.status = 'BTS'
-    elif ('L' not in set(path_ensemble0.start_condition) and
-          'L' in path0.check_interfaces(path_ensemble0.interfaces)[:2]):
+    elif ('L' not in set(ensemble0.start_condition) and
+          'L' in path0.check_interfaces(ensemble0.interfaces)[:2]):
         path0.status = '0-L'
     else:
         path0.status = 'ACC'
@@ -1363,16 +1387,18 @@ def retis_swap_zero(ensembles, settings, cycle):
     # We start the generation from the LAST point:
     # Again, the copy below is not needed as the propagate
     # method will not alter the initial state.
-    system = path_ensemble0.last_path.phasepoints[-1].copy()
+    # system = path_ensemble0.last_path.phasepoints[-1].copy()
+    system = path_old0.phasepoints[-1].copy()
     if allowed:
         logger.debug('Initial point is %s', system)
-        ensembles[1]['system'] = system
+        # nsembles[1]['system'] = system
         logger.debug('Propagating for [0^+]')
-        engine1.propagate(path_tmp, ensembles[1], reverse=False)
+        engine1.propagate(path_tmp, ensembles1, system, reverse=False)
         # Ok, now we need to just add the SECOND LAST point from [0^-] as
         # the first point for the path:
         path1 = path_tmp.empty_path(maxlen=maxlen1)
-        phase_point = path_ensemble0.last_path.phasepoints[-2].copy()
+        # phase_point = path_ensemble0.last_path.phasepoints[-2].copy()
+        phase_point = path_old0.phasepoints[-2].copy()
         logger.debug('Add second last point: %s', phase_point)
         engine0.dump_phasepoint(phase_point, 'second_last')
         path1.append(phase_point)
@@ -1382,15 +1408,15 @@ def retis_swap_zero(ensembles, settings, cycle):
         path1.append(system)
         logger.debug('Skipping propagating for [0^+] from L')
 
-    if path_ensemble1.last_path.get_move() != 'ld':
-        path0.set_move('s+')
-    else:
-        path0.set_move('ld')
+    ##### NB if path_ensemble1.last_path.get_move() != 'ld':
+    ##### NB     path0.set_move('s+')
+    ##### NB else:
+    ##### NB     path0.set_move('ld')
 
-    if path_ensemble0.last_path.get_move() != 'ld':
-        path1.set_move('s-')
-    else:
-        path1.set_move('ld')
+    ##### NB if path_ensemble0.last_path.get_move() != 'ld':
+    ##### NB     path1.set_move('s-')
+    ##### NB else:
+    ##### NB     path1.set_move('ld')
     if path1.length >= maxlen1:
         path1.status = 'FTX'
     elif path1.length < 3:
@@ -1406,24 +1432,26 @@ def retis_swap_zero(ensembles, settings, cycle):
     # High Acceptance swap is required when Wire Fencing are used
     if accept and settings['tis'].get('high_accept', False):
         if 'wf' in ens_moves:
-            accept, status = high_acc_swap([path1, path_ensemble1.last_path],
-                                           ensembles[0]['rgen'],
+            # accept, status = high_acc_swap([path1, path_ensemble1.last_path],
+            accept, status = high_acc_swap([path1, path_old1],
+                                           # ensembles[0]['rgen'],
+                                           ensembles.rgen,
                                            intf_w[0],
                                            intf_w[1],
                                            ens_moves)
 
-    for i, path, path_ensemble, flag in ((0, path0, path_ensemble0, 's+'),
-                                         (1, path1, path_ensemble1, 's-')):
+    for i, path, mc_move, flag in ((0, path0, ensemble0.mc_move, 's+'),
+                                   (1, path1, ensemble1.mc_move, 's-')):
         if not accept and path.status == 'ACC':
             path.status = status
 
         # These should be 1 unless length of paths equals 3.
         # This technicality is not yet fixed. (An issue is open as a reminder)
 
-        ens_set = settings['ensemble'][i]
+        # ens_set = settings['ensemble'][i]
         move = ens_moves[i]
         path.weight = compute_weight(path, intf_w[i], move)\
-            if (ens_set['tis'].get('high_accept', False) and
+            if (mc_move.get('high_accept', False) and
                 move in ('wf', 'ss')) else 1
 
     return accept, (path0, path1), status
