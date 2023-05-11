@@ -34,7 +34,6 @@ def generic_factory(settings, object_map, name='generic'):
         msg = 'No class given for %s -- could not create object!'
         logger.critical(msg, name)
         return None
-    print('koala', klass, object_map)
     if klass not in object_map:
         logger.critical('Could not create unknown class "%s" for %s',
                         settings['class'], name)

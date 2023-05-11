@@ -797,7 +797,6 @@ class GromacsEngine(EngineBase):
             The new kinetic energy.
 
         """
-        print('yipppp')
         dek = None
         kin_old = None
         kin_new = None
@@ -809,7 +808,6 @@ class GromacsEngine(EngineBase):
             raise NotImplementedError(msgtxt)
         kin_old = system.ekin
         if vel_settings.get('aimless', False):
-            print('bilk 1', system.config)
             pos = self.dump_frame(system)
             posvel, energy = self._prepare_shooting_point(pos)
             kin_new = energy['kinetic en.'][-1]

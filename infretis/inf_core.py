@@ -165,6 +165,7 @@ class REPEX_state(object):
 
     def prep_md_items(self, md_items):
         # pick/lock ens & path 
+        md_items.pop('picked', None)
         if self.toinitiate >= 0:
             # assign pin
             md_items.update({'pin': self.cworker})
@@ -234,10 +235,10 @@ class REPEX_state(object):
 
         picked = {}
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
-            picked[ens_num] = {'ens': self.ensembles[ens_num],
+            picked[ens_num] = {'ens': self.ensembles[ens_num+1],
                                'traj': inp_traj,
                                'pn_old': inp_traj.path_number,
-                               'engine': self.engines[self.ensembles[ens_num].engine]}
+                               'engine': self.engines[self.ensembles[ens_num+1].engine]}
         return picked
 
     def pick_traj_ens(self, ens):

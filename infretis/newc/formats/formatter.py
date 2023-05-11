@@ -1,9 +1,16 @@
+from infretis.core.common import make_dirs
+
 from abc import ABCMeta, abstractmethod
 import numpy as np
+import shutil
 import os
 import logging
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
+
+LOG_FMT = '[%(levelname)s]: %(message)s'
+LOG_DEBUG_FMT = ('[%(levelname)s] [%(name)s, %(funcName)s() at'
+                 ' line %(lineno)d]: %(message)s')
 
 def _read_line_data(ncol, stripline, line_parser):
     """Read data for :py:func:`.read_some_lines.`.
@@ -698,6 +705,229 @@ class OrderPathFile(FileIO):
         super().__init__(filename, file_mode, OrderPathFormatter(),
                          backup=backup)
 
+class EnergyFormatter(OutputFormatter):
+    """A class for formatting energy data from PyRETIS.
+
+    This class handles formatting of energy data.
+    The data is formatted in 5 columns:
+
+    1) Time, i.e. the step number.
+
+    2) Potential energy.
+
+    3) Kinetic energy.
+
+    4) Total energy, should equal the sum of the two previous columns.
+
+    5) Temperature.
+
+    """
+
+    # Format for the energy files:
+    ENERGY_FMT = ['{:>10d}'] + 5*['{:>14.6f}']
+    ENERGY_TERMS = ('vpot', 'ekin', 'etot', 'temp')
+    HEADER = {'labels': ['Time', 'Potential', 'Kinetic', 'Total',
+                         'Temperature'],
+              'width': [10, 14]}
+
+    def __init__(self, name='EnergyFormatter'):
+        """Initialise the formatter for energy."""
+        super().__init__(name, header=self.HEADER)
+
+    def apply_format(self, step, energy):
+        """Apply the energy format.
+
+        Parameters
+        ----------
+        step : int
+            The current simulation step.
+        energy : dict
+            A dict with energy terms to format.
+
+        Returns
+        -------
+        out : string
+            A string with the formatted energy data.
+
+        """
+        towrite = [self.ENERGY_FMT[0].format(step)]
+        for i, key in enumerate(self.ENERGY_TERMS):
+            value = energy.get(key, None)
+            if value is None:
+                towrite.append(self.ENERGY_FMT[i + 1].format(float('nan')))
+            else:
+                towrite.append(self.ENERGY_FMT[i + 1].format(float(value)))
+        return ' '.join(towrite)
+
+    def format(self, step, data):
+        """Yield formatted energy data. See :py:meth:.`apply_format`."""
+        yield self.apply_format(step, data)
+
+    def load(self, filename):
+        """Load entire energy blocks into memory.
+
+        Parameters
+        ----------
+        filename : string
+            The path/file name of the file we want to open.
+
+        Yields
+        ------
+        data_dict : dict
+            This is the energy data read from the file, stored in
+            a dict. This is for convenience so that each energy term
+            can be accessed by `data_dict['data'][key]`.
+
+        """
+        for blocks in read_some_lines(filename, line_parser=self.parse):
+            data = np.array(blocks['data'])
+            col = tuple(data.shape)
+            col_max = min(col[1], len(self.ENERGY_TERMS) + 1)
+            data_dict = {'comment': blocks['comment'],
+                         'data': {'time': data[:, 0]}}
+            for i in range(col_max-1):
+                data_dict['data'][self.ENERGY_TERMS[i]] = data[:, i+1]
+            yield data_dict
+
+class EnergyPathFormatter(EnergyFormatter):
+    """A class for formatting energy data for paths."""
+
+    ENERGY_TERMS = ('vpot', 'ekin')
+    HEADER = {'labels': ['Time', 'Potential', 'Kinetic'],
+              'width': [10, 14]}
+
+    def __init__(self):
+        """Initialise."""
+        super().__init__(name='EnergyPathFormatter')
+        self.print_header = False
+
+    def format(self, step, data):
+        """Format the order parameter data from a path.
+
+        Parameters
+        ----------
+        step : int
+            The cycle number we are creating output for.
+        data : tuple
+            Here we assume that ``data[0]`` contains an object
+            like :py:class:`.PathBase` and that ``data[1]`` is a
+            string with the status for the path.
+
+        Yields
+        ------
+        out : string
+            The strings to be written.
+
+        """
+        path, status = data[0], data[1]
+        if not path:  # when nullmoves = False
+            return
+        move = path.generated
+        yield '# Cycle: {}, status: {}, move: {}'.format(step, status, move)
+        yield self.header
+        for i, phasepoint in enumerate(path.phasepoints):
+            energy = {}
+            for key in self.ENERGY_TERMS:
+                energy[key] = getattr(phasepoint, key, None)
+            yield self.apply_format(i, energy)
+
+class EnergyFile(FileIO):
+    """A class for handling PyRETIS energy files."""
+
+    def __init__(self, filename, file_mode, backup=True):
+        """Create the file object and attach the energy formatter."""
+        super().__init__(filename, file_mode, EnergyFormatter(), backup=backup)
+
+
+class EnergyPathFile(FileIO):
+    """A class for handling PyRETIS energy path files."""
+
+    def __init__(self, filename, file_mode, backup=True):
+        """Create the file object and attach the energy formatter."""
+        super().__init__(filename, file_mode, EnergyPathFormatter(),
+                         backup=backup)
+
+
+class PathExtFormatter(OutputFormatter):
+    """A class for formatting external trajectories.
+
+    The external trajectories as stored as files and this path
+    formatter includes the location of these files.
+
+    Attributes
+    ----------
+    FMT : string
+        The string to use for the formatting.
+
+    """
+
+    FMT = '{:>10}  {:>20s}  {:>10}  {:>5}'
+
+    def __init__(self):
+        """Initialise the PathExtFormatter formatter."""
+        header = {'labels': ['Step', 'Filename', 'index', 'vel'],
+                  'width': [10, 20, 10, 5], 'spacing': 2}
+
+        super().__init__('PathExtFormatter', header=header)
+        self.print_header = False
+
+    def format(self, step, data):
+        """Format path data for external paths.
+
+        Parameters
+        ----------
+        step : integer
+            The current simulation step.
+        data : list
+            Here, ``data[0]`` is assumed to be an object like
+            :py:class:`.Path`` and ``data[1]`` a string containing the
+            status of this path.
+
+        Yields
+        ------
+        out : string
+            The trajectory as references to files.
+
+        """
+        path, status = data[0], data[1]
+        if not path:  # E.g. when null-moves are False.
+            return
+        yield '# Cycle: {}, status: {}'.format(step, status)
+        yield self.header
+        for i, phasepoint in enumerate(path.phasepoints):
+            filename, idx = phasepoint.config
+            filename_short = os.path.basename(filename)
+            if idx is None:
+                idx = 0
+            vel = -1 if phasepoint.vel_rev else 1
+            yield self.FMT.format(i, filename_short, idx, vel)
+
+    @staticmethod
+    def parse(line):
+        """Parse the line data by splitting text on spaces.
+
+        Parameters
+        ----------
+        line : string
+            The line to parse.
+
+        Returns
+        -------
+        out : list
+            The columns of data.
+
+        """
+        return [i for i in line.split()]
+
+
+class PathExtFile(FileIO):
+    """A class for writing path data."""
+
+    def __init__(self, filename, file_mode, backup=True):
+        """Create the path writer with correct format for external paths."""
+        super().__init__(filename, file_mode, PathExtFormatter(),
+                         backup=backup)
+
 class PathStorage(OutputBase):
     """A class for handling storage of external trajectories.
 
@@ -789,6 +1019,42 @@ class PathStorage(OutputBase):
                     output.write('{}\n'.format(line))
         return files
 
+    @staticmethod
+    def _copy_path(path, target_dir, prefix=None):
+        """Copy a path to a given target directory.
+
+        Parameters
+        ----------
+        path : object like :py:class:`.PathBase`
+            This is the path object we are going to copy.
+        target_dir : string
+            The location where we are copying the path to.
+        prefix : string, optional
+            To give a prefix to the name of copied files.
+
+        Returns
+        -------
+        out : object like py:class:`.PathBase`
+            A copy of the input path.
+
+        """
+        path_copy = path.copy()
+        new_pos, source = _generate_file_names(path_copy, target_dir,
+                                               prefix=prefix)
+        # Update positions:
+        for pos, phasepoint in zip(new_pos, path_copy.phasepoints):
+            phasepoint.config = (pos[0], pos[1])
+            # phasepoint.particles.set_pos(pos)
+        for src, dest in source.items():
+            if src != dest:
+                if os.path.exists(dest):
+                    if os.path.isfile(dest):
+                        logger.debug('Removing %s as it exists', dest)
+                        os.remove(dest)
+                logger.debug('Copy %s -> %s', src, dest)
+                shutil.copy(src, dest)
+        return path_copy
+
     def output(self, step, data):
         """Format the path data and store the path.
 
@@ -808,9 +1074,11 @@ class PathStorage(OutputBase):
             The files added to the archive.
 
         """
-        path_ensemble = data
-        path = path_ensemble.last_path
-        home_dir = path_ensemble.directory['home_dir'] + '/trajs'
+        # path_ensemble = data
+        # path = path_ensemble.last_path
+        # home_dir = path_ensemble.directory['home_dir'] + '/trajs'
+        path = data['path']
+        home_dir = data['dir']
         archive = self.archive_name_from_status('ACC')
         # This is the path on form: /path/to/000/traj/11
         archive_path = os.path.join(
@@ -825,9 +1093,9 @@ class PathStorage(OutputBase):
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
         files = self.output_path_files(step, (path, 'ACC'), archive_path)
-        path_ensemble.last_path = path_ensemble._copy_path(path, traj_dir)
-
-        return files
+        path = self._copy_path(path, traj_dir)
+        return path
+        # return files
 
     def write(self, towrite, end='\n'):
         """We do not need the write method for this object."""
@@ -843,3 +1111,78 @@ class PathStorage(OutputBase):
     def __str__(self):
         """Return basic info."""
         return '{} - archive writer.'.format(self.__class__.__name__)
+
+def get_log_formatter(level):
+    """Select a log format based on a given level.
+
+    Here, it is just used to get a slightly more verbose format for
+    the debug level.
+
+    Parameters
+    ----------
+    level : integer
+        This integer defines the log level.
+
+    Returns
+    -------
+    out : object like :py:class:`logging.Formatter`
+        An object that can be used as a formatter for a logger.
+
+    """
+    if level <= logging.DEBUG:
+        return PyretisLogFormatter(LOG_DEBUG_FMT)
+    return PyretisLogFormatter(LOG_FMT)
+
+class PyretisLogFormatter(logging.Formatter):  # pragma: no cover
+    """Hard-coded formatter for the PyRETIS log file.
+
+    This formatter will just adjust multi-line messages to have some
+    indentation.
+    """
+
+    def format(self, record):
+        """Apply the PyRETIS log format."""
+        out = logging.Formatter.format(self, record)
+        # if '\n' in out:
+        #     print('gori 0', record.message)
+        #     heading, _ = out.split(record.message)
+        #     if len(heading) < 12:
+        #         out = out.replace('\n', '\n' + ' ' * len(heading))
+        #     else:
+        #         out = out.replace('\n', '\n' + ' ' * 4)
+        return out
+
+def _generate_file_names(path, target_dir, prefix=None):
+    """Generate new file names for moving copying paths.
+
+    Parameters
+    ----------
+    path : object like :py:class:`.PathBase`
+        This is the path object we are going to store.
+    target_dir : string
+        The location where we are moving the path to.
+    prefix : string, optional
+        The prefix can be used to prefix the name of the files.
+
+    Returns
+    -------
+    out[0] : list
+        A list with new file names.
+    out[1] : dict
+        A dict which defines the unique "source -> destination" for
+        copy/move operations.
+
+    """
+    source = {}
+    new_pos = []
+    for phasepoint in path.phasepoints:
+        pos_file, idx = phasepoint.config
+        if pos_file not in source:
+            localfile = os.path.basename(pos_file)
+            if prefix is not None:
+                localfile = f'{prefix}{localfile}'
+            dest = os.path.join(target_dir, localfile)
+            source[pos_file] = dest
+        dest = source[pos_file]
+        new_pos.append((dest, idx))
+    return new_pos, source

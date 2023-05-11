@@ -225,9 +225,9 @@ class EngineBase(metaclass=ABCMeta):
 
     def dump_phasepoint(self, phasepoint, deffnm='conf'):
         """Just dump the frame from a system object."""
-        pos_file = self.dump_config(phasepoint.particles.get_pos(),
+        pos_file = self.dump_config(phasepoint.config,
                                     deffnm=deffnm)
-        phasepoint.particles.set_pos((pos_file, None))
+        phasepoint.set_pos((pos_file, None))
 
     def _name_output(self, basename):
         """
@@ -273,21 +273,17 @@ class EngineBase(metaclass=ABCMeta):
 
         """
         out_file = os.path.join(self.exe_dir, self._name_output(deffnm))
-        print('milk 0', config)
         pos_file, idx = config
-        # out_file = self._name_output(deffnm)
         if idx is None:
             if pos_file != out_file:
                 self._copyfile(pos_file, out_file)
         else:
             logger.debug('Config: %s', (config, ))
             self._extract_frame(pos_file, idx, out_file)
-        # exit('bibimbap')
         return out_file
 
     def dump_frame(self, system, deffnm='conf'):
         """Just dump the frame from a system object."""
-        print('bilk 0', system.config)
         return self.dump_config(system.config, deffnm=deffnm)
 
     @abstractmethod

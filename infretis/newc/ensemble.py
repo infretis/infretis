@@ -91,6 +91,41 @@ class PathEnsemble:
             except OSError:  # pragma: no cover
                 pass
 
+    @staticmethod
+    def _copy_path(path, target_dir, prefix=None):
+        """Copy a path to a given target directory.
+
+        Parameters
+        ----------
+        path : object like :py:class:`.PathBase`
+            This is the path object we are going to copy.
+        target_dir : string
+            The location where we are copying the path to.
+        prefix : string, optional
+            To give a prefix to the name of copied files.
+
+        Returns
+        -------
+        out : object like py:class:`.PathBase`
+            A copy of the input path.
+
+        """
+        path_copy = path.copy()
+        new_pos, source = _generate_file_names(path_copy, target_dir,
+                                               prefix=prefix)
+        # Update positions:
+        for pos, phasepoint in zip(new_pos, path_copy.phasepoints):
+            phasepoint.particles.set_pos(pos)
+        for src, dest in source.items():
+            if src != dest:
+                if os.path.exists(dest):
+                    if os.path.isfile(dest):
+                        logger.debug('Removing %s as it exists', dest)
+                        os.remove(dest)
+                logger.debug('Copy %s -> %s', src, dest)
+                shutil.copy(src, dest)
+        return path_copy
+
 def generate_ensemble_name(ensemble_number, zero_pad=3):
     """Generate a simple name for an ensemble.
 
@@ -136,8 +171,10 @@ def create_ensembles(config):
         rgen_ens = create_random_generator()   ##############RESTART SEED FROM RESTART...
         engine = config['engine']['engine']    ##############GROMACS
         move = config['simulation']['shooting_moves'][i]
-        pensembles[i] = PathEnsemble(i, ens_intf, rgen_ens, engine, move)
+        mc_move = {'move': move}
+        pensembles[i] = PathEnsemble(i, ens_intf, rgen_ens, engine, mc_move)
         pensembles[i].tis_set = config['simulation']['tis_set']
+        print('guitar 0', pensembles[i].mc_move, config['simulation']['shooting_moves'])
 
     return pensembles
 

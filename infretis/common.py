@@ -6,12 +6,13 @@ import logging
 from datetime import datetime
 
 from infretis.core.retis import retis_swap_zero
-from infretis.classes.formatter import PathStorage, get_log_formatter
+# from infretis.classes.formatter import PathStorage, get_log_formatter
 # from infretis.core.tis import select_shoot
 from infretis.core.common import write_ensemble_restart, make_dirs
 from infretis.core.tis import compute_weight
 from infretis.inf_core import REPEX_state
 
+from infretis.newc.formats.formatter import PathStorage, get_log_formatter
 from infretis.newc.orderparameter import create_orderparameters
 from infretis.newc.ensemble import create_ensembles
 from infretis.newc.engine import create_engines
@@ -32,6 +33,10 @@ DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
 def run_md2(md_items):
     md_items['wmd_start'] = time.time()
+    md_items['ens_nums'] = list(md_items['picked'].keys())
+    md_items['pnum_old'] = []
+    for key in md_items['picked'].keys():
+        md_items['pnum_old'].append(md_items['picked'][key]['traj'].path_number)
     # store info before md run
     picked = md_items['picked']
     # ..
@@ -53,25 +58,20 @@ def run_md2(md_items):
     # perform the hw move:
     accept, trials, status = select_shoot(picked)
 
-    md_items['out_trajs'] = []
     for trial, ens_num in zip(trials, picked.keys()):
         md_items['moves'].append(md_items['mc_moves'][ens_num+1])
         md_items['trial_len'].append(trial.length)
         md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
         md_items['generated'].append(trial.generated)
-        interfaces = picked[ens_num]['ens'].interfaces
         if status == 'ACC':
-            trial.weights = calc_cv_vector(trial, interfaces, md_items['mc_moves'])
-            picked[ens_num]['out_traj'] = trial
+            trial.weights = calc_cv_vector(trial,
+                                           md_items['interfaces'],
+                                           md_items['mc_moves'])
+            picked[ens_num]['traj'] = trial
             # md_items['out_trajs'].append(trial)
 
     md_items.update({'status': status,
                      'wmd_end': time.time()})
-
-    md_items['ens_nums'] = list(md_items['picked'].keys())
-    md_items['pnum_old'] = []
-    for key in md_items['picked'].keys():
-        md_items['pnum_old'].append(md_items['picked'][key]['traj'].path_number)
 
     return md_items
 
@@ -144,7 +144,6 @@ def log_mdlogs(inp):
 def treat_output(state, md_items):
     traj_num_dic = state.traj_num_dic
     traj_num = state.config['current']['traj_num']
-    ensembles = md_items['ensembles']
     pn_news = []
     md_items['md_end'] = time.time()
     picked = md_items['picked']
@@ -166,23 +165,28 @@ def treat_output(state, md_items):
             # move to accept:
             ens_save_idx = traj_num_dic[pn_old]['ens_save_idx']
             out_traj.path_number = traj_num
+
+            # NB! Saving can take some time..
+            # add setting where we save .trr file or not (we always save restart)
+            # if state.config['output']['store_paths']:
+            make_dirs(f'./trajs/{out_traj.path_number}')
+            data = {'path': out_traj,
+                    'dir': os.path.join(os.getcwd(), state.config['simulation']['load_dir'])}
+            # state.pstore.output(state.cstep, out_traj)
+            out_traj = state.pstore.output(state.cstep, data)
             traj_num_dic[traj_num] = {'frac': np.zeros(state.n, dtype="float128"),
                                       'max_op': out_traj.ordermax,
                                       'length': out_traj.length,
-                                      'traj_v': out_traj.weights,
+                                      'weights': out_traj.weights,
                                       'adress': out_traj.adress,
                                       'ens_save_idx': ens_save_idx}
             traj_num += 1
 
-            # NB! Saving can take some time..
-            # add setting where we save .trr file or not (we always save restart)
-            if state.config['output']['store_paths']:
-                make_dirs(f'./trajs/{out_traj.path_number}')
-                state.pstore.output(state.cstep, state.ensembles[ens_num+1])
-                if state.config['output'].get('delete_old', False) and pn_old > state.n - 2:
-                    # if pn is larger than ensemble number ...
-                    for adress in traj_num_dic[pn_old]['adress']:
-                        os.remove(f'./trajs/{pn_old}/accepted/{adress}')
+            if state.config['output'].get('delete_old', False) and pn_old > state.n - 2:
+                # if pn is larger than ensemble number ...
+                for adress in traj_num_dic[pn_old]['adress']:
+                    ##### Make checker? so it doesn't do anything super yabai
+                    os.remove(adress)
 
         if state.config['output']['store_paths']:
             # save ens-path_ens-rgen (not used) and ens-path
@@ -192,7 +196,6 @@ def treat_output(state, md_items):
 
         pn_news.append(out_traj.path_number)
         state.add_traj(ens_num, out_traj, out_traj.weights)
-        ensembles.pop(ens_num+1)
         
     # record weights 
     locked_trajs = state.locked_paths()
@@ -275,7 +278,6 @@ def setup_internal(input_file):
         paths[i+1].weights= calc_cv_vector(paths[i+1], interfaces, state.mc_moves)
         state.add_traj(ens=i, traj=paths[i+1], valid=paths[i+1].weights, count=False)
         pnum = paths[i+1].path_number
-        print('bumba', pnum)
         frac = config['current']['frac'].get(str(pnum), np.zeros(size+1))
         traj_num_dic[pnum] = {'ens_save_idx': i + 1,
                               'max_op': paths[i+1].ordermax,
@@ -292,7 +294,7 @@ def setup_internal(input_file):
     traj_num_dic[pnum]= {'ens_save_idx': 0,
                          'max_op': paths[0].ordermax,
                          'length': paths[0].length,
-                         'traj_v': paths[0].weights,
+                         'weights': paths[0].weights,
                          'adress': paths[0].adress,
                          'frac': np.array(frac, dtype='float128')}
 
@@ -300,7 +302,7 @@ def setup_internal(input_file):
     # sim.settings['initial-path']['load_folder'] = 'trajs'
     # state.pyretis_settings = sim.settings
     md_items = {'mc_moves': state.mc_moves,
-                'ensembles': {}}
+                'interfaces': interfaces}
 
     if state.pattern_file:
         writemode = 'a' if 'restarted_from' in state.config['current'] else 'w'
@@ -426,9 +428,9 @@ def write_to_pathens(state, pn_archive):
             string += f"{traj_num_dic[pn]['max_op'][0]:8.5f}" + '\t'
             frac = []
             weight = []
-            if len(traj_num_dic[pn]['traj_v']) == 1:
+            if len(traj_num_dic[pn]['weights']) == 1:
                 f0 = traj_num_dic[pn]['frac'][0]
-                w0 = traj_num_dic[pn]['traj_v'][0]
+                w0 = traj_num_dic[pn]['weights'][0]
                 frac.append('----' if f0 == 0.0 else str(f0))
                 if weight == 0:
                     print('tortoise', frac, weight)
@@ -439,7 +441,7 @@ def write_to_pathens(state, pn_archive):
             else:
                 frac.append('----')
                 weight.append(f'----')
-                for w0, f0 in zip(traj_num_dic[pn]['traj_v'][:-1],
+                for w0, f0 in zip(traj_num_dic[pn]['weights'][:-1],
                                   traj_num_dic[pn]['frac'][1:-1]):
                     frac.append('----' if f0 == 0.0 else str(f0))
                     weight.append('----' if f0 == 0.0 else str(w0))
