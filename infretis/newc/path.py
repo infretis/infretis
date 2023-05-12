@@ -549,7 +549,6 @@ def restart_path(restart_file):
 def load_path(pdir):
     trajtxt = os.path.join(pdir, 'traj.txt')
     ordertxt = os.path.join(pdir, 'order.txt')
-    print('rubi 0', trajtxt, os.path.isfile(trajtxt))
     assert os.path.isfile(trajtxt)
     assert os.path.isfile(ordertxt)
 
