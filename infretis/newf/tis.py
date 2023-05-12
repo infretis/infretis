@@ -1295,7 +1295,6 @@ def retis_swap_zero(picked):
         The result of the swapping move.
 
     """
-    print(picked.keys())
     ensemble0 = picked[-1]['ens']
     ensemble1 = picked[0]['ens']
     engine0 = picked[-1]['engine']
@@ -1331,10 +1330,11 @@ def retis_swap_zero(picked):
     #             path_ensemble0.interfaces[-1]) == 'R')
     allowed = (path_old0.get_end_point(ensemble0.interfaces[0],
                                        ensemble0.interfaces[-1]) == 'R')
-    for i in path_old0.phasepoints:
-        print('sword 0 |', i.order)
-    if allowed:
-        swap_ensemble_attributes(ensemble0, ensemble1, settings)
+    # for i in path_old0.phasepoints:
+    #     print('sword 0 |', i.order)
+    # if allowed:
+    #     swap_ensemble_attributes(ensemble0, ensemble1, settings)
+
     # exit('hwht')
     # 1. Generate path for [0^-] from [0^+]:
     # We generate from the first point of the path in [0^+]:
@@ -1349,14 +1349,15 @@ def retis_swap_zero(picked):
     path_tmp = path_old1.empty_path(maxlen=maxlen1-1)
     if allowed:
         logger.debug('Propagating for [0^-]')
+        print('dowboy 0', shpt_copy.order, ensemble0.interfaces)
         engine0.propagate(path_tmp, ensemble0, shpt_copy, reverse=True)
     else:
         logger.debug('Not propagating for [0^-]')
         path_tmp.append(shpt_copy)
     path0 = path_tmp.empty_path(maxlen=maxlen0)
-    print('lobster 0 |', path_tmp.length, allowed)
     for phasepoint in reversed(path_tmp.phasepoints):
         path0.append(phasepoint)
+    print('lobster 0 |', path_tmp.length, path0.length, allowed)
     # Add second point from [0^+] at the end:
     logger.debug('Adding second point from [0^+]:')
     # Here we make a copy of the phase point, as we will update
@@ -1370,7 +1371,7 @@ def retis_swap_zero(picked):
         path0.status = 'BTX'
     elif path0.length < 3:
         path0.status = 'BTS'
-    elif ('L' not in set(ensemble0.start_condition) and
+    elif ('L' not in set(ensemble0.start_cond) and
           'L' in path0.check_interfaces(ensemble0.interfaces)[:2]):
         path0.status = '0-L'
     else:
@@ -1393,7 +1394,7 @@ def retis_swap_zero(picked):
         logger.debug('Initial point is %s', system)
         # nsembles[1]['system'] = system
         logger.debug('Propagating for [0^+]')
-        engine1.propagate(path_tmp, ensembles1, system, reverse=False)
+        engine1.propagate(path_tmp, ensemble1, system, reverse=False)
         # Ok, now we need to just add the SECOND LAST point from [0^-] as
         # the first point for the path:
         path1 = path_tmp.empty_path(maxlen=maxlen1)
@@ -1430,7 +1431,8 @@ def retis_swap_zero(picked):
     status = 'ACC' if accept else (path0.status if path0.status != 'ACC' else
                                    path1.status)
     # High Acceptance swap is required when Wire Fencing are used
-    if accept and settings['tis'].get('high_accept', False):
+    # if accept and settings['tis'].get('high_accept', False):
+    if accept and ensemble1.mc_move.get('high_accept', False):
         if 'wf' in ens_moves:
             # accept, status = high_acc_swap([path1, path_ensemble1.last_path],
             accept, status = high_acc_swap([path1, path_old1],

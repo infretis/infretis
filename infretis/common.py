@@ -64,9 +64,15 @@ def run_md2(md_items):
         md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
         md_items['generated'].append(trial.generated)
         if status == 'ACC':
+            minus = True if ens_num < 0 else False
+            print('cacti a', minus, ens_num)
             trial.weights = calc_cv_vector(trial,
                                            md_items['interfaces'],
-                                           md_items['mc_moves'])
+                                           md_items['mc_moves'],
+                                           minus=minus)
+            if len(trials) == 2:
+                print('lemon 0', md_items['interfaces'], trial.weights)
+
             picked[ens_num]['traj'] = trial
             # md_items['out_trajs'].append(trial)
 
@@ -195,7 +201,8 @@ def treat_output(state, md_items):
             write_ensemble_restart(state.ensembles[ens_num+1], state.config, save=f'e{ens_num+1}')
 
         pn_news.append(out_traj.path_number)
-        state.add_traj(ens_num, out_traj, out_traj.weights)
+        print('lime 0', ens_num, out_traj.weights, out_traj.path_number)
+        state.add_traj(ens_num, out_traj, valid=out_traj.weights)
         
     # record weights 
     locked_trajs = state.locked_paths()
@@ -339,11 +346,11 @@ def pwd_checker(state):
 
     return all_good
 
-def calc_cv_vector(path, interfaces, moves):
+def calc_cv_vector(path, interfaces, moves, minus=False):
     path_max, _ = path.ordermax
 
     cv = []
-    if len(interfaces) == 1:
+    if minus:
         return (1. if interfaces[0] <= path_max else 0.,)
 
     for idx, intf_i in enumerate(interfaces[:-1]):
@@ -353,6 +360,7 @@ def calc_cv_vector(path, interfaces, moves):
         else:
             cv.append(1. if intf_i <= path_max else 0.)
     cv.append(0.)
+    print('smart a', interfaces, cv)
     return(tuple(cv))
 
 def setup_config(config, size):

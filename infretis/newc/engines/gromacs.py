@@ -575,6 +575,10 @@ class GromacsEngine(EngineBase):
         # Remove some of these files if present (e.g. left over from a
         # crashed simulation). This is so that GromacsRunner will not
         # start reading a .trr left from a previous simulation.
+        
+        # if right == -0.26:
+        #     print('pipipipi')
+
         remove = [val for key, val in out_files.items() if key != 'tpr']
         self._remove_files(self.exe_dir, remove)
         tpr_file = out_files['tpr']
@@ -606,6 +610,8 @@ class GromacsEngine(EngineBase):
                 phase_point = self.snapshot_to_system(system, snapshot)
                 status, success, stop, _ = self.add_to_path(path, phase_point,
                                                             left, right)
+                if right == -0.26:
+                    print('pipipipi', order, status)
                 if stop:
                     logger.debug('Ending propagate at %i. Reason: %s',
                                  i, status)

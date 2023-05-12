@@ -549,6 +549,7 @@ def restart_path(restart_file):
 def load_path(pdir):
     trajtxt = os.path.join(pdir, 'traj.txt')
     ordertxt = os.path.join(pdir, 'order.txt')
+    print('rubi 0', trajtxt, os.path.isfile(trajtxt))
     assert os.path.isfile(trajtxt)
     assert os.path.isfile(ordertxt)
 
@@ -643,7 +644,7 @@ def _load_energies_for_path(path, dirname):
     try:
         with EnergyPathFile(energy_file_name, 'r') as energyfile:
             energy = next(energyfile.load())
-            update_energies(path, energy['data']['ekin'],
+            path.update_energies(energy['data']['ekin'],
                             energy['data']['vpot'])
     except FileNotFoundError:
         pass
