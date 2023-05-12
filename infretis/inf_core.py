@@ -276,8 +276,8 @@ class REPEX_state(object):
         elif ens < 0:
             valid = tuple(list(valid) +
                           [0 for _ in range(self.n - self._offset)])
-            print('dog 0', self.state[ens, :], valid, traj.path_number)
         ens += self._offset
+        # print('dog 0', ens, valid, traj.path_number, traj.length)
         assert valid[ens] != 0
         # invalidate last prob
         self._last_prob = None

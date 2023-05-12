@@ -318,7 +318,8 @@ def shoot(pens, shooting_point=None, start_cond=('L',)):
     return True, trial_path, trial_path.status
 
 
-def wire_fencing(ensemble, tis_settings, start_cond):
+# def wire_fencing(ensemble, tis_settings, start_cond):
+def wire_fencing(pens, shooting_point=None, start_cond=('L',)):
     """Perform a wire_fencing move.
 
     This function will perform the non famous wire fencing move
@@ -368,10 +369,17 @@ def wire_fencing(ensemble, tis_settings, start_cond):
         :py:const:`.path._STATUS`.
 
     """
-    trial_path = ensemble['path_ensemble'].last_path
-    engine = ensemble['engine']
-    wf_int = [ensemble['interfaces'][1], ensemble['interfaces'][1],
-              tis_settings.get('interface_cap', ensemble['interfaces'][2])]
+
+    ensemble = pens['ens']
+    engine = pens['engine']
+    trial_path = pens['traj']
+
+    # trial_path = ensemble['path_ensemble'].last_path
+    # engine = ensemble['engine']
+    # wf_int = [ensemble['interfaces'][1], ensemble['interfaces'][1],
+    #           tis_settings.get('interface_cap', ensemble['interfaces'][2])]
+    intf_cap = ensemble.mc_move.get('interface_cap', ensemble.interfaces[2])
+    wf_int = list(ensemble.interfaces[0:2]) + [intf_cap]
     n_frames, new_segment = wirefence_weight_and_pick(trial_path, wf_int[0],
                                                       wf_int[2],
                                                       return_seg=True)

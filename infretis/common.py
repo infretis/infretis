@@ -9,7 +9,6 @@ from infretis.core.retis import retis_swap_zero
 # from infretis.classes.formatter import PathStorage, get_log_formatter
 # from infretis.core.tis import select_shoot
 from infretis.core.common import write_ensemble_restart, make_dirs
-from infretis.core.tis import compute_weight
 from infretis.inf_core import REPEX_state
 
 from infretis.newc.formats.formatter import PathStorage, get_log_formatter
@@ -18,7 +17,7 @@ from infretis.newc.ensemble import create_ensembles
 from infretis.newc.engine import create_engines
 from infretis.newc.path import load_paths
 
-from infretis.newf.tis import select_shoot
+from infretis.newf.tis import select_shoot, compute_weight
 
 from dask.distributed import dask, Client, as_completed, get_worker
 dask.config.set({'distributed.scheduler.work-stealing': False})
@@ -65,7 +64,6 @@ def run_md2(md_items):
         md_items['generated'].append(trial.generated)
         if status == 'ACC':
             minus = True if ens_num < 0 else False
-            print('cacti a', minus, ens_num)
             trial.weights = calc_cv_vector(trial,
                                            md_items['interfaces'],
                                            md_items['mc_moves'],
@@ -360,7 +358,6 @@ def calc_cv_vector(path, interfaces, moves, minus=False):
         else:
             cv.append(1. if intf_i <= path_max else 0.)
     cv.append(0.)
-    print('smart a', interfaces, cv)
     return(tuple(cv))
 
 def setup_config(config, size):

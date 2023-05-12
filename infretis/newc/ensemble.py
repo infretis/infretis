@@ -172,9 +172,14 @@ def create_ensembles(config):
         engine = config['engine']['engine']    ##############GROMACS
         move = config['simulation']['shooting_moves'][i]
         mc_move = {'move': move}
+        if move in ('wf', 'wt', 'ss'):
+            mc_move['high_accept'] = config['simulation']['tis_set'].get('high_accept', True)
+            mc_move['n_jumps'] = config['simulation']['tis_set'].get('n_jumps', True)
+        if 'interface_cap' in config['simulation']['tis_set']:
+            mc_move['interface_cap'] = config['simulation']['tis_set']['interface_cap']
+
         pensembles[i] = PathEnsemble(i, ens_intf, rgen_ens, engine, mc_move)
         pensembles[i].tis_set = config['simulation']['tis_set']
-        print('guitar 0', pensembles[i].mc_move, config['simulation']['shooting_moves'])
 
     return pensembles
 
