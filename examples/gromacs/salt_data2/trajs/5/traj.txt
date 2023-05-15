@@ -14,16 +14,3 @@
         11              traj.trr          11      1
         12              traj.trr          12      1
         13              traj.trr          13      1
-        14              traj.trr          14      1
-        15              traj.trr          15      1
-        16              traj.trr          16      1
-        17              traj.trr          17      1
-        18              traj.trr          18      1
-        19              traj.trr          19      1
-        20              traj.trr          20      1
-        21              traj.trr          21      1
-        22              traj.trr          22      1
-        23              traj.trr          23      1
-        24              traj.trr          24      1
-        25              traj.trr          25      1
-        26              traj.trr          26      1

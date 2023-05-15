@@ -498,7 +498,8 @@ class GromacsEngine(EngineBase):
         self._removefile(xvg_file)
         return energy
 
-    def _propagate_from(self, name, path, system, ensemble, msg_file, reverse=False):
+    # def _propagate_from(self, name, path, system, ensemble, msg_file, reverse=False):
+    def _propagate_from(self, name, path, system, ens_set, msg_file, reverse=False):
         """
         Propagate with GROMACS from the current system configuration.
 
@@ -541,7 +542,7 @@ class GromacsEngine(EngineBase):
         """
         status = f'propagating with GROMACS (reverse = {reverse})'
         # system = ensemble['system']
-        interfaces = ensemble.interfaces
+        interfaces = ens_set['interfaces']
         order_function = self.order_function
         logger.debug(status)
         success = False
@@ -610,8 +611,6 @@ class GromacsEngine(EngineBase):
                 phase_point = self.snapshot_to_system(system, snapshot)
                 status, success, stop, _ = self.add_to_path(path, phase_point,
                                                             left, right)
-                if right == -0.26:
-                    print('pipipipi', order, status)
                 if stop:
                     logger.debug('Ending propagate at %i. Reason: %s',
                                  i, status)
@@ -929,6 +928,7 @@ class GromacsEngine(EngineBase):
                 results['thermo'] = self.rename_energies(energy)
                 yield results
         logger.debug('GROMACS execution done.')
+
 class GromacsRunner:
     """A helper class for running GROMACS.
 

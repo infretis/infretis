@@ -1,7 +1,6 @@
 import numpy as np
-from infretis.common import treat_output, run_md2
+from infretis.common import treat_output, run_md
 from infretis.common import setup_internal, setup_dask
-
 
 def scheduler(input_file):
     # setup repex, dask and futures
@@ -14,7 +13,7 @@ def scheduler(input_file):
         md_items = state.prep_md_items(md_items)
 
         # submit job
-        fut = client.submit(run_md2, md_items, pure=False)
+        fut = client.submit(run_md, md_items, pure=False)
         futures.add(fut)
 
     # main loop
@@ -28,7 +27,7 @@ def scheduler(input_file):
             md_items = state.prep_md_items(md_items)
 
             # submit job
-            fut = client.submit(run_md2, md_items, pure=False)
+            fut = client.submit(run_md, md_items, pure=False)
             futures.add(fut)
 
     # end client

@@ -26,7 +26,7 @@ integrator               = md-vv
 ; Start time and timestep in ps
 tinit                    = 0 ; yo
 dt                       = 0.0005
-nsteps                   = 1
+nsteps                   = 5
 ; For exact run continuation or redoing part of a run
 init-step                = 0
 ; Part index is updated automatically on checkpointing (keeps files separate)
@@ -60,13 +60,13 @@ rtpi                     = 0.05
 
 ; OUTPUT CONTROL OPTIONS
 ; Output frequency for coords (x), velocities (v) and forces (f)
-nstxout                  = 1
-nstvout                  = 1
+nstxout                  = 5
+nstvout                  = 5
 nstfout                  = 0
 ; Output frequency for energies to log file and energy file
-nstlog                   = 1
-nstcalcenergy            = 1
-nstenergy                = 1
+nstlog                   = 5
+nstcalcenergy            = 5
+nstenergy                = 5
 ; Output frequency and precision for .xtc file
 nstxout-compressed       = 0
 compressed-x-precision   = 1000

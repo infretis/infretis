@@ -30,7 +30,7 @@ console.setFormatter(get_log_formatter(logging.WARNING))
 logger.addHandler(console)
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
-def run_md2(md_items):
+def run_md(md_items):
     md_items['wmd_start'] = time.time()
     md_items['ens_nums'] = list(md_items['picked'].keys())
     md_items['pnum_old'] = []
@@ -42,6 +42,8 @@ def run_md2(md_items):
     # ..
 
     # set the worker hw
+    # ens_sets = []
+    picked2 = {}
     if 'md_worker' in md_items:
         base = md_items['md_worker']
         mdrun = base + ' -s {} -deffnm {} -c {}'
@@ -50,12 +52,23 @@ def run_md2(md_items):
         w_folder = os.path.join(os.getcwd(), f"worker{md_items['pin']}")
         make_dirs(w_folder)
         for ens in picked.keys():
+            picked2[ens] = {}
+            ens_set = {}
             picked[ens]['engine'].mdrun = mdrun
             picked[ens]['engine'].mdrun_c = mdrun_c
             picked[ens]['engine'].exe_dir = w_folder
+            ens_set['mc_move'] = picked[ens]['ens'].mc_move
+            ens_set['interfaces'] = picked[ens]['ens'].interfaces
+            ens_set['rgen'] = picked[ens]['ens'].rgen
+            ens_set['start_cond'] = picked[ens]['ens'].start_cond
+            picked2[ens]['ens'] = ens_set
+            picked2[ens]['engine'] = picked[ens]['engine']
+            picked2[ens]['traj'] = picked[ens]['traj']
+            # ens_set.append(ens_set)
 
     # perform the hw move:
-    accept, trials, status = select_shoot(picked)
+    # accept, trials, status = select_shoot(picked)
+    accept, trials, status = select_shoot(picked2)
 
     for trial, ens_num in zip(trials, picked.keys()):
         md_items['moves'].append(md_items['mc_moves'][ens_num+1])
@@ -79,62 +92,61 @@ def run_md2(md_items):
 
     return md_items
 
-
-def run_md(md_items):
-    md_items['wmd_start'] = time.time()
-    ens_nums = md_items['ens_nums']
-    ensembles = md_items['ensembles']
-    interfaces = md_items['interfaces']
-    start_time = datetime.now()
-    exit('down bad')
-    logger.info(start_time.strftime(DATE_FORMAT))
-
-    if len(ens_nums) == 1:
-        pnum = ensembles[ens_nums[0]+1]['path_ensemble'].last_path.path_number
-        enum = f"{ens_nums[0]+1:03.0f}"
-        move = md_items['mc_moves'][ens_nums[0]+1]
-        logger.info(f"Shooting {move} in ensemble: {enum}"\
-                    f" with path: {pnum} and worker: {md_items['pin']}")
-        start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
-        ensembles[ens_nums[0]+1]['engine'].clean_up()
-        accept, trials, status = select_shoot(ensembles[ens_nums[0]+1],
-                                              md_items['settings'],
-                                              start_cond)
-        trials = [trials]
-
-    else:
-        ensembles_l = [ensembles[i+1] for i in ens_nums]
-        pnums = [ensembles_l[0]['path_ensemble'].last_path.path_number,
-                 ensembles_l[1]['path_ensemble'].last_path.path_number]
-        logger.info(f"Shooting sh sh in ensembles: 000 001"\
-                    f" with paths: {pnums} and worker: {md_items['pin']}")
-        ensembles_l[0]['engine'].clean_up()
-        ensembles_l[1]['engine'].clean_up()
-        accept, trials, status = retis_swap_zero(ensembles_l, md_items['settings'], 0)
-
-    for trial, ens_num, ifaces in zip(trials, ens_nums, interfaces):
-        md_items['moves'].append(md_items['mc_moves'][ens_num+1])
-        md_items['pnum_old'].append(ensembles[ens_num+1]['path_ensemble'].last_path.path_number)
-        md_items['trial_len'].append(trial.length)
-        md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
-        md_items['generated'] = trial.generated
-        logger.info(f'Move finished with trial path lenght of {trial.length}')
-        log_mdlogs(f'{ens_num+1:03}/generate/')
-        if status == 'ACC':
-            trial.traj_v = calc_cv_vector(trial, ifaces, md_items['mc_moves'])
-            ensembles[ens_num+1]['path_ensemble'].last_path = trial
-            logger.info('The move was accepted!')
-        else:
-            logger.info('The move was rejected!')
-
-    end_time = datetime.now()
-    delta_time = end_time - start_time
-    logger.info(end_time.strftime(DATE_FORMAT) +
-                f', {delta_time.days} days {delta_time.seconds} seconds' + '\n')
-    md_items.update({'status': status,
-                     'interfaces': interfaces,
-                     'wmd_end': time.time()})
-    return md_items
+# def run_md(md_items):
+#     md_items['wmd_start'] = time.time()
+#     ens_nums = md_items['ens_nums']
+#     ensembles = md_items['ensembles']
+#     interfaces = md_items['interfaces']
+#     start_time = datetime.now()
+#     exit('down bad')
+#     logger.info(start_time.strftime(DATE_FORMAT))
+# 
+#     if len(ens_nums) == 1:
+#         pnum = ensembles[ens_nums[0]+1]['path_ensemble'].last_path.path_number
+#         enum = f"{ens_nums[0]+1:03.0f}"
+#         move = md_items['mc_moves'][ens_nums[0]+1]
+#         logger.info(f"Shooting {move} in ensemble: {enum}"\
+#                     f" with path: {pnum} and worker: {md_items['pin']}")
+#         start_cond = ensembles[ens_nums[0]+1]['path_ensemble'].start_condition
+#         ensembles[ens_nums[0]+1]['engine'].clean_up()
+#         accept, trials, status = select_shoot(ensembles[ens_nums[0]+1],
+#                                               md_items['settings'],
+#                                               start_cond)
+#         trials = [trials]
+# 
+#     else:
+#         ensembles_l = [ensembles[i+1] for i in ens_nums]
+#         pnums = [ensembles_l[0]['path_ensemble'].last_path.path_number,
+#                  ensembles_l[1]['path_ensemble'].last_path.path_number]
+#         logger.info(f"Shooting sh sh in ensembles: 000 001"\
+#                     f" with paths: {pnums} and worker: {md_items['pin']}")
+#         ensembles_l[0]['engine'].clean_up()
+#         ensembles_l[1]['engine'].clean_up()
+#         accept, trials, status = retis_swap_zero(ensembles_l, md_items['settings'], 0)
+# 
+#     for trial, ens_num, ifaces in zip(trials, ens_nums, interfaces):
+#         md_items['moves'].append(md_items['mc_moves'][ens_num+1])
+#         md_items['pnum_old'].append(ensembles[ens_num+1]['path_ensemble'].last_path.path_number)
+#         md_items['trial_len'].append(trial.length)
+#         md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
+#         md_items['generated'] = trial.generated
+#         logger.info(f'Move finished with trial path lenght of {trial.length}')
+#         log_mdlogs(f'{ens_num+1:03}/generate/')
+#         if status == 'ACC':
+#             trial.traj_v = calc_cv_vector(trial, ifaces, md_items['mc_moves'])
+#             ensembles[ens_num+1]['path_ensemble'].last_path = trial
+#             logger.info('The move was accepted!')
+#         else:
+#             logger.info('The move was rejected!')
+# 
+#     end_time = datetime.now()
+#     delta_time = end_time - start_time
+#     logger.info(end_time.strftime(DATE_FORMAT) +
+#                 f', {delta_time.days} days {delta_time.seconds} seconds' + '\n')
+#     md_items.update({'status': status,
+#                      'interfaces': interfaces,
+#                      'wmd_end': time.time()})
+#     return md_items
 
 def log_mdlogs(inp):
     logs = [log for log in os.listdir(inp) if 'log' in log]
