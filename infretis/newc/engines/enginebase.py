@@ -310,7 +310,8 @@ class EngineBase(metaclass=ABCMeta):
         self._remove_files(dirname, files)
 
     # def propagate(self, path, ensemble, reverse=False):
-    def propagate(self, path, ensemble, system, reverse=False):
+    # def propagate(self, path, ensemble, system, reverse=False):
+    def propagate(self, path, ens_set, system, reverse=False):
         """
         Propagate the equations of motion with the external code.
 
@@ -396,7 +397,7 @@ class EngineBase(metaclass=ABCMeta):
             name,
             path,
             system, 
-            ensemble,
+            ens_set,
             msg_file,
             reverse=reverse
         )
