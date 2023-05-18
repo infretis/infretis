@@ -214,6 +214,7 @@ class REPEX_state(object):
              (ens == self._offset and not self._locks[self._offset-1]) or
              (ens == self._offset-1 and not self._locks[self._offset])
         ) and np.random.random() < self.zeroswap):
+        # ) and 1):
             if ens == self._offset:
                 # ens = 0
                 other = self._offset - 1
@@ -277,7 +278,7 @@ class REPEX_state(object):
             valid = tuple(list(valid) +
                           [0 for _ in range(self.n - self._offset)])
         ens += self._offset
-        # print('dog 0', ens, valid, traj.path_number, traj.length)
+        # print('dog a', ens, valid, traj.path_number, traj.length)
         assert valid[ens] != 0
         # invalidate last prob
         self._last_prob = None

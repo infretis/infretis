@@ -232,9 +232,9 @@ class Path:
         new_path.weights= self.weights
         return new_path
 
-    def reverse_velocities(self):
+    def reverse_velocities(self, system):
         """Reverse the velocities in the system."""
-        self.vel_rev = not self.vel_rev
+        system.vel_rev = not system.vel_rev
 
     def reverse(self, order_function=False, rev_v=True):
         """Reverse a path and return the reverse path as a new path.
