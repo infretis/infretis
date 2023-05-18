@@ -10,9 +10,9 @@ wmdrun = [
 pyretis_inp = "retis.rst"
 internal = false
 interfaces = [0.27, 0.28, 0.30, 0.32, 0.325, 0.33, 0.45]
-# shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf']
-shooting_moves = ['sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh']
-steps = 100
+shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf']
+# shooting_moves = ['sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh']
+steps = 150
 seed = 0
 save_loc = "./"
 load_dir = "trajs"
@@ -35,7 +35,7 @@ gmx = "gmx"
 mdrun = "mdrun"
 timestep = 0.0005
 subcycles = 5
-gmx_format = "gro"
+gmx_format = "g96"
 maxwarn = 15
 
 [orderparameter]

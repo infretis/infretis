@@ -32,10 +32,10 @@ zero_momentum = False
 rescale_energy = False
 shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf']
 # shooting_moves = ['sh', 'sh', 'sh', 'sh', 'sh']
-n_jumps = 3
 sigma_v = -1
 seed = 0
 high_accept = True
+n_jumps = 3
 
 Initial-path
 ------------

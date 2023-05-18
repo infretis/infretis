@@ -57,14 +57,17 @@ def run_md(md_items):
             picked[ens]['engine'].mdrun = mdrun
             picked[ens]['engine'].mdrun_c = mdrun_c
             picked[ens]['engine'].exe_dir = w_folder
+            picked[ens]['engine'].clean_up()
             ens_set['mc_move'] = picked[ens]['ens'].mc_move
             ens_set['interfaces'] = picked[ens]['ens'].interfaces
             ens_set['rgen'] = picked[ens]['ens'].rgen
             ens_set['start_cond'] = picked[ens]['ens'].start_cond
+            ens_set['maxlength'] =  1000
             picked2[ens]['ens'] = ens_set
             picked2[ens]['engine'] = picked[ens]['engine']
             picked2[ens]['traj'] = picked[ens]['traj']
             # ens_set.append(ens_set)
+
 
     # perform the hw move:
     # accept, trials, status = select_shoot(picked)
@@ -75,14 +78,15 @@ def run_md(md_items):
         md_items['trial_len'].append(trial.length)
         md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
         md_items['generated'].append(trial.generated)
+        # print('bear', [i.vel_rev for i in trial.phasepoints])
         if status == 'ACC':
             minus = True if ens_num < 0 else False
             trial.weights = calc_cv_vector(trial,
                                            md_items['interfaces'],
                                            md_items['mc_moves'],
                                            minus=minus)
-            if len(trials) == 2:
-                print('lemon 0', md_items['interfaces'], trial.weights)
+            # if len(trials) == 2:
+            #     print('lemon 0', md_items['interfaces'], trial.weights)
 
             picked[ens_num]['traj'] = trial
             # md_items['out_trajs'].append(trial)
@@ -211,7 +215,7 @@ def treat_output(state, md_items):
             write_ensemble_restart(state.ensembles[ens_num+1], state.config, save=f'e{ens_num+1}')
 
         pn_news.append(out_traj.path_number)
-        print('lime 0', ens_num, out_traj.weights, out_traj.path_number)
+        # print('lime 0', ens_num, out_traj.weights, out_traj.path_number)
         state.add_traj(ens_num, out_traj, valid=out_traj.weights)
         
     # record weights 
