@@ -290,6 +290,7 @@ def setup_internal(input_file):
     state.ensembles = create_ensembles(config)
     state.engines = create_engines(config)
     create_orderparameters(state.engines, config)
+    # exit('jumbo a')
     paths = load_paths(config)
 
     # initiate by adding paths from retis sim to repex
