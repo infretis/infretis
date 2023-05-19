@@ -77,7 +77,8 @@ class RingDiffusion(OrderParameter):
             The order parameter.
 
         """
-        pos = system.particles.pos
+        # pos = system.particles.pos
+        pos = system.pos
         resl = 1.0e3
         cm1 = average(rint(pos[self.idx1] * resl) / resl, axis=0)
         cm2 = average(rint(pos[self.idx2] * resl) / resl, axis=0)

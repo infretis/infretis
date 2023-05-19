@@ -9,7 +9,6 @@ wmdrun = [
     "gmx mdrun",
 ]
 
-
 [simulation]
 pyretis_inp = "retis.rst"
 internal = false
@@ -30,19 +29,21 @@ n_jumps = 3
 high_accept = true
 
 [engine]
-engine = "GromacsEngineR"
-class = "gromacs"
+engine = "random"
+class = "GromacsEngineR"
 input_path = "gromacs_input"
 module = "gromacs.py"
 gmx = "gmx"
 mdrun = "mdrun"
 timestep = 0.002
 subcycles = 1
-gmx_format = "gro"
+gmx_format = "g96"
 maxwarn = 15
 
 [orderparameter]
-class = "Distance"
+orderparameter = "RingDiffusion"
+class = "RingDiffusion"
+module = "orderp.py"
 index = [
     0,
     1,

@@ -6,6 +6,8 @@ def scheduler(input_file):
     # setup repex, dask and futures
     md_items, state = setup_internal(input_file)
     client, futures = setup_dask(state)
+    # print('whada')
+    # exit('eh')
 
     # submit the first number of workers
     while state.initiate():

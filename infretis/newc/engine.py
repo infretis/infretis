@@ -1,6 +1,6 @@
 from infretis.newc.engines.gromacs import GromacsEngine
 from infretis.newc.orderparameter import create_orderparameter
-from infretis.newf.core import generic_factory
+from infretis.newf.core import generic_factory, create_external
 
 import logging
 logger = logging.getLogger(__name__)
@@ -24,10 +24,9 @@ def create_engine(settings):
         'gromacs': {'cls': GromacsEngine},
     }
 
+    if settings['engine']['class'].lower() not in engine_map:
+        return create_external(settings['engine'], 'engine', ['integration_step'])
     engine = generic_factory(settings['engine'], engine_map, name='engine')
-    engine.order_function = create_orderparameter(settings)
-
-    # raise ValueError('Could not create engine from settings!')
     return engine
 
 def create_engines(config):
@@ -56,18 +55,15 @@ def check_engine(settings):
     msg = []
     if 'engine' not in settings:
         msg += ['The section engine is missing']
+    if 'input_path' not in settings['engine']:
+        msg += ['The section engine requires an input_path entry']
 
-    elif settings['engine'].get('type') == 'external':
-
-        if 'input_path' not in settings['engine']:
-            msg += ['The section engine requires an input_path entry']
-
-        if 'gmx' in settings['engine'] and \
-                'gmx_format' not in settings['engine']:
-            msg += ['File format is not specified for the engine']
-        elif 'cp2k' in settings['engine'] and \
-                'cp2k_format' not in settings['engine']:
-            msg += ['File format is not specified for the engine']
+    if 'gmx' in settings['engine'] and \
+            'gmx_format' not in settings['engine']:
+        msg += ['File format is not specified for the engine']
+    elif 'cp2k' in settings['engine'] and \
+            'cp2k_format' not in settings['engine']:
+        msg += ['File format is not specified for the engine']
 
     if msg:
         msgtxt = '\n'.join(msg)

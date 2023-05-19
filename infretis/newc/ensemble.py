@@ -1,4 +1,5 @@
-from infretis.classes.randomgen import create_random_generator
+# from infretis.classes.randomgen import create_random_generator
+from infretis.newc.rgen import create_random_generator
 import collections
 import os
 import shutil
