@@ -1,4 +1,4 @@
-from infretis.core.common import compare_objects
+from infretis.newf.core import compare_objects
 import numpy as np
 from copy import copy
 import logging

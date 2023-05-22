@@ -1,8 +1,8 @@
 import argparse
 import tomli
 from infretis.scheduler import scheduler
-from infretis.conv_inf_py import print_pathens
-from infretis.pattern import pattern
+from infretis.tools.conv_inf_py import print_pathens
+from infretis.tools.pattern import pattern
 
 
 def infretisrun():
