@@ -1,6 +1,6 @@
-from infretis.newc.engines.gromacs import GromacsEngine
-from infretis.newc.orderparameter import create_orderparameter
-from infretis.newf.core import generic_factory, create_external
+from infretis.classes.engines.gromacs import GromacsEngine
+from infretis.classes.orderparameter import create_orderparameter
+from infretis.core.core import generic_factory, create_external
 
 import logging
 logger = logging.getLogger(__name__)

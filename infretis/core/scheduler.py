@@ -1,6 +1,6 @@
 import numpy as np
-from infretis.common import treat_output, run_md
-from infretis.common import setup_internal, setup_dask
+from infretis.core.common import treat_output, run_md
+from infretis.core.common import setup_internal, setup_dask
 
 def scheduler(input_file):
     # setup repex, dask and futures

@@ -1,4 +1,4 @@
-from infretis.newc.engines.enginebase import EngineBase
+from infretis.classes.engines.enginebase import EngineBase
 
 import numpy as np
 from time import sleep

@@ -1,4 +1,4 @@
-from infretis.newc.path import paste_paths
+from infretis.classes.path import paste_paths
 
 import logging
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name

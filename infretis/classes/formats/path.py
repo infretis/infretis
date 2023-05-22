@@ -1,35 +1,7 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2022, PyRETIS Development Team.
-# Distributed under the LGPLv2.1+ License. See LICENSE for more info.
-"""Module for formatting path-trajectory data from PyRETIS.
-
-Important classes defined here
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-PathExtFormatter (:py:class:`.PathExtFormatter`)
-    A class for formatting external trajectories. Since this format
-    is intended for paths created by an external software it will
-    simply contain locations for the files where the snapshots are
-    stored.
-
-PathIntFormatter (:py:class:`.PathIntFormatter`)
-    A class for formatting internal trajectories. The format used is
-    relatively simple and does not contain information about atoms,
-    just the coordinates. The output for n-dimensional system contains
-    2n columns (positions and velocities). This formatter is intended
-    for use with objects like :py:class:`.Path`.
-
-PathExtFile (:py:class:`.PathExtFile`)
-    A class for writing path data for external paths.
-
-PathIntFile (:py:class:`.PathIntFile`)
-    A class for writing path data for internal paths.
-
-"""
 import logging
 import os
 import numpy as np
-from infretis.newc.formats.formatter import OutputFormatter, FileIO, read_some_lines
+from infretis.classes.formats.formatter import OutputFormatter, FileIO, read_some_lines
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 

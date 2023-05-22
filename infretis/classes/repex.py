@@ -5,7 +5,7 @@ from datetime import datetime
 import tomli_w
 import pickle
 import logging
-from infretis.newc.formats.formatter import get_log_formatter
+from infretis.classes.formats.formatter import get_log_formatter
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
