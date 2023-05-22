@@ -1,8 +1,90 @@
 from infretis.classes.path import paste_paths
+from infretis.core.core import make_dirs
+import time
+import os
 
 import logging
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
+
+def run_md(md_items):
+    md_items['wmd_start'] = time.time()
+    md_items['ens_nums'] = list(md_items['picked'].keys())
+    md_items['pnum_old'] = []
+    for key in md_items['picked'].keys():
+        md_items['pnum_old'].append(md_items['picked'][key]['traj'].path_number)
+    # store info before md run
+    picked = md_items['picked']
+    # ..
+    # ..
+
+    # set the worker hw
+    # ens_sets = []
+    picked2 = {}
+    if 'md_worker' in md_items:
+        base = md_items['md_worker']
+        mdrun = base + ' -s {} -deffnm {} -c {}'
+        mdrun_c = base + ' -s {} -cpi {} -append -deffnm {} -c {}'
+        # set the worker folder
+        w_folder = os.path.join(os.getcwd(), f"worker{md_items['pin']}")
+        make_dirs(w_folder)
+        for ens in picked.keys():
+            picked2[ens] = {}
+            ens_set = {}
+            picked[ens]['engine'].mdrun = mdrun
+            picked[ens]['engine'].mdrun_c = mdrun_c
+            picked[ens]['engine'].exe_dir = w_folder
+            picked[ens]['engine'].clean_up()
+            ens_set['mc_move'] = picked[ens]['ens'].mc_move
+            ens_set['interfaces'] = picked[ens]['ens'].interfaces
+            ens_set['rgen'] = picked[ens]['ens'].rgen
+            ens_set['start_cond'] = picked[ens]['ens'].start_cond
+            ens_set['maxlength'] =  100000
+            picked2[ens]['ens'] = ens_set
+            picked2[ens]['engine'] = picked[ens]['engine']
+            picked2[ens]['traj'] = picked[ens]['traj']
+            # ens_set.append(ens_set)
+
+
+    # perform the hw move:
+    # accept, trials, status = select_shoot(picked)
+    accept, trials, status = select_shoot(picked2)
+
+    for trial, ens_num in zip(trials, picked.keys()):
+        md_items['moves'].append(md_items['mc_moves'][ens_num+1])
+        md_items['trial_len'].append(trial.length)
+        md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
+        md_items['generated'].append(trial.generated)
+        if status == 'ACC':
+            minus = True if ens_num < 0 else False
+            trial.weights = calc_cv_vector(trial,
+                                           md_items['interfaces'],
+                                           md_items['mc_moves'],
+                                           minus=minus)
+
+            picked[ens_num]['traj'] = trial
+            # md_items['out_trajs'].append(trial)
+
+    md_items.update({'status': status,
+                     'wmd_end': time.time()})
+
+    return md_items
+
+def calc_cv_vector(path, interfaces, moves, minus=False):
+    path_max, _ = path.ordermax
+
+    cv = []
+    if minus:
+        return (1. if interfaces[0] <= path_max else 0.,)
+
+    for idx, intf_i in enumerate(interfaces[:-1]):
+        if moves[idx+1] == 'wf':
+            intfs = [interfaces[0], intf_i, interfaces[-1]]
+            cv.append(compute_weight(path, intfs, moves[idx+1]))
+        else:
+            cv.append(1. if intf_i <= path_max else 0.)
+    cv.append(0.)
+    return(tuple(cv))
 
 def compute_weight(path, interfaces, move):
     """Compute the High Acceptance path weight after a MC move.

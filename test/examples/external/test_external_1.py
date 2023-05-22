@@ -13,6 +13,10 @@ from infretis.core.scheduler import scheduler
 from distutils.dir_util import copy_tree
 
 FILES = ['infretis.toml', 'gromacs.py', 'orderp.py', 'retis.rst']
+## TODO: USE MOCK RGEN...
+##
+##
+##
 
 class test_infretisrun(unittest.TestCase):
 

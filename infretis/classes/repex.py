@@ -5,7 +5,10 @@ from datetime import datetime
 import tomli_w
 import pickle
 import logging
+
 from infretis.classes.formats.formatter import get_log_formatter
+from infretis.core.core import write_ensemble_restart, make_dirs
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
@@ -765,3 +768,99 @@ class REPEX_state(object):
             values = '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '----' for item0 in item['frac'][:-1]])
             logger.info(f'{key:03.0f} * {values} *')
 
+    def treat_output(self, md_items):
+        pn_news = []
+        md_items['md_end'] = time.time()
+        picked = md_items['picked']
+        traj_num = self.config['current']['traj_num']
+
+        for ens_num in picked.keys():
+            pn_old = picked[ens_num]['pn_old']
+            out_traj = picked[ens_num]['traj']
+            self.ensembles[ens_num+1] = picked[ens_num]['ens']
+
+            for idx, lock in enumerate(self.locked):
+                if str(pn_old) in lock[1]:
+                    self.locked.pop(idx)
+            # if path is new: number and save the path:
+            if out_traj.path_number == None or md_items['status'] == 'ACC':
+                # move to accept:
+                ens_save_idx = self.traj_num_dic[pn_old]['ens_save_idx']
+                out_traj.path_number = traj_num
+                # if state.config['output']['store_paths']:
+                make_dirs(f'./trajs/{out_traj.path_number}')
+                data = {'path': out_traj,
+                        'dir': os.path.join(os.getcwd(), self.config['simulation']['load_dir'])}
+                out_traj = self.pstore.output(self.cstep, data)
+                self.traj_num_dic[traj_num] = {'frac': np.zeros(self.n, dtype="float128"),
+                                               'max_op': out_traj.ordermax,
+                                               'length': out_traj.length,
+                                               'weights': out_traj.weights,
+                                               'adress': out_traj.adress,
+                                               'ens_save_idx': ens_save_idx}
+                traj_num += 1
+                if self.config['output'].get('delete_old', False) and pn_old > self.n - 2:
+                    # if pn is larger than ensemble number ...
+                    for adress in self.traj_num_dic[pn_old]['adress']:
+                        ##### Make checker? so it doesn't do anything super yabai
+                        os.remove(adress)
+
+            if self.config['output']['store_paths']:
+                write_ensemble_restart(self.ensembles[ens_num+1], self.config, save=f'e{ens_num+1}')
+
+            pn_news.append(out_traj.path_number)
+            self.add_traj(ens_num, out_traj, valid=out_traj.weights)
+            
+        # record weights 
+        locked_trajs = self.locked_paths()
+        if self._last_prob is None:
+            self.prob
+        for idx, live in enumerate(self.live_paths()):
+            if live not in locked_trajs:
+                self.traj_num_dic[live]['frac'] += self._last_prob[:-1][idx, :]
+
+        # write succ data to infretis_data.txt
+        if md_items['status'] == 'ACC':
+            write_to_pathens(self, md_items['pnum_old'])
+
+        self.sort_trajstate()
+        self.config['current']['traj_num'] = traj_num
+        self.cworker = md_items['pin']
+        self.print_shooted(md_items, pn_news)
+        # save for possible restart
+        self.save_rng()
+        self.write_toml()
+
+        return md_items
+
+def write_to_pathens(state, pn_archive):
+    traj_num_dic = state.traj_num_dic
+    size = state.n
+
+    with open(state.data_file, 'a') as fp:
+        for pn in pn_archive:
+            string = ''
+            string += f'\t{pn:3.0f}\t'
+            string += f"{traj_num_dic[pn]['length']:5.0f}" + '\t'
+            string += f"{traj_num_dic[pn]['max_op'][0]:8.5f}" + '\t'
+            frac = []
+            weight = []
+            if len(traj_num_dic[pn]['weights']) == 1:
+                f0 = traj_num_dic[pn]['frac'][0]
+                w0 = traj_num_dic[pn]['weights'][0]
+                frac.append('----' if f0 == 0.0 else str(f0))
+                if weight == 0:
+                    print('tortoise', frac, weight)
+                    exit('fish')
+                weight.append('----' if f0 == 0.0 else str(w0))
+                frac += ['----']*(size-2)
+                weight += ['----']*(size-2)
+            else:
+                frac.append('----')
+                weight.append(f'----')
+                for w0, f0 in zip(traj_num_dic[pn]['weights'][:-1],
+                                  traj_num_dic[pn]['frac'][1:-1]):
+                    frac.append('----' if f0 == 0.0 else str(f0))
+                    weight.append('----' if f0 == 0.0 else str(w0))
+            fp.write(string + '\t'.join(frac) + '\t' + '\t'.join(weight) + '\t\n')
+            traj_num_dic.pop(pn)
