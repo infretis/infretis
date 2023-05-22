@@ -273,6 +273,7 @@ def setup_internal(input_file):
             config = restart
             logger.info('We use restart.toml instead.')
 
+
     # parse retis.rst
     interfaces = config['simulation']['interfaces']
     size = len(interfaces)
@@ -393,10 +394,7 @@ def setup_config(config, size):
             fp.write('# ' + '='*(34+8*size)+ '\n')
     else:
         config['current']['restarted_from'] = config['current']['cstep']
-        if config['current']['cstep'] == config['simulation']['steps']:
-            print('current step and total steps are equal so we exit ',
-                  'without doing anything.')
-            return True
+
     return False
 
 def setup_repex(config):

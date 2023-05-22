@@ -4,29 +4,53 @@ files = [
     "orderp.py",
     "gromacs.py",
 ]
+wmdrun = [
+    "gmx mdrun",
+    "gmx mdrun",
+]
 
 [simulation]
-pyretis_inp = "retis.rst"
 internal = false
-states_ab = [
-    0.27,
-    0.45,
+interfaces = [
+    -0.26,
+    -0.24,
+    -0.22,
+]
+shooting_moves = [
+    "sh",
+    "sh",
+    "wf",
 ]
 steps = 15
 seed = 0
 save_loc = "./"
 load_dir = "trajs"
 
+[simulation.tis_set]
+maxlength = 20000
+aimless = true
+allowmaxlength = false
+zero_momentum = false
+rescale_energy = false
+n_jumps = 3
+high_accept = true
+
 [engine]
-engine = "gromacs"
-input_path = "gromacs_input"
-gmx = "gmx_mpi"
-mdrun = "srun --exclusive --ntasks 2 --mem-per-cpu 500 gmx_mpi mdrun -ntomp 1"
+engine = "random"
+class = "GromacsEngineR"
+input_path = "../data/gromacs_input"
+module = "gromacs.py"
+gmx = "gmx"
+mdrun = "mdrun"
+timestep = 0.002
 subcycles = 1
+gmx_format = "g96"
 maxwarn = 15
 
-[order_parameter]
-class = "Distance"
+[orderparameter]
+orderparameter = "RingDiffusion"
+class = "RingDiffusion"
+module = "orderp.py"
 index = [
     0,
     1,
@@ -43,32 +67,33 @@ data_file = "./infretis_data.txt"
 pattern_file = "./pattern.txt"
 
 [current]
-traj_num = 9
+traj_num = 12
 cstep = 15
 active = [
-    3,
-    8,
-    7,
+    5,
+    6,
+    11,
 ]
 locked = []
 size = 3
+restarted_from = 10
 
 [current.frac]
-3 = [
+5 = [
     "7.0",
     "0.0",
     "0.0",
     "0.0",
 ]
-7 = [
+6 = [
     "0.0",
-    "1.25",
-    "1.75",
+    "7.0",
+    "0.0",
     "0.0",
 ]
-8 = [
+11 = [
     "0.0",
-    "1.0",
-    "1.0",
+    "0.0",
+    "2.0",
     "0.0",
 ]

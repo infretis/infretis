@@ -5,7 +5,7 @@
 import logging
 import numpy as np
 from numpy import average, rint, dot, sqrt
-from infretis.classes.orderparameter import OrderParameter
+from infretis.newc.orderparameter import OrderParameter
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
@@ -77,7 +77,8 @@ class RingDiffusion(OrderParameter):
             The order parameter.
 
         """
-        pos = system.particles.pos
+        # pos = system.particles.pos
+        pos = system.pos
         resl = 1.0e3
         cm1 = average(rint(pos[self.idx1] * resl) / resl, axis=0)
         cm2 = average(rint(pos[self.idx2] * resl) / resl, axis=0)

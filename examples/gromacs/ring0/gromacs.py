@@ -7,7 +7,7 @@ import os
 import pickle
 from numpy.random import RandomState
 
-# from pyretis.core.random_gen import RandomGeneratorBorg
+# from pyretis.engines.gromacs import GromacsEngine
 # from pyretis.engines.gromacs2 import GromacsEngine2
 
 from infretis.newc.rgen import RandomGeneratorBorg
@@ -66,33 +66,11 @@ def prepare_shooting_point(gro, input_file):
     gro._remove_files(gro.exe_dir, remove)
     return confout, energy
 
-# class GromacsEngineR(GromacsEngine):
-#     """A class for interfacing GROMACS.
-# 
-#     This class uses a set of reproducible seeds for generation velocities.
-#     Otherwise, it is equal to :py:class:`.GromacsEngine`.
-# 
-#     """
-# 
-#     def __init__(self, gmx, mdrun, input_path, timestep, subcycles,
-#                  maxwarn=0, gmx_format='g96', write_vel=True,
-#                  write_force=False):
-#         """Set up the engine."""
-#         super().__init__(gmx, mdrun, input_path, timestep, subcycles,
-#                          maxwarn=maxwarn, gmx_format=gmx_format,
-#                          write_vel=write_vel, write_force=write_force)
-# 
-#     def _prepare_shooting_point(self, input_file):
-#         """Create initial configuration for a shooting move."""
-#         return prepare_shooting_point(self, input_file)
-
-
-# class GromacsEngine2R(GromacsEngine2):
 class GromacsEngineR(GromacsEngine):
     """A class for interfacing GROMACS.
 
     This class uses a set of reproducible seeds for generation velocities.
-    Otherwise, it is equal to :py:class:`.GromacsEngine2`.
+    Otherwise, it is equal to :py:class:`.GromacsEngine`.
 
     """
 

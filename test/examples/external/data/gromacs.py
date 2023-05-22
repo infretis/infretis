@@ -6,10 +6,13 @@ import logging
 import os
 import pickle
 from numpy.random import RandomState
-from infretis.classes.randomgen import RandomGeneratorBorg
-from infretis.classes.external.gromacs import GromacsEngine
+
 # from pyretis.engines.gromacs import GromacsEngine
 # from pyretis.engines.gromacs2 import GromacsEngine2
+
+from infretis.newc.rgen import RandomGeneratorBorg
+from infretis.newc.engines.gromacs import GromacsEngine
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
@@ -18,11 +21,11 @@ RND = RandomGeneratorBorg()
 # Here, we set a specific random number state, by
 # loading it from a file, if that file is present:
 INPUTFILE = 'pyretis_gmx_rnd.state'
-if os.path.isfile(INPUTFILE):
-    print('Loading state: {}'.format(INPUTFILE))
-    with open(INPUTFILE, 'rb') as inputf:
-        STATE = pickle.load(inputf)
-        RND.set_state(STATE)
+# if os.path.isfile(INPUTFILE):
+#     print('Loading state: {}'.format(INPUTFILE))
+#     with open(INPUTFILE, 'rb') as inputf:
+#         STATE = pickle.load(inputf)
+#         RND.set_state(STATE)
 
 
 def prepare_shooting_point(gro, input_file):
@@ -62,7 +65,6 @@ def prepare_shooting_point(gro, input_file):
     logger.debug('Removing GROMACS output after velocity generation.')
     gro._remove_files(gro.exe_dir, remove)
     return confout, energy
-
 
 class GromacsEngineR(GromacsEngine):
     """A class for interfacing GROMACS.
