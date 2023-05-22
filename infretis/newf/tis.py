@@ -405,7 +405,7 @@ def wire_fencing(ens_set, trial_path, engine, shooting_point=None, start_cond=('
     #### sub_settings['allowmaxlength'] = True
 
     sub_ens = {'interfaces': wf_int, 'rgen': ens_set['rgen'],
-            'allowmaxlength': True, 'maxlength': 1000}
+            'allowmaxlength': True, 'maxlength': 100000}
 
     succ_seg = 0
     for i in range(ens_set['mc_move']['n_jumps']):
