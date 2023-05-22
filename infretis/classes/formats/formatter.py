@@ -1,4 +1,4 @@
-from infretis.newf.core import make_dirs
+from infretis.core.core import make_dirs
 
 from abc import ABCMeta, abstractmethod
 from datetime import datetime

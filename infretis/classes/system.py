@@ -1,4 +1,4 @@
-from infretis.newf.core import compare_objects
+from infretis.core.core import compare_objects
 import numpy as np
 from copy import copy
 import logging
@@ -92,4 +92,3 @@ def system_from_snapshot(system, snapshot):
     system_copy.particles.set_pos(snapshot.get('pos', None))
     system_copy.particles.set_vel(snapshot.get('vel', None))
     return system_copy                                      
-

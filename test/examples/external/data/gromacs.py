@@ -10,8 +10,8 @@ from numpy.random import RandomState
 # from pyretis.engines.gromacs import GromacsEngine
 # from pyretis.engines.gromacs2 import GromacsEngine2
 
-from infretis.newc.rgen import RandomGeneratorBorg
-from infretis.newc.engines.gromacs import GromacsEngine
+from infretis.classes.rgen import RandomGeneratorBorg
+from infretis.classes.engines.gromacs import GromacsEngine
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())

@@ -1,27 +1,6 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2022, PyRETIS Development Team.
-# Distributed under the LGPLv2.1+ License. See LICENSE for more info.
-"""Module for formatting order parameter data from PyRETIS.
-
-Important classes defined here
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-OrderFormatter (:py:class:`.OrderFormatter`)
-    A class for formatting order parameter data.
-
-OrderPathFormatter (:py:class:`.OrderPathFormatter`)
-    A class for formatting order parameter data for paths.
-
-OrderFile (:py:class:`.OrderFile`)
-    A class for handling PyRETIS order parameter files.
-
-OrderPathFile (:py:class:`.OrderPathFile`)
-    A class for handling PyRETIS order parameter files for paths.
-
-"""
 import logging
 import numpy as np
-from infretis.newc.formats.formatter import OutputFormatter, FileIO, read_some_lines
+from infretis.classes.formats.formatter import OutputFormatter, FileIO, read_some_lines
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 

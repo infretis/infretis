@@ -1,4 +1,4 @@
-from infretis.newc.formats.formatter import FileIO
+from infretis.classes.formats.formatter import FileIO
 
 from abc import ABCMeta, abstractmethod
 import re

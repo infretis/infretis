@@ -1,27 +1,6 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2022, PyRETIS Development Team.
-# Distributed under the LGPLv2.1+ License. See LICENSE for more info.
-"""Module for formatting energy data from PyRETIS.
-
-Important classes defined here
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-EnergyFormatter (:py:class:`.EnergyFormatter`)
-    A class for formatting energy data from PyRETIS.
-
-EnergyPathFormatter (:py:class:`.EnergyPathFormatter`)
-    A class for formatting energy data for paths.
-
-EnergyFile (:py:class:`.EnergyFile`)
-    A class for handling PyRETIS energy files.
-
-EnergyPathFile (:py:class:`.EnergyPathFile`)
-    A class for handling PyRETIS energy path files.
-
-"""
 import logging
 import numpy as np
-from infretis.newc.formats.formatter import OutputFormatter, FileIO, read_some_lines
+from infretis.classes.formats.formatter import OutputFormatter, FileIO, read_some_lines
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 

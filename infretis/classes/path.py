@@ -1,8 +1,8 @@
-from infretis.newf.core import read_restart_file
-from infretis.newc.system import System
-from infretis.newc.formats.path import PathExtFile
-from infretis.newc.formats.order import OrderPathFile
-from infretis.newc.formats.energy import EnergyPathFile
+from infretis.core.core import read_restart_file
+from infretis.classes.system import System
+from infretis.classes.formats.path import PathExtFile
+from infretis.classes.formats.order import OrderPathFile
+from infretis.classes.formats.energy import EnergyPathFile
 from abc import ABCMeta, abstractmethod
 import pickle
 import numpy as np

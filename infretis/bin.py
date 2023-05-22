@@ -1,6 +1,6 @@
 import argparse
 import tomli
-from infretis.scheduler import scheduler
+from infretis.core.scheduler import scheduler
 from infretis.tools.conv_inf_py import print_pathens
 from infretis.tools.pattern import pattern
 

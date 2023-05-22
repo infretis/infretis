@@ -1,4 +1,4 @@
-from infretis.newf.core import generic_factory, create_external
+from infretis.core.core import generic_factory, create_external
 
 from abc import ABCMeta, abstractmethod
 import numpy as np

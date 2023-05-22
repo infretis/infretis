@@ -5,7 +5,7 @@
 import logging
 import numpy as np
 from numpy import average, rint, dot, sqrt
-from infretis.newc.orderparameter import OrderParameter
+from infretis.classes.orderparameter import OrderParameter
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 

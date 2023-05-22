@@ -5,16 +5,15 @@ import tomli
 import logging
 from datetime import datetime
 
-from infretis.newf.core import write_ensemble_restart, make_dirs
-from infretis.inf_core import REPEX_state
+from infretis.core.core import write_ensemble_restart, make_dirs
+from infretis.core.tis import select_shoot, compute_weight
 
-from infretis.newc.formats.formatter import PathStorage, get_log_formatter
-from infretis.newc.orderparameter import create_orderparameters
-from infretis.newc.ensemble import create_ensembles
-from infretis.newc.engine import create_engines
-from infretis.newc.path import load_paths
-
-from infretis.newf.tis import select_shoot, compute_weight
+from infretis.classes.repex import REPEX_state
+from infretis.classes.formats.formatter import PathStorage, get_log_formatter
+from infretis.classes.orderparameter import create_orderparameters
+from infretis.classes.ensemble import create_ensembles
+from infretis.classes.engine import create_engines
+from infretis.classes.path import load_paths
 
 from dask.distributed import dask, Client, as_completed, get_worker
 dask.config.set({'distributed.scheduler.work-stealing': False})
