@@ -1,6 +1,7 @@
-from infretis.core.common import make_dirs
+from infretis.newf.core import make_dirs
 
 from abc import ABCMeta, abstractmethod
+from datetime import datetime
 import numpy as np
 import shutil
 import os

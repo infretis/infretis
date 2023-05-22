@@ -5,10 +5,7 @@ import tomli
 import logging
 from datetime import datetime
 
-from infretis.core.retis import retis_swap_zero
-# from infretis.classes.formatter import PathStorage, get_log_formatter
-# from infretis.core.tis import select_shoot
-from infretis.core.common import write_ensemble_restart, make_dirs
+from infretis.newf.core import write_ensemble_restart, make_dirs
 from infretis.inf_core import REPEX_state
 
 from infretis.newc.formats.formatter import PathStorage, get_log_formatter
