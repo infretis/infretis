@@ -386,3 +386,44 @@ def write_ensemble_restart(ensemble, config, save):
     with open(filename, 'wb') as outfile:
         toprint = os.path.join(save, 'ensemble.restart')
         pickle.dump(info, outfile)
+
+def read_restart_file(filename):
+    """Read restart info for a simulation.
+
+    Parameters
+    ----------
+    filename : string
+        The file we are going to read from.
+
+    """
+    with open(filename, 'rb') as infile:
+        info = pickle.load(infile)
+    return info
+
+def compare_objects(obj1, obj2, attrs, numpy_attrs=None):
+    if not obj1.__class__ == obj2.__class__:
+        logger.debug(
+            'The classes are different %s != %s',
+            obj1.__class__, obj2.__class__
+        )
+        return False
+    if not len(obj1.__dict__) == len(obj2.__dict__):
+        logger.debug('Number of attributes differ.')
+        return False
+    # Compare the requested attributes:
+    for key in attrs:
+        try:
+            val1 = getattr(obj1, key)
+            val2 = getattr(obj2, key)
+        except AttributeError:
+            logger.debug('Failed to compare attribute "%s"', key)
+            return False
+        if numpy_attrs and key in numpy_attrs:
+            if not numpy_allclose(val1, val2):
+                logger.debug('Attribute "%s" differ.', key)
+                return False
+        else:
+            if not val1 == val2:
+                logger.debug('Attribute "%s" differ.', key)
+                return False
+    return True

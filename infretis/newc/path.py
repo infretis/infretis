@@ -1,4 +1,4 @@
-from infretis.core.common import read_restart_file
+from infretis.newf.core import read_restart_file
 from infretis.newc.system import System
 from infretis.newc.formats.path import PathExtFile
 from infretis.newc.formats.order import OrderPathFile
