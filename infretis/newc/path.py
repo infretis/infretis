@@ -319,12 +319,12 @@ class Path:
         """Check if two paths are equal."""
         if self.__class__ != other.__class__:
             logger.debug('%s and %s.__class__ differ', self, other)
-            print('crab 1')
+            # print('crab 1')
             return False
 
         if set(self.__dict__) != set(other.__dict__):
             logger.debug('%s and %s.__dict__ differ', self, other)
-            print('crab 2')
+            # print('crab 2')
             return False
 
         # Compare phasepoints:

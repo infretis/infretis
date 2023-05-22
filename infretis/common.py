@@ -78,15 +78,12 @@ def run_md(md_items):
         md_items['trial_len'].append(trial.length)
         md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))
         md_items['generated'].append(trial.generated)
-        # print('bear', [i.vel_rev for i in trial.phasepoints])
         if status == 'ACC':
             minus = True if ens_num < 0 else False
             trial.weights = calc_cv_vector(trial,
                                            md_items['interfaces'],
                                            md_items['mc_moves'],
                                            minus=minus)
-            # if len(trials) == 2:
-            #     print('lemon 0', md_items['interfaces'], trial.weights)
 
             picked[ens_num]['traj'] = trial
             # md_items['out_trajs'].append(trial)

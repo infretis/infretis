@@ -889,7 +889,7 @@ class GromacsEngine(EngineBase):
         self._modify_input(self.input_files['input'], mdp_file, settings,
                            delim='=')
         # 2) Run GROMACS preprocessor:
-        print('budda 0', os.path.basename(mdp_file), os.path.basename(initial_file))
+        # print('budda 0', os.path.basename(mdp_file), os.path.basename(initial_file))
         out_files = self._execute_grompp(os.path.basename(mdp_file), os.path.basename(initial_file), name)
         # Generate some names that will be created by mdrun:
         confout = f'{name}.{self.ext}'
