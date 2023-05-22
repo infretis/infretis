@@ -1,8 +1,10 @@
 import inspect
 import os
 import importlib
+import errno
 import sys
 import logging
+import pickle
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -316,3 +318,71 @@ def import_from(module_path, function_name):
         msg = f'Could not import "{function_name}" from "{module_path}"'
         logger.critical(msg)
     raise ValueError(msg)
+
+def make_dirs(dirname):
+    """Create directories for path simulations.
+
+    This function will create a folder using a specified path.
+    If the path already exists and if it's a directory, we will do
+    nothing. If the path exists and is a file we will raise an
+    `OSError` exception here.
+
+    Parameters
+    ----------
+    dirname : string
+        This is the directory to create.
+
+    Returns
+    -------
+    out : string
+        A string with some info on what this function did. Intended for
+        output.
+
+    """
+    try:
+        os.makedirs(dirname)
+        msg = f'Created directory: "{dirname}"'
+    except OSError as err:
+        if err.errno != errno.EEXIST:  # pragma: no cover
+            raise err
+        if os.path.isfile(dirname):
+            msg = f'"{dirname}" is a file. Will abort!'
+            raise OSError(errno.EEXIST, msg) from err
+        if os.path.isdir(dirname):
+            msg = f'Directory "{dirname}" already exist.'
+    return msg
+
+def write_ensemble_restart(ensemble, config, save):
+    """Write a restart file for a path ensemble.
+
+    Parameters
+    ----------
+    ensemble : dict
+        it contains:
+
+        * `path_ensemble` : object like :py:class:`.PathEnsemble`
+          The path ensemble we are writing restart info for.
+        * ` system` : object like :py:class:`.System`
+          System is used here since we need access to the temperature
+          and to the particle list.
+        * `order_function` : object like :py:class:`.OrderParameter`
+          The class used for calculating the order parameter(s).
+        * `engine` : object like :py:class:`.EngineBase`
+          The engine to use for propagating a path.
+
+    settings_ens : dict
+        A dictionary with the ensemble settings.
+
+    """
+    info = {}
+    info['rgen'] = ensemble.rgen.get_state()
+
+    filename = os.path.join(
+        os.getcwd(),
+        config['simulation']['load_dir'],
+        save,
+        'ensemble.restart')
+
+    with open(filename, 'wb') as outfile:
+        toprint = os.path.join(save, 'ensemble.restart')
+        pickle.dump(info, outfile)

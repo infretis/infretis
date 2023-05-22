@@ -1,5 +1,4 @@
 from infretis.newc.engines.enginebase import EngineBase
-from infretis.classes.box import box_matrix_to_list
 
 import numpy as np
 from time import sleep
@@ -1996,3 +1995,32 @@ def _add_matrices_to_snapshot(snapshot):
     snapshot['xyz'] = xyz
     snapshot['vel'] = vel
     return xyz, vel
+
+def box_matrix_to_list(matrix, full=False):
+    """Return a list representation of the box matrix.
+
+    This method ensures correct ordering of the elements for PyRETIS:
+    ``xx, yy, zz, xy, xz, yx, yz, zx, zy``.
+
+    Parameters
+    ----------
+    matrix : numpy.array
+        A matrix (2D) representing the box.
+    full : boolean, optional
+        Return a full set of parameters (9) if set to True. If False,
+        and we need 3 or fewer parameters (i.e. the other 6 are zero)
+        we will only return the 3 non-zero ones.
+
+    Returns
+    -------
+    out : list
+        A list with the box-parametres.
+
+    """
+    if matrix is None:
+        return None
+    if np.count_nonzero(matrix) <= 3 and not full:
+        return [matrix[0, 0], matrix[1, 1], matrix[2, 2]]
+    return [matrix[0, 0], matrix[1, 1], matrix[2, 2],
+            matrix[0, 1], matrix[0, 2], matrix[1, 0],
+            matrix[1, 2], matrix[2, 0], matrix[2, 1]]

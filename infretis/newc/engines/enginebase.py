@@ -1,6 +1,4 @@
-from infretis.classes.fileio import FileIO
-
-# from infretis.newc.engines.gromacs import GromacsEngine
+from infretis.newc.formats.formatter import FileIO
 
 from abc import ABCMeta, abstractmethod
 import re
