@@ -62,7 +62,7 @@ def run_md(md_items):
             ens_set['interfaces'] = picked[ens]['ens'].interfaces
             ens_set['rgen'] = picked[ens]['ens'].rgen
             ens_set['start_cond'] = picked[ens]['ens'].start_cond
-            ens_set['maxlength'] =  1000
+            ens_set['maxlength'] =  100000
             picked2[ens]['ens'] = ens_set
             picked2[ens]['engine'] = picked[ens]['engine']
             picked2[ens]['traj'] = picked[ens]['traj']
