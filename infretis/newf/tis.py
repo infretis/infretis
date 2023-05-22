@@ -420,7 +420,7 @@ def wire_fencing(ens_set, trial_path, engine, shooting_point=None, start_cond=('
                                            engine,
                                            start_cond=('L', 'R'))
         start, end, _, _ = trial_seg.check_interfaces(wf_int)
-        print('path_old0', trial_seg.length, [i.vel for i in trial_seg.phasepoints])
+        # print('path_old0', trial_seg.length, [i.vel for i in trial_seg.phasepoints])
         logger.info('Jump %s, len %s, status %s, intf: %s %s',
                     i, trial_seg.length, status, start, end)
         if not success:
@@ -975,7 +975,7 @@ def shoot_backwards(path_back, trial_path, system,
         # Nope, backward trajectory end at wrong interface.
         trial_path += path_back  # Store path for analysis.
         trial_path.status = 'BWI'
-        print('boulder a', left, right, path_back.get_end_point(left, right), set(start_cond))
+        # print('boulder a', left, right, path_back.get_end_point(left, right), set(start_cond))
         return False
     return True
 
@@ -1362,7 +1362,7 @@ def retis_swap_zero(picked):
         path0.status = '0-L'
     else:
         path0.status = 'ACC'
-    print(path0.status)
+    # print(path0.status)
 
     # 2. Generate path for [0^+] from [0^-]:
     logger.debug('Creating path for [0^+] from [0^-]')

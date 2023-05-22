@@ -225,9 +225,6 @@ def create_external(settings, key, required_methods, key_settings=None):
     """
     klass = settings.get('class', None)
     module = settings.get('module', None)
-    print('pear a', klass)
-    print('pear b', module)
-    print('puta', key_settings, key, settings)
     if key_settings is None:
         try:
             key_settings = settings[key]
@@ -242,7 +239,7 @@ def create_external(settings, key, required_methods, key_settings=None):
     #     logger.debug('No "class" setting for "%s" specified. Skipping set-up',
     #                  key)
     #     return None
-    print('clown 3')
+    # print('clown 3')
     # if module is None:
     #     print('clown 4')
     #     return factory(key_settings)
@@ -250,12 +247,12 @@ def create_external(settings, key, required_methods, key_settings=None):
     # we need to check that the path is ok or if we should include
     # the 'exe_path' from settings.
     # 1) Check if we can find the module:
-    print('clown 5')
+    # print('clown 5')
     if os.path.isfile(module):
-        print('clown 6')
+        # print('clown 6')
         obj = import_from(module, klass)
     else:
-        print('clown 7')
+        # print('clown 7')
         if 'exe_path' in settings['simulation']:
             module = os.path.join(settings['simulation']['exe_path'],
                                   module)
@@ -264,7 +261,7 @@ def create_external(settings, key, required_methods, key_settings=None):
             msg = 'Could not find module "{}" for {}!'.format(module, key)
             raise ValueError(msg)
     # run some checks:
-    print('clown 8')
+    # print('clown 8')
     for function in required_methods:
         objfunc = getattr(obj, function, None)
         if not objfunc:
