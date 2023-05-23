@@ -1,9 +1,9 @@
-from infretis.core.setup import setup_internal, setup_dask
+from infretis.setup import setup_internal, setup_dask
 from infretis.core.tis import run_md
 
-def scheduler(input_file):
+def scheduler(config):
     # setup repex, dask and futures
-    md_items, state = setup_internal(input_file)
+    md_items, state = setup_internal(config)
     client, futures = setup_dask(state)
 
     # submit the first number of workers

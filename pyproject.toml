@@ -8,7 +8,4 @@ build-backend = "setuptools.build_meta"
 
 [project.scripts]
 infretisrun = "infretis.bin:infretisrun"
-infretisbm = "infretis.bin:infretisbm"
 infretisanalyze = "infretis.bin:infretisanalyze"
-
-

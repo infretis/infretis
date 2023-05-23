@@ -9,7 +9,7 @@ import tomli
 import tomli_w
 from unittest.mock import patch
 from io import StringIO
-from infretis.core.scheduler import scheduler
+from infretis.scheduler import scheduler
 from distutils.dir_util import copy_tree
 
 FILES = ['infretis.toml', 'gromacs.py', 'orderp.py', 'retis.rst']

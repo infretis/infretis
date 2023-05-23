@@ -7,6 +7,15 @@ import logging
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
+def log_mdlogs(inp):
+    logs = [log for log in os.listdir(inp) if 'log' in log]
+    speed = []
+    for log in logs:
+        with open(os.path.join(inp, log), 'r') as read:
+            for line in read:
+                if 'Performance' in line:
+                    logger.info(log + ' '+ line.rstrip().split()[1] + ' ns/day')
+
 def run_md(md_items):
     md_items['wmd_start'] = time.time()
     md_items['ens_nums'] = list(md_items['picked'].keys())
@@ -45,12 +54,12 @@ def run_md(md_items):
             picked2[ens]['traj'] = picked[ens]['traj']
             # ens_set.append(ens_set)
 
-
     # perform the hw move:
     # accept, trials, status = select_shoot(picked)
     accept, trials, status = select_shoot(picked2)
 
     for trial, ens_num in zip(trials, picked.keys()):
+        log_mdlogs(picked[ens_num]['engine'].exe_dir)
         md_items['moves'].append(md_items['mc_moves'][ens_num+1])
         md_items['trial_len'].append(trial.length)
         md_items['trial_op'].append((trial.ordermin[0], trial.ordermax[0]))

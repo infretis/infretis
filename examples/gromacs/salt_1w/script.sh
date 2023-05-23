@@ -1,6 +1,6 @@
 bash clean.sh
 rm -r trajs ;
-cp -r ../salt_data2/trajs/ .
+cp -r ../salt_data/trajs/ .
 cd trajs ;
 cp -r 0 e0
 cp -r 1 e1

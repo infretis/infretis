@@ -64,7 +64,7 @@ screen = 1
 pattern = true
 data_dir = "./"
 data_file = "./infretis_data.txt"
-pattern_file = "./pattern.txt"
+pattern_file = "pattern.txt"
 
 [current]
 traj_num = 4

@@ -6,138 +6,56 @@ import tomli_w
 import pickle
 import logging
 
-from infretis.classes.formats.formatter import get_log_formatter
+from infretis.classes.formats.formatter import get_log_formatter, PathStorage
 from infretis.core.core import write_ensemble_restart, make_dirs
+from infretis.core.tis import calc_cv_vector
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
-
-# Define some infRETIS infrastructure
-def calculate_ensemble_prob_and_weight(ens, num, offset=0):
-    keys = np.array(list(ens.keys()))
-    values = np.array(list(ens.values()))
-    results = np.zeros(len(keys[0]), dtype="float128")
-    idx = np.argsort(values)
-    for key, value in zip(keys[idx], values[idx]):
-        # 1/key[num] in the following line is the MC reweighting
-        results += (np.array([1 if i else 0 for i in key]) *
-                    value/abs(key[num+offset]))
-    if num < 0:
-        offset -= 1
-    if results[offset] == 0:
-        raise ValueError(f"{ens},{num},{offset},{results}")
-
-    return results/results[offset], results[offset]
-
-
-def analyze_data(data, offset=0):
-    total_prob = np.array([1.0], dtype="float128")
-    overall_prob = [1.0]
-    ensembles = np.sort(list(data.data.keys()))
-    for ens in ensembles:
-        if ens < 0:
-            continue
-        prob, _ = calculate_ensemble_prob_and_weight(data.data[ens], ens,
-                                                     offset=offset)
-        if ens+offset+1 >= len(prob):
-            total_prob = 0
-            overall_prob.append(0)
-            break
-        next_prob = prob[ens+offset+1]
-        overall_prob.append(next_prob*total_prob[0])
-        total_prob *= next_prob  # cross next interface
-    return overall_prob, total_prob
-
-
-class Results(object):
-    def __init__(self, n=3, offset=0):
-        self.data = {}
-        self.avg_lengths = {}
-        self._run_prob = {}
-        self._run_weight = {}
-        self._cycles = {}
-        self._run_total_prob = []
-        self._n = n
-        self._offset = offset
-
-    def update_ens(self, ens, traj, weight, length=None):
-        e = self.data.get(ens, {})
-        w = e.get(traj, 0)
-        e[traj] = w+weight
-        self.data[ens] = e
-        if length is not None and weight != 0:
-            # update pathlengths for flux calculation
-            avg, total_weight = self.avg_lengths.get(ens, (0, 0))
-            total_weight += weight
-            avg += weight*(length-avg)/total_weight
-            self.avg_lengths[ens] = (avg, total_weight)
-
-    def update_run_prob(self, ens, n=0):
-        run_p = self._run_prob.get(ens, [])
-        run_w = self._run_weight.get(ens, [])
-        run_c = self._cycles.get(ens, [])
-        data = self.data.get(ens, None)
-        if data is not None:
-            temp = calculate_ensemble_prob_and_weight(data, ens,
-                                                      offset=self._offset)
-
-            prob, tot_weight = temp
-            run_p.append(prob[ens+self._offset+1])
-            run_w.append(tot_weight)
-            run_c.append(n)
-        self._run_prob[ens] = run_p
-        self._run_weight[ens] = run_w
-        self._cycles[ens] = run_c
-
-    def update_run_total_prob(self):
-        _, tot = analyze_data(self, self._offset)
-        self._run_total_prob.append(tot)
-
-
 class REPEX_state(object):
-    def __init__(self, n=3, result=None, minus=False, workers=None):
+
+    # set numpy random seed when we initiate REPEX_state
+    np.random.seed(0)
+
+    # dicts to hold *toml, path data, ensembles and engines.
+    config = {}
+    traj_data = {}
+    ensembles = {}
+    engines = {}
+
+    # holds counts current worker.
+    cworker = None
+
+    # sets simulation start time.
+    start_time = time.time()
+
+    # defines storage object.
+    pstore = PathStorage()
+
+    def __init__(self, config, minus=False):
+        n = config['current']['size']
+        self.config = config
         if minus:
             self._offset = int(minus)
             n += int(minus)
         else:
             self._offset = 0
 
-        # set numpy random seed when we initiate REPEX_state
-        np.random.seed(0)
-
         self.n = n
         self.state = np.zeros(shape=(n, n))
         self._locks = np.ones(shape=(n))
         self._last_prob = None
         self._random_count = 0
-        self._n = 0
         self._trajs = ["" for i in range(n)]
-
-        self.config = {}
-        self.traj_num_dic = {}
-        self.workers = workers
-        self.cworker = None
-        self.tsteps = None
-        self.cstep = None
-        self.screen = None
-        self.mc_moves = []
-        self.ensembles = {}
-        self.engines = {}
-        self.toinitiate = self.workers
-        self.output_tasks = None
-        self.data_file = None
-        self.pattern_file = False
-        self.locked0 = []
-        self.locked = []
-        self.pyretis_settings = None
         self.zeroswap = 0.5
-        self.start_time = time.time()
-        self.pstore = None
 
-        # Not using this at the moment
-        # self.result = Results(n, offset=self._offset)
+        # detect any locked ens-path pairs exist pre start
+        self.locked0 = self.locked
+
+        # determines the number of initiation loops to do.
+        self.toinitiate = self.workers
 
     def pick_lock(self):
         if not self.locked0:
@@ -189,7 +107,7 @@ class REPEX_state(object):
             md_items['md_worker'] = base
 
         # write pattern:
-        if self.pattern_file and self.toinitiate == -1:
+        if self.config['output'].get('pattern', False) and self.toinitiate == -1:
             self.write_pattern(md_items)
         else:
             md_items['md_start'] = time.time()
@@ -291,7 +209,6 @@ class REPEX_state(object):
 
         if count:
             self.write_ensembles()
-            self._n += 1
 
     def sort_trajstate(self):
         needstomove = [self.state[idx][:-1][idx] == 0 for idx in range(self.n-1)]
@@ -365,7 +282,6 @@ class REPEX_state(object):
             return False
 
         self.cstep += 1
-        self.config['current']['cstep'] = self.cstep
         
         if self.printing() and self.cstep <= self.tsteps:
             logger.info(f'------- infinity {self.cstep:5.0f} START ------- ')
@@ -393,13 +309,52 @@ class REPEX_state(object):
         self.toinitiate -= 1
         return self.toinitiate >= 0
 
-
     @property
     def prob(self):
         if self._last_prob is None:
             prob = self.inf_retis(abs(self.state), self._locks)
             self._last_prob = prob.copy()
         return self._last_prob
+
+    @property
+    def cstep(self):
+        return self.config['current']['cstep']
+    
+    @cstep.setter
+    def cstep(self, val):
+        self.config['current']['cstep'] = val
+
+    @property
+    def tsteps(self):
+        return self.config['simulation']['steps']
+
+    @property
+    def screen(self):
+        return self.config['output']['screen']
+
+    @property
+    def mc_moves(self):
+        return self.config['simulation']['shooting_moves']
+
+    @property
+    def pattern_file(self):
+        return self.config['output']['pattern_file']
+
+    @property
+    def data_file(self):
+        return self.config['output']['data_file']
+
+    @property
+    def interfaces(self):
+        return self.config['simulation']['interfaces']
+
+    @property
+    def locked(self):
+        return list(self.config['current'].get('locked', []))
+
+    @property
+    def workers(self):
+        return self.config['dask']['workers']
 
     def inf_retis(self, input_mat, locks):
         # Drop locked rows and columns
@@ -665,8 +620,8 @@ class REPEX_state(object):
 
         # save accumulative fracs
         self.config['current']['frac'] = {}
-        for key in sorted(self.traj_num_dic.keys()):
-            fracs = [str(i) for i in self.traj_num_dic[key]['frac']]
+        for key in sorted(self.traj_data.keys()):
+            fracs = [str(i) for i in self.traj_data[key]['frac']]
             self.config['current']['frac'][str(key)] = fracs
 
         with open("./restart.toml", "wb") as f:
@@ -741,8 +696,8 @@ class REPEX_state(object):
                     oil = True
                 for prob in self._last_prob[idx][:-1]:
                     to_print += f'{prob:.2f}\t' if prob != 0 else '----\t'
-                to_print += f"{self.traj_num_dic[live]['max_op'][0]:8.5f} |"
-                to_print += f"{self.traj_num_dic[live]['length']:5.0f}"
+                to_print += f"{self.traj_data[live]['max_op'][0]:8.5f} |"
+                to_print += f"{self.traj_data[live]['length']:5.0f}"
                 logger.info(to_print)
             else:
                 to_print = f'p{live:02.0f} |\t'
@@ -758,13 +713,12 @@ class REPEX_state(object):
     def print_end(self):
         live_trajs = self.live_paths()
         stopping = self.cstep
-        traj_num_dic = self.traj_num_dic
         logger.info('--------------------------------------------------')
         logger.info(f'live trajs: {live_trajs} after {stopping} cycles')
         logger.info('==================================================')
         logger.info('xxx | 000        001     002     003     004     |')
         logger.info('--------------------------------------------------')
-        for key, item in traj_num_dic.items():
+        for key, item in self.traj_data.items():
             values = '\t'.join([f'{item0:02.2f}' if item0 != 0.0 else '----' for item0 in item['frac'][:-1]])
             logger.info(f'{key:03.0f} * {values} *')
 
@@ -785,14 +739,14 @@ class REPEX_state(object):
             # if path is new: number and save the path:
             if out_traj.path_number == None or md_items['status'] == 'ACC':
                 # move to accept:
-                ens_save_idx = self.traj_num_dic[pn_old]['ens_save_idx']
+                ens_save_idx = self.traj_data[pn_old]['ens_save_idx']
                 out_traj.path_number = traj_num
                 # if state.config['output']['store_paths']:
                 make_dirs(f'./trajs/{out_traj.path_number}')
                 data = {'path': out_traj,
                         'dir': os.path.join(os.getcwd(), self.config['simulation']['load_dir'])}
                 out_traj = self.pstore.output(self.cstep, data)
-                self.traj_num_dic[traj_num] = {'frac': np.zeros(self.n, dtype="float128"),
+                self.traj_data[traj_num] = {'frac': np.zeros(self.n, dtype="float128"),
                                                'max_op': out_traj.ordermax,
                                                'length': out_traj.length,
                                                'weights': out_traj.weights,
@@ -801,7 +755,7 @@ class REPEX_state(object):
                 traj_num += 1
                 if self.config['output'].get('delete_old', False) and pn_old > self.n - 2:
                     # if pn is larger than ensemble number ...
-                    for adress in self.traj_num_dic[pn_old]['adress']:
+                    for adress in self.traj_data[pn_old]['adress']:
                         ##### Make checker? so it doesn't do anything super yabai
                         os.remove(adress)
 
@@ -817,7 +771,7 @@ class REPEX_state(object):
             self.prob
         for idx, live in enumerate(self.live_paths()):
             if live not in locked_trajs:
-                self.traj_num_dic[live]['frac'] += self._last_prob[:-1][idx, :]
+                self.traj_data[live]['frac'] += self._last_prob[:-1][idx, :]
 
         # write succ data to infretis_data.txt
         if md_items['status'] == 'ACC':
@@ -833,21 +787,60 @@ class REPEX_state(object):
 
         return md_items
 
+    def load_paths(self, paths):
+
+        size = self.n-1
+        # we add all the i+ paths.
+        for i in range(size-1):
+            paths[i+1].weights= calc_cv_vector(paths[i+1],
+                                               self.config['simulation']['interfaces'],
+                                               self.mc_moves)
+            self.add_traj(ens=i, traj=paths[i+1], valid=paths[i+1].weights, count=False)
+            pnum = paths[i+1].path_number
+            frac = self.config['current']['frac'].get(str(pnum), np.zeros(size+1))
+            self.traj_data[pnum] = {'ens_save_idx': i + 1,
+                                  'max_op': paths[i+1].ordermax,
+                                  'length': paths[i+1].length,
+                                  'adress': paths[i+1].adress,
+                                  'weights': paths[i+1].weights,
+                                  'frac': np.array(frac, dtype='float128')}
+        # add minus path:
+        paths[0].weights = (1.,)
+        pnum = paths[0].path_number
+        self.add_traj(ens=-1, traj=paths[0], valid=paths[0].weights, count=False)
+        frac = self.config['current']['frac'].get(str(pnum), np.zeros(size+1))
+        self.traj_data[pnum]= {'ens_save_idx': 0,
+                             'max_op': paths[0].ordermax,
+                             'length': paths[0].length,
+                             'weights': paths[0].weights,
+                             'adress': paths[0].adress,
+                             'frac': np.array(frac, dtype='float128')}
+    def pattern(self):
+        if self.pattern_file:
+            if self.toinitiate == 0:
+                restarted = self.config['current'].get('restarted_from')
+                writemode = 'a' if restarted else 'w'
+                with open(state.pattern_file, writemode) as fp:
+                    fp.write(f"# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end",
+                             + f"[s]\tMD_end [s]\t Dask_end [s]",
+                             + f"\tEnsembles\t{state.start_time}\n")
+
+
 def write_to_pathens(state, pn_archive):
-    traj_num_dic = state.traj_num_dic
+    traj_data= state.traj_data
     size = state.n
 
     with open(state.data_file, 'a') as fp:
         for pn in pn_archive:
             string = ''
             string += f'\t{pn:3.0f}\t'
-            string += f"{traj_num_dic[pn]['length']:5.0f}" + '\t'
-            string += f"{traj_num_dic[pn]['max_op'][0]:8.5f}" + '\t'
+            string += f"{traj_data[pn]['length']:5.0f}" + '\t'
+            string += f"{traj_data[pn]['max_op'][0]:8.5f}" + '\t'
             frac = []
             weight = []
-            if len(traj_num_dic[pn]['weights']) == 1:
-                f0 = traj_num_dic[pn]['frac'][0]
-                w0 = traj_num_dic[pn]['weights'][0]
+            if len(traj_data[pn]['weights']) == 1:
+                f0 = traj_data[pn]['frac'][0]
+                w0 = traj_data[pn]['weights'][0]
                 frac.append('----' if f0 == 0.0 else str(f0))
                 if weight == 0:
                     print('tortoise', frac, weight)
@@ -858,9 +851,9 @@ def write_to_pathens(state, pn_archive):
             else:
                 frac.append('----')
                 weight.append(f'----')
-                for w0, f0 in zip(traj_num_dic[pn]['weights'][:-1],
-                                  traj_num_dic[pn]['frac'][1:-1]):
+                for w0, f0 in zip(traj_data[pn]['weights'][:-1],
+                                  traj_data[pn]['frac'][1:-1]):
                     frac.append('----' if f0 == 0.0 else str(f0))
                     weight.append('----' if f0 == 0.0 else str(w0))
             fp.write(string + '\t'.join(frac) + '\t' + '\t'.join(weight) + '\t\n')
-            traj_num_dic.pop(pn)
+            traj_data.pop(pn)

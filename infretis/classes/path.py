@@ -648,8 +648,7 @@ def _load_energies_for_path(path, dirname):
     except FileNotFoundError:
         pass
 
-
-def load_paths(config):
+def load_paths_from_disk(config):
     load_dir = config['simulation']['load_dir']
     paths = []
     for pn in config['current']['active']:
