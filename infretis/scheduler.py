@@ -1,7 +1,10 @@
+"""The main infretis loop."""
 from infretis.setup import setup_internal, setup_dask
 from infretis.core.tis import run_md
 
+
 def scheduler(config):
+    """Run infretis loop."""
     # setup repex, dask and futures
     md_items, state = setup_internal(config)
     client, futures = setup_dask(state)

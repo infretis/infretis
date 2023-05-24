@@ -1,3 +1,4 @@
+"""Defines the main REPEX class for path handling and permanent calc."""
 import numpy as np
 import os
 import time
@@ -6,7 +7,7 @@ import tomli_w
 import pickle
 import logging
 
-from infretis.classes.formats.formatter import get_log_formatter, PathStorage
+from infretis.classes.formats.formatter import PathStorage
 from infretis.core.core import write_ensemble_restart, make_dirs
 from infretis.core.tis import calc_cv_vector
 
@@ -14,7 +15,9 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
+
 class REPEX_state(object):
+    """Define the REPEX object."""
 
     # set numpy random seed when we initiate REPEX_state
     np.random.seed(0)
@@ -35,6 +38,7 @@ class REPEX_state(object):
     pstore = PathStorage()
 
     def __init__(self, config, minus=False):
+        """Initiate REPEX given confic dict from *toml file."""
         n = config['current']['size']
         self.config = config
         if minus:
@@ -57,69 +61,71 @@ class REPEX_state(object):
         # determines the number of initiation loops to do.
         self.toinitiate = self.workers
 
-    def pick_lock(self):
-        if not self.locked0:
-            return self.pick()
-        else:
-            self.locked0.pop()
-        logger.info('pick locked!')
-        enss = []
-        trajs = [] 
-        enss0, trajs0 = self.locked.pop()
-        for ens, traj in zip(enss0, trajs0):
-            enss.append(ens-self._offset)
-            traj_idx = self.live_paths().index(int(traj))
-            self.swap(traj_idx, ens)
-            self.lock(ens)
-            trajs.append(self._trajs[ens])
-        if self.printing():
-            self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
-        picked = {}
-        for ens_num, inp_traj in zip(enss, inp_trajs):
-            picked[ens_num] = {'ens': self.ensembles[ens_num],
-                               'traj': inp_traj,
-                               'pn_old': inp_traj.path_number,
-                               'engine': self.engines[self.ensembles[ens_num].engine]}
+    @property
+    def prob(self):
+        """Calculate the P matrix."""
+        if self._last_prob is None:
+            prob = self.inf_retis(abs(self.state), self._locks)
+            self._last_prob = prob.copy()
+        return self._last_prob
 
-        # return tuple(enss), tuple(trajs)
-        return picked
+    @property
+    def cstep(self):
+        """Retrive cstep from config dict."""
+        return self.config['current']['cstep']
 
-    def prep_md_items(self, md_items):
-        # pick/lock ens & path 
-        md_items.pop('picked', None)
-        if self.toinitiate >= 0:
-            # assign pin
-            md_items.update({'pin': self.cworker})
-            # pick lock
-            md_items['picked'] = self.pick_lock()
-        else:
-            md_items['picked'] = self.pick()
+    @cstep.setter
+    def cstep(self, val):
+        """Iterate += cstep from val."""
+        self.config['current']['cstep'] = val
 
-        # md_items['ens_nums'] = list(md_items['picked'].keys())
-        # md_items['pnum_old'] = []
-        # for key in md_items['picked'].keys():
-        #     md_items['pnum_old'].append(md_items['picked'][key]['traj'].path_number)
-        # md_items['pn_old'] = list(md_items['picked'])
+    @property
+    def tsteps(self):
+        """Retrive total steps from config dict."""
+        return self.config['simulation']['steps']
 
-        # allocate worker pin:
-        if self.config['dask'].get('wmdrun', False):
-            base = self.config['dask']['wmdrun'][md_items['pin']]
-            md_items['md_worker'] = base
+    @property
+    def screen(self):
+        """Retrive screen print frequency from config dict."""
+        return self.config['output']['screen']
 
-        # write pattern:
-        if self.config['output'].get('pattern', False) and self.toinitiate == -1:
-            self.write_pattern(md_items)
-        else:
-            md_items['md_start'] = time.time()
+    @property
+    def mc_moves(self):
+        """Retrive mc moves list from config dict."""
+        return self.config['simulation']['shooting_moves']
 
-        # empty / update md_items:
-        for key in ['moves', 'pnum_old', 'trial_len', 'trial_op', 'generated']:
-            md_items[key] = []
-        # md_items.update({'ens_nums': ens_nums})
+    @property
+    def pattern(self):
+        """Retrive pattern_file from config dict."""
+        return self.config['output'].get('pattern', False)
 
-        return md_items
+    @property
+    def pattern_file(self):
+        """Retrive pattern_file from config dict."""
+        return self.config['output']['pattern_file']
+
+    @property
+    def data_file(self):
+        """Retrive data_file from config dict."""
+        return self.config['output']['data_file']
+
+    @property
+    def interfaces(self):
+        """Retrive interfaces from config dict."""
+        return self.config['simulation']['interfaces']
+
+    @property
+    def locked(self):
+        """Retrive locked from config dict."""
+        return list(self.config['current'].get('locked', []))
+
+    @property
+    def workers(self):
+        """Retrive workers from config dict."""
+        return self.config['dask']['workers']
 
     def pick(self):
+        """Pick path and ens."""
         prob = self.prob.astype("float64").flatten()
         p = np.random.choice(self.n**2, p=np.nan_to_num(prob/np.sum(prob)))
         traj, ens = np.divmod(p, self.n)
@@ -135,7 +141,6 @@ class REPEX_state(object):
              (ens == self._offset and not self._locks[self._offset-1]) or
              (ens == self._offset-1 and not self._locks[self._offset])
         ) and np.random.random() < self.zeroswap):
-        # ) and 1):
             if ens == self._offset:
                 # ens = 0
                 other = self._offset - 1
@@ -164,32 +169,74 @@ class REPEX_state(object):
         return picked
 
     def pick_traj_ens(self, ens):
+        """Pick traj ens."""
         prob = self.prob.astype("float64")[:, ens].flatten()
         traj = np.random.choice(self.n, p=np.nan_to_num(prob/np.sum(prob)))
         self.swap(traj, ens)
         self.lock(ens)
         return self._trajs[ens]
 
-    def write_ensembles(self):
-        out = self.prob
-        out = out.T
-        out = np.nan_to_num(out)
-        for i, ens in enumerate(out):
-            if self._locks[i]:
-                continue
-            for j, weight in enumerate(ens):
-                if weight != 0:
-                    traj = self.state[j]
-                    path = self._trajs[j]
-                    if i in [self._offset, self._offset-1]:
-                        # ens 0 and -1
-                        length = getattr(path, 'length', None)
-                    else:
-                        length = None
-        #             self.result.update_ens(i-self._offset, tuple(traj), weight,
-        #                                    length=length)
-        #     self.result.update_run_prob(i-self._offset, n=self._n)
-        # self.result.update_run_total_prob()
+    def pick_lock(self):
+        """Pick path and ens.
+
+        In case a crash, we pick lock locked from previous simulation.
+        """
+        if not self.locked0:
+            return self.pick()
+        else:
+            self.locked0.pop()
+        logger.info('pick locked!')
+        enss = []
+        trajs = []
+        enss0, trajs0 = self.locked.pop()
+        for ens, traj in zip(enss0, trajs0):
+            enss.append(ens-self._offset)
+            traj_idx = self.live_paths().index(int(traj))
+            self.swap(traj_idx, ens)
+            self.lock(ens)
+            trajs.append(self._trajs[ens])
+        if self.printing():
+            self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
+        picked = {}
+        for ens_num, inp_traj in zip(enss, trajs):
+            picked[ens_num] = {'ens': self.ensembles[ens_num],
+                               'traj': inp_traj,
+                               'pn_old': inp_traj.path_number,
+                               'engine': self.engines[self.ensembles[ens_num].engine]}
+
+        # return tuple(enss), tuple(trajs)
+        return picked
+
+    def prep_md_items(self, md_items):
+        """Fill md_items with picked path and ens."""
+        # Remove previous picked
+        md_items.pop('picked', None)
+
+        # pick/lock ens & path
+        if self.toinitiate >= 0:
+            # assign pin
+            md_items.update({'pin': self.cworker})
+            # pick lock
+            md_items['picked'] = self.pick_lock()
+        else:
+            md_items['picked'] = self.pick()
+
+        # allocate worker pin:
+        if self.config['dask'].get('wmdrun', False):
+            base = self.config['dask']['wmdrun'][md_items['pin']]
+            md_items['md_worker'] = base
+
+        # write pattern:
+        if self.pattern and self.toinitiate == -1:
+            self.write_pattern(md_items)
+        else:
+            md_items['md_start'] = time.time()
+
+        # empty / update md_items:
+        for key in ['moves', 'pnum_old', 'trial_len', 'trial_op', 'generated']:
+            md_items[key] = []
+
+        return md_items
 
     def add_traj(self, ens, traj, valid, count=True, n=0):
 
@@ -207,8 +254,8 @@ class REPEX_state(object):
         self.state[ens, :] = valid
         self.unlock(ens)
 
-        if count:
-            self.write_ensembles()
+        # Calculate P matrix
+        self.prob
 
     def sort_trajstate(self):
         needstomove = [self.state[idx][:-1][idx] == 0 for idx in range(self.n-1)]
@@ -218,7 +265,7 @@ class REPEX_state(object):
             zero_idx = list(self.state[ens_idx][1:-1]).index(0) + 1
             avail = [1 if i != 0 else 0 for i in self.state[:, zero_idx]]
             avail = [j if self._trajs[i].path_number not in locks else 0 for i, j in enumerate(avail[:-1])]
-            trj_idx =  avail.index(1)
+            trj_idx = avail.index(1)
             self.swap(ens_idx, trj_idx)
             needstomove = [self.state[idx][:-1][idx] == 0 for idx in range(self.n-1)]
         self._last_prob = None
@@ -282,7 +329,7 @@ class REPEX_state(object):
             return False
 
         self.cstep += 1
-        
+
         if self.printing() and self.cstep <= self.tsteps:
             logger.info(f'------- infinity {self.cstep:5.0f} START ------- ')
             logger.info('date: ' + datetime.now().strftime(DATE_FORMAT))
@@ -301,60 +348,13 @@ class REPEX_state(object):
         if self.toinitiate < self.workers:
             if self.screen > 0:
                 logger.info(f'------- submit worker {self.cworker-1} END ------- ' +
-                             datetime.now().strftime(DATE_FORMAT) + '\n')
+                            datetime.now().strftime(DATE_FORMAT) + '\n')
         if self.toinitiate > 0:
             if self.screen > 0:
                 logger.info(f'------- submit worker {self.cworker} START ------- ' +
-                             datetime.now().strftime(DATE_FORMAT))
+                            datetime.now().strftime(DATE_FORMAT))
         self.toinitiate -= 1
         return self.toinitiate >= 0
-
-    @property
-    def prob(self):
-        if self._last_prob is None:
-            prob = self.inf_retis(abs(self.state), self._locks)
-            self._last_prob = prob.copy()
-        return self._last_prob
-
-    @property
-    def cstep(self):
-        return self.config['current']['cstep']
-    
-    @cstep.setter
-    def cstep(self, val):
-        self.config['current']['cstep'] = val
-
-    @property
-    def tsteps(self):
-        return self.config['simulation']['steps']
-
-    @property
-    def screen(self):
-        return self.config['output']['screen']
-
-    @property
-    def mc_moves(self):
-        return self.config['simulation']['shooting_moves']
-
-    @property
-    def pattern_file(self):
-        return self.config['output']['pattern_file']
-
-    @property
-    def data_file(self):
-        return self.config['output']['data_file']
-
-    @property
-    def interfaces(self):
-        return self.config['simulation']['interfaces']
-
-    @property
-    def locked(self):
-        return list(self.config['current'].get('locked', []))
-
-    @property
-    def workers(self):
-        return self.config['dask']['workers']
 
     def inf_retis(self, input_mat, locks):
         # Drop locked rows and columns
@@ -415,7 +415,7 @@ class REPEX_state(object):
                 # Catch only minus ens available
                 out[offset:] = self.quick_prob(sorted_non_locked[offset:])
         else:
-            #TODO DEBUG print
+            # TODO DEBUG print
             # print("DEBUG this should not happen outside of wirefencing")
             blocks = self.find_blocks(sorted_non_locked, offset=offset)
             for start, stop, direction in blocks:
@@ -439,7 +439,7 @@ class REPEX_state(object):
                     out[start:stop, cstart:cstop:direction] = temp
                 else:
                     self._random_count += 1
-                    #TODO DEBUG PRINTS
+                    # TODO DEBUG PRINTS
                     print(f"random #{self._random_count}, "
                           f"dims = {len(subarr)}")
                     # do n random parrallel samples
@@ -632,12 +632,12 @@ class REPEX_state(object):
         ensnums = '-'.join([str(i+1) for i in md_items['ens_nums']])
         with open(self.pattern_file, 'a') as fp:
             fp.write(f"{md_items['pin']}\t\t"
-                   + f"{md_items['md_start'] - self.start_time:8.8f}\t"
-                   + f"{md_items['wmd_start'] - self.start_time:8.8f}\t"
-                   + f"{md_items['wmd_end'] - self.start_time:8.8f}\t"
-                   + f"{md_items['md_end'] - self.start_time:8.8f}\t"
-                   + f"{md_start - self.start_time:8.8f}\t"
-                   + f"{ensnums}\n")
+                     + f"{md_items['md_start'] - self.start_time:8.8f}\t"
+                     + f"{md_items['wmd_start'] - self.start_time:8.8f}\t"
+                     + f"{md_items['wmd_end'] - self.start_time:8.8f}\t"
+                     + f"{md_items['md_end'] - self.start_time:8.8f}\t"
+                     + f"{md_start - self.start_time:8.8f}\t"
+                     + f"{ensnums}\n")
         md_items['md_start'] = md_start
 
     def printing(self):
@@ -650,7 +650,7 @@ class REPEX_state(object):
             move = self.mc_moves[ens_nums[0]+1]
         ens_p = ' '.join([f'00{ens_num+1}' for ens_num in ens_nums])
         pat_p = ' '.join(pat_nums)
-        logger.info(f'shooting {move} in ensembles: {ens_p} with paths:' \
+        logger.info(f'shooting {move} in ensembles: {ens_p} with paths:'
                     f' {pat_p} and worker: {pin}')
 
     def print_shooted(self, md_items, pn_news):
@@ -663,10 +663,10 @@ class REPEX_state(object):
             trial_ops = ' '.join([f'[{i[0]:4.4f} {i[1]:4.4f}]' for i in md_items['trial_op']])
             status = md_items['status']
             simtime = md_items['md_end'] - md_items['md_start']
-            logger.info(f"shooted {' '.join(moves)} in ensembles: {ens_nums}" \
+            logger.info(f"shooted {' '.join(moves)} in ensembles: {ens_nums}"
                         f' with paths: {pnum_old} -> {pnum_new}')
-            logger.info('with status:' \
-                        f' {status} len: {trial_lens} op: {trial_ops} and' \
+            logger.info('with status:'
+                        f' {status} len: {trial_lens} op: {trial_ops} and'
                         f' worker: {self.cworker} total time: {simtime:.2f}')
             self.print_state()
 
@@ -678,7 +678,7 @@ class REPEX_state(object):
 
     def print_state(self):
         last_prob = True
-        if type(self._last_prob) == type(None):
+        if isinstance(self._last_prob, type(None)):
             self.prob
             last_prob = False
 
@@ -737,7 +737,7 @@ class REPEX_state(object):
                 if str(pn_old) in lock[1]:
                     self.locked.pop(idx)
             # if path is new: number and save the path:
-            if out_traj.path_number == None or md_items['status'] == 'ACC':
+            if out_traj.path_number is None or md_items['status'] == 'ACC':
                 # move to accept:
                 ens_save_idx = self.traj_data[pn_old]['ens_save_idx']
                 out_traj.path_number = traj_num
@@ -747,16 +747,16 @@ class REPEX_state(object):
                         'dir': os.path.join(os.getcwd(), self.config['simulation']['load_dir'])}
                 out_traj = self.pstore.output(self.cstep, data)
                 self.traj_data[traj_num] = {'frac': np.zeros(self.n, dtype="float128"),
-                                               'max_op': out_traj.ordermax,
-                                               'length': out_traj.length,
-                                               'weights': out_traj.weights,
-                                               'adress': out_traj.adress,
-                                               'ens_save_idx': ens_save_idx}
+                                            'max_op': out_traj.ordermax,
+                                            'length': out_traj.length,
+                                            'weights': out_traj.weights,
+                                            'adress': out_traj.adress,
+                                            'ens_save_idx': ens_save_idx}
                 traj_num += 1
                 if self.config['output'].get('delete_old', False) and pn_old > self.n - 2:
                     # if pn is larger than ensemble number ...
                     for adress in self.traj_data[pn_old]['adress']:
-                        ##### Make checker? so it doesn't do anything super yabai
+                        # #### Make checker? so it doesn't do anything super yabai
                         os.remove(adress)
 
             if self.config['output']['store_paths']:
@@ -764,8 +764,8 @@ class REPEX_state(object):
 
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
-            
-        # record weights 
+
+        # record weights
         locked_trajs = self.locked_paths()
         if self._last_prob is None:
             self.prob
@@ -799,35 +799,36 @@ class REPEX_state(object):
             pnum = paths[i+1].path_number
             frac = self.config['current']['frac'].get(str(pnum), np.zeros(size+1))
             self.traj_data[pnum] = {'ens_save_idx': i + 1,
-                                  'max_op': paths[i+1].ordermax,
-                                  'length': paths[i+1].length,
-                                  'adress': paths[i+1].adress,
-                                  'weights': paths[i+1].weights,
-                                  'frac': np.array(frac, dtype='float128')}
+                                    'max_op': paths[i+1].ordermax,
+                                    'length': paths[i+1].length,
+                                    'adress': paths[i+1].adress,
+                                    'weights': paths[i+1].weights,
+                                    'frac': np.array(frac, dtype='float128')}
         # add minus path:
         paths[0].weights = (1.,)
         pnum = paths[0].path_number
         self.add_traj(ens=-1, traj=paths[0], valid=paths[0].weights, count=False)
         frac = self.config['current']['frac'].get(str(pnum), np.zeros(size+1))
         self.traj_data[pnum]= {'ens_save_idx': 0,
-                             'max_op': paths[0].ordermax,
-                             'length': paths[0].length,
-                             'weights': paths[0].weights,
-                             'adress': paths[0].adress,
-                             'frac': np.array(frac, dtype='float128')}
-    def pattern(self):
+                               'max_op': paths[0].ordermax,
+                               'length': paths[0].length,
+                               'weights': paths[0].weights,
+                               'adress': paths[0].adress,
+                               'frac': np.array(frac, dtype='float128')}
+
+    def pattern0(self):
         if self.pattern_file:
             if self.toinitiate == 0:
                 restarted = self.config['current'].get('restarted_from')
                 writemode = 'a' if restarted else 'w'
-                with open(state.pattern_file, writemode) as fp:
-                    fp.write(f"# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end",
-                             + f"[s]\tMD_end [s]\t Dask_end [s]",
-                             + f"\tEnsembles\t{state.start_time}\n")
+                with open(self.pattern_file, writemode) as fp:
+                    fp.write("# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end",
+                             + "[s]\tMD_end [s]\t Dask_end [s]",
+                             + f"\tEnsembles\t{self.start_time}\n")
 
 
 def write_to_pathens(state, pn_archive):
-    traj_data= state.traj_data
+    traj_data = state.traj_data
     size = state.n
 
     with open(state.data_file, 'a') as fp:
@@ -850,7 +851,7 @@ def write_to_pathens(state, pn_archive):
                 weight += ['----']*(size-2)
             else:
                 frac.append('----')
-                weight.append(f'----')
+                weight.append('----')
                 for w0, f0 in zip(traj_data[pn]['weights'][:-1],
                                   traj_data[pn]['frac'][1:-1]):
                     frac.append('----' if f0 == 0.0 else str(f0))
