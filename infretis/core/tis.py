@@ -17,52 +17,15 @@ def log_mdlogs(inp):
                     logger.info(log + ' '+ line.rstrip().split()[1] + ' ns/day')
 
 def run_md(md_items):
+    """run md function."""
+    # record start time
     md_items['wmd_start'] = time.time()
-    md_items['ens_nums'] = list(md_items['picked'].keys())
-    md_items['pnum_old'] = []
-    for key in md_items['picked'].keys():
-        md_items['pnum_old'].append(md_items['picked'][key]['traj'].path_number)
-    # store info before md run
-    picked = md_items['picked']
-    # ..
-    # ..
-
-    # set the worker hw
-    # ens_sets = []
-    picked2 = {}
-    if 'md_worker' in md_items:
-        base = md_items['md_worker']
-        mdrun = base + ' -s {} -deffnm {} -c {}'
-        mdrun_c = base + ' -s {} -cpi {} -append -deffnm {} -c {}'
-        # set the worker folder
-        w_folder = os.path.join(os.getcwd(), f"worker{md_items['pin']}")
-        make_dirs(w_folder)
-        for ens in picked.keys():
-            picked2[ens] = {}
-            ens_set = {}
-            picked[ens]['engine'].mdrun = mdrun
-            picked[ens]['engine'].mdrun_c = mdrun_c
-            picked[ens]['engine'].exe_dir = w_folder
-            picked[ens]['engine'].clean_up()
-            # ens_set['mc_move'] = picked[ens]['ens'].mc_move
-            # ens_set['interfaces'] = picked[ens]['ens'].interfaces
-            # ens_set['rgen'] = picked[ens]['ens'].rgen
-            # ens_set['start_cond'] = picked[ens]['ens'].start_cond
-            # ens_set['ens_name'] = picked[ens]['ens_name']
-            # ens_set['maxlength'] =  100000
-            # picked2[ens]['ens'] = ens_set
-            # picked2[ens]['engine'] = picked[ens]['engine']
-            # picked2[ens]['traj'] = picked[ens]['traj']
-            # ens_set.append(ens_set)
 
     # perform the hw move:
-    # accept, trials, status = select_shoot(picked)
-
-    # print('pickle', picked)
-    # print('pickle', picked2)
-    # exit('hoho')
+    picked = md_items['picked']
     accept, trials, status = select_shoot(picked)
 
+    # Record data
     for trial, ens_num in zip(trials, picked.keys()):
         log_mdlogs(picked[ens_num]['engine'].exe_dir)
         md_items['moves'].append(md_items['mc_moves'][ens_num+1])
@@ -75,9 +38,7 @@ def run_md(md_items):
                                            md_items['interfaces'],
                                            md_items['mc_moves'],
                                            minus=minus)
-
             picked[ens_num]['traj'] = trial
-            # md_items['out_trajs'].append(trial)
 
     md_items.update({'status': status,
                      'wmd_end': time.time()})

@@ -216,17 +216,30 @@ class REPEX_state(object):
 
         # pick/lock ens & path
         if self.toinitiate >= 0:
+
             # assign pin
             md_items.update({'pin': self.cworker})
+
             # pick lock
             md_items['picked'] = self.pick_lock()
+
+            # set the worker folder
+            w_folder = os.path.join(os.getcwd(), f"worker{md_items['pin']}")
+            make_dirs(w_folder)
+            md_items['w_folder'] = w_folder
         else:
             md_items['picked'] = self.pick()
 
+        # Record ens_nums
+        md_items['ens_nums'] = list(md_items['picked'].keys())
+
         # allocate worker pin:
-        if self.config['dask'].get('wmdrun', False):
-            base = self.config['dask']['wmdrun'][md_items['pin']]
-            md_items['md_worker'] = base
+        for ens_num in md_items['ens_nums']:
+            if self.config['dask'].get('wmdrun', False):
+                md_items['picked'][ens_num]['engine'].set_mdrun(self.config,
+                                                                md_items)
+            # clean up
+            md_items['picked'][ens_num]['engine'].clean_up()
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:
@@ -234,8 +247,14 @@ class REPEX_state(object):
         else:
             md_items['md_start'] = time.time()
 
+        # record pnum_old
+        md_items['pnum_old'] = []
+        for key in md_items['picked'].keys():
+            pnum_old = md_items['picked'][key]['traj'].path_number
+            md_items['pnum_old'].append(pnum_old)
+
         # empty / update md_items:
-        for key in ['moves', 'pnum_old', 'trial_len', 'trial_op', 'generated']:
+        for key in ['moves', 'trial_len', 'trial_op', 'generated']:
             md_items[key] = []
 
         return md_items

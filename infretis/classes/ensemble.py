@@ -1,12 +1,9 @@
-import collections
-import os
-import shutil
-import logging
+"""Creates the ensemble dicts."""
 from infretis.classes.rgen import create_random_generator
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
+
 
 def create_ensembles(config):
+    """Create all the ensemble dicts from the *toml config dict."""
     intfs = config['simulation']['interfaces']
     ens_intfs = []
 
@@ -23,7 +20,8 @@ def create_ensembles(config):
     # create all path ensembles
     pensembles = {}
     for i, ens_intf in enumerate(ens_intfs):
-        rgen_ens = create_random_generator()   ##############RESTART SEED FROM RESTART...
+        # #############RESTART SEED FROM RESTART...
+        rgen_ens = create_random_generator()
         pensembles[i] = {'interfaces': tuple(ens_intf),
                          'tis_set': config['simulation']['tis_set'],
                          'mc_move': config['simulation']['shooting_moves'][i],

@@ -168,6 +168,11 @@ class EngineBase(metaclass=ABCMeta):
         """
         return
 
+    @abstractmethod
+    def set_mdrun(self, config, md_items):
+        """Sets the worker terminal command to be run"""
+        return
+
     def calculate_order(self, system, xyz=None, vel=None, box=None):
         """
         Calculate order parameter from configuration in a file.
