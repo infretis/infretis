@@ -1,10 +1,10 @@
-from infretis.classes.engines.gromacs import GromacsEngine
-from infretis.classes.orderparameter import create_orderparameter
-from infretis.core.core import generic_factory, create_external
-
+"""Engine factory."""
 import logging
+from infretis.classes.engines.gromacs import GromacsEngine
+from infretis.core.core import generic_factory, create_external
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
 
 def create_engine(settings):
     """Create an engine from settings.
@@ -25,11 +25,15 @@ def create_engine(settings):
     }
 
     if settings['engine']['class'].lower() not in engine_map:
-        return create_external(settings['engine'], 'engine', ['integration_step'])
+        return create_external(settings['engine'],
+                               'engine',
+                               ['integration_step'])
     engine = generic_factory(settings['engine'], engine_map, name='engine')
     return engine
 
+
 def create_engines(config):
+    """Create engines."""
     if config.get('engine', {}).get('obj', False):
         return config['engine']['obj']
 
@@ -38,6 +42,7 @@ def create_engines(config):
     logtxt = f'Created engine "{engine}" from settings.'
     logger.info(logtxt)
     return {config['engine']['engine']: engine}
+
 
 def check_engine(settings):
     """Check the engine settings.

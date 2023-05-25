@@ -1,5 +1,4 @@
-from infretis.classes.formats.formatter import FileIO
-
+"""Base engine class."""
 from abc import ABCMeta, abstractmethod
 import re
 import subprocess
@@ -7,12 +6,13 @@ import os
 import shlex
 import shutil
 import logging
+from infretis.classes.formats.formatter import FileIO
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
+
 class EngineBase(metaclass=ABCMeta):
-    """
-    Abstract base class for engines.
+    """Abstract base class for engines.
 
     The engines perform molecular dynamics (or Monte Carlo) and they
     are assumed to act on a system. Typically they will integrate
@@ -31,6 +31,7 @@ class EngineBase(metaclass=ABCMeta):
         calculated by the engine.
 
     """
+
     needs_order = True
     engine_type = None
 
@@ -59,7 +60,7 @@ class EngineBase(metaclass=ABCMeta):
                 logger.warning(('"Exe dir" for "%s" is set to "%s" which does'
                                 ' not exist!'), self.description, exe_dir)
 
-    def integration_step(self, ensemble):
+    def integration_step(self):
         """
         Perform a single time step of the integration.
 
@@ -217,7 +218,6 @@ class EngineBase(metaclass=ABCMeta):
             box, _ = read_cp2k_box(ensemble['engine'].input_files['template'])
 
         # system.update_box(box)
-        # print(system.pos)
         system.box = box
         return self.order_function.calculate(system)
 
@@ -307,8 +307,6 @@ class EngineBase(metaclass=ABCMeta):
         files = [item.name for item in os.scandir(dirname) if item.is_file()]
         self._remove_files(dirname, files)
 
-    # def propagate(self, path, ensemble, reverse=False):
-    # def propagate(self, path, ensemble, system, reverse=False):
     def propagate(self, path, ens_set, system, reverse=False):
         """
         Propagate the equations of motion with the external code.
@@ -370,7 +368,6 @@ class EngineBase(metaclass=ABCMeta):
         # initial_state = ensemble['system'].copy()
         # system = ensemble['system']
 
-        initial_state = system.copy()
         initial_file = self.dump_frame(system, deffnm=prefix + '_conf')
         msg_file.write(f'# Initial file: {initial_file}')
         logger.debug('Initial state: %s', system)
@@ -394,7 +391,7 @@ class EngineBase(metaclass=ABCMeta):
         success, status = self._propagate_from(
             name,
             path,
-            system, 
+            system,
             ens_set,
             msg_file,
             reverse=reverse
@@ -458,7 +455,7 @@ class EngineBase(metaclass=ABCMeta):
         system_copy.vel = snapshot.get('vel', None)
         system_copy.vpot = snapshot.get('vpot', None)
         system_copy.ekin = snapshot.get('ekin', None)
-        for external in ('config', 'vel_rev'): #, 'top'
+        for external in ('config', 'vel_rev'):
             if hasattr(system_copy, external) and external in snapshot:
                 setattr(system_copy, external, snapshot[external])
         return system_copy
@@ -704,6 +701,7 @@ class EngineBase(metaclass=ABCMeta):
         """
         for i in files:
             self._removefile(os.path.join(dirname, i))
+
     def __eq__(self, other):
         """Check if two engines are equal."""
         if self.__class__ != other.__class__:
@@ -782,6 +780,7 @@ class EngineBase(metaclass=ABCMeta):
     def __str__(self):
         """Return the string description of the integrator."""
         return self.description
+
 
 def counter():
     """Return how many times this function is called."""

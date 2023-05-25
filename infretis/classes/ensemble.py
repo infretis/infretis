@@ -1,8 +1,8 @@
-from infretis.classes.rgen import create_random_generator
 import collections
 import os
 import shutil
 import logging
+from infretis.classes.rgen import create_random_generator
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -161,7 +161,7 @@ def create_ensembles(config):
 
     # set interfaces and set detect for [1+], [2+], ...
     reactant, product = intfs[0], intfs[-1]
-    for i, i_ens in enumerate(range(2, len(intfs))):
+    for i in range(len(intfs)-2):
         middle = intfs[i + 1]
         ens_intfs.append([reactant, middle, product])
 

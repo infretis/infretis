@@ -1,11 +1,11 @@
-from infretis.core.core import generic_factory, create_external
-
-from abc import ABCMeta, abstractmethod
-import numpy as np
-import os
+"""Define the OrderParameter class."""
+from abc import abstractmethod
 import logging
+import numpy as np
+from infretis.core.core import generic_factory, create_external
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
 
 class OrderParameter:
     """Base class for order parameters.
@@ -82,6 +82,7 @@ class OrderParameter:
     def restart_info(self):
         """Save any mutatable parameters for the restart."""
 
+
 class Distancevel(OrderParameter):
     """A rate of change of the distance order parameter.
 
@@ -147,6 +148,7 @@ class Distancevel(OrderParameter):
         delta_v = particles.vel[self.index[1]] - particles.vel[self.index[0]]
         cv1 = np.dot(delta, delta_v) / lamb
         return [cv1]
+
 
 class Position(OrderParameter):
     """A positional order parameter.
@@ -215,6 +217,7 @@ class Position(OrderParameter):
             lamb = system.box.pbc_coordinate_dim(lamb, self.dim)
         return [lamb]
 
+
 class Distance(OrderParameter):
     """A distance order parameter.
 
@@ -270,12 +273,12 @@ class Distance(OrderParameter):
             The distance order parameter.
 
         """
-        #particles = system.particles
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic:
             delta = system.box.pbc_dist_coordinate(delta)
         lamb = np.sqrt(np.dot(delta, delta))
         return [lamb]
+
 
 class Velocity(OrderParameter):
     """Initialise the order parameter.
@@ -330,9 +333,12 @@ class Velocity(OrderParameter):
         """
         return [system.particles.vel[self.index][self.dim]]
 
+
 def create_orderparameters(engines, settings):
+    """Create orderparameters."""
     for engine in engines.keys():
         engines[engine].order_function = create_orderparameter(settings)
+
 
 def create_orderparameter(settings):
     """Create order parameters from settings.
@@ -348,12 +354,6 @@ def create_orderparameter(settings):
         This object represents the order parameter.
 
     """
-    # main_order = create_external(
-    #     settings,
-    #     'orderparameter',
-    #     order_factory,
-    #     ['calculate'],
-    # )
     order_map = {
         'orderparameter': {
             'cls': OrderParameter
@@ -377,32 +377,17 @@ def create_orderparameter(settings):
                                'orderparameter',
                                ['calculate'])
 
-    main_order = generic_factory(settings['orderparameter'], order_map, name='engine')
+    main_order = generic_factory(settings['orderparameter'],
+                                 order_map,
+                                 name='engine')
 
     if main_order is None:
         logger.info('No order parameter created')
         print('omg..')
         return None
     logger.info('Created main order parameter:\n%s', main_order)
+    return main_order
 
-    extra_cv = []
-    order_settings = settings.get('collective-variable', [])
-    for order_setting in order_settings:
-        order = create_external(
-            settings,
-            'collective-variable',
-            order_factory,
-            ['calculate'],
-            key_settings=order_setting
-        )
-        logger.info('Created additional collective variable:\n%s', order)
-        extra_cv.append(order)
-    if not extra_cv:
-        return main_order
-    all_order = [main_order] + extra_cv
-    order = CompositeOrderParameter(order_parameters=all_order)
-    logger.info('Composite order parameter:\n%s', order)
-    return order
 
 def order_factory(settings):
     """Create order parameters according to the given settings.
@@ -439,6 +424,7 @@ def order_factory(settings):
         },
     }
     return generic_factory(settings, factory_map, name='orderparameter')
+
 
 def _verify_pair(index):
     """Check that the given index contains a pair."""
