@@ -162,10 +162,12 @@ class REPEX_state(object):
 
         picked = {}
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
-            picked[ens_num] = {'ens': self.ensembles[ens_num+1],
+            ens_pick = self.ensembles[ens_num+1]
+            picked[ens_num] = {'ens': ens_pick,
                                'traj': inp_traj,
                                'pn_old': inp_traj.path_number,
-                               'engine': self.engines[self.ensembles[ens_num+1].engine]}
+                               'engine': self.engines[ens_pick['eng_name']]}
+                               # 'ens_name': self.ensembles[ens_num+1].ensemble_name_simple}
         return picked
 
     def pick_traj_ens(self, ens):
@@ -766,7 +768,6 @@ class REPEX_state(object):
                 # move to accept:
                 ens_save_idx = self.traj_data[pn_old]['ens_save_idx']
                 out_traj.path_number = traj_num
-                # if state.config['output']['store_paths']:
                 make_dirs(f'./trajs/{out_traj.path_number}')
                 data = {'path': out_traj,
                         'dir': os.path.join(os.getcwd(), self.config['simulation']['load_dir'])}
@@ -784,7 +785,6 @@ class REPEX_state(object):
                         # #### Make checker? so it doesn't do anything super yabai
                         os.remove(adress)
 
-            if self.config['output']['store_paths']:
                 write_ensemble_restart(self.ensembles[ens_num+1], self.config, save=f'e{ens_num+1}')
 
             pn_news.append(out_traj.path_number)

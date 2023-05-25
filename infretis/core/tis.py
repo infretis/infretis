@@ -44,19 +44,24 @@ def run_md(md_items):
             picked[ens]['engine'].mdrun_c = mdrun_c
             picked[ens]['engine'].exe_dir = w_folder
             picked[ens]['engine'].clean_up()
-            ens_set['mc_move'] = picked[ens]['ens'].mc_move
-            ens_set['interfaces'] = picked[ens]['ens'].interfaces
-            ens_set['rgen'] = picked[ens]['ens'].rgen
-            ens_set['start_cond'] = picked[ens]['ens'].start_cond
-            ens_set['maxlength'] =  100000
-            picked2[ens]['ens'] = ens_set
-            picked2[ens]['engine'] = picked[ens]['engine']
-            picked2[ens]['traj'] = picked[ens]['traj']
+            # ens_set['mc_move'] = picked[ens]['ens'].mc_move
+            # ens_set['interfaces'] = picked[ens]['ens'].interfaces
+            # ens_set['rgen'] = picked[ens]['ens'].rgen
+            # ens_set['start_cond'] = picked[ens]['ens'].start_cond
+            # ens_set['ens_name'] = picked[ens]['ens_name']
+            # ens_set['maxlength'] =  100000
+            # picked2[ens]['ens'] = ens_set
+            # picked2[ens]['engine'] = picked[ens]['engine']
+            # picked2[ens]['traj'] = picked[ens]['traj']
             # ens_set.append(ens_set)
 
     # perform the hw move:
     # accept, trials, status = select_shoot(picked)
-    accept, trials, status = select_shoot(picked2)
+
+    # print('pickle', picked)
+    # print('pickle', picked2)
+    # exit('hoho')
+    accept, trials, status = select_shoot(picked)
 
     for trial, ens_num in zip(trials, picked.keys()):
         log_mdlogs(picked[ens_num]['engine'].exe_dir)
@@ -293,7 +298,8 @@ def select_shoot(picked, start_cond=('L',)):
     if len(picked) == 1:
         pens = next(iter(picked.values()))
         ens_set, path, engine = (pens[i] for i in ['ens', 'traj', 'engine'])
-        move = ens_set['mc_move']['move']
+        print('bananas', ens_set)
+        move = ens_set['mc_move']
         start_cond = ens_set['start_cond']
         accept, new_path, status = sh_moves[move](ens_set, path, engine,
                                                   start_cond=start_cond)
@@ -476,7 +482,7 @@ def wire_fencing(ens_set, trial_path, engine, shooting_point=None, start_cond=('
     # wf_int = [ensemble['interfaces'][1], ensemble['interfaces'][1],
     #           tis_settings.get('interface_cap', ensemble['interfaces'][2])]
     old_path = trial_path.copy()
-    intf_cap = ens_set['mc_move'].get('interface_cap', ens_set['interfaces'][2])
+    intf_cap = ens_set.get('interface_cap', ens_set['interfaces'][2])
     wf_int = list([ens_set['interfaces'][1]]*2) + [intf_cap]
     n_frames, new_segment = wirefence_weight_and_pick(trial_path, wf_int[0],
                                                       wf_int[2],
@@ -496,10 +502,12 @@ def wire_fencing(ens_set, trial_path, engine, shooting_point=None, start_cond=('
     #### sub_settings['allowmaxlength'] = True
 
     sub_ens = {'interfaces': wf_int, 'rgen': ens_set['rgen'],
-            'allowmaxlength': True, 'maxlength': 100000}
+               'allowmaxlength': True, 'maxlength': 100000,
+               'ens_name': ens_set['ens_name']}
 
     succ_seg = 0
-    for i in range(ens_set['mc_move']['n_jumps']):
+    print('gori', ens_set)
+    for i in range(ens_set['tis_set']['n_jumps']):
         logger.debug('Trying a new web with Wire Fencing, jump %i', i)
         # Select the shooting point:
 
@@ -596,13 +604,13 @@ def ss_wt_wf_acceptance(trial_path, ens_set, engine, path_old, start_cond='L'):
     """
     # intf = [i for i in ensemble['interfaces']]
     intf = list(ens_set['interfaces'])
-    move = ens_set['mc_move']['move']
+    move = ens_set['mc_move']
 
-    if move == 'wt' or not ens_set['mc_move'].get('high_accept', False):
+    if move == 'wt' or not ens_set['tis_set'].get('high_accept', False):
         trial_path.weight = 1.
     else:
         if move == 'wf':
-            intf[2] = ens_set['mc_move'].get('interface_cap', intf[2])
+            intf[2] = ens_set['tis_set'].get('interface_cap', intf[2])
         trial_path.weight = compute_weight(trial_path, intf, move)
         if start_cond != trial_path.get_start_point(intf[0], intf[2]):
             ####   
@@ -810,10 +818,10 @@ def ss_wt_wf_metropolis_acc(path_old, path_new, ens_set, start_cond='L'):
     """
     interfaces = ens_set['interfaces']
     # path_old = ensemble['path_ensemble'].last_path
-    move = ens_set['mc_move']['move']
-    high_accept = ens_set['mc_move'].get('high_accept', False)
+    move = ens_set['mc_move']
+    high_accept = ens_set['tis_set'].get('high_accept', False)
     if move == 'wt':
-        sour_int = tis_settings['interface_sour']
+        sour_int = tis_set['interface_sour']
         cr_old = segments_counter(path_old, sour_int, interfaces[1])
         cr_new = segments_counter(path_new, sour_int, interfaces[1])
         if ens_set['rgen'].rand() >= min(1.0, cr_old / cr_new):
@@ -829,7 +837,7 @@ def ss_wt_wf_metropolis_acc(path_old, path_new, ens_set, start_cond='L'):
                     path_new.status = 'SSA'
                     return False
             elif move == 'wf':
-                wf_cap = ens_set['mc_move'].get('interface_cap', interfaces[2])
+                wf_cap = ens_set['tis_set'].get('interface_cap', interfaces[2])
                 cr_old, _ = wirefence_weight_and_pick(path_old, interfaces[1],
                                                       wf_cap)
                 cr_new, _ = wirefence_weight_and_pick(path_new, interfaces[1],
@@ -979,7 +987,7 @@ def extender(source_seg, engine, ens_set, start_cond=('R', 'L')):
 
     # Extender
     if interfaces[0] <= sh_pt.order[0] < interfaces[-1]:
-        back_segment = source_seg.empty_path(maxlen=ens_set['maxlength'])
+        back_segment = source_seg.empty_path(maxlen=ens_set['tis_set']['maxlength'])
         logger.debug('Trying to extend backwards')
         source_seg_copy = source_seg.copy()
 
@@ -989,26 +997,24 @@ def extender(source_seg, engine, ens_set, start_cond=('R', 'L')):
                 return False, source_seg_copy, source_seg_copy.status
 
         trial_path = paste_paths(back_segment, source_seg, overlap=True,
-                                 maxlen=ens_set['maxlength'])
+                                 maxlen=ens_set['tis_set']['maxlength'])
     else:
         trial_path = source_seg.copy()
 
     sh_pt = trial_path.phasepoints[-1].copy()
     if interfaces[0] <= sh_pt.order[0] < interfaces[-1]:
-        forth_segment = source_seg.empty_path(maxlen=ens_set['maxlength'])
+        forth_segment = source_seg.empty_path(maxlen=ens_set['tis_set']['maxlength'])
         engine.propagate(forth_segment, ens_set, sh_pt)
 
         trial_path.phasepoints = trial_path.phasepoints[:-1] + \
             forth_segment.phasepoints
 
-    if trial_path.length >= ens_set['maxlength']:
+    if trial_path.length >= ens_set['tis_set']['maxlength']:
         trial_path.status = 'FTX'  # exceeds "memory".
         return False, trial_path, trial_path.status
     trial_path.status = 'ACC'
     return True, trial_path, trial_path.status
 
-# def shoot_backwards(path_back, trial_path, ensemble,
-#                     tis_settings, start_cond):
 def shoot_backwards(path_back, trial_path, system,
                     ens_set, engine, start_cond):
     """Shoot in the backward time direction.
@@ -1394,12 +1400,12 @@ def retis_swap_zero(picked):
 
     # ens_moves = [settings['ensemble'][i]['tis'].get('shooting_move', 'sh')
     #              for i in [0, 1]]
-    ens_moves = [ens_set0['mc_move']['move'], ens_set1['mc_move']['move']]
+    ens_moves = [ens_set0['mc_move'], ens_set1['mc_move']]
     intf_w = [list(ens_set0['interfaces']), list(ens_set1['interfaces'])]
 
     # intf_w = [list(i) for i in (path_ensemble0.interfaces,
     #                             path_ensemble1.interfaces)]
-    for i, mc_move in enumerate([ens_set0['mc_move'], ens_set1['mc_move']]):
+    for i, mc_move in enumerate([ens_set0['tis_set'], ens_set1['tis_set']]):
         intf_w[i][2] = mc_move.get('interface_cap', intf_w[i][2])
 
     # for i, j in enumerate([settings['ensemble'][k] for k in (0, 1)]):
@@ -1509,23 +1515,16 @@ def retis_swap_zero(picked):
     status = 'ACC' if accept else (path0.status if path0.status != 'ACC' else
                                    path1.status)
     # High Acceptance swap is required when Wire Fencing are used
-    # if accept and settings['tis'].get('high_accept', False):
-    # if accept and ensemble1.mc_move.get('high_accept', False):
-    if accept and ens_set1['mc_move'].get('high_accept', False):
+    if accept and ens_set1['tis_set'].get('high_accept', False):
         if 'wf' in ens_moves:
-            # accept, status = high_acc_swap([path1, path_ensemble1.last_path],
             accept, status = high_acc_swap([path1, path_old1],
-                                           # ensembles[0]['rgen'],
-                                           # ensembles.rgen,
                                            ens_set0['rgen'],
                                            intf_w[0],
                                            intf_w[1],
                                            ens_moves)
 
-    # for i, path, mc_move, flag in ((0, path0, ensemble0.mc_move, 's+'),
-    #                                (1, path1, ensemble1.mc_move, 's-')):
-    for i, path, mc_move, flag in ((0, path0, ens_set0['mc_move'], 's+'),
-                                   (1, path1, ens_set1['mc_move'], 's-')):
+    for i, path, tis_set, flag in ((0, path0, ens_set0['tis_set'], 's+'),
+                                   (1, path1, ens_set1['tis_set'], 's-')):
         if not accept and path.status == 'ACC':
             path.status = status
 
@@ -1535,7 +1534,7 @@ def retis_swap_zero(picked):
         # ens_set = settings['ensemble'][i]
         move = ens_moves[i]
         path.weight = compute_weight(path, intf_w[i], move)\
-            if (mc_move.get('high_accept', False) and
+            if (tis_set.get('high_accept', False) and
                 move in ('wf', 'ss')) else 1
 
     return accept, (path0, path1), status
