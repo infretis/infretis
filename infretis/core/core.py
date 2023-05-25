@@ -375,7 +375,7 @@ def write_ensemble_restart(ensemble, config, save):
 
     """
     info = {}
-    info['rgen'] = ensemble.rgen.get_state()
+    info['rgen'] = ensemble['rgen'].get_state()
 
     filename = os.path.join(
         os.getcwd(),

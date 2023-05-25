@@ -346,7 +346,9 @@ class EngineBase(metaclass=ABCMeta):
         """
         logger.debug('Running propagate with: "%s"', self.description)
 
-        prefix = str(counter())
+        # prefix = str(counter())
+        print('homework', ens_set)
+        prefix = ens_set['ens_name'] + '_' + str(counter())
         # if ensemble.get('path_ensemble', False):
         #     prefix = ensemble['path_ensemble'].ensemble_name_simple + '_' \
         #              + prefix
