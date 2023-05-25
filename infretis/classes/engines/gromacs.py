@@ -711,6 +711,13 @@ class GromacsEngine(EngineBase):
         self._remove_files(self.exe_dir, remove)
         return confout, energy
 
+    def set_mdrun(self, config, md_items):
+        """Sets the worker terminal command to be run"""
+        base = config['dask']['wmdrun'][md_items['pin']]
+        self.mdrun = base + ' -s {} -deffnm {} -c {}'
+        self.mdrun_c = base + ' -s {} -cpi {} -append -deffnm {} -c {}'
+        self.exe_dir = md_items['w_folder']
+
     def _read_configuration(self, filename):
         """Read output from GROMACS .g96/gro files.
 
