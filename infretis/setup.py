@@ -99,7 +99,7 @@ def setup_config(inp='infretis.toml', re_inp='restart.toml'):
         curr = config['current']
 
         # if cstep and steps are equal, we stop here.
-        if curr.get('cstep') == curr.get('restarted_from') != None:
+        if curr.get('cstep') == curr.get('restarted_from', -1):
             return None
 
         # set 'restarted_from'

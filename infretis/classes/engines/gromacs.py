@@ -1,6 +1,5 @@
-from infretis.classes.engines.enginebase import EngineBase
+"""Gromacs engine."""
 
-import numpy as np
 from time import sleep
 import signal
 import subprocess
@@ -8,6 +7,8 @@ import os
 import shlex
 import logging
 import struct
+from infretis.classes.engines.enginebase import EngineBase
+import numpy as np
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -32,6 +33,7 @@ _HEAD_ITEMS = ('ir_size', 'e_size', 'box_size', 'vir_size', 'pres_size',
 TRR_HEAD_SIZE = 1000
 TRR_DATA_ITEMS = ('box_size', 'vir_size', 'pres_size',
                   'x_size', 'v_size', 'f_size')
+
 
 class GromacsEngine(EngineBase):
     """
@@ -497,7 +499,6 @@ class GromacsEngine(EngineBase):
         self._removefile(xvg_file)
         return energy
 
-    # def _propagate_from(self, name, path, system, ensemble, msg_file, reverse=False):
     def _propagate_from(self, name, path, system, ens_set, msg_file, reverse=False):
         """
         Propagate with GROMACS from the current system configuration.
@@ -575,7 +576,7 @@ class GromacsEngine(EngineBase):
         # Remove some of these files if present (e.g. left over from a
         # crashed simulation). This is so that GromacsRunner will not
         # start reading a .trr left from a previous simulation.
-        
+
         # if right == -0.26:
         #     print('pipipipi')
 
@@ -600,8 +601,8 @@ class GromacsEngine(EngineBase):
                 system.vel = data.get('v', None)
                 if system.vel is not None and reverse:
                     system.vel *= -1
-                ###### length = box_matrix_to_list(data['box'])
-                ###### system.update_box(length)
+                # ##### length = box_matrix_to_list(data['box'])
+                # ##### system.update_box(length)
                 order = order_function.calculate(system)
                 msg_file.write(f'{i} {" ".join([str(j) for j in order])}')
                 snapshot = {'order': order,
@@ -834,99 +835,6 @@ class GromacsEngine(EngineBase):
             dek = kin_new - kin_old
         return dek, kin_new
 
-    def integrate(self, ensemble, steps, thermo='full'):
-        """
-        Perform several integration steps.
-
-        This method will perform several integration steps using
-        GROMACS. It will also calculate order parameter(s) and energy
-        terms if requested.
-
-        Parameters
-        ----------
-        ensemble: dict
-            it contains:
-
-            * `system` : object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-
-        steps : integer
-            The number of steps we are going to perform. Note that we
-            do not integrate on the first step (e.g. step 0) but we do
-            obtain the other properties. This is to output the starting
-            configuration.
-        thermo : string, optional
-            Select the thermodynamic properties we are to obtain.
-
-        Yields
-        ------
-        results : dict
-            The results from a MD step. This contains the state of the system
-            and order parameter(s) and energies (if calculated).
-
-        """
-        logger.debug('Integrating with GROMACS')
-        # Dump the initial config:
-        system = ensemble['system']
-        order_function = ensemble.get('order_function')
-        initial_file = self.dump_frame(system)
-        self.energy_terms = self.select_energy_terms(thermo)
-        if order_function:
-            order = self.calculate_order(ensemble)
-        else:
-            order = None
-        name = 'pyretis-gmx'
-        # 1) Create mdp_file with updated number of steps:
-        # Note the -1 here due do different numbering in GROMACS and PyRETIS.
-        settings = {'nsteps': (steps - 1) * self.subcycles,
-                    'continuation': 'no'}
-        mdp_file = os.path.join(self.exe_dir, f'{name}.mdp')
-        self._modify_input(self.input_files['input'], mdp_file, settings,
-                           delim='=')
-        # 2) Run GROMACS preprocessor:
-        # print('budda 0', os.path.basename(mdp_file), os.path.basename(initial_file))
-        out_files = self._execute_grompp(os.path.basename(mdp_file), os.path.basename(initial_file), name)
-        # Generate some names that will be created by mdrun:
-        confout = f'{name}.{self.ext}'
-        out_files['conf'] = confout
-        out_files['cpt_prev'] = f'{name}_prev.cpt'
-        for key in ('cpt', 'edr', 'log', 'trr'):
-            out_files[key] = f'{name}.{key}'
-        # Remove some of these files if present (e.g. left over from a
-        # crashed simulation). This is so that GromacsRunner will not
-        # start reading a .trr left from a previous simulation.
-        remove = [val for key, val in out_files.items() if key != 'tpr']
-        self._remove_files(self.exe_dir, remove)
-        tpr_file = out_files['tpr']
-        trr_file = os.path.join(self.exe_dir, out_files['trr'])
-        edr_file = os.path.join(self.exe_dir, out_files['edr'])
-        cmd = shlex.split(self.mdrun.format(tpr_file, name, confout))
-        # 3) Fire off GROMACS mdrun:
-        logger.debug('Executing GROMACS.')
-        with GromacsRunner(cmd, trr_file, edr_file, self.exe_dir) as gro:
-            for i, data in enumerate(gro.get_gromacs_frames()):
-                system.particles.pos = data['x']
-                system.particles.vel = data.get('v', None)
-                length = box_matrix_to_list(data['box'])
-                system.update_box(length)
-                results = {}
-                if order:
-                    results['order'] = order
-                if order_function:
-                    order = order_function.calculate(system)
-                time1 = (i * self.timestep * self.subcycles -
-                         0.1 * self.timestep)
-                time2 = ((i + 1) * self.timestep * self.subcycles +
-                         0.1 * self.timestep)
-                energy = self.get_energies(out_files['edr'], begin=time1,
-                                           end=time2)
-                results['thermo'] = self.rename_energies(energy)
-                yield results
-        logger.debug('GROMACS execution done.')
 
 class GromacsRunner:
     """A helper class for running GROMACS.
@@ -1164,6 +1072,7 @@ class GromacsRunner:
             return poll
         raise RuntimeError('GROMACS is not running.')
 
+
 def look_for_input_files(input_path, required_files,
                          extra_files=None):
     """Check that required files for external engines are present.
@@ -1241,6 +1150,7 @@ def look_for_input_files(input_path, required_files,
 
     return input_files
 
+
 def read_trr_frame(filename, index):
     """Return a given frame from a TRR file."""
     idx = 0
@@ -1258,6 +1168,7 @@ def read_trr_frame(filename, index):
                     return None, None
             except EOFError:
                 return None, None
+
 
 def read_trr_header(fileh):
     """Read a header from a TRR file.
@@ -1310,6 +1221,7 @@ def read_trr_header(fileh):
     header['double'] = double
     return header, fileh.tell() - start
 
+
 def gromacs_settings(settings, input_path):
     """Read and processes GROMACS settings.
 
@@ -1336,7 +1248,7 @@ def gromacs_settings(settings, input_path):
 
 
 def read_gromacs_generic(filename):
-    '''Read GROMACS files.
+    """Read GROMACS files.
 
     This method will read a GROMACS file and yield the different
     snapshots found in the file. This file is intended to be used
@@ -1351,7 +1263,7 @@ def read_gromacs_generic(filename):
     ------
     out : None.
 
-    '''
+    """
     if filename[-4:] == '.gro':
         for i in read_gromacs_file(filename):
             yield None
@@ -1360,6 +1272,7 @@ def read_gromacs_generic(filename):
     if filename[-4:] == '.trr':
         for _ in read_trr_file(filename):
             yield None
+
 
 def read_gromacs_file(filename):
     """Read GROMACS GRO files.
@@ -1382,6 +1295,7 @@ def read_gromacs_file(filename):
     with open(filename, 'r', encoding='utf-8') as fileh:
         for snapshot in read_gromacs_lines(fileh):
             yield snapshot
+
 
 def read_gromacs_gro_file(filename):
     """Read a single configuration GROMACS GRO file.
@@ -1420,6 +1334,7 @@ def read_gromacs_gro_file(filename):
         xyz = snapshot.get('xyz', None)
         vel = snapshot.get('vel', None)
     return snapshot, xyz, vel, box
+
 
 def write_gromacs_gro_file(outfile, txt, xyz, vel=None, box=None):
     """Write configuration in GROMACS GRO format.
@@ -1475,6 +1390,7 @@ def write_gromacs_gro_file(outfile, txt, xyz, vel=None, box=None):
         else:
             box = ' '.join([_GRO_BOX_FMT.format(i) for i in box])
         output.write(f'{box}\n')
+
 
 def read_gromos96_file(filename):
     """Read a single configuration GROMACS .g96 file.
@@ -1546,6 +1462,7 @@ def read_gromos96_file(filename):
         logger.info('Input g96 did not contain box vectors.')
     return rawdata, xyzdata['POSITION'], xyzdata['VELOCITY'], box
 
+
 def write_gromos96_file(filename, raw, xyz, vel, box=None):
     """Write configuration in GROMACS .g96 format.
 
@@ -1612,6 +1529,7 @@ def read_struct_buff(fileh, fmt):
         raise EOFError
     return struct.unpack(fmt, buff)
 
+
 def is_double(header):
     """Determine if we should use double precision.
 
@@ -1644,6 +1562,7 @@ def is_double(header):
         raise ValueError('Could not determine size!')
     return size == _SIZE_DOUBLE
 
+
 def skip_trr_data(fileh, header):
     """Skip coordinates/box data etc.
 
@@ -1661,6 +1580,7 @@ def skip_trr_data(fileh, header):
     """
     offset = sum([header[key] for key in TRR_DATA_ITEMS])
     fileh.seek(offset, 1)
+
 
 def read_trr_data(fileh, header):
     """Read box, coordinates etc. from a TRR file.
@@ -1722,25 +1642,6 @@ def read_trr_file(filename, read_data=True):
                 return None, None
 
 
-def read_trr_frame(filename, index):
-    """Return a given frame from a TRR file."""
-    idx = 0
-    with open(filename, 'rb') as infile:
-        while True:
-            try:
-                header, _ = read_trr_header(infile)
-                if idx == index:
-                    data = read_trr_data(infile, header)
-                    return header, data
-                skip_trr_data(infile, header)
-                idx += 1
-                if idx > index:
-                    logger.error('Frame %i not found in %s', index, filename)
-                    return None, None
-            except EOFError:
-                return None, None
-
-
 def read_matrix(fileh, endian, double):
     """Read a matrix from the TRR file.
 
@@ -1773,6 +1674,7 @@ def read_matrix(fileh, endian, double):
         for j in range(_DIM):
             mat[i, j] = read[i * _DIM + j]
     return mat
+
 
 def read_coord(fileh, endian, double, natoms):
     """Read a coordinate section from the TRR file.
@@ -1809,6 +1711,7 @@ def read_coord(fileh, endian, double, natoms):
     mat.shape = (natoms, _DIM)
     return mat
 
+
 def read_xvg_file(filename):
     """Return data in xvg file as numpy array."""
     data = []
@@ -1829,6 +1732,7 @@ def read_xvg_file(filename):
     for i, key in enumerate(legends):
         data_dict[key] = data[:, i+1]
     return data_dict
+
 
 def get_data(fileh, header):
     """Read data from the TRR file.
@@ -1906,6 +1810,7 @@ def read_remaining_trr(filename, fileh, start):
                 stop = True
                 continue
 
+
 def read_gromacs_lines(lines):
     """Read and parse GROMACS GRO data.
 
@@ -1965,6 +1870,7 @@ def read_gromacs_lines(lines):
         _add_matrices_to_snapshot(snapshot)
         yield snapshot
 
+
 def _add_matrices_to_snapshot(snapshot):
     """Extract positions and velocities as matrices from GROMACS.
 
@@ -1995,6 +1901,7 @@ def _add_matrices_to_snapshot(snapshot):
     snapshot['xyz'] = xyz
     snapshot['vel'] = vel
     return xyz, vel
+
 
 def box_matrix_to_list(matrix, full=False):
     """Return a list representation of the box matrix.

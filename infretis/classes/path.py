@@ -1,18 +1,22 @@
+"""Define the path class."""
+import pickle
+import os
+import logging
+import numpy as np
 from infretis.core.core import read_restart_file
 from infretis.classes.system import System
 from infretis.classes.formats.path import PathExtFile
 from infretis.classes.formats.order import OrderPathFile
 from infretis.classes.formats.energy import EnergyPathFile
-from abc import ABCMeta, abstractmethod
-import pickle
-import numpy as np
-import os
-import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
+
 class Path:
+    """Define Path class."""
+
     def __init__(self, maxlen=None, time_origin=0):
+        """Initiate Path class."""
         self.maxlen = maxlen
         self.status = None
         self.generated = None
@@ -42,10 +46,11 @@ class Path:
     @property
     def adress(self):
         """Compute the maximum order parameter of the path."""
-        adresses = set([i.config[0] for i in self.phasepoints])
+        adresses = set(i.config[0] for i in self.phasepoints)
         return adresses
 
     def check_interfaces(self, interfaces):
+        """Check interfaces."""
         if self.length < 1:
             logger.warning('Path is empty!')
             return None, None, None, None
@@ -138,7 +143,8 @@ class Path:
             The system information we add to the path.
 
         """
-        if self.maxlen is None or self.length < self.maxlen: ###maxlen adjust
+        # ##maxlen adjust
+        if self.maxlen is None or self.length < self.maxlen:
             self.phasepoints.append(phasepoint)
             return True
         logger.debug('Max length exceeded. Could not append to path.')
@@ -164,7 +170,7 @@ class Path:
             'length': self.length,
             'ordermax': self.ordermax,
             'ordermin': self.ordermin,
-            'weight': self.weight,
+            'weights': self.weights,
         }
 
         start, end, middle, _ = self.check_interfaces(interfaces)
@@ -229,7 +235,7 @@ class Path:
         new_path.generated = self.generated
         new_path.maxlen = self.maxlen
         new_path.path_number = self.path_number
-        new_path.weights= self.weights
+        new_path.weights = self.weights
         return new_path
 
     def reverse_velocities(self, system):
@@ -255,7 +261,7 @@ class Path:
 
         """
         new_path = self.empty_path()
-        new_path.weight = self.weight
+        new_path.weights = self.weights
         new_path.maxlen = self.maxlen
         for phasepoint in reversed(self.phasepoints):
             new_point = phasepoint.copy()
@@ -280,7 +286,8 @@ class Path:
             'weights': self.weights,
             'min_valid': self.min_valid,
             'path_number': self.path_number,
-            'phasepoints': self.phasepoints # [i.restart_info() for i in self.phasepoints]
+            'phasepoints': self.phasepoints
+            # [i.restart_info() for i in self.phasepoints]
         }
         return info
 
@@ -296,8 +303,9 @@ class Path:
             else:
                 if hasattr(self, key):
                     setattr(self, key, val)
-    
+
     def write_restart_file(self, loc):
+        """Write restart file."""
         with open(loc, 'wb') as outfile:
             pickle.dump(self.restart_info(), outfile)
 
@@ -401,18 +409,18 @@ class Path:
 
     def update_energies(self, ekin, vpot):
         """Update the energies for the phase points.
-    
+
         This method is useful in cases where the energies are
         read from external engines and returned as a list of
         floats.
-    
+
         Parameters
         ----------
         ekin : list of floats
             The kinetic energies to set.
         vpot : list of floats
             The potential energies to set.
-    
+
         """
         if len(ekin) != len(vpot):
             logger.debug(
@@ -445,6 +453,7 @@ class Path:
                 ekini = None
             phasepoint.vpot = vpoti
             phasepoint.ekin = ekini
+
 
 def paste_paths(path_back, path_forw, overlap=True, maxlen=None):
     """Merge a backward with a forward path into a new path.
@@ -493,7 +502,7 @@ def paste_paths(path_back, path_forw, overlap=True, maxlen=None):
             # Note that now there is a chance of truncating the path while
             # pasting!
             maxlen = max(path_back.maxlen, path_forw.maxlen)
-            msg = 'Unequal length: Using {} for the new path!'.format(maxlen)
+            msg = f'Unequal length: Using {maxlen} for the new path!'
             logger.warning(msg)
     time_origin = path_back.time_origin - path_back.length + 1
     new_path = path_back.empty_path(maxlen=maxlen, time_origin=time_origin)
@@ -511,19 +520,19 @@ def paste_paths(path_back, path_forw, overlap=True, maxlen=None):
             continue
         app = new_path.append(phasepoint)
         if not app:
-            msg = 'Truncated path at: {}'.format(new_path.length)
+            msg = f'Truncated path at: {new_path.length}'
             logger.warning(msg)
             return new_path
     return new_path
 
 
 def load_trajtxt(dirname):
+    """Load traj_txt."""
     traj_file_name = os.path.join(dirname, 'traj.txt')
     with PathExtFile(traj_file_name, 'r') as trajfile:
         # Just get the first trajectory:
         traj = next(trajfile.load())
 
-        loc = dirname
         # Update trajectory to use full path names:
         for i, snapshot in enumerate(traj['data']):
             config = os.path.join(dirname, snapshot[1])
@@ -534,19 +543,25 @@ def load_trajtxt(dirname):
             traj['data'][i][3] = reverse
         return traj
 
-def load_ordertxt(traj, dirname, order_function, system, engine):
+
+def load_ordertxt(dirname):
+    """Load order_txt."""
     order_file_name = os.path.join(dirname, 'order.txt')
     with OrderPathFile(order_file_name, 'r') as orderfile:
         order = next(orderfile.load())
         return order['data'][:, 1:]
 
+
 def restart_path(restart_file):
+    """Restart path from restart file."""
     restart_info = read_restart_file(restart_file)
     new_path = Path()
     new_path.load_restart_info(restart_info)
     return new_path
 
+
 def load_path(pdir):
+    """Load path."""
     trajtxt = os.path.join(pdir, 'traj.txt')
     ordertxt = os.path.join(pdir, 'order.txt')
     assert os.path.isfile(trajtxt)
@@ -566,7 +581,7 @@ def load_path(pdir):
             traj['data'][i][2] = idx
             traj['data'][i][3] = reverse
 
-        for config in set([frame[1] for frame in traj['data']]):
+        for config in set(frame[1] for frame in traj['data']):
             assert os.path.isfile(config)
 
     # load ordertxt
@@ -583,6 +598,7 @@ def load_path(pdir):
     _load_energies_for_path(path, pdir)
     # CHECK PATH SOMEWHERE .acc, sta = _check_path(path, path_ensemble)
     return path
+
 
 def _check_path(path, path_ensemble, warning=True):
     """Run some checks for the path.
@@ -623,6 +639,7 @@ def _check_path(path, path_ensemble, warning=True):
     path.status = status
     return accept, status
 
+
 def _load_energies_for_path(path, dirname):
     """Load energy data for a path.
 
@@ -644,22 +661,24 @@ def _load_energies_for_path(path, dirname):
         with EnergyPathFile(energy_file_name, 'r') as energyfile:
             energy = next(energyfile.load())
             path.update_energies(energy['data']['ekin'],
-                            energy['data']['vpot'])
+                                 energy['data']['vpot'])
     except FileNotFoundError:
         pass
 
+
 def load_paths_from_disk(config):
+    """Load paths from disk."""
     load_dir = config['simulation']['load_dir']
     paths = []
-    for pn in config['current']['active']:
-        restart_file = os.path.join(load_dir, str(pn), 'path.restart') 
+    for pnumber in config['current']['active']:
+        restart_file = os.path.join(load_dir, str(pnumber), 'path.restart')
         if os.path.isfile(restart_file):
             paths.append(restart_path(restart_file))
         else:
             # load path
-            new_path = load_path(os.path.join(load_dir, str(pn)))
+            new_path = load_path(os.path.join(load_dir, str(pnumber)))
             new_path.write_restart_file(restart_file)
-            paths.append(load_path(os.path.join(load_dir, str(pn))))
-        # assign pn
-        paths[-1].path_number = pn
+            paths.append(load_path(os.path.join(load_dir, str(pnumber))))
+        # assign pnumber
+        paths[-1].path_number = pnumber
     return paths

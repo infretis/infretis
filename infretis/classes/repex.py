@@ -239,7 +239,7 @@ class REPEX_state(object):
         return md_items
 
     def add_traj(self, ens, traj, valid, count=True, n=0):
-
+        """Add traj to state and calculate P matrix."""
         if ens >= 0 and self._offset != 0:
             valid = tuple([0 for _ in range(self._offset)] + list(valid))
         elif ens < 0:
@@ -258,6 +258,7 @@ class REPEX_state(object):
         self.prob
 
     def sort_trajstate(self):
+        """Sort trajs and calculate P matrix."""
         needstomove = [self.state[idx][:-1][idx] == 0 for idx in range(self.n-1)]
         while True in needstomove and self.toinitiate == -1:
             ens_idx = list(needstomove).index(True)
@@ -272,18 +273,21 @@ class REPEX_state(object):
         self.prob
 
     def lock(self, ens):
+        """Lock ensemble."""
         # invalidate last prob
         self._last_prob = None
         assert self._locks[ens] == 0
         self._locks[ens] = 1
 
     def unlock(self, ens):
+        """Unlock ensemble."""
         # invalidate last prob
         self._last_prob = None
         assert self._locks[ens] == 1
         self._locks[ens] = 0
 
     def swap(self, traj, ens):
+        """Swap to keep the locks symmetric."""
         # mainly to keep the locks symmetric
         self.state[[ens, traj]] = self.state[[traj, ens]].copy()
         temp1 = self._trajs[ens]
@@ -291,14 +295,17 @@ class REPEX_state(object):
         self._trajs[traj] = temp1
 
     def live_paths(self):
+        """Return list of live paths."""
         return [traj.path_number for traj in self._trajs[:-1]]
 
     def locked_paths(self):
+        """Return list of locked paths."""
         locks = [t0.path_number for t0, l0 in
                  zip(self._trajs[:-1], self._locks[:-1]) if l0]
         return locks
 
     def save_rng(self):
+        """Save numpy random generator state.."""
         rng_dic = {'rng-state': np.random.get_state()}
         save_loc = self.config['simulation'].get('save_loc', './')
         save_loc = os.path.join('./', save_loc, 'infretis.restart')
@@ -306,6 +313,7 @@ class REPEX_state(object):
             pickle.dump(rng_dic, outfile)
 
     def set_rng(self):
+        """Set numpy random generator state from restart."""
         save_loc = self.config['simulation'].get('save_loc', './')
         save_loc = os.path.join('./', save_loc, 'infretis.restart')
         with open(save_loc, 'rb') as infile:
@@ -313,6 +321,7 @@ class REPEX_state(object):
         np.random.set_state(info['rng-state'])
 
     def loop(self):
+        """Check and interate loop."""
         if self.printing():
             if self.cstep not in (0, self.config['current'].get('restarted_from', 0)):
                 logger.info('date: ' + datetime.now().strftime(DATE_FORMAT))
@@ -337,6 +346,7 @@ class REPEX_state(object):
         return self.cstep <= self.tsteps
 
     def initiate(self):
+        """Initiate loop."""
         if not self.cstep < self.tsteps:
             return False
 
@@ -357,6 +367,7 @@ class REPEX_state(object):
         return self.toinitiate >= 0
 
     def inf_retis(self, input_mat, locks):
+        """Permanent calculator."""
         # Drop locked rows and columns
         bool_locks = locks == 1
         # get non_locked minus interfaces
@@ -461,6 +472,7 @@ class REPEX_state(object):
         return final_out
 
     def find_blocks(self, arr, offset):
+        """Find blocks in a W matrix."""
         if len(arr) == 1:
             return ((0, 1, 1))
         # Assume no zeroes on the diagonal or lower triangle
@@ -479,6 +491,7 @@ class REPEX_state(object):
         return blocks
 
     def quick_prob(self, arr):
+        """Quick P matrix calculation for specific W matrix."""
         total_traj_prob = np.ones(shape=arr.shape[0], dtype='float128')
         out_mat = np.zeros(shape=arr.shape, dtype='float128')
         working_mat = np.where(arr != 0, 1, 0)  # convert non-zero numbers to 1
@@ -495,6 +508,7 @@ class REPEX_state(object):
         return out_mat
 
     def force_quick_prob(self, arr):
+        """Quick P matrix calculation for specific W matrix."""
         # TODO: DEBUG CODE
         # ONLY HERE TO DEBUG THE OTHER MEHTODS
         total_traj_prob = np.ones(shape=arr.shape[0], dtype='float128')
@@ -515,6 +529,7 @@ class REPEX_state(object):
         return out_mat
 
     def permanent_prob(self, arr):
+        """P matrix calculation for specific W matrix."""
         out = np.zeros(shape=arr.shape, dtype="float128")
         n = len(arr)
         for i in range(n):
@@ -530,6 +545,7 @@ class REPEX_state(object):
         return out/max(np.sum(out, axis=1))
 
     def random_prob(self, arr, n=10_000):
+        """P matrix calculation for specific W matrix."""
         out = np.eye(len(arr), dtype="float128")
         current_state = np.eye(len(arr))
         choices = len(arr)//2
@@ -578,6 +594,7 @@ class REPEX_state(object):
         return out/(n+1)
 
     def fast_glynn_perm(self, M):
+        """Glynn permanent."""
         def cmp(a, b):
             if a == b:
                 return 0
@@ -612,6 +629,7 @@ class REPEX_state(object):
         return total//num_loops
 
     def write_toml(self, ens_sel=(), input_traj=()):
+        """Toml writer."""
         self.config['current']['active'] = self.live_paths()
         locked_ep = []
         for tup in self.locked:
@@ -628,6 +646,7 @@ class REPEX_state(object):
             tomli_w.dump(self.config, f)
 
     def write_pattern(self, md_items):
+        """Pattern writer."""
         md_start = time.time()
         ensnums = '-'.join([str(i+1) for i in md_items['ens_nums']])
         with open(self.pattern_file, 'a') as fp:
@@ -641,9 +660,11 @@ class REPEX_state(object):
         md_items['md_start'] = md_start
 
     def printing(self):
+        """Check if print."""
         return self.screen > 0 and np.mod(self.cstep, self.screen) == 0
 
     def print_pick(self, ens_nums, pat_nums, pin):
+        """Print pick."""
         if len(ens_nums) > 1 or ens_nums[0] == -1:
             move = 'sh'
         else:
@@ -654,36 +675,38 @@ class REPEX_state(object):
                     f' {pat_p} and worker: {pin}')
 
     def print_shooted(self, md_items, pn_news):
-        if self.printing():
-            moves = md_items['moves']
-            ens_nums = ' '.join([f'00{i+1}' for i in md_items['ens_nums']])
-            pnum_old = ' '.join([str(i) for i in md_items['pnum_old']])
-            pnum_new = ' '.join([str(i) for i in pn_news])
-            trial_lens = ' '.join([str(i) for i in md_items['trial_len']])
-            trial_ops = ' '.join([f'[{i[0]:4.4f} {i[1]:4.4f}]' for i in md_items['trial_op']])
-            status = md_items['status']
-            simtime = md_items['md_end'] - md_items['md_start']
-            logger.info(f"shooted {' '.join(moves)} in ensembles: {ens_nums}"
-                        f' with paths: {pnum_old} -> {pnum_new}')
-            logger.info('with status:'
-                        f' {status} len: {trial_lens} op: {trial_ops} and'
-                        f' worker: {self.cworker} total time: {simtime:.2f}')
-            self.print_state()
+        """Print shooted."""
+        moves = md_items['moves']
+        ens_nums = ' '.join([f'00{i+1}' for i in md_items['ens_nums']])
+        pnum_old = ' '.join([str(i) for i in md_items['pnum_old']])
+        pnum_new = ' '.join([str(i) for i in pn_news])
+        trial_lens = ' '.join([str(i) for i in md_items['trial_len']])
+        trial_ops = ' '.join([f'[{i[0]:4.4f} {i[1]:4.4f}]' for i in md_items['trial_op']])
+        status = md_items['status']
+        simtime = md_items['md_end'] - md_items['md_start']
+        logger.info(f"shooted {' '.join(moves)} in ensembles: {ens_nums}"
+                    f' with paths: {pnum_old} -> {pnum_new}')
+        logger.info('with status:'
+                    f' {status} len: {trial_lens} op: {trial_ops} and'
+                    f' worker: {self.cworker} total time: {simtime:.2f}')
+        self.print_state()
 
     def print_start(self):
+        """Print start."""
         logger.info('stored ensemble paths:')
         ens_num = self.live_paths()
         logger.info(' '.join([f'00{i}: {j},' for i, j in enumerate(ens_num)]) + '\n')
         self.print_state()
 
     def print_state(self):
+        """Print state."""
         last_prob = True
         if isinstance(self._last_prob, type(None)):
             self.prob
             last_prob = False
 
         logger.info('===')
-        to_print = '\t'.join(['e'+ f'{i:03.0f}' for i in range(self.n-1)])
+        to_print = '\t'.join(['e' + f'{i:03.0f}' for i in range(self.n-1)])
         logger.info(' xx |\t' + to_print)
         logger.info(' -- |     -----------------------------------')
 
@@ -711,6 +734,7 @@ class REPEX_state(object):
             self._last_prob = None
 
     def print_end(self):
+        """Print end."""
         live_trajs = self.live_paths()
         stopping = self.cstep
         logger.info('--------------------------------------------------')
@@ -723,6 +747,7 @@ class REPEX_state(object):
             logger.info(f'{key:03.0f} * {values} *')
 
     def treat_output(self, md_items):
+        """Treat output."""
         pn_news = []
         md_items['md_end'] = time.time()
         picked = md_items['picked']
@@ -780,7 +805,8 @@ class REPEX_state(object):
         self.sort_trajstate()
         self.config['current']['traj_num'] = traj_num
         self.cworker = md_items['pin']
-        self.print_shooted(md_items, pn_news)
+        if self.printing():
+            self.print_shooted(md_items, pn_news)
         # save for possible restart
         self.save_rng()
         self.write_toml()
@@ -788,13 +814,13 @@ class REPEX_state(object):
         return md_items
 
     def load_paths(self, paths):
-
+        """Load paths."""
         size = self.n-1
         # we add all the i+ paths.
         for i in range(size-1):
-            paths[i+1].weights= calc_cv_vector(paths[i+1],
-                                               self.config['simulation']['interfaces'],
-                                               self.mc_moves)
+            paths[i+1].weights = calc_cv_vector(paths[i+1],
+                                                self.config['simulation']['interfaces'],
+                                                self.mc_moves)
             self.add_traj(ens=i, traj=paths[i+1], valid=paths[i+1].weights, count=False)
             pnum = paths[i+1].path_number
             frac = self.config['current']['frac'].get(str(pnum), np.zeros(size+1))
@@ -809,14 +835,15 @@ class REPEX_state(object):
         pnum = paths[0].path_number
         self.add_traj(ens=-1, traj=paths[0], valid=paths[0].weights, count=False)
         frac = self.config['current']['frac'].get(str(pnum), np.zeros(size+1))
-        self.traj_data[pnum]= {'ens_save_idx': 0,
-                               'max_op': paths[0].ordermax,
-                               'length': paths[0].length,
-                               'weights': paths[0].weights,
-                               'adress': paths[0].adress,
-                               'frac': np.array(frac, dtype='float128')}
+        self.traj_data[pnum] = {'ens_save_idx': 0,
+                                'max_op': paths[0].ordermax,
+                                'length': paths[0].length,
+                                'weights': paths[0].weights,
+                                'adress': paths[0].adress,
+                                'frac': np.array(frac, dtype='float128')}
 
     def pattern0(self):
+        """Write pattern0 header."""
         if self.pattern_file:
             if self.toinitiate == 0:
                 restarted = self.config['current'].get('restarted_from')
@@ -828,6 +855,7 @@ class REPEX_state(object):
 
 
 def write_to_pathens(state, pn_archive):
+    """Write data to infretis_data.txt."""
     traj_data = state.traj_data
     size = state.n
 
