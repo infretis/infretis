@@ -25,7 +25,7 @@ allowmaxlength = false
 zero_momentum = false
 rescale_energy = false
 n_jumps = 3
-high_accept = false
+high_accept = true
 
 [engine]
 engine = "random"
