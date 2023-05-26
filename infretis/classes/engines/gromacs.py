@@ -4,6 +4,7 @@ from time import sleep
 import signal
 import subprocess
 import os
+import shutil
 import shlex
 import logging
 import struct
@@ -459,13 +460,19 @@ class GromacsEngine(EngineBase):
                 write_gromacs_gro_file(out_file, self.top, xyz, vel, box)
             elif out_file[-4:] == '.g96':
                 write_gromos96_file(out_file, self.top, xyz, vel, box)
-
+        elif traj_file[-4:] == '.g96':
+            # if .g96 file
+            shutil.copyfile(traj_file, out_file)
         else:
+            # if .gro or .trr file.
             cmd = [self.gmx, 'trjconv',
                    '-f', traj_file,
                    '-s', self.input_files['tpr'],
                    '-o', out_file]
 
+            print('panda a', traj_file[-4:])
+            print('panda b', trajexts, out_file)
+            exit('iceman')
             self.execute_command(cmd, inputs=b'0', cwd=None)
 
     def get_energies(self, energy_file, begin=None, end=None):
