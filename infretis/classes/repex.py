@@ -809,7 +809,6 @@ class REPEX_state(object):
                         os.remove(adress)
 
             # if ens_num == -1:
-            print('hoooo 3', ens_num, self.ensembles[ens_num+1]['rgen'].get_state()['state'][2])
             write_ensemble_restart(self.ensembles[ens_num+1],
                                    self.config,
                                    save=f'e{ens_num+1}')
