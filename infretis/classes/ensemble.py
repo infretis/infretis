@@ -30,10 +30,8 @@ def create_ensembles(config):
             rgen_state = {'seed': restart['rgen']['seed'],
                           'state': restart['rgen']['state'],
                           'rgen': 'rgen'}
-            print('booger', i-1,  restart['rgen']['state'][2])
             rgen_ens = create_random_generator(rgen_state)
         else:
-            print('borg')
             rgen_ens = create_random_generator()
         pensembles[i] = {'interfaces': tuple(ens_intf),
                          'tis_set': config['simulation']['tis_set'],
