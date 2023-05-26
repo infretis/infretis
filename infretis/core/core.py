@@ -40,7 +40,6 @@ def generic_factory(settings, object_map, name='generic'):
         logger.critical(msg, name)
         return None
     if klass not in object_map:
-        print('zoopa')
         logger.critical('Could not create unknown class "%s" for %s',
                         settings['class'], name)
         return None
@@ -64,7 +63,6 @@ def initiate_instance(klass, settings):
 
     """
     args, kwargs = _pick_out_arg_kwargs(klass, settings)
-    print('hell', klass, settings, args, kwargs)
     # Ready to initiate:
     msg = 'Initiated "%s" from "%s" %s'
     name = klass.__name__
@@ -80,7 +78,6 @@ def initiate_instance(klass, settings):
         return klass(*args)
     logger.debug(msg, name, mod,
                  'with positional and keyword arguments.')
-    print('bimbo a')
     return klass(*args, **kwargs)
 
 def _pick_out_arg_kwargs(klass, settings):
@@ -233,28 +230,13 @@ def create_external(settings, key, required_methods, key_settings=None):
         except KeyError:
             logger.debug('No "%s" setting found. Skipping set-up', key)
             return None
-    # module = key_settings.get('module', None)
-    # klass = None
-    # try:
-    #     klass = key_settings['class']
-    # except KeyError:
-    #     logger.debug('No "class" setting for "%s" specified. Skipping set-up',
-    #                  key)
-    #     return None
-    # print('clown 3')
-    # if module is None:
-    #     print('clown 4')
-    #     return factory(key_settings)
     # Here we assume we are to load from a file. Before we import
     # we need to check that the path is ok or if we should include
     # the 'exe_path' from settings.
     # 1) Check if we can find the module:
-    # print('clown 5')
     if os.path.isfile(module):
-        # print('clown 6')
         obj = import_from(module, klass)
     else:
-        # print('clown 7')
         if 'exe_path' in settings['simulation']:
             module = os.path.join(settings['simulation']['exe_path'],
                                   module)
@@ -263,7 +245,6 @@ def create_external(settings, key, required_methods, key_settings=None):
             msg = 'Could not find module "{}" for {}!'.format(module, key)
             raise ValueError(msg)
     # run some checks:
-    # print('clown 8')
     for function in required_methods:
         objfunc = getattr(obj, function, None)
         if not objfunc:
@@ -277,7 +258,6 @@ def create_external(settings, key, required_methods, key_settings=None):
                                                              function)
                 logger.critical(msg)
                 raise ValueError(msg)
-    # return initiate_instance(obj, key_settings)
     return initiate_instance(obj, settings)
 
 def import_from(module_path, function_name):
@@ -399,31 +379,3 @@ def read_restart_file(filename):
     with open(filename, 'rb') as infile:
         info = pickle.load(infile)
     return info
-
-def compare_objects(obj1, obj2, attrs, numpy_attrs=None):
-    if not obj1.__class__ == obj2.__class__:
-        logger.debug(
-            'The classes are different %s != %s',
-            obj1.__class__, obj2.__class__
-        )
-        return False
-    if not len(obj1.__dict__) == len(obj2.__dict__):
-        logger.debug('Number of attributes differ.')
-        return False
-    # Compare the requested attributes:
-    for key in attrs:
-        try:
-            val1 = getattr(obj1, key)
-            val2 = getattr(obj2, key)
-        except AttributeError:
-            logger.debug('Failed to compare attribute "%s"', key)
-            return False
-        if numpy_attrs and key in numpy_attrs:
-            if not numpy_allclose(val1, val2):
-                logger.debug('Attribute "%s" differ.', key)
-                return False
-        else:
-            if not val1 == val2:
-                logger.debug('Attribute "%s" differ.', key)
-                return False
-    return True

@@ -39,8 +39,12 @@ class REPEX_state(object):
 
     def __init__(self, config, minus=False):
         """Initiate REPEX given confic dict from *toml file."""
-        n = config['current']['size']
+        # set rng
         self.config = config
+        if 'restarted_from' in config['current']:
+            self.set_rng()
+
+        n = config['current']['size']
         if minus:
             self._offset = int(minus)
             n += int(minus)
@@ -804,7 +808,11 @@ class REPEX_state(object):
                         # #### Make checker? so it doesn't do anything super yabai
                         os.remove(adress)
 
-                write_ensemble_restart(self.ensembles[ens_num+1], self.config, save=f'e{ens_num+1}')
+            # if ens_num == -1:
+            print('hoooo 3', ens_num, self.ensembles[ens_num+1]['rgen'].get_state()['state'][2])
+            write_ensemble_restart(self.ensembles[ens_num+1],
+                                   self.config,
+                                   save=f'e{ens_num+1}')
 
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
@@ -861,16 +869,15 @@ class REPEX_state(object):
                                 'adress': paths[0].adress,
                                 'frac': np.array(frac, dtype='float128')}
 
-    def pattern0(self):
+    def pattern_header(self):
         """Write pattern0 header."""
-        if self.pattern_file:
-            if self.toinitiate == 0:
-                restarted = self.config['current'].get('restarted_from')
-                writemode = 'a' if restarted else 'w'
-                with open(self.pattern_file, writemode) as fp:
-                    fp.write("# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end",
-                             + "[s]\tMD_end [s]\t Dask_end [s]",
-                             + f"\tEnsembles\t{self.start_time}\n")
+        if self.toinitiate == 0:
+            restarted = self.config['current'].get('restarted_from')
+            writemode = 'a' if restarted else 'w'
+            with open(self.pattern_file, writemode) as fp:
+                fp.write("# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end",
+                         + "[s]\tMD_end [s]\t Dask_end [s]",
+                         + f"\tEnsembles\t{self.start_time}\n")
 
 
 def write_to_pathens(state, pn_archive):

@@ -23,7 +23,17 @@ def run_md(md_items):
 
     # perform the hw move:
     picked = md_items['picked']
+
+    for ens_num in picked.keys():
+        if ens_num == 2:
+            print('hoooo 1', ens_num, picked[ens_num]['ens']['rgen'].get_state()['state'][2])
+            print(picked[ens_num]['ens']['interfaces'])
+
     accept, trials, status = select_shoot(picked)
+    for ens_num in picked.keys():
+        if ens_num == 2:
+            print(accept, status, md_items['mc_moves'][ens_num+1])
+            print('hoooo 2', ens_num, picked[ens_num]['ens']['rgen'].get_state()['state'][2])
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -184,7 +194,11 @@ def wirefence_weight_and_pick(path, intf_l, intf_r, return_seg=False, ens_set=No
     n_frames = sum([i[2] for i in path_arr]) if path_arr else 0
     if return_seg and n_frames:
         sum_frames = 0
+        # if intf_l == 0.3:
+        #     print('oke 1', ens_set['rgen'].get_state()['state'][2])
         subpath_select = ens_set['rgen'].rand()
+        # if intf_l == 0.3:
+        #     print('oke 2', ens_set['rgen'].get_state()['state'][2])
         for i in path_arr:
             sum_frames += i[2]
             if sum_frames/n_frames >= subpath_select:
@@ -259,7 +273,6 @@ def select_shoot(picked, start_cond=('L',)):
     if len(picked) == 1:
         pens = next(iter(picked.values()))
         ens_set, path, engine = (pens[i] for i in ['ens', 'traj', 'engine'])
-        print('bananas', ens_set)
         move = ens_set['mc_move']
         start_cond = ens_set['start_cond']
         accept, new_path, status = sh_moves[move](ens_set, path, engine,
@@ -445,9 +458,14 @@ def wire_fencing(ens_set, trial_path, engine, shooting_point=None, start_cond=('
     old_path = trial_path.copy()
     intf_cap = ens_set.get('interface_cap', ens_set['interfaces'][2])
     wf_int = list([ens_set['interfaces'][1]]*2) + [intf_cap]
+    # if ens_set['interfaces'][1] == 0.3:
+    #     print('banda 0', ens_set['rgen'].get_state()['state'][2])
     n_frames, new_segment = wirefence_weight_and_pick(trial_path, wf_int[0],
                                                       wf_int[2],
                                                       return_seg=True, ens_set=ens_set)
+    # if ens_set['interfaces'][1] == 0.3:
+    #     print('kaa', n_frames)
+    #     print('banda 1', ens_set['rgen'].get_state()['state'][2])
 
     # This is probably a too strong condition. It helps for [0^-] but it might
     # hinder implementation problems or bad sampling.
@@ -467,7 +485,6 @@ def wire_fencing(ens_set, trial_path, engine, shooting_point=None, start_cond=('
                'ens_name': ens_set['ens_name']}
 
     succ_seg = 0
-    print('gori', ens_set)
     for i in range(ens_set['tis_set']['n_jumps']):
         logger.debug('Trying a new web with Wire Fencing, jump %i', i)
         # Select the shooting point:
