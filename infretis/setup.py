@@ -43,7 +43,7 @@ def setup_internal(config):
     # run pattern
     state.pattern0()
 
-    return md_items, state
+    return md_items, state, paths, md_items
 
 
 def setup_dask(state):

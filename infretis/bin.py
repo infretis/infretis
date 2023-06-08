@@ -18,7 +18,8 @@ def infretisrun():
     config = setup_config(input_file)
     if config is None:
         return
-    scheduler(config)
+    state,md_items,path = scheduler(config)
+    return state,md_items,path
 
 
 def infretisanalyze():
