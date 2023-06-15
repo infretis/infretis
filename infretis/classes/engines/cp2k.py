@@ -467,7 +467,7 @@ class CP2KEngine(EngineBase):
         """
         super().__init__('CP2K external engine', timestep,
                          subcycles)
-        self.rgen = create_random_generator({'seed': seed})
+        #self.rgen = create_random_generator({'seed': seed})
         self.ext = 'xyz'
         self.cp2k = shlex.split(cp2k)
         logger.info('Command for execution of CP2K: %s', ' '.join(self.cp2k))
@@ -564,6 +564,7 @@ class CP2KEngine(EngineBase):
                      idx, traj_file)
 
     def _propagate_from(self, name, path, system, ens_set, msg_file, reverse=False):
+        print(ens_set)
         """
         Propagate with CP2K from the current system configuration.
 
@@ -766,7 +767,9 @@ class CP2KEngine(EngineBase):
     def set_mdrun(self, config, md_items):
         """Remove or rename?"""
         self.exe_dir = md_items['w_folder']
-        #self.rgen = md_items['rgen']
+        #self.rgen = md_items['picked']['tis_set']['rgen']
+        ens_num = md_items['ens_nums'][0]
+        self.rgen = md_items['picked'][ens_num]['ens']['rgen']
 
     def _reverse_velocities(self, filename, outfile):
         """Reverse velocity in a given snapshot.
@@ -797,7 +800,6 @@ class CP2KEngine(EngineBase):
         rescale = vel_settings.get('rescale_energy',
     	                               vel_settings.get('rescale'))
         pos = self.dump_frame(system)
-        print("pos","="*20,pos)
         box, xyz, vel, atoms = self._read_configuration(pos)
         system.vel = vel
         system.pos = xyz
@@ -818,11 +820,7 @@ class CP2KEngine(EngineBase):
             kin_old = kinetic_energy(vel, mass)[0]
             do_rescale = False
         if vel_settings.get('aimless', False):
-            print("middle-1",vel)
             vel, _ = rgen.draw_maxwellian_velocities(system, self)
-            print("==\n",rgen.draw_maxwellian_velocities(system, self))
-            print(rgen.draw_maxwellian_velocities(system, self),"==\n")
-            print("middle0",vel)
             print("Aimless")
             system.vel = vel
         else:
