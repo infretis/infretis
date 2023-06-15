@@ -200,7 +200,12 @@ class RandomGeneratorBase(metaclass=ABCMeta):
             kbt = (1.0/engine.beta)
             # sigma_v is (n, 1) matrix
             sigma_v = np.sqrt(kbt*(1/engine.mass))
-        npart, dim = system.vel.shape
+        # we might not have velocity information
+        print("mass shape",engine.mass.shape,"vel_shape", system.vel)
+        if type(system.vel)!=np.ndarray:
+            npart, dim = engine.mass.shape[0],3
+        else:
+            npart, dim = system.vel.shape
         vel = self.normal(loc=0.0, scale=sigma_v, size=(npart, dim))
         return vel, sigma_v
 
@@ -681,36 +686,6 @@ def create_random_generator(settings=None):
     return rgen
 
 
-def reset_momentum(particles, selection=None, dim=None):
-    """Set the linear momentum of a selection of particles to zero.
-
-    Parameters
-    ----------
-    particles : object like :py:class:`.Particles`
-        This object represents the particles.
-    selection : list of integers, optional
-        A list with indices of particles to use in the calculation.
-    dim : list or None, optional
-        If ``dim`` is None, the momentum will be reset for ALL
-        dimensions. Otherwise, it will only be applied to the
-        dimensions where ``dim`` is True.
-
-    Returns
-    -------
-    out : None
-        Returns `None` and modifies velocities of the selected
-        particles.
-
-    """
-    vel, mass = _get_vel_mass(particles, selection=selection)
-    mom = np.sum(vel * mass, axis=0)
-    if dim is not None:
-        for i, reset in enumerate(dim):
-            if not reset:
-                mom[i] = 0
-    particles.vel[selection] -= (mom / mass.sum())
-
-
 def _get_vel_mass(particles, selection=None):
     """Return velocity and mass for a selection.
 
@@ -809,28 +784,3 @@ def calculate_kinetic_energy_tensor(particles, selection=None):
     _, kin = kinetic_energy(vel, mass)
     return kin
 
-
-def kinetic_energy(vel, mass):
-    """Obtain the kinetic energy for given velocities and masses.
-
-    Parameters
-    ----------
-    vel : numpy.array
-        The velocities
-    mass : numpy.array
-        The masses. This is assumed to be a column vector.
-
-    Returns
-    -------
-    out[0] : float
-        The kinetic energy
-    out[1] : numpy.array
-        The kinetic energy tensor.
-
-    """
-    mom = vel * mass
-    if len(mass) == 1:
-        kin = 0.5 * np.outer(mom, vel)
-    else:
-        kin = 0.5 * np.einsum('ij,ik->jk', mom, vel)
-    return kin.trace(), kin
