@@ -1,0 +1,44 @@
+# infretis config
+
+[dask]
+workers = 1
+wmdrun = [1.0]
+
+[simulation]
+interfaces = [-1.1, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 1.5]
+steps = 1000
+seed = 1
+load_dir = 'load'
+shooting_moves = ['sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh']
+
+[simulation.tis_set]
+maxlength = 20000
+aimless = true
+allowmaxlength = false
+zero_momentum = true # momentum true
+rescale_energy = false
+temperature = 0.07
+
+
+[engine]
+class = 'cp2k'
+engine = 'cp2k'
+cp2k_format = 'xyz'
+timestep = 50
+input_path = 'cp2k_input'
+cp2k = '/home/lukas/cp2k-2023.1/exe/local/cp2k.ssmp'
+subcycles = 10
+
+[orderparameter]
+class = 'DihedralPBC'
+index = [ 0, 1, 2, 3]
+periodic = false
+
+[output]
+backup = 'backup'
+data_dir = "./"
+order-file = 1
+energy-file = 1
+trajectory-file = -1
+screen = 1
+pattern = 1

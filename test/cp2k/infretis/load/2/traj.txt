@@ -1,0 +1,7 @@
+# Cycle: 0, status: ACC
+#     Step              Filename       index    vel
+         0       002_5_trajB.xyz           1     -1
+         1       002_5_trajB.xyz           0     -1
+         2       002_4_trajF.xyz           0      1
+         3       002_4_trajF.xyz           1      1
+         4       002_4_trajF.xyz           2      1

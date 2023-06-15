@@ -1,0 +1,10 @@
+# Cycle: 0, status: ACC
+#     Step              Filename       index    vel
+         0      009_19_trajB.gro           3     -1
+         1      009_19_trajB.gro           2     -1
+         2      009_19_trajB.gro           1     -1
+         3      009_19_trajB.gro           0     -1
+         4      009_18_trajF.gro           0      1
+         5      009_18_trajF.gro           1      1
+         6      009_18_trajF.gro           2      1
+         7      009_18_trajF.gro           3      1
