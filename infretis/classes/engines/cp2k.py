@@ -107,8 +107,10 @@ def kinetic_energy(vel, mass):
         kin = 0.5 * np.einsum('ij,ik->jk', mom, vel)
     return kin.trace(), kin
 
-def reset_momentum(vel, mass, selection=None, dim=None):
-    """Set the linear momentum of a selection of particles to zero.
+def reset_momentum(vel, mass):
+    """Set the linear momentum of all particles to zero.
+       Note that velocities are modified in place, but also
+       returned.
 
     Parameters
     ----------
@@ -116,12 +118,6 @@ def reset_momentum(vel, mass, selection=None, dim=None):
         The velocities of the particles in system. 
     mass : numpy.array
         The masses of the particles in the system. 
-    selection : list of integers, optional
-        A list with indices of particles to use in the calculation.
-    dim : list or None, optional
-        If ``dim`` is None, the momentum will be reset for ALL
-        dimensions. Otherwise, it will only be applied to the
-        dimensions where ``dim`` is True.
 
     Returns
     -------
@@ -129,14 +125,13 @@ def reset_momentum(vel, mass, selection=None, dim=None):
         Returns the modified velocities of the particles.
 
     """
-    vel, mass = _get_vel_mass(particles, selection=selection)
-    vel_selection, mass_selection = vel[selection], mass[selection]
-    mom = np.sum(vel_selection * mass_selection, axis=0)
-    if dim is not None:
-        for i, reset in enumerate(dim):
-            if not reset:
-                mom[i] = 0
-    vel[selection] -= (mom / mass_selection.sum())
+    # avoid creating an extra dimension by indexing array with None
+
+    mom = np.sum(vel * mass,  axis=0)
+    print("mom unscaled",np.sum(vel))
+    vel -= (mom / mass.sum())
+    mom = np.sum(vel * mass, axis=0)
+    print("mom scaled",np.sum(vel))
     return vel
 
 def write_for_step_vel(infile, outfile, timestep, subcycles, posfile, vel,
@@ -707,172 +702,8 @@ class CP2KEngine(EngineBase):
         self._removefile(step_input)
         return success, status
 
-    def integrate(self, ensemble, steps, thermo='full'):
-        """
-        Propagate several integration steps.
-
-        This method will perform several integration steps using
-        CP2K. It will also calculate the order parameter(s) and
-        energy terms if requested.
-
-        Parameters
-        ----------
-        ensemble: dict
-            it contains:
-
-            * `system` : object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-
-        steps : integer
-            The number of steps we are going to perform. Note that we
-            do not integrate on the first step (e.g. step 0) but we do
-            obtain the other properties. This is to output the starting
-            configuration.
-        thermo : string, optional
-            Select the thermodynamic properties we are to calculate.
-
-        Yields
-        ------
-        results : dict
-            The results from a MD step. This contains the state of the system
-            and order parameter(s) and energies (if calculated).
-
-        """
-        logger.debug('Integrating with CP2K')
-        # First, copy the required input files:
-        logger.debug('Adding input files for CP2K')
-        self.add_input_files(self.exe_dir)
-        system = ensemble['system']
-        order_function = ensemble.get('order_function')
-        # Get positions and velocities from the input file.
-        initial_conf = self.dump_frame(system)
-
-        box, xyz, vel, atoms = self._read_configuration(initial_conf)
-        if box is None:
-            box, _ = read_cp2k_box(self.input_files['template'])
-
-        name = 'pyretis-cp2k'
-
-        logger.debug('Thermo was set to: %s', thermo)
-
-        # Add CP2K input for a single step:
-        step_input = os.path.join(self.exe_dir, 'step.inp')
-        write_for_integrate(self.input_files['template'], step_input,
-                            self.timestep, self.subcycles,
-                            os.path.basename(initial_conf),
-                            name=name)
-        # And create the input file for continuing:
-        continue_input = os.path.join(self.exe_dir, 'continue.inp')
-        write_for_continue(self.input_files['template'], continue_input,
-                           self.timestep, self.subcycles, name=name)
-        # Get the order parameter before the run:
-        if order_function:
-            order = self.calculate_order(ensemble,
-                                         xyz=xyz, vel=vel, box=box)
-        else:
-            order = None
-        traj_file = os.path.join(self.exe_dir, f'{name}.{self.ext}')
-        # Run the first step:
-        out_files = self.run_cp2k('step.inp', name)
-        restart_file = os.path.join(self.exe_dir, out_files['restart'])
-        prestart_file = os.path.join(self.exe_dir, 'previous.restart')
-        wave_file = os.path.join(self.exe_dir, out_files['wfn'])
-        pwave_file = os.path.join(self.exe_dir, 'previous.wfn')
-        # Note: Order is calculated at the END of each iteration!
-        i = 0
-        # Write the config so we have a non-empty file:
-        write_xyz_trajectory(traj_file, xyz, vel, atoms, box, step=i,
-                             append=False)
-        for i in range(steps):
-            if i > 0:
-                # Write the previous configuration:
-                write_xyz_trajectory(traj_file, xyz, vel, atoms, box,
-                                     step=i)
-            if i == 0:
-                pass
-            elif i > 0:
-                self._movefile(restart_file, prestart_file)
-                self._movefile(wave_file, pwave_file)
-                if i < steps - 1:  # Do not integrate the last step.
-                    out_files = self.run_cp2k('continue.inp', name)
-            self._remove_files(self.exe_dir,
-                               self._find_backup_files(self.exe_dir))
-            results = {}
-            if order:
-                results['order'] = order
-            # Read config after the step
-            if i < steps - 1:
-                atoms, xyz, vel, box, _ = read_cp2k_restart(restart_file)
-                if order_function:
-                    order = self.calculate_order(
-                        ensemble, xyz=xyz, vel=vel, box=box
-                    )
-            energy = read_cp2k_energy(out_files['energy'])
-            end = (i + 1) * self.subcycles
-            results['thermo'] = {}
-            for key, val in energy.items():
-                results['thermo'][key] = val[:end:self.subcycles][-1]
-            yield results
-        # Note we do not remove the run-files here as they might be
-        # useful for the user.
-
     def step(self, system, name):
-        """Perform a single step with CP2K.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we are integrating.
-        name : string
-            To name the output files from the CP2K step.
-
-        Returns
-        -------
-        out : string
-            The name of the output configuration, obtained after
-            completing the step.
-
-        """
-        initial_conf = self.dump_frame(system)
-        # Prepare input files etc.:
-        self.add_input_files(self.exe_dir)
-        box, xyz, vel, atoms = self._read_configuration(initial_conf)
-        if box is None:
-            box, _ = read_cp2k_box(self.input_files['template'])
-        # Add CP2K input for a single step:
-        step_input = os.path.join(self.exe_dir, 'step.inp')
-        write_for_step_vel(self.input_files['template'], step_input,
-                           self.timestep, self.subcycles,
-                           os.path.basename(initial_conf),
-                           vel, name=name)
-
-        # Execute single step CP2K...
-        logger.debug('Executing CP2K')
-        out_files = self.run_cp2k('step.inp', name)
-        energy = read_cp2k_energy(out_files['energy'])
-        # Get the output configuration:
-        atoms, xyz, vel, box, _ = read_cp2k_restart(out_files['restart'])
-        conf_out = os.path.join(self.exe_dir, f'{name}.{self.ext}')
-        write_xyz_trajectory(conf_out, xyz, vel, atoms, box, append=False)
-        system.particles.set_pos((conf_out, None))
-        system.particles.set_vel(False)
-        system.particles.ekin = energy['ekin'][-1]
-        system.particles.vpot = energy['vpot'][-1]
-        system.update_box(box)
-        # Prepare input files etc.:
-        logger.debug('Removing CP2K output after single step.')
-        # Remove run-files etc:
-        for _, files in out_files.items():
-            self._removefile(files)
-        self._remove_files(
-            self.exe_dir,
-            self._find_backup_files(self.exe_dir)
-        )
-        return conf_out
+        raise NotImplementedError("Surprise, step not implemented!")
 
     def add_input_files(self, dirname):
         """Add required input files to a given directory.
@@ -952,91 +783,57 @@ class CP2KEngine(EngineBase):
         box, xyz, vel, names = self._read_configuration(filename)
         write_xyz_trajectory(outfile, xyz, -1.0*vel, names, box, append=False)
 
-    def _prepare_shooting_point(self, input_file):  # pragma: no cover
-        """
-        Create initial configuration for a shooting move.
-
-        This creates a new initial configuration with random velocities.
-
-        2022.05.25: Note: This function is no longer in use
-        as we now generate velocities internally. However we keep
-        this function in case of future need.
-
-        Parameters
-        ----------
-        input_file : string
-            The input configuration to generate velocities for.
-
-        Returns
-        -------
-        output_file : string
-            The name of the file created.
-        energy : dict
-            The energy terms read from the CP2K energy file.
-
-        """
-        box, xyz, vel, atoms = self._read_configuration(input_file)
-        if box is None:
-            box, _ = read_cp2k_box(self.input_files['template'])
-        input_config = os.path.join(self.exe_dir, 'genvel_input.xyz')
-        write_xyz_trajectory(input_config, xyz, vel, atoms, box, append=False)
-        # Create input file for CP2K:
-        run_file = os.path.join(self.exe_dir, 'run.inp')
-        write_for_genvel(self.input_files['template'],
-                         run_file,
-                         'genvel_input.xyz',
-                         self.rgen.random_integers(1, 999999999),
-                         name='genvel')
-        # Prepare to run it:
-        self.add_input_files(self.exe_dir)
-        out_files = self.run_cp2k(run_file, 'genvel')
-        energy = read_cp2k_energy(out_files['energy'])
-        # Get the output configuration:
-        atoms, xyz, vel, box, _ = read_cp2k_restart(out_files['restart'])
-        conf_out = os.path.join(self.exe_dir, f'genvel.{self.ext}')
-        write_xyz_trajectory(conf_out, xyz, vel, atoms, box, append=False)
-        # Remove run-files etc:
-        for _, files in out_files.items():
-            self._removefile(files)
-        self._remove_files(
-            self.exe_dir,
-            self._find_backup_files(self.exe_dir)
-        )
-        return conf_out, energy
 
 
     def modify_velocities(self, system, vel_settings=None):
+        """
+        Modfy the velocities of all particles. Note that cp2k by default
+        removes the center of mass motion, thus, we need to rescale the 
+        momentum to zero by default.
+
+        """
         rgen = self.rgen
-        temperature=self.temperature
         mass = self.mass
         rescale = vel_settings.get('rescale_energy',
     	                               vel_settings.get('rescale'))
         pos = self.dump_frame(system)
+        print("pos","="*20,pos)
         box, xyz, vel, atoms = self._read_configuration(pos)
         system.vel = vel
         system.pos = xyz
+        print("start",system.vel)
         if box is None:
             box, _ = read_cp2k_box(self.input_files['template'])
     	# to-do: retrieve system.vpot from previous energy file.
         if None not in ((rescale, system.vpot)) and rescale is not False:
+            print("Rescale")
             if rescale > 0:
                 kin_old = rescale - system.vpot
                 do_rescale = True
             else:
+                print("Warning")
                 logger.warning('Ignored re-scale 6.2%f < 0.0.', rescale)
                 return 0.0, kinetic_energy(vel, mass)[0]
         else:
             kin_old = kinetic_energy(vel, mass)[0]
             do_rescale = False
         if vel_settings.get('aimless', False):
+            print("middle-1",vel)
             vel, _ = rgen.draw_maxwellian_velocities(system, self)
+            print("==\n",rgen.draw_maxwellian_velocities(system, self))
+            print(rgen.draw_maxwellian_velocities(system, self),"==\n")
+            print("middle0",vel)
+            print("Aimless")
             system.vel = vel
         else:
             dvel, _ = rgen.draw_maxwellian_velocities(system, self, sigma_v=vel_settings['sigma_v'])
+            print("Aimless false")
             vel += dvel
             system.vel = vel
-        if vel_settings.get('momentum', False):
-    	    system.vel = reset_momentum(system.vel)
+        # make reset momentum the default
+        if vel_settings.get('momentum', True):
+            print("CHECK VEL SETTINGS MOMENTUM")
+            system.vel = reset_momentum(system.vel, self.mass)
         if do_rescale:
             #system.rescale_velocities(rescale, external=True)
             raise NotImplementedError("Option 'rescale_energy' is not implemented for CP2K yet.")
@@ -1054,5 +851,6 @@ class CP2KEngine(EngineBase):
                 '\n(This happens when the initial configuration '
                 'does not contain energies.)'))
         else:
-            dek = kin_new - kin_old
+           dek = kin_new - kin_old
+        print("end",system.vel)
         return dek, kin_new

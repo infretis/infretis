@@ -367,6 +367,12 @@ def create_orderparameter(settings):
         'distance': {
             'cls': Distance
         },
+        'dihedral': {
+            'cls': Dihedral
+        },
+        'dihedralpbc': {
+            'cls': DihedralPBC
+        },
         'distancevel': {
             'cls': Distancevel
         },
@@ -438,3 +444,100 @@ def _verify_pair(index):
         msg = 'Atom pair should be defined as a tuple/list of integers.'
         logger.error(msg)
         raise TypeError(msg) from err
+
+
+class Dihedral(OrderParameter):
+    """Calculates the dihedral angle defined by 4 atoms.
+
+    The angle definition is given by Blondel and Karplus,
+    J. Comput. Chem., vol. 17, 1996, pp. 1132--1141. If we
+    label the 4 atoms A, B, C and D, then the angle is given by
+    the vectors u = A - B, v = B - C, w = D - C
+
+    Attributes
+    ----------
+    index : list/tuple of integers
+        These are the indices for the atoms to use in the
+        definition of the dihedral angle.
+    periodic : boolean
+        This determines if periodic boundaries should be applied to
+        the position or not.
+
+    """
+
+    def __init__(self, index, periodic=False):
+        """Initialise the order parameter.
+
+        Parameters
+        ----------
+        index : list/tuple of integers
+            This list gives the indices for the atoms to use in the
+            definition of the dihedral angle.
+        periodic : boolean, optional
+            This determines if periodic boundary conditions should be
+            applied to the distance vectors.
+
+        """
+        try:
+            if len(index) != 4:
+                msg = ('Wrong number of atoms for dihedral definition. '
+                       f'Expected 4 got {len(index)}')
+                logger.error(msg)
+                raise ValueError(msg)
+        except TypeError as err:
+            msg = 'Dihedral should be defined as a tuple/list of integers!'
+            logger.error(msg)
+            raise TypeError(msg) from err
+        self.index = [int(i) for i in index]
+        txt = ('Dihedral angle between particles '
+               f'{index[0]}, {index[1]}, {index[2]} and {index[3]}')
+        super().__init__(description=txt)
+        self.periodic = periodic
+
+    def calculate(self, system):
+        """Calculate the dihedral angle.
+
+        Parameters
+        ----------
+        system : object like :py:class:`.System`
+            The object containing the information we need to calculate
+            the order parameter.
+
+        Returns
+        -------
+        out : list of float
+            The order parameter.
+
+        """
+        pos = system.pos
+        vector1 = pos[self.index[0]] - pos[self.index[1]]
+        vector2 = pos[self.index[1]] - pos[self.index[2]]
+        vector3 = pos[self.index[3]] - pos[self.index[2]]
+        if self.periodic:
+            vector1 = system.box.pbc_dist_coordinate(vector1)
+            vector2 = system.box.pbc_dist_coordinate(vector2)
+            vector3 = system.box.pbc_dist_coordinate(vector3)
+        # Norm to simplify formulas:
+        vector2 /= np.linalg.norm(vector2)
+        denom = (np.dot(vector1, vector3) -
+                 np.dot(vector1, vector2) * np.dot(vector2, vector3))
+        numer = np.dot(np.cross(vector1, vector2), vector3)
+        angle = np.arctan2(numer, denom)
+        return [angle]
+
+from MDAnalysis.analysis.dihedrals import calc_dihedrals
+
+class DihedralPBC(OrderParameter):
+    def __init__(self):
+        super().__init__(description="Dihedral angle between 4 atoms, with periodicity")
+        self.idx = [0, 1, 2, 3]
+
+    def calculate(self, system):
+        """Calculate the order parameter."""
+        atoms = system.pos[self.idx]
+        box = np.array([*system.box[:3], 90, 90, 90])
+        dih = calc_dihedrals(*atoms, box=box)
+        print("order",dih)
+
+        return [dih]
+
