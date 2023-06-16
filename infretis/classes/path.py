@@ -593,7 +593,7 @@ def load_path(pdir):
         frame = System()
         frame.order = order
         frame.config = (snapshot[1], snapshot[2])
-        frame.vel = snapshot[3]
+        frame.vel_rev = snapshot[3]
         path.phasepoints.append(frame)
     _load_energies_for_path(path, pdir)
     # CHECK PATH SOMEWHERE .acc, sta = _check_path(path, path_ensemble)

@@ -181,7 +181,7 @@ class RandomGeneratorBase(metaclass=ABCMeta):
         scale_factor = np.sqrt(temperature/avgtemp)
         particles.vel[selection] *= scale_factor
 
-    def draw_maxwellian_velocities(self, system, engine, sigma_v=None):
+    def draw_maxwellian_velocities(self, vel, mass, beta, sigma_v=None):
         """Draw numbers from a Gaussian distribution.
 
         Parameters
@@ -197,15 +197,14 @@ class RandomGeneratorBase(metaclass=ABCMeta):
 
         """
         if not sigma_v or sigma_v < 0.0:
-            kbt = (1.0/engine.beta)
+            kbt = (1.0/beta)
             # sigma_v is (n, 1) matrix
-            sigma_v = np.sqrt(kbt*(1/engine.mass))
+            sigma_v = np.sqrt(kbt*(1/mass))
         # we might not have velocity information
-        print("mass shape",engine.mass.shape,"vel_shape", system.vel)
-        if type(system.vel)!=np.ndarray:
-            npart, dim = engine.mass.shape[0],3
-        else:
-            npart, dim = system.vel.shape
+        #if type(vel)!=np.ndarray:
+        #    npart, dim = mass.shape[0],3
+        #else:
+        npart, dim = vel.shape
         vel = self.normal(loc=0.0, scale=sigma_v, size=(npart, dim))
         return vel, sigma_v
 
