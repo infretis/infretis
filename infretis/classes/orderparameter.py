@@ -537,7 +537,7 @@ class DihedralPBC(OrderParameter):
         atoms = system.pos[self.idx]
         box = np.array([*system.box[:3], 90, 90, 90])
         dih = calc_dihedrals(*atoms, box=box)
-        print("order",dih)
+        print("order",dih,"vel",system.vel[self.idx][0])
 
         return [dih]
 
