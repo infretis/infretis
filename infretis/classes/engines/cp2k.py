@@ -673,10 +673,7 @@ class CP2KEngine(EngineBase):
                 pass
             elif i > 0:
                 self._movefile(restart_file, prestart_file)
-                try:
-                    self._movefile(wave_file, pwave_file)
-                except FileNotFoundError:
-                    pass
+                #self._movefile(wave_file, pwave_file)
                 if i < path.maxlen - 1:
                     out_files = self.run_cp2k('continue.inp', name)
             self._remove_files(self.exe_dir,
@@ -768,8 +765,7 @@ class CP2KEngine(EngineBase):
         """Remove or rename?"""
         self.exe_dir = md_items['w_folder']
         #self.rgen = md_items['picked']['tis_set']['rgen']
-        ens_num = md_items['ens_nums'][0]
-        self.rgen = md_items['picked'][ens_num]['ens']['rgen']
+        self.rgen = md_items['picked'][md_items['ens_nums'][0]]['ens']['rgen']
 
     def _reverse_velocities(self, filename, outfile):
         """Reverse velocity in a given snapshot.
@@ -784,7 +780,10 @@ class CP2KEngine(EngineBase):
 
         """
         box, xyz, vel, names = self._read_configuration(filename)
+        print("read",vel[0])
         write_xyz_trajectory(outfile, xyz, -1.0*vel, names, box, append=False)
+        box, xyz, vel, names = self._read_configuration(outfile)
+        print("write",vel[0])
 
 
 
@@ -802,7 +801,7 @@ class CP2KEngine(EngineBase):
         pos = self.dump_frame(system)
         box, xyz, vel, atoms = self._read_configuration(pos)
         system.vel = vel
-        system.pos = xyz
+        #system.pos = xyz
         print("start",system.vel)
         if box is None:
             box, _ = read_cp2k_box(self.input_files['template'])

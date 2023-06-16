@@ -19,9 +19,12 @@ def create_ensembles(config):
 
     # create all path ensembles
     pensembles = {}
+    rgen = create_random_generator(settings={'seed':config['simulation']['seed']})
     for i, ens_intf in enumerate(ens_intfs):
         # #############RESTART SEED FROM RESTART...
-        rgen_ens = create_random_generator()
+        ens_seed = rgen.random_integers(1,9999999)
+        print(i,ens_intf, ens_seed)
+        rgen_ens = create_random_generator(settings={'seed':ens_seed})
         pensembles[i] = {'interfaces': tuple(ens_intf),
                          'tis_set': config['simulation']['tis_set'],
                          'mc_move': config['simulation']['shooting_moves'][i],
