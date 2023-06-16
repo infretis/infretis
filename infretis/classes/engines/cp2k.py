@@ -796,11 +796,11 @@ class CP2KEngine(EngineBase):
         """
         rgen = self.rgen
         mass = self.mass
+        beta  = self.beta
         rescale = vel_settings.get('rescale_energy',
     	                               vel_settings.get('rescale'))
         pos = self.dump_frame(system)
         box, xyz, vel, atoms = self._read_configuration(pos)
-        system.vel = vel
         #system.pos = xyz
         print("start",system.vel)
         if box is None:
@@ -819,22 +819,20 @@ class CP2KEngine(EngineBase):
             kin_old = kinetic_energy(vel, mass)[0]
             do_rescale = False
         if vel_settings.get('aimless', False):
-            vel, _ = rgen.draw_maxwellian_velocities(system, self)
+            vel, _ = rgen.draw_maxwellian_velocities(vel, mass, beta)
+            print("VEL",vel[0])
             print("Aimless")
-            system.vel = vel
         else:
-            dvel, _ = rgen.draw_maxwellian_velocities(system, self, sigma_v=vel_settings['sigma_v'])
+            dvel, _ = rgen.draw_maxwellian_velocities(vel, mass, beta, sigma_v=vel_settings['sigma_v'])
             print("Aimless false")
             vel += dvel
-            system.vel = vel
         # make reset momentum the default
         if vel_settings.get('momentum', True):
             print("CHECK VEL SETTINGS MOMENTUM")
-            system.vel = reset_momentum(system.vel, self.mass)
+            vel = reset_momentum(vel, mass)
         if do_rescale:
             #system.rescale_velocities(rescale, external=True)
             raise NotImplementedError("Option 'rescale_energy' is not implemented for CP2K yet.")
-        vel = system.vel
         conf_out = os.path.join(self.exe_dir,
                 '{}.{}'.format('genvel', self.ext))
         write_xyz_trajectory(conf_out, xyz, vel,
