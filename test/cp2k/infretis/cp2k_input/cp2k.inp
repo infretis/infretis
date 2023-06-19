@@ -64,7 +64,7 @@
       &BOND
         ATOMS H H
         KIND HARMONIC
-        K [kjmol/angstrom^2] 0.1
+        K [kjmol/nm^2] 0.1
         R0 [angstrom] 1
       &END BOND
     &END FORCEFIELD
