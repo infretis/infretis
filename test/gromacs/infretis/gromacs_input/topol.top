@@ -22,9 +22,9 @@ H4     4
 
 [ bonds ]
 ; id1 id2 fnc_type b0 (nm) kb (kjmol/nm^2)
-     1     2     1     0.100     0.001 
-     2     3     1     0.100     0.001 
-     3     4     1     0.100     0.001 
+     1     2     1     0.100     50.000 
+     2     3     1     0.100     50.000 
+     3     4     1     0.100     50.000 
 
 [ angles ]
 ; id1 id2 id3 fnc_type theta0 (deg) ktheta (kjmol/rad^2)

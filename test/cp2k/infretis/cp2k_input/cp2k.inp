@@ -35,7 +35,7 @@
   &END VELOCITIES                                                                                 
     &TRAJECTORY                                                                                     
       &EACH                                                                                         
-        MD 10                                                                                  
+        MD 1                                                                              
       &END EACH                                                                                     
     &END TRAJECTORY                                                                                 
   &END PRINT                                                                                        
@@ -64,7 +64,7 @@
       &BOND
         ATOMS H H
         KIND HARMONIC
-        K [kjmol/nm^2] 0.1
+        K [kjmol/angstrom^2] 0.5
         R0 [angstrom] 1
       &END BOND
     &END FORCEFIELD
@@ -80,8 +80,8 @@
       ANGLES 90 90 90
     &END CELL                                                                                       
       &TOPOLOGY 
-              #COORD_FILE_NAME ./initial.xyz
-              #COORD_FILE_FORMAT XYZ                            
+              COORD_FILE_NAME ./initial.xyz
+              COORD_FILE_FORMAT XYZ                            
          &GENERATE
              &BOND ADD
              ATOMS 1 2
