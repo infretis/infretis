@@ -15,9 +15,9 @@
       TEMPERATURE 0.07
       &THERMOSTAT
          TYPE CSVR
-         &NOSE
-            TIMECON 1000
-         &END NOSE
+         &CSVR
+            TIMECON 100
+         &END CSVR
       &END THERMOSTAT
    &END MD
   &PRINT                                                                                            
