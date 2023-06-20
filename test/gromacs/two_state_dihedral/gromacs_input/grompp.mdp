@@ -19,7 +19,7 @@ rcoulomb                = 0.30       ; short-range electrostatic cutoff (in nm)
 
 tcoupl                  = V-rescale                     ; modified Berendsen thermostat
 tc-grps                 = System    ; two coupling groups - more accurate
-tau_t                   = 100                      ; time constant, in ps
+tau_t                   = 0.1                    ; time constant, in ps
 ref_t                   = 0.07                   ; reference temperature, one for each group, in K
 
 pbc                     = xyz       ; 3-D PBC
