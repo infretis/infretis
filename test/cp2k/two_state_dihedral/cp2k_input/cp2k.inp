@@ -58,6 +58,7 @@
       &END TORSION
       &BEND
               ATOMS     H H H
+              KIND      HARMONIC
               K         [kjmol/rad^2] 0.1
               THETA0    [rad] 1.57079632679
       &END BEND
