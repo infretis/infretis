@@ -1,8 +1,10 @@
-# Cycle: 0, status: ACC
+# Cycle: 2173, status: ACC
 #     Step              Filename       index    vel
-         0      006_13_trajB.gro           2     -1
-         1      006_13_trajB.gro           1     -1
-         2      006_13_trajB.gro           0     -1
-         3      006_12_trajF.gro           0      1
-         4      006_12_trajF.gro           1      1
-         5      006_12_trajF.gro           2      1
+         0     006_585_trajB.trr           5     -1
+         1     006_585_trajB.trr           4     -1
+         2     006_585_trajB.trr           3     -1
+         3     006_585_trajB.trr           2     -1
+         4     006_585_trajB.trr           1     -1
+         5     006_585_trajB.trr           0     -1
+         6     006_586_trajF.trr           1      1
+         7     006_586_trajF.trr           2      1

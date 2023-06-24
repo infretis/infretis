@@ -17,14 +17,11 @@ rvdw                    = 0.30
 coulombtype             = cutoff       ; Particle Mesh Ewald for long-range electrostatics
 rcoulomb                = 0.30       ; short-range electrostatic cutoff (in nm)
 
-tcoupl                  = V-rescale                     ; modified Berendsen thermostat
-tc-grps                 = System    ; two coupling groups - more accurate
-tau_t                   = 0.1                    ; time constant, in ps
-ref_t                   = 0.07                   ; reference temperature, one for each group, in K
+tcoupl                  = no                    ; modified Berendsen thermostat
 
 pbc                     = xyz       ; 3-D PBC
 
-gen_temp                = 0.07       ; temperature for Maxwell distribution
+gen_temp                = 300       ; temperature for Maxwell distribution
 gen_seed                = -1        ; generate a random seed
 gen_vel = no
 nstxout = 1

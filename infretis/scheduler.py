@@ -6,7 +6,7 @@ from infretis.core.tis import run_md
 def scheduler(config):
     """Run infretis loop."""
     # setup repex, dask and futures
-    md_items, state, paths, md_items = setup_internal(config)
+    md_items, state = setup_internal(config)
     client, futures = setup_dask(state)
 
     # submit the first number of workers
@@ -34,4 +34,3 @@ def scheduler(config):
 
     # end client
     client.close()
-    return state, md_items, paths

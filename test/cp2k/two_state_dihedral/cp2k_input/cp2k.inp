@@ -9,10 +9,10 @@
                                                                                                     
 &MOTION 
    &MD
-      ENSEMBLE NVT
+      ENSEMBLE NVE
       STEPS 10000000
-      TIMESTEP 50.00
-      TEMPERATURE 0.07
+      TIMESTEP 0.5
+      TEMPERATURE 300
       &THERMOSTAT
          TYPE CSVR
          &CSVR
@@ -52,20 +52,20 @@
       IGNORE_MISSING_CRITICAL_PARAMS
       &TORSION
               ATOMS     H H H H
-              K         [kjmol] 0.002
+              K         [kjmol] 8
               M         2
               PHI0      0.78539816339
       &END TORSION
       &BEND
               ATOMS     H H H
               KIND      HARMONIC
-              K         [kjmol/rad^2] 0.1
+              K         [kjmol/rad^2] 400
               THETA0    [rad] 1.57079632679
       &END BEND
       &BOND
         ATOMS H H
         KIND HARMONIC
-        K [kjmol/angstrom^2] 0.5
+        K [kjmol/angstrom^2] 2000
         R0 [angstrom] 1
       &END BOND
     &END FORCEFIELD
