@@ -128,10 +128,8 @@ def reset_momentum(vel, mass):
     # avoid creating an extra dimension by indexing array with None
 
     mom = np.sum(vel * mass,  axis=0)
-    print("mom unscaled",np.sum(vel))
     vel -= (mom / mass.sum())
     mom = np.sum(vel * mass, axis=0)
-    print("mom scaled",np.sum(vel))
     return vel
 
 def write_for_step_vel(infile, outfile, timestep, subcycles, posfile, vel,
