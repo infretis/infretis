@@ -259,7 +259,6 @@ def select_shoot(picked, start_cond=('L',)):
     if len(picked) == 1:
         pens = next(iter(picked.values()))
         ens_set, path, engine = (pens[i] for i in ['ens', 'traj', 'engine'])
-        print('bananas', ens_set)
         move = ens_set['mc_move']
         start_cond = ens_set['start_cond']
         accept, new_path, status = sh_moves[move](ens_set, path, engine,
@@ -467,7 +466,6 @@ def wire_fencing(ens_set, trial_path, engine, shooting_point=None, start_cond=('
                'ens_name': ens_set['ens_name']}
 
     succ_seg = 0
-    print('gori', ens_set)
     for i in range(ens_set['tis_set']['n_jumps']):
         logger.debug('Trying a new web with Wire Fencing, jump %i', i)
         # Select the shooting point:
