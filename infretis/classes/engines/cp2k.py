@@ -12,18 +12,20 @@ CP2KEngine (:py:class:`.CP2KEngine`)
     A class responsible for interfacing CP2K.
 """
 import logging
-import code
 import os
 import re
 import shlex
+from time import sleep
 import numpy as np
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.rgen import create_random_generator
+import subprocess
+import signal
+from pyretis.engines.external import ExternalMDEngine
+from pyretis.core.random_gen import create_random_generator
 from pyretis.inout.settings import look_for_input_files
 from pyretis.core.units import CONVERT, CONSTANTS
 from pyretis.setup.createsystem import PERIODIC_TABLE
-
-
 from pyretis.inout.formats.xyz import (
     read_xyz_file,
     write_xyz_trajectory,
@@ -195,10 +197,90 @@ def write_for_step_vel(infile, outfile, timestep, subcycles, posfile, vel,
             'data': [],
             'replace': True,
         },
-        #'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
-        #    'data': ['BACKUP_COPIES 0'],
-        #    'replace': True,
-        #},
+        'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
+            'data': ['BACKUP_COPIES 0'],
+            'replace': True,
+        },
+    }
+    for veli in vel:
+        to_update['FORCE_EVAL->SUBSYS->VELOCITY']['data'].append(
+            f'{veli[0]} {veli[1]} {veli[2]}'
+        )
+    remove = [
+        'EXT_RESTART',
+        'FORCE_EVAL->SUBSYS->COORD'
+    ]
+    update_cp2k_input(infile, outfile, update=to_update, remove=remove)
+
+def write_for_run_vel(infile, outfile, timestep, nsteps, subcycles, posfile, 
+                       vel, name='md_step', print_freq=None):
+    """Create input file to perform n steps.
+
+    Note, a single step actually consists of a number of subcycles.
+    But from PyRETIS' point of view, this is a single step.
+    Further, we here assume that we start from a given xyz file and
+    we also explicitly give the velocities here.
+
+    Parameters
+    ----------
+    infile : string
+        The input template to use.
+    outfile : string
+        The file to create.
+    timestep : float
+        The time-step to use for the simulation.
+    nsteps : integer
+        The number of pyretis steps to perform.
+    subcycles : integer
+        The number of sub-cycles to perform.
+    posfile : string
+        The (base)name for the input file to read positions from.
+    vel : numpy.array
+        The velocities to set in the input.
+    name : string, optional
+        A name for the CP2K project.
+    print_freq : integer, optional
+        How often we should print to the trajectory file.
+
+    """
+    if print_freq is None:
+        print_freq = subcycles
+    to_update = {
+        'GLOBAL': {
+            'data': [f'PROJECT {name}',
+                     'RUN_TYPE MD',
+                     'PRINT_LEVEL LOW'],
+            'replace': True,
+        },
+        'MOTION->MD':  {
+            'data': {'STEPS': nsteps*subcycles,
+                     'TIMESTEP': timestep}
+        },
+        'MOTION->PRINT->RESTART': {
+            'data': ['BACKUP_COPIES 0'],
+            'replace': True,
+        },
+        'MOTION->PRINT->RESTART->EACH': {
+            'data': {'MD': print_freq}
+        },
+        'MOTION->PRINT->VELOCITIES->EACH': {
+            'data': {'MD': print_freq}
+        },
+        'MOTION->PRINT->TRAJECTORY->EACH': {
+            'data': {'MD': print_freq}
+        },
+        'FORCE_EVAL->SUBSYS->TOPOLOGY': {
+            'data': {'COORD_FILE_NAME': posfile,
+                     'COORD_FILE_FORMAT': 'xyz'}
+        },
+        'FORCE_EVAL->SUBSYS->VELOCITY': {
+            'data': [],
+            'replace': True,
+        },
+        'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
+            'data': ['BACKUP_COPIES 0'],
+            'replace': True,
+        },
     }
     for veli in vel:
         to_update['FORCE_EVAL->SUBSYS->VELOCITY']['data'].append(
@@ -266,10 +348,10 @@ def write_for_integrate(infile, outfile, timestep, subcycles, posfile,
             'data': {'COORD_FILE_NAME': posfile,
                      'COORD_FILE_FORMAT': 'xyz'}
         },
-        #'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
-        #    'data': ['BACKUP_COPIES 0'],
-        #    'replace': True,
-       # },
+        'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
+            'data': ['BACKUP_COPIES 0'],
+            'replace': True,
+        },
     }
     remove = [
         'EXT_RESTART',
@@ -332,16 +414,16 @@ def write_for_continue(infile, outfile, timestep, subcycles,
                      'RESTART_FILE_NAME previous.restart'],
             'replace': True
         },
-        #'FORCE_EVAL->DFT': {
-        #    'data': {'WFN_RESTART_FILE_NAME': 'previous.wfn'},
-        #},
-        #'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
-        #    'data': ['BACKUP_COPIES 0'],
-        #    'replace': True,
-        #},
+        'FORCE_EVAL->DFT': {
+            'data': {'WFN_RESTART_FILE_NAME': 'previous.wfn'},
+        },
+        'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
+            'data': ['BACKUP_COPIES 0'],
+            'replace': True,
+        },
     }
     remove = [
-        #'FORCE_EVAL->SUBSYS->TOPOLOGY',
+        'FORCE_EVAL->SUBSYS->TOPOLOGY',
         'FORCE_EVAL->SUBSYS->VELOCITY',
         'FORCE_EVAL->SUBSYS->COORD'
         'FORCE_EVAL->DFT->RESTART_FILE_NAME',
@@ -379,9 +461,9 @@ def write_for_genvel(infile, outfile, posfile, seed,
                      'PRINT_LEVEL LOW'],
             'replace': True,
         },
-       # 'FORCE_EVAL->DFT->SCF': {
-       #     'data': {'SCF_GUESS': 'ATOMIC'}
-       # },
+        'FORCE_EVAL->DFT->SCF': {
+            'data': {'SCF_GUESS': 'ATOMIC'}
+        },
         'MOTION->MD':  {
             'data': {'STEPS': 1,
                      'TIMESTEP': 0}
@@ -403,10 +485,10 @@ def write_for_genvel(infile, outfile, posfile, seed,
             'data': {'COORD_FILE_NAME': posfile,
                      'COORD_FILE_FORMAT': 'xyz'}
         },
-       # 'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
-       #     'data': ['BACKUP_COPIES 0'],
-       #     'replace': True,
-       # },
+        'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
+            'data': ['BACKUP_COPIES 0'],
+            'replace': True,
+        },
     }
     remove = [
         'EXT_RESTART',
@@ -440,7 +522,8 @@ class CP2KEngine(EngineBase):
     """
 
     def __init__(self, cp2k, input_path, timestep, subcycles,
-                 extra_files=None, exe_path=os.path.abspath('.'),  seed=0):
+                 extra_files=None, exe_path=os.path.abspath('.'),  seed=0,
+                sleep=0.1): 
         """Set up the CP2K engine.
 
         Parameters
@@ -465,9 +548,9 @@ class CP2KEngine(EngineBase):
         """
         super().__init__('CP2K external engine', timestep,
                          subcycles)
-        #self.rgen = create_random_generator({'seed': seed})
         self.ext = 'xyz'
         self.cp2k = shlex.split(cp2k)
+        self.sleep = sleep
         logger.info('Command for execution of CP2K: %s', ' '.join(self.cp2k))
         # Store input path:
         self.input_path = os.path.join(exe_path, input_path)
@@ -562,7 +645,6 @@ class CP2KEngine(EngineBase):
                      idx, traj_file)
 
     def _propagate_from(self, name, path, system, ens_set, msg_file, reverse=False):
-        print(ens_set)
         """
         Propagate with CP2K from the current system configuration.
 
@@ -570,6 +652,9 @@ class CP2KEngine(EngineBase):
         has been called in the parent. The parent is then responsible
         for reversing the velocities and also for setting the initial
         state of the system.
+
+        Note that the on-the-fly reading of data is curently only applicable
+        for NVT simulations, as no box information is read from cp2k.
 
         Parameters
         ----------
@@ -619,16 +704,12 @@ class CP2KEngine(EngineBase):
         box, xyz, vel, atoms = self._read_configuration(initial_conf)
         if box is None:
             box, _ = read_cp2k_box(self.input_files['template'])
-        # Add CP2K input for a single step:
-        step_input = os.path.join(self.exe_dir, 'step.inp')
-        write_for_step_vel(self.input_files['template'], step_input,
-                           self.timestep, self.subcycles,
+        # Add CP2K input for N steps:
+        run_input = os.path.join(self.exe_dir, 'run.inp')
+        write_for_run_vel(self.input_files['template'], run_input,
+                           self.timestep, path.maxlen, self.subcycles,
                            os.path.basename(initial_conf),
                            vel, name=name)
-        # And create the input file for continuing:
-        continue_input = os.path.join(self.exe_dir, 'continue.inp')
-        write_for_continue(self.input_files['template'], continue_input,
-                           self.timestep, self.subcycles, name=name)
         # Get the order parameter before the run:
         order = self.calculate_order(system, xyz=xyz, vel=vel, box=box)
         traj_file = os.path.join(self.exe_dir, f'{name}.{self.ext}')
@@ -637,55 +718,120 @@ class CP2KEngine(EngineBase):
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
         msg_file.write(f'# Trajectory file is: {traj_file}')
-        # Run the first step:
-        msg_file.write('# Running first CP2k step.')
-        out_files = self.run_cp2k('step.inp', name)
+        # Get CP2K output files:
+        out_files = {}
+        for key, val in OUTPUT_FILES.items():
+            out_files[key] = os.path.join(self.exe_dir, val.format(name))
         restart_file = os.path.join(self.exe_dir, out_files['restart'])
         prestart_file = os.path.join(self.exe_dir, 'previous.restart')
         wave_file = os.path.join(self.exe_dir, out_files['wfn'])
         pwave_file = os.path.join(self.exe_dir, 'previous.wfn')
 
-        # Note: Order is calculated at the END of each iteration!
-        i = 0
-        # Write the config so we have a non-empty file:
-        write_xyz_trajectory(traj_file, xyz, vel, atoms, box, step=i,
-                             append=False)
-        msg_file.write('# Running main CP2k propagation loop.')
-        msg_file.write('# Step order parameter cv1 cv2 ...')
-        for i in range(path.maxlen):
-            msg_file.write(f'{i} {" ".join([str(j) for j in order])}')
-            snapshot = {'order': order, 'config': (traj_file, i),
-                        'vel_rev': reverse}
-            phase_point = self.snapshot_to_system(system, snapshot)
-            status, success, stop, add = self.add_to_path(path, phase_point,
+        # cp2k runner
+        logger.debug('Executing CP2K %s: %s', name, 'run.inp')
+        cmd = self.cp2k + ['-i', 'run.inp']
+        cwd = self.exe_dir
+        inputs = None
+        # from external.exe_command
+        cmd2 = ' '.join(cmd)
+        logger.debug('Executing: %s', cmd2)
+        
+        out_name = 'stdout.txt'
+        err_name = 'stderr.txt'
+
+        if cwd:
+            out_name = os.path.join(cwd, out_name)
+            err_name = os.path.join(cwd, err_name)
+
+        return_code = None
+
+        with open(out_name, 'wb') as fout, open(err_name, 'wb') as ferr:
+            exe = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=fout,
+                stderr=ferr,
+                shell=False,
+                cwd=cwd
+            )
+            # wait for trajectories to appear
+            while not os.path.exists(out_files['pos']) or \
+                not os.path.exists(out_files['vel']):
+                sleep(self.sleep)
+    
+            with open(out_files['pos'],'r') as fpos, \
+                open(out_files['vel'], 'r') as fvel:
+                pos_reader = ReadAndProcessOnTheFly(fpos, xyz_processer)
+                vel_reader = ReadAndProcessOnTheFly(fvel, xyz_processer)
+                # start reading on the fly as cp2k is still running
+                # if it stops, perform one more iteration to read
+                # the remaning contnent in the files. Note that we assume here
+                # that cp2k writes in blocks of frames, and never partially
+                # finished frames.
+                cp2k_was_terminated = False
+                iterations_after_stop=0
+                step_nr = 0
+                while exe.poll() is None  or iterations_after_stop<=1:
+                    pos_traj = pos_reader.read_and_process_content()
+                    vel_traj = vel_reader.read_and_process_content()
+                    
+                    # loop over the frames that are ready
+                    for frame in range(min(len(pos_traj),len(vel_traj))):
+                        pos = pos_traj.pop(0)
+                        vel = vel_traj.pop(0)
+                        write_xyz_trajectory(traj_file, pos, vel, 
+                                             atoms, box)
+                        # calculate order, check for crossings, etc
+                        order = self.calculate_order(system, xyz=pos, vel=vel, box=box)
+                        msg_file.write(f'{step_nr} {" ".join([str(j) for j in order])}')
+                        snapshot = {'order': order, 'config': (traj_file, step_nr),
+                                    'vel_rev': reverse}
+                        phase_point = self.snapshot_to_system(system, snapshot)
+                        status, success, stop, add = self.add_to_path(path, phase_point,
                                                           left, right)
-            if add and i > 0:
-                # Write the previous configuration:
-                write_xyz_trajectory(traj_file, xyz, vel, atoms, box,
-                                     step=i)
-            if stop:
-                logger.debug('CP2K propagation ended at %i. Reason: %s',
-                             i, status)
-                break
-            if i == 0:
-                pass
-            elif i > 0:
-                self._movefile(restart_file, prestart_file)
-                #self._movefile(wave_file, pwave_file)
-                if i < path.maxlen - 1:
-                    out_files = self.run_cp2k('continue.inp', name)
-            self._remove_files(self.exe_dir,
-                               self._find_backup_files(self.exe_dir))
-            # Read config after the step
-            if i < path.maxlen - 1:
-                atoms, xyz, vel, box, _ = read_cp2k_restart(restart_file)
-                order = self.calculate_order(system,
-                                             xyz=xyz, vel=vel, box=box)
+                        if stop:
+                            # process may have terminated since we last checked
+                            if exe.poll() is None:
+                                logger.debug('Terminating CP2K execution')
+                                os.kill(exe.pid, signal.SIGTERM)
+                            logger.debug('CP2K propagation ended at %i. Reason: %s',
+                            step_nr, status)
+                            # exit while loop without reading additional data
+                            iterations_after_stop=2
+                            cp2k_was_terminated = True
+                            break
+                            
+                        step_nr += 1    
+                    sleep(self.sleep)
+                    # if cp2k finished, we run one more loop
+                    if exe.poll() is not None and iterations_after_stop<=1:
+                        iterations_after_stop += 1
+                
+            return_code = exe.returncode
+            if return_code != 0 and not cp2k_was_terminated:
+                logger.error('Execution of external program (%s) failed!',
+                             self.description)
+                logger.error('Attempted command: %s', cmd2)
+                logger.error('Execution directory: %s', cwd)
+                if inputs is not None:
+                    logger.error('Input to external program was: %s', inputs)
+                logger.error('Return code from external program: %i',
+                             return_code)
+                logger.error('STDOUT, see file: %s', out_name)
+                logger.error('STDERR, see file: %s', err_name)
+                msg = (f'Execution of external program ({self.description}) '
+                       f'failed with command:\n {cmd2}.\n'
+                       f'Return code: {return_code}')
+                raise RuntimeError(msg)
+        if (return_code is not None) and (return_code == 0 or cp2k_was_terminated):
+            self._removefile(out_name)
+            self._removefile(err_name)
+
         msg_file.write('# Propagation done.')
         energy_file = out_files['energy']
         msg_file.write(f'# Reading energies from: {energy_file}')
         energy = read_cp2k_energy(energy_file)
-        end = (i + 1) * self.subcycles
+        end = (step_nr + 1) * self.subcycles
         ekin = energy.get('ekin', [])
         vpot = energy.get('vpot', [])
         path.update_energies(ekin[:end:self.subcycles],
@@ -694,8 +840,9 @@ class CP2KEngine(EngineBase):
             self._removefile(files)
         self._removefile(prestart_file)
         self._removefile(pwave_file)
-        self._removefile(continue_input)
-        self._removefile(step_input)
+        self._removefile(run_input)
+        self._removefile(restart_file)
+        self._removefile(wave_file)
         return success, status
 
     def step(self, system, name):
@@ -778,12 +925,7 @@ class CP2KEngine(EngineBase):
 
         """
         box, xyz, vel, names = self._read_configuration(filename)
-        print("read",vel[0])
         write_xyz_trajectory(outfile, xyz, -1.0*vel, names, box, append=False)
-        box, xyz, vel, names = self._read_configuration(outfile)
-        print("write",vel[0])
-
-
 
     def modify_velocities(self, system, vel_settings=None):
         """
@@ -847,3 +989,49 @@ class CP2KEngine(EngineBase):
            dek = kin_new - kin_old
         print("end",system.vel)
         return dek, kin_new
+
+def xyz_processer(string):
+    """
+    Read an xyz trajectory in string format with 
+    N frames, and n atoms.
+    Returns the coordinates as a list with len N containing
+    numpy arrays of shape (n, 3)
+    """
+    data = string.split('\n')
+    N_atoms = int(data[0])
+    block_size = N_atoms + 2 # 2 header lines
+    traj = []
+    frame_coords = []
+    for i,line in enumerate(data):
+        if i%block_size>1:
+            vals = line.split()
+            frame_coords.append([float(vals[i]) for i in range(1,4)])
+
+        elif i%block_size==0 and i>0:
+            traj.append(np.array(frame_coords))
+            frame_coords = []
+    return traj
+
+class ReadAndProcessOnTheFly:
+    """Read from an open fileobject on the fly and do some processing on 
+    new data that is written to it. Files should be opened using a 'with open'
+    statement to be sure that they are closed.
+    """
+    def __init__(self, file_object, processing_function):
+        self.file_object = file_object
+        self.processing_function = processing_function
+        self.current_position = 0
+
+    def read_and_process_content(self):
+        self.file_object.seek(self.current_position)
+        prev_position = self.current_position
+        current_content = self.file_object.read()
+        self.current_position = self.file_object.tell()
+        # if nothing written, return empty list
+        if prev_position - self.current_position==0:
+            return []
+        else:
+            return self.processing_function(current_content)
+    
+    def close(self):
+        self.file_object.close()
