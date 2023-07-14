@@ -758,54 +758,58 @@ class CP2KEngine(EngineBase):
             while not os.path.exists(out_files['pos']) or \
                 not os.path.exists(out_files['vel']):
                 sleep(self.sleep)
-    
-            with open(out_files['pos'],'r') as fpos, \
-                open(out_files['vel'], 'r') as fvel:
-                pos_reader = ReadAndProcessOnTheFly(fpos, xyz_processer)
-                vel_reader = ReadAndProcessOnTheFly(fvel, xyz_processer)
-                # start reading on the fly as cp2k is still running
-                # if it stops, perform one more iteration to read
-                # the remaning contnent in the files. Note that we assume here
-                # that cp2k writes in blocks of frames, and never partially
-                # finished frames.
-                cp2k_was_terminated = False
-                iterations_after_stop=0
-                step_nr = 0
-                while exe.poll() is None  or iterations_after_stop<=1:
-                    pos_traj = pos_reader.read_and_process_content()
-                    vel_traj = vel_reader.read_and_process_content()
-                    
+                if exe.poll() is not None:
+                    logger.debug('CP2K execution stopped')
+                    break
+
+            # cp2k may have finished after last checking files
+            # or it may have crashed without writing the files
+            if exe.poll() is None or exe.returncode==0:
+                with open(out_files['pos'],'r') as fpos, \
+                    open(out_files['vel'], 'r') as fvel:
+                    pos_reader = ReadAndProcessOnTheFly(fpos, xyz_processer)
+                    vel_reader = ReadAndProcessOnTheFly(fvel, xyz_processer)
+                    # start reading on the fly as cp2k is still running
+                    # if it stops, perform one more iteration to read
+                    # the remaning contnent in the files. Note that we assume here
+                    # that cp2k writes in blocks of frames, and never partially
+                    # finished frames.
+                    iterations_after_stop=0
+                    step_nr = 0
+                    while exe.poll() is None or iterations_after_stop<=1:
+                        pos_traj = pos_reader.read_and_process_content()
+                        vel_traj = vel_reader.read_and_process_content()
                     # loop over the frames that are ready
-                    for frame in range(min(len(pos_traj),len(vel_traj))):
-                        pos = pos_traj.pop(0)
-                        vel = vel_traj.pop(0)
-                        write_xyz_trajectory(traj_file, pos, vel, 
-                                             atoms, box)
-                        # calculate order, check for crossings, etc
-                        order = self.calculate_order(system, xyz=pos, vel=vel, box=box)
-                        msg_file.write(f'{step_nr} {" ".join([str(j) for j in order])}')
-                        snapshot = {'order': order, 'config': (traj_file, step_nr),
-                                    'vel_rev': reverse}
-                        phase_point = self.snapshot_to_system(system, snapshot)
-                        status, success, stop, add = self.add_to_path(path, phase_point,
-                                                          left, right)
-                        if stop:
-                            # process may have terminated since we last checked
-                            if exe.poll() is None:
-                                logger.debug('Terminating CP2K execution')
-                                os.kill(exe.pid, signal.SIGTERM)
-                            logger.debug('CP2K propagation ended at %i. Reason: %s',
-                            step_nr, status)
-                            # exit while loop without reading additional data
-                            iterations_after_stop=2
-                            cp2k_was_terminated = True
-                            break
-                            
-                        step_nr += 1    
-                    sleep(self.sleep)
-                    # if cp2k finished, we run one more loop
-                    if exe.poll() is not None and iterations_after_stop<=1:
-                        iterations_after_stop += 1
+                        for frame in range(min(len(pos_traj),len(vel_traj))):
+                            pos = pos_traj.pop(0)
+                            vel = vel_traj.pop(0)
+                            write_xyz_trajectory(traj_file, pos, vel, 
+                                                 atoms, box)
+                            # calculate order, check for crossings, etc
+                            order = self.calculate_order(system, xyz=pos, vel=vel, box=box)
+                            msg_file.write(f'{step_nr} {" ".join([str(j) for j in order])}')
+                            snapshot = {'order': order, 'config': (traj_file, step_nr),
+                                        'vel_rev': reverse}
+                            phase_point = self.snapshot_to_system(system, snapshot)
+                            status, success, stop, add = self.add_to_path(path, phase_point,
+                                                              left, right)
+                            if stop:
+                                # process may have terminated since we last checked
+                                if exe.poll() is None:
+                                    logger.debug('Terminating CP2K execution')
+                                    os.kill(exe.pid, signal.SIGTERM)
+                                logger.debug('CP2K propagation ended at %i. Reason: %s',
+                                step_nr, status)
+                                # exit while loop without reading additional data
+                                iterations_after_stop=2
+                                cp2k_was_terminated = True
+                                break
+                                
+                            step_nr += 1    
+                        sleep(self.sleep)
+                        # if cp2k finished, we run one more loop
+                        if exe.poll() is not None and iterations_after_stop<=1:
+                            iterations_after_stop += 1
                 
             return_code = exe.returncode
             if return_code != 0 and not cp2k_was_terminated:
