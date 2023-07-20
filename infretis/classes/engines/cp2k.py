@@ -765,51 +765,53 @@ class CP2KEngine(EngineBase):
             # cp2k may have finished after last checking files
             # or it may have crashed without writing the files
             if exe.poll() is None or exe.returncode==0:
-                with open(out_files['pos'],'r') as fpos, \
-                    open(out_files['vel'], 'r') as fvel:
-                    pos_reader = ReadAndProcessOnTheFly(fpos, xyz_processer)
-                    vel_reader = ReadAndProcessOnTheFly(fvel, xyz_processer)
-                    # start reading on the fly as cp2k is still running
-                    # if it stops, perform one more iteration to read
-                    # the remaning contnent in the files. Note that we assume here
-                    # that cp2k writes in blocks of frames, and never partially
-                    # finished frames.
-                    iterations_after_stop=0
-                    step_nr = 0
-                    while exe.poll() is None or iterations_after_stop<=1:
-                        pos_traj = pos_reader.read_and_process_content()
-                        vel_traj = vel_reader.read_and_process_content()
+                pos_reader = ReadAndProcessOnTheFly(out_files['pos'], xyz_processer)
+                vel_reader = ReadAndProcessOnTheFly(out_files['vel'], xyz_processer)
+                # start reading on the fly as cp2k is still running
+                # if it stops, perform one more iteration to read
+                # the remaning contnent in the files. Note that we assume here
+                # that cp2k writes in blocks of frames, and never partially
+                # finished frames.
+                iterations_after_stop=0
+                step_nr = 0
+                pos_traj = []
+                vel_traj = []
+                while exe.poll() is None or iterations_after_stop<=1:
+                    # we may still have some data in one of the trajectories
+                    # so use += here
+                    pos_traj += pos_reader.read_and_process_content()
+                    vel_traj += vel_reader.read_and_process_content()
                     # loop over the frames that are ready
-                        for frame in range(min(len(pos_traj),len(vel_traj))):
-                            pos = pos_traj.pop(0)
-                            vel = vel_traj.pop(0)
-                            write_xyz_trajectory(traj_file, pos, vel, 
-                                                 atoms, box)
-                            # calculate order, check for crossings, etc
-                            order = self.calculate_order(system, xyz=pos, vel=vel, box=box)
-                            msg_file.write(f'{step_nr} {" ".join([str(j) for j in order])}')
-                            snapshot = {'order': order, 'config': (traj_file, step_nr),
-                                        'vel_rev': reverse}
-                            phase_point = self.snapshot_to_system(system, snapshot)
-                            status, success, stop, add = self.add_to_path(path, phase_point,
-                                                              left, right)
-                            if stop:
-                                # process may have terminated since we last checked
-                                if exe.poll() is None:
-                                    logger.debug('Terminating CP2K execution')
-                                    os.kill(exe.pid, signal.SIGTERM)
-                                logger.debug('CP2K propagation ended at %i. Reason: %s',
-                                step_nr, status)
-                                # exit while loop without reading additional data
-                                iterations_after_stop=2
-                                cp2k_was_terminated = True
-                                break
-                                
-                            step_nr += 1    
-                        sleep(self.sleep)
-                        # if cp2k finished, we run one more loop
-                        if exe.poll() is not None and iterations_after_stop<=1:
-                            iterations_after_stop += 1
+                    for frame in range(min(len(pos_traj),len(vel_traj))):
+                        pos = pos_traj.pop(0)
+                        vel = vel_traj.pop(0)
+                        write_xyz_trajectory(traj_file, pos, vel, 
+                                             atoms, box)
+                        # calculate order, check for crossings, etc
+                        order = self.calculate_order(system, xyz=pos, vel=vel, box=box)
+                        msg_file.write(f'{step_nr} {" ".join([str(j) for j in order])}')
+                        snapshot = {'order': order, 'config': (traj_file, step_nr),
+                                    'vel_rev': reverse}
+                        phase_point = self.snapshot_to_system(system, snapshot)
+                        status, success, stop, add = self.add_to_path(path, phase_point,
+                                                          left, right)
+                        if stop:
+                            # process may have terminated since we last checked
+                            if exe.poll() is None:
+                                logger.debug('Terminating CP2K execution')
+                                os.kill(exe.pid, signal.SIGTERM)
+                            logger.debug('CP2K propagation ended at %i. Reason: %s',
+                            step_nr, status)
+                            # exit while loop without reading additional data
+                            iterations_after_stop=2
+                            cp2k_was_terminated = True
+                            break
+                            
+                        step_nr += 1    
+                    sleep(self.sleep)
+                    # if cp2k finished, we run one more loop
+                    if exe.poll() is not None and iterations_after_stop<=1:
+                        iterations_after_stop += 1
                 
             return_code = exe.returncode
             if return_code != 0 and not cp2k_was_terminated:
@@ -971,7 +973,7 @@ class CP2KEngine(EngineBase):
             print("Aimless false")
             vel += dvel
         # make reset momentum the default
-        if vel_settings.get('momentum', True):
+        if vel_settings.get('zero_momentum', True):
             print("CHECK VEL SETTINGS MOMENTUM")
             vel = reset_momentum(vel, mass)
         if do_rescale:
@@ -990,52 +992,63 @@ class CP2KEngine(EngineBase):
                 '\n(This happens when the initial configuration '
                 'does not contain energies.)'))
         else:
-           dek = kin_new - kin_old
-        print("end",system.vel)
+            dek = kin_new - kin_old
         return dek, kin_new
-
-def xyz_processer(string):
-    """
-    Read an xyz trajectory in string format with 
-    N frames, and n atoms.
-    Returns the coordinates as a list with len N containing
-    numpy arrays of shape (n, 3)
-    """
-    data = string.split('\n')
-    N_atoms = int(data[0])
-    block_size = N_atoms + 2 # 2 header lines
-    traj = []
-    frame_coords = []
-    for i,line in enumerate(data):
-        if i%block_size>1:
-            vals = line.split()
-            frame_coords.append([float(vals[i]) for i in range(1,4)])
-
-        elif i%block_size==0 and i>0:
-            traj.append(np.array(frame_coords))
-            frame_coords = []
-    return traj
 
 class ReadAndProcessOnTheFly:
     """Read from an open fileobject on the fly and do some processing on 
     new data that is written to it. Files should be opened using a 'with open'
     statement to be sure that they are closed.
+
+    To do
+    use with open in here. Point at current pos and read N finished blocks. Put 
+    pointer at that position and return traj. If only some frames ready, point at last
+    whole ready block read and return [] or the ready frames.
     """
-    def __init__(self, file_object, processing_function):
-        self.file_object = file_object
+    def __init__(self, file_path, processing_function, read_mode='r'):
+        self.file_path = file_path
         self.processing_function = processing_function
         self.current_position = 0
+        self.file_object=None
+        self.read_mode = read_mode
 
     def read_and_process_content(self):
-        self.file_object.seek(self.current_position)
-        prev_position = self.current_position
-        current_content = self.file_object.read()
-        self.current_position = self.file_object.tell()
-        # if nothing written, return empty list
-        if prev_position - self.current_position==0:
+        # we may open at a time where the file 
+        # is currently not open for reading
+        try:
+            with open(self.file_path, self.read_mode) as self.file_object:
+                self.file_object.seek(self.current_position)
+                self.previous_position = self.current_position
+                trajectory = self.processing_function(self)
+                return trajectory
+        except FileNotFoundError:
             return []
-        else:
-            return self.processing_function(current_content)
-    
-    def close(self):
-        self.file_object.close()
+
+def xyz_processer(reader_class):
+    # trajectory of ready frames to be returned 
+    trajectory = []
+    # holder for storing frame coordinates
+    frame_coordinates = []
+    for i,line in enumerate(reader_class.file_object.readlines()):
+        spl = line.split()
+        if i ==0 and spl:
+            N_atoms = int(spl[0])
+            block_size = N_atoms + 2 # 2 header lines
+        # if we are not in the atom nr or header block
+        if i%block_size>1:
+            vals = line.split()
+            # if there arent enough values to iterate through
+            # return the (posibly empty) ready trajectory frames
+            if len(spl)!=4:
+                reader_class.current_position = reader_class.previous_position
+                return trajectory
+            else:
+                frame_coordinates.append([float(spl[i]) for i in range(1,4)])
+        # if we are done with one block
+        # update the file object pointer to the new position
+        if i%block_size==N_atoms+1 and i>0:
+            trajectory.append(np.array(frame_coordinates))
+            reader_class.current_position = reader_class.file_object.tell()
+            frame_coordinates = []
+        
+    return trajectory
