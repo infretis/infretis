@@ -1,0 +1,55 @@
+[dask]
+workers = 1
+wmdrun = [
+    "gmx mdrun",
+    "gmx mdrun",
+]
+
+
+[simulation]
+pyretis_inp = "retis.rst"
+internal = false
+interfaces = [0.27, 0.28, 0.30, 0.32, 0.325, 0.33, 0.45]
+shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf']
+# shooting_moves = ['sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh']
+steps = 20
+seed = 0
+save_loc = "./"
+load_dir = "trajs"
+
+[simulation.tis_set]
+maxlength = 20000
+aimless = true
+allowmaxlength = false
+zero_momentum = false
+rescale_energy = false
+n_jumps = 3
+high_accept = true
+
+[engine]
+engine = "gromacs"
+class = "gromacs"
+input_path = "./../salt_data/gromacs_input"
+module = "gromacs.py"
+gmx = "gmx"
+mdrun = "mdrun"
+timestep = 0.0005
+subcycles = 5
+gmx_format = "g96"
+maxwarn = 15
+
+[orderparameter]
+class = "Distance"
+index = [
+    0,
+    1,
+]
+periodic = false
+
+[output]
+backup = "backup"
+store_paths = true
+screen = 1
+pattern = true
+data_dir = "./"
+delete_old = true

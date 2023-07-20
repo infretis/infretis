@@ -1,0 +1,11 @@
+[project]
+name = "infretis"
+version = "0.0.1"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+infretisrun = "infretis.bin:infretisrun"
+infretisanalyze = "infretis.bin:infretisanalyze"
