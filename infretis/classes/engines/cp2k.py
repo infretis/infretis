@@ -18,27 +18,16 @@ import shlex
 from time import sleep
 import numpy as np
 from infretis.classes.engines.enginebase import EngineBase
-from infretis.classes.rgen import create_random_generator
 import subprocess
 import signal
-from pyretis.engines.external import ExternalMDEngine
-from pyretis.core.random_gen import create_random_generator
-from pyretis.inout.settings import look_for_input_files
-from pyretis.core.units import CONVERT, CONSTANTS
-from pyretis.setup.createsystem import PERIODIC_TABLE
-from pyretis.inout.formats.xyz import (
+from infretis.classes.engines.engineparts import (
+    look_for_input_files,
     read_xyz_file,
     write_xyz_trajectory,
-    convert_snapshot
+    convert_snapshot,
+    PERIODIC_TABLE
 )
-from pyretis.inout.formats.cp2k import (
-    update_cp2k_input,
-    read_cp2k_input,
-    set_parents,
-    read_cp2k_restart,
-    read_cp2k_box,
-    read_cp2k_energy,
-)
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
@@ -55,8 +44,488 @@ OUTPUT_FILES = {
 
 REGEXP_BACKUP = re.compile(r'\.bak-\d$')
 
-def guess_particle_mass(particle_no, particle_type, unit):
-    """Guess a particle mass from it's type.
+
+class SectionNode:
+    """A class representing a section in the CP2K input.
+
+    Attributes
+    ----------
+    title : string
+        The title of the section
+    parent : string
+        The parent section if this node represents a
+        sub-section.
+    settings : list of strings
+        The setting(s) for this particular node.
+    data : string
+        A section of settings if the node defines several
+        settings.
+    children : set of objects like :py:class:`.SectionNode`
+        A set with the sub-sections of this section.
+    level : integer
+        An integer to remember how far down this node is.
+        E.g. if the level is 2, this node is a sub-sub-section.
+        This is used for printing.
+    parents : list of strings or None
+        A list representing the path from the node to the top
+        section.
+
+    """
+
+    def __init__(self, title, parent, settings, data=None):
+        """Initialise a node.
+
+        Parameters
+        ----------
+        title : string
+            The title of the section.
+        parent : object like :py:class:`.SectionNode`
+            The parent if this section is a sub-section.
+        settings : list of strings
+            The settings defined in this section.
+        data : list of strings, optional
+            A section of settings.
+
+        """
+        self.title = title
+        self.parent = parent
+        self.settings = settings
+        if data:
+            self.data = list(data)
+        else:
+            self.data = []
+        self.children = set()
+        self.level = 0
+        self.parents = None
+
+    def add_child(self, child):
+        """Add a sub-section to the current section."""
+        self.children.add(child)
+
+    def get_all_parents(self):
+        """Find the path to the top of the tree."""
+        parents = [self.title]
+        prev = self.parent
+        while prev is not None:
+            parents.append(prev.title)
+            prev = prev.parent
+        self.parents = parents[::-1]
+
+
+def dfs_print(node, visited):
+    """Walk through the nodes and print out text.
+
+    Parameters
+    ----------
+    node : object like :py:class:`.SectionNode`
+        The object representing a C2PK section.
+    visited : set of objects like :py:class:`.SectionNode`
+        The set contains the nodes we have already visited.
+
+    Returns
+    -------
+    out : list of strings
+        These strings represent the CP2K input file.
+
+    """
+    out = []
+    pre = ' ' * (2 * node.level)
+    if not node.settings:
+        out.append(f'{pre}&{node.title}')
+    else:
+        out.append(f'{pre}&{node.title} {" ".join(node.settings)}')
+    for lines in node.data:
+        out.append(f'{pre}  {lines}')
+    visited.add(node)
+    for child in node.children:
+        if child not in visited:
+            for lines in dfs_print(child, visited):
+                out.append(lines)
+    out.append(f'{pre}&END {node.title}')
+    return out
+
+
+def set_parents(listofnodes):
+    """Set parents for all nodes."""
+    node_ref = {}
+
+    def dfs_set(node, vis):
+        """DFS traverse the nodes."""
+        if node.parents is None:
+            node.get_all_parents()
+            par = '->'.join(node.parents)
+            if par in node_ref:
+                prev = node_ref.pop(par)
+                par1 = f'{par}->{" ".join(prev.settings)}'
+                par2 = f'{par}->{" ".join(node.settings)}'
+                node_ref[par1] = prev
+                node_ref[par2] = node
+            else:
+                node_ref[par] = node
+        vis.add(node)
+        for child in node.children:
+            if child not in visited:
+                dfs_set(child, vis)
+
+    for nodes in listofnodes:
+        visited = set()
+        dfs_set(nodes, visited)
+    return node_ref
+
+
+def read_cp2k_input(filename):
+    """Read a CP2K input file.
+
+    Parameters
+    ----------
+    filename : string
+        The file to open and read.
+
+    Returns
+    -------
+    nodes : list of objects like :py:class:`.SectionNode`
+        The root section nodes found in the file.
+
+    """
+    nodes = []
+    current_node = None
+    with open(filename, 'r', encoding="utf-8") as infile:
+        for lines in infile:
+            lstrip = lines.strip()
+            if not lstrip:
+                # skip empty lines
+                continue
+            if lstrip.startswith('&'):
+                strip = lstrip[1:].split()
+                if lstrip[1:].lower().startswith('end'):
+                    current_node = current_node.parent
+                else:
+                    if len(strip) > 1:
+                        setts = strip[1:]
+                    else:
+                        setts = []
+                    new_node = SectionNode(strip[0].upper(),
+                                           current_node, setts)
+                    if current_node is None:
+                        nodes.append(new_node)
+                    else:
+                        new_node.level = current_node.level + 1
+                        current_node.add_child(new_node)
+                    current_node = new_node
+            else:
+                if current_node is not None:
+                    current_node.data.append(lstrip)
+    return nodes
+
+
+def _add_node(target, settings, data, nodes, node_ref):
+    """Just add a new node."""
+    # check if this is a root node:
+    root = target.find('->') == -1
+    if root:
+        new_node = SectionNode(target, None, settings, data=data)
+        nodes.append(new_node)
+    else:
+        parents = target.split('->')
+        title = parents[-1]
+        par = '->'.join(parents[:-1])
+        if par not in node_ref:
+            _add_node(par, None, None, nodes, node_ref)
+        parent = node_ref['->'.join(parents[:-1])]
+        new_node = SectionNode(title, parent, settings, data=data)
+        new_node.level = parent.level + 1
+        parent.add_child(new_node)
+    node_ref[target] = new_node
+
+
+def update_node(target, settings, data, node_ref, nodes,
+                replace=False):
+    """Update the given target node.
+
+    If the node does not exist, it will be created.
+
+    Parameters
+    ----------
+    target : string
+        The target node, on form root->section->subsection
+    settings : list of strings
+        The settings for the node.
+    data : list of strings or dict
+        The data for the node.
+    node_ref : dict of :py:class:`.SectionNode`
+        A dict of all nodes in the tree.
+    nodes : list of :py:class:`.SectionNode`
+        The root nodes.
+    replace : boolean, optional
+        If this is True and if the nodes have some data, the already
+        existing data will be ignored. We also assume that the data
+        is already formatted.
+
+    """
+    if target not in node_ref:  # add node
+        # TODO: remove decommented try-except construction later
+        # try:
+        _add_node(target, settings, data, nodes, node_ref)
+        # except KeyError:
+        #    pass
+        return None
+    node = node_ref[target]
+    new_data = []
+    done = set()
+    if not replace:
+        for line in node.data:
+            key = line.split()[0]
+            if key in data:
+                new_data.append(f'{key} {data[key]}')
+                done.add(key)
+            else:
+                new_data.append(line)
+        for key in data:
+            if key in done:
+                continue
+            if data[key] is None:
+                new_data.append(str(key))
+            else:
+                new_data.append(f'{key} {data[key]}')
+        node.data = list(new_data)
+    else:
+        node.data = list(data)
+    if settings is not None:
+        if replace:
+            node.settings = list(settings)
+        else:
+            node.settings += settings
+    return node
+
+
+def remove_node(target, node_ref, root_nodes):
+    """Remove a node (and it's children) from the tree.
+
+    Parameters
+    ----------
+    target : string
+        The target node, on form root->section->subcection.
+    node_ref : dict
+        A dict with all the nodes.
+    root_nodes : list of objects like :py:class:`.SectionNode`
+        The root nodes.
+
+    """
+    to_del = node_ref.pop(target, None)
+    if to_del is None:
+        pass
+    else:
+        # remove all it's children:
+        visited = set()
+        nodes = [to_del]
+        while nodes:
+            node = nodes.pop()
+            if node not in visited:
+                visited.add(node)
+                for i in node.children:
+                    nodes.append(i)
+        # remove the reference to this node from the parent
+        parent = to_del.parent
+        if parent is None:
+            # This is a root node.
+            root_nodes.remove(to_del)
+        else:
+            parent.children.remove(to_del)
+        del to_del
+        for key in visited:
+            _ = node_ref.pop(key, None)
+
+
+def update_cp2k_input(template, output, update=None, remove=None):
+    """Read a template input and create a new CP2K input.
+
+    Parameters
+    ----------
+    template : string
+        The CP2K input file we use as a template.
+    output : string
+        The CP2K input file we will create.
+    update : dict, optional
+        The settings we will update.
+    remove : list of strings, optional
+        The nodes we will remove.
+
+    """
+    nodes = read_cp2k_input(template)
+    node_ref = set_parents(nodes)
+    if update is not None:
+        for target in update:
+            value = update[target]
+            settings = value.get('settings', None)
+            replace = value.get('replace', False)
+            data = value.get('data', [])
+            update_node(target, settings, data, node_ref, nodes,
+                        replace=replace)
+    if remove is not None:
+        for nodei in remove:
+            remove_node(nodei, node_ref, nodes)
+    with open(output, 'w', encoding='utf-8') as outf:
+        for i, nodei in enumerate(nodes):
+            vis = set()
+            if i > 0:
+                outf.write('\n')
+            outf.write('\n'.join(dfs_print(nodei, vis)))
+            outf.write('\n')
+
+
+def read_box_data(box_data):
+    """Read the box data.
+
+    Parameters
+    ----------
+    box_data : list of strings
+        The settings for the SUBSYS->CELL section.
+
+    Returns
+    -------
+    out[0] : numpy.array, 1D
+        The box vectors, in the correct order.
+    out[1] : list of booleans
+        The periodic boundary setting for each dimension.
+
+    """
+    to_read = {'A': 'vec', 'B': 'vec', 'C': 'vec', 'PERIODIC': 'string',
+               'ABC': 'vec', 'ALPHA_BETA_GAMMA': 'vec'}
+    data = {}
+    for lines in box_data:
+        for key, val in to_read.items():
+            keyword = f'{key} '
+            if lines.startswith(keyword):
+                if val == 'vec':
+                    data[key] = [float(i) for i in lines.split()[1:]]
+                elif val == 'string':
+                    data[key] = ' '.join(lines.split()[1:])
+    if all(('A' in data, 'B' in data, 'C' in data)):
+        box_matrix = np.zeros((3, 3))
+        box_matrix[:, 0] = data['A']
+        box_matrix[:, 1] = data['B']
+        box_matrix[:, 2] = data['C']
+        box = box_matrix_to_list(box_matrix)
+    elif 'ABC' in data:
+        if 'ALPHA_BETA_GAMMA' in data:
+            box_matrix = box_vector_angles(
+                data['ABC'],
+                data['ALPHA_BETA_GAMMA'][0],
+                data['ALPHA_BETA_GAMMA'][1],
+                data['ALPHA_BETA_GAMMA'][2],
+            )
+            box = box_matrix_to_list(box_matrix)
+        else:
+            box = np.array(data['ABC'])
+    else:
+        box = None
+    periodic = []
+    periodic_setting = data.get('PERIODIC', 'XYZ')
+    for val in ('X', 'Y', 'Z'):
+        periodic.append(val in periodic_setting.upper())
+    return box, periodic
+
+
+def read_cp2k_energy(energy_file):
+    """Read and return CP2K energies.
+
+    Parameters
+    ----------
+    energy_file : string
+        The input file to read.
+
+    Returns
+    -------
+    out : dict
+        This dict contains the energy terms read from the CP2K energy file.
+
+    """
+    data = np.loadtxt(energy_file)
+    energy = {}
+    for i, key in ((1, 'time'), (2, 'ekin'), (3, 'temp'), (4, 'vpot')):
+        try:
+            energy[key] = data[:, i]
+        except IndexError:
+            logger.warning('Could not read energy term %s from CP2kfile %s',
+                           key, energy_file)
+    if 'ekin' in energy and 'vpot' in energy:
+        energy['etot'] = energy['ekin'] + energy['vpot']
+    return energy
+
+
+def read_cp2k_restart(restart_file):
+    """Read some info from a CP2K restart file.
+
+    Parameters
+    ----------
+    restart_file : string
+        The file to read.
+
+    Returns
+    -------
+    pos : numpy.array
+        The positions.
+    vel : numpy.array
+        The velocities.
+    box_size : numpy.array
+        The box vectors.
+    periodic : list of booleans
+        For each dimension, the list entry is True if periodic
+        boundaries should be applied.
+
+    """
+    nodes = read_cp2k_input(restart_file)
+    node_ref = set_parents(nodes)
+    velocity = 'FORCE_EVAL->SUBSYS->VELOCITY'
+    coord = 'FORCE_EVAL->SUBSYS->COORD'
+    cell = 'FORCE_EVAL->SUBSYS->CELL'
+
+    atoms, pos, vel = [], [], []
+
+    for posi, veli in zip(node_ref[coord].data, node_ref[velocity].data):
+        pos_split = posi.split()
+        atoms.append(pos_split[0])
+        pos.append([float(i) for i in pos_split[1:4]])
+        vel.append([float(i) for i in veli.split()])
+    pos = np.array(pos)
+    vel = np.array(vel)
+    box, periodic = read_box_data(node_ref[cell].data)
+    return atoms, pos, vel, box, periodic
+
+
+def read_cp2k_box(inputfile):
+    """Read the box from a CP2K file.
+
+    Parameters
+    ----------
+    inputfile : string
+        The file we will read from.
+
+    Returns
+    -------
+    out[0] : numpy.array
+        The box vectors.
+    out[1] : list of booleans
+        For each dimension, the list entry is True if periodic
+        boundaries should be applied.
+
+    """
+    nodes = read_cp2k_input(inputfile)
+    node_ref = set_parents(nodes)
+    try:
+        box, periodic = read_box_data(
+            node_ref['FORCE_EVAL->SUBSYS->CELL'].data
+        )
+    except KeyError:
+        logger.warning('No CELL found in CP2K file "%s"', inputfile)
+        box = np.array([[100., 0., 0.], [0., 100., 0.], [0., 0., 100.]])
+        periodic = [True, True, True]
+    return box, periodic
+
+
+def guess_particle_mass(particle_no, particle_type):
+    """Guess a particle mass from it's type and convert to cp2k
+    units.
 
     Parameters
     ----------
@@ -64,21 +533,17 @@ def guess_particle_mass(particle_no, particle_type, unit):
         Just used to identify the particle number.
     particle_type : string
         Used to identify the particle.
-    unit : string
-        The system of units. This is used in case we try to get the
-        mass from the periodic table where the units are in `g/mol`.
-
     """
     logger.info(('Mass not specified for particle no. %i\n'
                  'Will guess from particle type "%s"'), particle_no,
                 particle_type)
     mass = PERIODIC_TABLE.get(particle_type, None)
     if mass is None:
-        particle_mass = 1.0
+        particle_mass = 1822.8884858012982
         logger.info(('-> Could not find mass. '
                      'Assuming %f (internal units)'), particle_mass)
     else:
-        particle_mass = CONVERT['mass']['g/mol', unit] * mass
+        particle_mass = 1822.8884858012982 * mass
         logger.info(('-> Using a mass of %f g/mol '
                      '(%f in internal units)'), mass, particle_mass)
     return particle_mass
@@ -131,86 +596,8 @@ def reset_momentum(vel, mass):
 
     mom = np.sum(vel * mass,  axis=0)
     vel -= (mom / mass.sum())
-    mom = np.sum(vel * mass, axis=0)
     return vel
 
-def write_for_step_vel(infile, outfile, timestep, subcycles, posfile, vel,
-                       name='md_step', print_freq=None):
-    """Create input file for a single step.
-
-    Note, the single step actually consists of a number of subcycles.
-    But from PyRETIS' point of view, this is a single step.
-    Further, we here assume that we start from a given xyz file and
-    we also explicitly give the velocities here.
-
-    Parameters
-    ----------
-    infile : string
-        The input template to use.
-    outfile : string
-        The file to create.
-    timestep : float
-        The time-step to use for the simulation.
-    subcycles : integer
-        The number of sub-cycles to perform.
-    posfile : string
-        The (base)name for the input file to read positions from.
-    vel : numpy.array
-        The velocities to set in the input.
-    name : string, optional
-        A name for the CP2K project.
-    print_freq : integer, optional
-        How often we should print to the trajectory file.
-
-    """
-    if print_freq is None:
-        print_freq = subcycles
-    to_update = {
-        'GLOBAL': {
-            'data': [f'PROJECT {name}',
-                     'RUN_TYPE MD',
-                     'PRINT_LEVEL LOW'],
-            'replace': True,
-        },
-        'MOTION->MD':  {
-            'data': {'STEPS': subcycles,
-                     'TIMESTEP': timestep}
-        },
-        'MOTION->PRINT->RESTART': {
-            'data': ['BACKUP_COPIES 0'],
-            'replace': True,
-        },
-        'MOTION->PRINT->RESTART->EACH': {
-            'data': {'MD': print_freq}
-        },
-        'MOTION->PRINT->VELOCITIES->EACH': {
-            'data': {'MD': print_freq}
-        },
-        'MOTION->PRINT->TRAJECTORY->EACH': {
-            'data': {'MD': print_freq}
-        },
-        'FORCE_EVAL->SUBSYS->TOPOLOGY': {
-            'data': {'COORD_FILE_NAME': posfile,
-                     'COORD_FILE_FORMAT': 'xyz'}
-        },
-        'FORCE_EVAL->SUBSYS->VELOCITY': {
-            'data': [],
-            'replace': True,
-        },
-        'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
-            'data': ['BACKUP_COPIES 0'],
-            'replace': True,
-        },
-    }
-    for veli in vel:
-        to_update['FORCE_EVAL->SUBSYS->VELOCITY']['data'].append(
-            f'{veli[0]} {veli[1]} {veli[2]}'
-        )
-    remove = [
-        'EXT_RESTART',
-        'FORCE_EVAL->SUBSYS->COORD'
-    ]
-    update_cp2k_input(infile, outfile, update=to_update, remove=remove)
 
 def write_for_run_vel(infile, outfile, timestep, nsteps, subcycles, posfile, 
                        vel, name='md_step', print_freq=None):
@@ -293,211 +680,6 @@ def write_for_run_vel(infile, outfile, timestep, nsteps, subcycles, posfile,
     update_cp2k_input(infile, outfile, update=to_update, remove=remove)
 
 
-def write_for_integrate(infile, outfile, timestep, subcycles, posfile,
-                        name='md_step', print_freq=None):
-    """Create input file for a single step for the integrate method.
-
-    Here, we do minimal changes and just set the time step and subcycles
-    and the starting configuration.
-
-    Parameters
-    ----------
-    infile : string
-        The input template to use.
-    outfile : string
-        The file to create.
-    timestep : float
-        The time-step to use for the simulation.
-    subcycles : integer
-        The number of sub-cycles to perform.
-    posfile : string
-        The (base)name for the input file to read positions from.
-    name : string, optional
-        A name for the CP2K project.
-    print_freq : integer, optional
-        How often we should print to the trajectory file.
-
-    """
-    if print_freq is None:
-        print_freq = subcycles
-    to_update = {
-        'GLOBAL': {
-            'data': [f'PROJECT {name}',
-                     'RUN_TYPE MD',
-                     'PRINT_LEVEL LOW'],
-            'replace': True,
-        },
-        'MOTION->MD':  {
-            'data': {'STEPS': subcycles,
-                     'TIMESTEP': timestep}
-        },
-        'MOTION->PRINT->RESTART': {
-            'data': ['BACKUP_COPIES 0'],
-            'replace': True,
-        },
-        'MOTION->PRINT->RESTART->EACH': {
-            'data': {'MD': print_freq}
-        },
-        'MOTION->PRINT->VELOCITIES->EACH': {
-            'data': {'MD': print_freq}
-        },
-        'MOTION->PRINT->TRAJECTORY->EACH': {
-            'data': {'MD': print_freq}
-        },
-        'FORCE_EVAL->SUBSYS->TOPOLOGY': {
-            'data': {'COORD_FILE_NAME': posfile,
-                     'COORD_FILE_FORMAT': 'xyz'}
-        },
-        'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
-            'data': ['BACKUP_COPIES 0'],
-            'replace': True,
-        },
-    }
-    remove = [
-        'EXT_RESTART',
-        'FORCE_EVAL->SUBSYS->COORD'
-    ]
-    update_cp2k_input(infile, outfile, update=to_update, remove=remove)
-
-
-def write_for_continue(infile, outfile, timestep, subcycles,
-                       name='md_continue'):
-    """
-    Create input file for a single step.
-
-    Note, the single step actually consists of a number of subcycles.
-    But from PyRETIS' point of view, this is a single step.
-    Here, we make use of restart files named ``previous.restart``
-    and ``previous.wfn`` to continue a run.
-
-    Parameters
-    ----------
-    infile : string
-        The input template to use.
-    outfile : string
-        The file to create.
-    timestep : float
-        The time-step to use for the simulation.
-    subcycles : integer
-        The number of sub-cycles to perform.
-    name : string, optional
-        A name for the CP2K project.
-
-    """
-    to_update = {
-        'GLOBAL': {
-            'data': [f'PROJECT {name}',
-                     'RUN_TYPE MD',
-                     'PRINT_LEVEL LOW'],
-            'replace': True,
-        },
-        'MOTION->MD':  {
-            'data': {'STEPS': subcycles,
-                     'TIMESTEP': timestep}
-        },
-        'MOTION->PRINT->RESTART': {
-            'data': ['BACKUP_COPIES 0'],
-            'replace': True,
-        },
-        'MOTION->PRINT->RESTART->EACH': {
-            'data': {'MD': subcycles}
-        },
-        'MOTION->PRINT->VELOCITIES->EACH': {
-            'data': {'MD': subcycles}
-        },
-        'MOTION->PRINT->TRAJECTORY->EACH': {
-            'data': {'MD': subcycles}
-        },
-        'EXT_RESTART': {
-            'data': ['RESTART_VEL',
-                     'RESTART_POS',
-                     'RESTART_FILE_NAME previous.restart'],
-            'replace': True
-        },
-        'FORCE_EVAL->DFT': {
-            'data': {'WFN_RESTART_FILE_NAME': 'previous.wfn'},
-        },
-        'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
-            'data': ['BACKUP_COPIES 0'],
-            'replace': True,
-        },
-    }
-    remove = [
-        'FORCE_EVAL->SUBSYS->TOPOLOGY',
-        'FORCE_EVAL->SUBSYS->VELOCITY',
-        'FORCE_EVAL->SUBSYS->COORD'
-        'FORCE_EVAL->DFT->RESTART_FILE_NAME',
-    ]
-    update_cp2k_input(infile, outfile, update=to_update, remove=remove)
-
-
-def write_for_genvel(infile, outfile, posfile, seed,
-                     name='genvel'):  # pragma: no cover
-    """Create input file for velocity generation.
-
-    2022.05.25: Note: This function is no longer in use
-    as we now generate velocities internally. However we keep
-    this function in case of future need.
-
-    Parameters
-    ----------
-    infile : string
-        The input template to use.
-    outfile : string
-        The file to create.
-    posfile : string
-        The (base)name for the input file to read positions from.
-    seed : integer
-        A seed for generating velocities.
-    name : string, optional
-        A name for the CP2K project.
-
-    """
-    to_update = {
-        'GLOBAL': {
-            'data': [f'PROJECT {name}',
-                     f'SEED {seed}',
-                     'RUN_TYPE MD',
-                     'PRINT_LEVEL LOW'],
-            'replace': True,
-        },
-        'FORCE_EVAL->DFT->SCF': {
-            'data': {'SCF_GUESS': 'ATOMIC'}
-        },
-        'MOTION->MD':  {
-            'data': {'STEPS': 1,
-                     'TIMESTEP': 0}
-        },
-        'MOTION->PRINT->RESTART': {
-            'data': ['BACKUP_COPIES 0'],
-            'replace': True,
-        },
-        'MOTION->PRINT->RESTART->EACH': {
-            'data': {'MD': 1}
-        },
-        'MOTION->PRINT->VELOCITIES->EACH': {
-            'data': {'MD': 1}
-        },
-        'MOTION->PRINT->TRAJECTORY->EACH': {
-            'data': {'MD': 1}
-        },
-        'FORCE_EVAL->SUBSYS->TOPOLOGY': {
-            'data': {'COORD_FILE_NAME': posfile,
-                     'COORD_FILE_FORMAT': 'xyz'}
-        },
-        'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
-            'data': ['BACKUP_COPIES 0'],
-            'replace': True,
-        },
-    }
-    remove = [
-        'EXT_RESTART',
-        'FORCE_EVAL->SUBSYS->VELOCITY',
-        'FORCE_EVAL->DFT->RESTART_FILE_NAME',
-    ]
-    update_cp2k_input(infile, outfile, update=to_update, remove=remove)
-
-
 class CP2KEngine(EngineBase):
     """
     A class for interfacing CP2K.
@@ -566,7 +748,7 @@ class CP2KEngine(EngineBase):
         # add mass, temperature and unit information to engine 
         # which is needed for velocity modification 
         pos, vel, box, atoms = self._read_configuration(self.input_files['conf'])
-        mass = [guess_particle_mass(i, name, 'g/mol') for i,name in enumerate(atoms)]
+        mass = [guess_particle_mass(i, name) for i,name in enumerate(atoms)]
         self.mass = np.reshape(mass,(len(mass),1))*1822.8884858012982 # conversion g/mol -> cp2k
         
         # read temperature from cp2k input, defaults to 300
@@ -581,8 +763,8 @@ class CP2KEngine(EngineBase):
         if self.temperature==None:
             logger.info(f'No temperature specified in cp2k input. Using 300 K.')
             self.temperature=300.0
-
-        self.beta = 1/(self.temperature * CONSTANTS['kB']['cp2k'])
+        self.kb = 3.16681534e-6  # hartree
+        self.beta = 1/(self.temperature * self.kb)
 
         # todo, these info can be processed by look_for_input_files using
         # the extra_files option.
@@ -595,25 +777,6 @@ class CP2KEngine(EngineBase):
                                     fname)
                 else:
                     self.extra_files.append(fname)
-
-
-    def run_cp2k(self, input_file, proj_name):
-        """
-        Run the CP2K executable.
-
-        Returns
-        -------
-        out : dict
-            The files created by the run.
-
-        """
-        cmd = self.cp2k + ['-i', input_file]
-        logger.debug('Executing CP2K %s: %s', proj_name, input_file)
-        self.execute_command(cmd, cwd=self.exe_dir, inputs=None)
-        out = {}
-        for key, name in OUTPUT_FILES.items():
-            out[key] = os.path.join(self.exe_dir, name.format(proj_name))
-        return out
 
     def _extract_frame(self, traj_file, idx, out_file):
         """
