@@ -58,7 +58,8 @@ class OrderParameter:
 
         Returns
         -------
-        out : list of floats
+        out : list of floatsrom MDAnalysis.analysis.dihedrals import calc_dihedrals
+￼
             The order parameter(s). The first order parameter returned
             is used as the progress coordinate in path sampling
             simulations!
@@ -370,9 +371,6 @@ def create_orderparameter(settings):
         'dihedral': {
             'cls': Dihedral
         },
-        'dihedralpbc': {
-            'cls': DihedralPBC
-        },
         'distancevel': {
             'cls': Distancevel
         },
@@ -524,20 +522,4 @@ class Dihedral(OrderParameter):
         numer = np.dot(np.cross(vector1, vector2), vector3)
         angle = np.arctan2(numer, denom)
         return [angle]
-
-from MDAnalysis.analysis.dihedrals import calc_dihedrals
-
-class DihedralPBC(OrderParameter):
-    def __init__(self):
-        super().__init__(description="Dihedral angle between 4 atoms, with periodicity")
-        self.idx = [0, 1, 2, 3]
-
-    def calculate(self, system):
-        """Calculate the order parameter."""
-        atoms = system.pos[self.idx]
-        box = np.array([*system.box[:3], 90, 90, 90])
-        dih = calc_dihedrals(*atoms, box=box)
-        print("order",dih,"vel",system.vel[self.idx][0])
-
-        return [dih]
 
