@@ -1094,7 +1094,7 @@ def prepare_shooting_point(path, rgen, engine):
         shpt_copy,
         {'sigma_v': tis_settings.get('sigma_v', False),
          'aimless': tis_settings.get('aimless', True),
-         'zero_momentum': tis_settings.get('zero_momentum', False),
+         'zero_momentum': tis_settings.get('zero_momentum', True),
          'rescale': tis_settings.get('rescale_energy', False)})
     orderp = engine.calculate_order(shpt_copy)
     shpt_copy.order = orderp
