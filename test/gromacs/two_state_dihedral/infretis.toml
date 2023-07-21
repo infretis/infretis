@@ -38,7 +38,7 @@ gmx = 'gmx'
 subcycles = 10
 
 [orderparameter]
-class = 'DihedralPBC'
+class = 'Dihedral'
 index = [ 0, 1, 2, 3]
 periodic = true
 
