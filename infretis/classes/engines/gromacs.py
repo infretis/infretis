@@ -803,7 +803,7 @@ class GromacsEngine(EngineBase):
               for each particle) for the generated velocities.
             * `aimless`: boolean, optional
               Determines if we should do aimless shooting or not.
-            * `momentum`: boolean, optional
+            * `zero_momentum`: boolean, optional
               If True, we reset the linear momentum to zero after
               generating.
             * `rescale or rescale_energy`: float, optional
@@ -842,7 +842,7 @@ class GromacsEngine(EngineBase):
             msgtxt = 'GROMACS engine only support aimless shooting!'
             logger.error(msgtxt)
             raise NotImplementedError(msgtxt)
-        if vel_settings.get('momentum', False):
+        if vel_settings.get('zero_momentum', False):
             pass
         if kin_old is None or kin_new is None:
             dek = float('inf')

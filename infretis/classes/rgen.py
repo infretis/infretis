@@ -124,7 +124,7 @@ class RandomGeneratorBase(metaclass=ABCMeta):
         return
 
     def generate_maxwellian_velocities(self, particles, boltzmann, temperature,
-                                       dof, selection=None, momentum=True):
+                                       dof, selection=None, zero_momentum=True):
         """Generate velocities from a Maxwell distribution.
 
         The velocities are drawn to match a given temperature and this
@@ -154,7 +154,7 @@ class RandomGeneratorBase(metaclass=ABCMeta):
         selection : list of ints, optional
             A list with indices of the particles to consider.
             Can be used to only apply it to a selection of particles
-        momentum : boolean, optional
+        zero_momentum : boolean, optional
             If true, we will reset the momentum.
 
         Returns
@@ -172,7 +172,7 @@ class RandomGeneratorBase(metaclass=ABCMeta):
                                            size=vel.shape)
         # NOTE: x[None] = x for a numpy.array - this is not valid for a list.
         particles.vel[selection] = vel
-        if momentum:
+        if zero_momentum:
             reset_momentum(particles, selection=selection)
 
         _, avgtemp, _ = calculate_kinetic_temperature(particles, boltzmann,

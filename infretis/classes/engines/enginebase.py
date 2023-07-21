@@ -149,7 +149,7 @@ class EngineBase(metaclass=ABCMeta):
               for each particle) for the generated velocities.
             * `aimless` : boolean, optional
               Determines if we should do aimless shooting or not.
-            * `momentum` : boolean, optional
+            * `zero_momentum` : boolean, optional
               If True, we reset the linear momentum to zero after
               generating.
             * `rescale or rescale_energy` : float, optional
