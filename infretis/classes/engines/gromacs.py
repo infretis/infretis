@@ -8,6 +8,10 @@ import shlex
 import logging
 import struct
 from infretis.classes.engines.enginebase import EngineBase
+from infretis.classes.engines.engineparts import (
+    look_for_input_files,
+    box_matrix_to_list,
+)
 import numpy as np
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -1079,85 +1083,6 @@ class GromacsRunner:
             return poll
         raise RuntimeError('GROMACS is not running.')
 
-
-def look_for_input_files(input_path, required_files,
-                         extra_files=None):
-    """Check that required files for external engines are present.
-
-    It will first search for the default files.
-    If not present, it will search for the files with the
-    same extension. In this search,
-    if there are no files or multiple files for a required
-    extension, the function will raise an Error.
-    There might also be optional files which are not required, but
-    might be passed in here. If these are not present we will
-    not fail, but delete the reference to this file.
-
-    Parameters
-    ----------
-    input_path : string
-        The path to the folder where the input files are stored.
-    required_files : dict of strings
-        These are the file names types of the required files.
-    extra_files : list of strings, optional
-        These are the file names of the extra files.
-
-    Returns
-    -------
-    out : dict
-        The paths to the required and extra files we found.
-
-    """
-    if not os.path.isdir(input_path):
-        msg = f'Input path folder {input_path} not existing'
-        raise ValueError(msg)
-
-    # Get the list of files in the input_path folder
-    files_in_input_path = \
-        [i.name for i in os.scandir(input_path) if i.is_file()]
-
-    input_files = {}
-    # Check if the required files are present
-    for file_type, file_to_check in required_files.items():
-        req_ext = os.path.splitext(file_to_check)[1][1:].lower()
-        if file_to_check in files_in_input_path:
-            input_files[file_type] = os.path.join(input_path, file_to_check)
-            logger.debug('%s input: %s', file_type, input_files[file_type])
-        else:
-            # If not present, let's try to explore the folder by extension
-            file_counter = 0
-            for file_input in files_in_input_path:
-                file_ext = os.path.splitext(file_input)[1][1:].lower()
-                if req_ext == file_ext:
-                    file_counter += 1
-                    selected_file = file_input
-
-            # Since we are guessing the correct files, give an error if
-            # multiple entries are possible.
-            if file_counter == 1:
-                input_files[file_type] = os.path.join(input_path,
-                                                      selected_file)
-                logger.warning(f'using {input_files[file_type]} '
-                               + f'as "{file_type}" file')
-            else:
-                msg = f'Missing input file "{file_to_check}" '
-                if file_counter > 1:
-                    msg += f'and multiple files have extension ".{req_ext}"'
-                raise ValueError(msg)
-
-    # Check if the extra files are present
-    if extra_files:
-        input_files['extra_files'] = []
-        for file_to_check in extra_files:
-            if file_to_check in files_in_input_path:
-                input_files['extra_files'].append(file_to_check)
-            else:
-                msg = f'Extra file {file_to_check} not present in {input_path}'
-                logger.info(msg)
-
-    return input_files
-
-
 def read_trr_frame(filename, index):
     """Return a given frame from a TRR file."""
     idx = 0
@@ -1910,31 +1835,3 @@ def _add_matrices_to_snapshot(snapshot):
     return xyz, vel
 
 
-def box_matrix_to_list(matrix, full=False):
-    """Return a list representation of the box matrix.
-
-    This method ensures correct ordering of the elements for PyRETIS:
-    ``xx, yy, zz, xy, xz, yx, yz, zx, zy``.
-
-    Parameters
-    ----------
-    matrix : numpy.array
-        A matrix (2D) representing the box.
-    full : boolean, optional
-        Return a full set of parameters (9) if set to True. If False,
-        and we need 3 or fewer parameters (i.e. the other 6 are zero)
-        we will only return the 3 non-zero ones.
-
-    Returns
-    -------
-    out : list
-        A list with the box-parametres.
-
-    """
-    if matrix is None:
-        return None
-    if np.count_nonzero(matrix) <= 3 and not full:
-        return [matrix[0, 0], matrix[1, 1], matrix[2, 2]]
-    return [matrix[0, 0], matrix[1, 1], matrix[2, 2],
-            matrix[0, 1], matrix[0, 2], matrix[1, 0],
-            matrix[1, 2], matrix[2, 0], matrix[2, 1]]
