@@ -1,0 +1,12 @@
+# Cycle: 5126, status: ACC
+#     Step              Filename       index    vel
+         0    012_1607_trajB.xyz           5     -1
+         1    012_1607_trajB.xyz           4     -1
+         2    012_1607_trajB.xyz           3     -1
+         3    012_1607_trajB.xyz           2     -1
+         4    012_1607_trajB.xyz           1     -1
+         5    012_1607_trajB.xyz           0     -1
+         6    012_1608_trajF.xyz           1      1
+         7    012_1608_trajF.xyz           2      1
+         8    012_1608_trajF.xyz           3      1
+         9    012_1608_trajF.xyz           4      1

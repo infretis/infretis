@@ -310,7 +310,9 @@ class EngineBase(metaclass=ABCMeta):
         dirname = self.exe_dir
         logger.debug('Running engine clean-up in "%s"', dirname)
         files = [item.name for item in os.scandir(dirname) if item.is_file()]
-        self._remove_files(dirname, files)
+        if dirname is not None:
+            self._remove_files(dirname, files)
+
 
     def propagate(self, path, ens_set, system, reverse=False):
         """

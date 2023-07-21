@@ -177,7 +177,6 @@ QMMM-grps                =
 ; QM method             
 QMmethod                 = 
 ; QMMM scheme           
-QMMMscheme               = normal
 ; QM basisset           
 QMbasis                  = 
 ; QM charge             
@@ -193,7 +192,6 @@ SAon                     =
 SAoff                    = 
 SAsteps                  = 
 ; Scale factor for MM charges
-MMChargeScaleFactor      = 1
 ; Optimization of QM subsystem
 bOPT                     = 
 bTS                      = 

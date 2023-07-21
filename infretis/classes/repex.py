@@ -242,6 +242,7 @@ class REPEX_state(object):
             if self.config['dask'].get('wmdrun', False):
                 md_items['picked'][ens_num]['engine'].set_mdrun(self.config,
                                                                 md_items)
+                print("MY"+"="*20,"SET_MDRUN")
             # clean up
             md_items['picked'][ens_num]['engine'].clean_up()
 
