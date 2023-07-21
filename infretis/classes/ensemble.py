@@ -1,5 +1,7 @@
 """Creates the ensemble dicts."""
+import os
 from infretis.classes.rgen import create_random_generator
+from infretis.core.core import read_restart_file
 
 
 def create_ensembles(config):
@@ -22,9 +24,19 @@ def create_ensembles(config):
     # create a random generator to initiate the actualy random generators
     rgen = create_random_generator(settings={'seed':config['simulation']['seed']})
     for i, ens_intf in enumerate(ens_intfs):
-        # #############RESTART SEED FROM RESTART...
-        ens_seed = rgen.random_integers(1,9999999)
-        rgen_ens = create_random_generator(settings={'seed':ens_seed})
+        # check if restart file is available:
+        restart_file = os.path.join(config['simulation']['load_dir'],
+                                    f'e{i}', 'ensemble.restart')
+        if os.path.isfile(restart_file):
+            restart = read_restart_file(restart_file)
+            rgen_state = {'seed': restart['rgen']['seed'],
+                          'state': restart['rgen']['state'],
+                          'rgen': 'rgen'}
+            rgen_ens = create_random_generator(rgen_state)
+        else:
+            ens_seed = rgen.random_integers(1,9999999)
+            rgen_ens = create_random_generator(settings={'seed':ens_seed})
+        
         pensembles[i] = {'interfaces': tuple(ens_intf),
                          'tis_set': config['simulation']['tis_set'],
                          'mc_move': config['simulation']['shooting_moves'][i],

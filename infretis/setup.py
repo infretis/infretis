@@ -20,8 +20,6 @@ def setup_internal(config):
 
     # setup repex
     state = REPEX_state(config, minus=True)
-    if 'restarted_from' in config['current']:
-        state.set_rng()
 
     # setup ensembles
     state.ensembles = create_ensembles(config)
@@ -40,14 +38,15 @@ def setup_internal(config):
     md_items = {'mc_moves': state.mc_moves,
                 'interfaces': state.interfaces}
 
-    # run pattern
-    state.pattern0()
+    # write pattern header
+    if state.pattern:
+        state.pattern_header()
 
     return md_items, state
 
 
 def setup_dask(state):
-    """Define dask classes."""
+    """Setup dask classes."""
     # isolate each worker
     dask.config.set({'distributed.scheduler.work-stealing': False})
 
@@ -68,7 +67,7 @@ def setup_dask(state):
 
 
 def setup_config(inp='infretis.toml', re_inp='restart.toml'):
-    """Define dict from *toml file."""
+    """Setup dict from *toml file."""
     # sets up the dict from *toml file.
 
     # load input:
