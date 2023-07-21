@@ -21,6 +21,8 @@ def create_ensembles(config):
 
     # create all path ensembles
     pensembles = {}
+    # create a random generator to initiate the actualy random generators
+    rgen = create_random_generator(settings={'seed':config['simulation']['seed']})
     for i, ens_intf in enumerate(ens_intfs):
         # check if restart file is available:
         restart_file = os.path.join(config['simulation']['load_dir'],
@@ -32,7 +34,9 @@ def create_ensembles(config):
                           'rgen': 'rgen'}
             rgen_ens = create_random_generator(rgen_state)
         else:
-            rgen_ens = create_random_generator()
+            ens_seed = rgen.random_integers(1,9999999)
+            rgen_ens = create_random_generator(settings={'seed':ens_seed})
+        
         pensembles[i] = {'interfaces': tuple(ens_intf),
                          'tis_set': config['simulation']['tis_set'],
                          'mc_move': config['simulation']['shooting_moves'][i],
