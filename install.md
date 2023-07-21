@@ -1,13 +1,7 @@
 python3 -m venv iretisvenv
 source iretisvenv/bin/activate
-git clone https://gitlab.com/danielzh/pyretis.git
-cd pyretis ; git checkout dz24/dask
+git clone https://github.com/infretis/infretis.git
+cd infretis
 pip install pip --upgrade
-python -m pip install -r requirements-dev.txt
+pip install dask==2023.3.0 distributed==2023.3.0 tomli numpy tomli_w matplotlib
 python -m pip install -e .
-cd ..
-git clone  https://github.com/dz24/infretis.git
-cd infretis ; git checkout dz24/external
-pip install dask distributed tomli_w
-python -m pip install -e .
-cd ..
