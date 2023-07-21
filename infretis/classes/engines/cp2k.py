@@ -749,7 +749,7 @@ class CP2KEngine(EngineBase):
         # which is needed for velocity modification 
         pos, vel, box, atoms = self._read_configuration(self.input_files['conf'])
         mass = [guess_particle_mass(i, name) for i,name in enumerate(atoms)]
-        self.mass = np.reshape(mass,(len(mass),1))*1822.8884858012982 # conversion g/mol -> cp2k
+        self.mass = np.reshape(mass,(len(mass),1))
         
         # read temperature from cp2k input, defaults to 300
         self.temperature=None
