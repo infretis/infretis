@@ -1111,7 +1111,6 @@ class CP2KEngine(EngineBase):
         pos = self.dump_frame(system)
         box, xyz, vel, atoms = self._read_configuration(pos)
         #system.pos = xyz
-        print("start",system.vel)
         if box is None:
             box, _ = read_cp2k_box(self.input_files['template'])
     	# to-do: retrieve system.vpot from previous energy file.
@@ -1129,15 +1128,11 @@ class CP2KEngine(EngineBase):
             do_rescale = False
         if vel_settings.get('aimless', False):
             vel, _ = rgen.draw_maxwellian_velocities(vel, mass, beta)
-            print("VEL",vel[0])
-            print("Aimless")
         else:
             dvel, _ = rgen.draw_maxwellian_velocities(vel, mass, beta, sigma_v=vel_settings['sigma_v'])
-            print("Aimless false")
             vel += dvel
         # make reset momentum the default
         if vel_settings.get('zero_momentum', True):
-            print("CHECK VEL SETTINGS MOMENTUM")
             vel = reset_momentum(vel, mass)
         if do_rescale:
             #system.rescale_velocities(rescale, external=True)
