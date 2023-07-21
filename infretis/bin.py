@@ -41,3 +41,8 @@ def infretisanalyze():
     print_pathens(input_file)
     if pattern_file:
         pattern(pattern_file)
+
+
+def infretisinit():
+    """To generate initial *toml template and other features."""
+    return

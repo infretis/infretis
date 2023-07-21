@@ -677,8 +677,10 @@ def load_paths_from_disk(config):
         else:
             # load path
             new_path = load_path(os.path.join(load_dir, str(pnumber)))
+            new_path.generated = ('ld', None, None, None)
             new_path.write_restart_file(restart_file)
-            paths.append(load_path(os.path.join(load_dir, str(pnumber))))
+            paths.append(new_path)
+
         # assign pnumber
         paths[-1].path_number = pnumber
     return paths
