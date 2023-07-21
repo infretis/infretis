@@ -1,0 +1,103 @@
+#  CP2K_INPUT / MOTION / CONSTRAINT / FIXED_ATOMS
+# fix atom 1
+# fix atom 2 XY
+&GLOBAL                                                                                             
+  PROJECT MD
+  RUN_TYPE MD
+  PRINT_LEVEL LOW                                                                                   
+&END GLOBAL
+                                                                                                    
+&MOTION 
+   &MD
+      ENSEMBLE NVE
+      STEPS 1000000
+      TIMESTEP 0.5
+      TEMPERATURE 300
+      &THERMOSTAT
+         TYPE CSVR
+         &CSVR
+            TIMECON 100
+         &END CSVR
+      &END THERMOSTAT
+   &END MD
+  &PRINT                                                                                            
+  &RESTART                                                                                        
+    FILENAME RESTART                                                                              
+    BACKUP_COPIES 0                                                                               
+    &EACH                                                                                         
+      MD 10                                                                              
+    &END EACH                                                                                     
+  &END RESTART                                                                                    
+  &VELOCITIES                                                                                     
+    &EACH                                                                                         
+      MD 10                                                                                       
+    &END EACH                                                                                     
+  &END VELOCITIES                                                                                 
+    &TRAJECTORY                                                                                     
+      &EACH                                                                                         
+        MD 1                                                                              
+      &END EACH                                                                                     
+    &END TRAJECTORY                                                                                 
+  &END PRINT                                                                                        
+&END MOTION                                                                                         
+                                                                       
+&FORCE_EVAL                                                                                         
+   METHOD FIST
+   &MM
+    &FORCEFIELD
+      &CHARGE             #charge of the MM atoms 
+        ATOM H           #Defines the atomic kind of the charge
+        CHARGE 0.0        #Defines the charge of the MM atom in electron charge unit
+      &END
+      IGNORE_MISSING_CRITICAL_PARAMS
+      &TORSION
+              ATOMS     H H H H
+              K         [kjmol] 8
+              M         2
+              PHI0      0.78539816339
+      &END TORSION
+      &BEND
+              ATOMS     H H H
+              KIND      HARMONIC
+              K         [kjmol/rad^2] 400
+              THETA0    [rad] 1.57079632679
+      &END BEND
+      &BOND
+        ATOMS H H
+        KIND HARMONIC
+        K [kjmol/angstrom^2] 2000
+        R0 [angstrom] 1
+      &END BOND
+    &END FORCEFIELD
+    &POISSON              # Poisson solver
+      &EWALD
+        EWALD_TYPE none
+      &END EWALD
+    &END POISSON
+   &END MM
+   &SUBSYS
+    &CELL                                                                                           
+      ABC  8.00 8.00 8.00                                            
+      ANGLES 90 90 90
+    &END CELL                                                                                       
+      &TOPOLOGY 
+              #COORD_FILE_NAME ./initial.xyz
+              #COORD_FILE_FORMAT XYZ                            
+         &GENERATE
+             &BOND ADD
+             ATOMS 1 2
+             &END BOND
+             &BOND ADD
+             ATOMS 2 3
+             &END BOND
+             &BOND ADD
+             ATOMS 3 4
+             &END BOND
+         &END GENERATE 
+      &END TOPOLOGY
+  &END SUBSYS                                                                                       
+  &PRINT                                                                                            
+    &FORCES ON                                                                                      
+    &END FORCES                                                                                     
+  &END PRINT                                                                                        
+&END FORCE_EVAL                                                                                     
