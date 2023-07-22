@@ -476,7 +476,7 @@ class GromacsEngine(EngineBase):
 
             print('panda a', traj_file[-4:])
             print('panda b', trajexts, out_file)
-            exit('iceman')
+            #exit('iceman')
             self.execute_command(cmd, inputs=b'0', cwd=None)
 
     def get_energies(self, energy_file, begin=None, end=None):
