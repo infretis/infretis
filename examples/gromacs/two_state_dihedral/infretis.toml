@@ -40,7 +40,7 @@ subcycles = 10
 [orderparameter]
 class = 'Dihedral'
 index = [ 0, 1, 2, 3]
-periodic = true
+periodic = false
 
 [output]
 backup = 'backup'
