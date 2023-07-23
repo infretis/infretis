@@ -556,17 +556,23 @@ class REPEX_state(object):
     def permanent_prob(self, arr):
         """P matrix calculation for specific W matrix."""
         out = np.zeros(shape=arr.shape, dtype="float128")
-        n = len(arr)
+        # Don't overwrite input arr
+        scaled_arr = arr.copy()
+        n = len(scaled_arr)
+        # Rescaling the W-matrix avoids numerical instabilites when the
+        # matrix is large and contains large weights from high-acceptance moves
+        for i in range(n):
+            scaled_arr[i,:]/=np.max(scaled_arr[i,:])
         for i in range(n):
             rows = [r for r in range(n) if r != i]
-            sub_arr = arr[rows, :]
+            sub_arr = scaled_arr[rows, :]
             for j in range(n):
-                if arr[i][j] == 0:
+                if scaled_arr[i][j] == 0:
                     continue
                 columns = [r for r in range(n) if r != j]
                 M = sub_arr[:, columns]
                 f = self.fast_glynn_perm(M)
-                out[i][j] = f*arr[i][j]
+                out[i][j] = f*scaled_arr[i][j]
         return out/max(np.sum(out, axis=1))
 
     def random_prob(self, arr, n=10_000):
@@ -651,7 +657,7 @@ class REPEX_state(object):
             sign = -sign
             old_grey = new_grey
 
-        return total//num_loops
+        return total/num_loops
 
     def write_toml(self, ens_sel=(), input_traj=()):
         """Toml writer."""
