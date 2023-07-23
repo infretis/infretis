@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 def pbc_dist_coordinate(distance, box_lengths):
-    """Apply periodic boundaries to a distance within a rectangular box.
+    """Apply periodic boundaries to a distance.
 
     This will apply periodic boundaries to a distance. Note that the
     distance can be a vector, but not a matrix of distance vectors.
@@ -535,7 +535,7 @@ class Dihedral(OrderParameter):
 
         """
         pos = system.pos
-        box = system.box
+        box = np.array(system.box[:3])
         vector1 = pos[self.index[0]] - pos[self.index[1]]
         vector2 = pos[self.index[1]] - pos[self.index[2]]
         vector3 = pos[self.index[3]] - pos[self.index[2]]
