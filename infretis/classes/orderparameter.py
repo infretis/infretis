@@ -6,6 +6,33 @@ from infretis.core.core import generic_factory, create_external
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
+def pbc_dist_coordinate(distance, box_lengths):
+    """Apply periodic boundaries to a distance.
+
+    This will apply periodic boundaries to a distance. Note that the
+    distance can be a vector, but not a matrix of distance vectors.
+
+    Parameters
+    ----------
+    distance : numpy.array with shape `(self.dim,)`
+        A distance vector.
+
+    Returns
+    -------
+    out : numpy.array, same shape as the `distance` parameter
+        The periodic-boundary wrapped distance vector.
+
+    """
+    box_ilengths = 1.0/box_lengths
+    pbcdist = np.zeros(distance.shape)
+    for i, (length, ilength) in enumerate(zip(box_lengths, box_ilengths)):
+        if np.abs(distance[i]) > 0.5*length:
+            pbcdist[i] = (distance[i] -
+                        np.rint(distance[i] * ilength) * length)
+        else:
+            pbcdist[i] = distance[i]
+    return pbcdist
+
 
 class OrderParameter:
     """Base class for order parameters.
@@ -508,13 +535,15 @@ class Dihedral(OrderParameter):
 
         """
         pos = system.pos
+        box = system.box
         vector1 = pos[self.index[0]] - pos[self.index[1]]
         vector2 = pos[self.index[1]] - pos[self.index[2]]
         vector3 = pos[self.index[3]] - pos[self.index[2]]
+
         if self.periodic:
-            vector1 = system.box.pbc_dist_coordinate(vector1)
-            vector2 = system.box.pbc_dist_coordinate(vector2)
-            vector3 = system.box.pbc_dist_coordinate(vector3)
+            vector1 = pbc_dist_coordinate(vector1, box)
+            vector2 = pbc_dist_coordinate(vector2, box)
+            vector3 = pbc_dist_coordinate(vector3, box)
         # Norm to simplify formulas:
         vector2 /= np.linalg.norm(vector2)
         denom = (np.dot(vector1, vector3) -
