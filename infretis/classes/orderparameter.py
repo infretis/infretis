@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 def pbc_dist_coordinate(distance, box_lengths):
-    """Apply periodic boundaries to a distance.
+    """Apply periodic boundaries to a distance within a rectangular box.
 
     This will apply periodic boundaries to a distance. Note that the
     distance can be a vector, but not a matrix of distance vectors.
