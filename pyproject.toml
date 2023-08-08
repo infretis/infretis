@@ -2,7 +2,11 @@
 name = "infretis"
 version = "2023.3.dev1"
 description = "Infinite swapping parallel RETIS"
-authors = ["Anders Lervik <andersle@gmail.com>"]
+authors = [
+    "Daniel Zhang <daniel.t.zhang@ntnu.no>",
+    "Lukas Baldauf <lukas.baldauf@ntnu.no>",
+    "Anders Lervik <andersle@gmail.com>",
+]
 license = "MIT"
 readme = "README.md"
 
