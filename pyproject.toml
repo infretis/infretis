@@ -1,11 +1,54 @@
-[project]
+[tool.poetry]
 name = "infretis"
-version = "0.0.1"
+version = "2023.3.dev1"
+description = "Infinite swapping parallel RETIS"
+authors = [
+    "Daniel Zhang <daniel.t.zhang@ntnu.no>",
+    "Lukas Baldauf <lukas.baldauf@ntnu.no>",
+    "Anders Lervik <andersle@gmail.com>",
+]
+license = "MIT"
+readme = "README.md"
 
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^1.25.2"
+matplotlib = "^3.7.2"
+tomli = "^2.0.1"
+tomli-w = "^1.0.0"
+dask = "2023.3.0"
+distributed = "2023.3.0"
 
-[project.scripts]
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.0.282"
+black = "^23.7.0"
+mypy = "^1.4.1"
+pytest = "^7.4.0"
+pytest-cov = "^4.1.0"
+jupyter-black = "^0.3.4"
+flake8 = "^6.1.0"
+pytest-randomly = "^3.13.0"
+
+[tool.ruff]
+line-length = 78
+select = ["F", "E", "W", "I001", "UP"]
+ignore-init-module-imports = true
+
+[tool.black]
+line-length = 78
+target-version = ["py310", "py311"]
+
+[tool.mypy]
+warn_unused_ignores = true
+show_error_codes = true
+plugins = "numpy.typing.mypy_plugin"
+
+[tool.poetry.scripts]
 infretisrun = "infretis.bin:infretisrun"
 infretisanalyze = "infretis.bin:infretisanalyze"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
