@@ -7,6 +7,8 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions: read-all|write-all
+
 jobs:
   coverage:
     name: Coverage
@@ -49,7 +51,6 @@ jobs:
         id: coverageComment
         uses: MishaKav/pytest-coverage-comment@main
         with:
-          token: {{ secrets.GITHUB_TOKEN }}
           pytest-coverage-path: ./pytest-coverage.txt
           junitxml-path: ./pytest.xml
           junitxml-title: Coverage summary (Python ${{ steps.setuppy.outputs.python-version }})
