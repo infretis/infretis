@@ -13,6 +13,10 @@ jobs:
     strategy:
       fail-fast: false
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+      id-token: write
 
     steps:
       
@@ -48,6 +52,7 @@ jobs:
       - name: "Pytest coverage comment"
         id: coverageComment
         uses: MishaKav/pytest-coverage-comment@main
+        if: github.event_name == 'pull_request'
         with:
           pytest-coverage-path: ./pytest-coverage.txt
           junitxml-path: ./pytest.xml
