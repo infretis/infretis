@@ -9,6 +9,7 @@ on:
 
 jobs:
   coverage:
+    permissions: write-all
     name: Coverage
     strategy:
       fail-fast: false
