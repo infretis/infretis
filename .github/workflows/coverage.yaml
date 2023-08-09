@@ -7,8 +7,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-permissions: read-all|write-all
-
 jobs:
   coverage:
     name: Coverage
