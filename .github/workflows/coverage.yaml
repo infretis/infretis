@@ -1,0 +1,61 @@
+name: Coverage
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    name: Coverage
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-latest
+
+    steps:
+      
+      - name: "Checkout repository"
+        uses: actions/checkout@v3
+
+      - name: "Set up Python"
+        id: setuppy
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: "Set up Poetry"
+        uses: abatilo/actions-poetry@v2
+
+      - name: "Set up virtual environment for Poetry"
+        run: |
+          poetry config virtualenvs.create true --local
+          poetry config virtualenvs.in-project true --local
+
+      - name: "Cache the virtual environment"
+        uses: actions/cache@v3
+        with:
+          path: ./.venv
+          key: venv-${{ steps.setuppy.outputs.python-version }}-${{ hashFiles('pyproject.toml') }}
+
+      - name: "Install"
+        run: poetry install
+
+      - name: "Run pytest"
+        run: poetry run pytest --junitxml=pytest.xml --cov-report=term-missing --cov=infretis tests | tee pytest-coverage.txt
+
+      - name: "Pytest coverage comment"
+        id: coverageComment
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-coverage-path: ./pytest-coverage.txt
+          junitxml-path: ./pytest.xml
+          junitxml-title: Coverage summary (Python ${{ steps.setuppy.outputs.python-version }})
+
+      - name: "Coveralls"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install coveralls
+          coveralls
