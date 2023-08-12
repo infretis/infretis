@@ -907,6 +907,7 @@ class CP2KEngine(EngineBase):
             err_name = os.path.join(cwd, err_name)
 
         return_code = None
+        cp2k_was_terminated = False
 
         with open(out_name, 'wb') as fout, open(err_name, 'wb') as ferr:
             exe = subprocess.Popen(
