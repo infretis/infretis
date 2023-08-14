@@ -440,7 +440,7 @@ def read_cp2k_energy(energy_file):
         This dict contains the energy terms read from the CP2K energy file.
 
     """
-    data = np.loadtxt(energy_file)
+    data = np.genfromtxt(energy_file, invalid_raise = False)
     energy = {}
     for i, key in ((1, 'time'), (2, 'ekin'), (3, 'temp'), (4, 'vpot')):
         try:
