@@ -11,3 +11,4 @@
 3. Install with:
    ```bash   
    python -m pip install -e .
+   ```
