@@ -3,8 +3,10 @@ from abc import abstractmethod
 import logging
 import numpy as np
 from infretis.core.core import generic_factory, create_external
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
 
 def pbc_dist_coordinate(distance, box_lengths):
     """Apply periodic boundaries to a distance.
@@ -23,12 +25,11 @@ def pbc_dist_coordinate(distance, box_lengths):
         The periodic-boundary wrapped distance vector.
 
     """
-    box_ilengths = 1.0/box_lengths
+    box_ilengths = 1.0 / box_lengths
     pbcdist = np.zeros(distance.shape)
     for i, (length, ilength) in enumerate(zip(box_lengths, box_ilengths)):
-        if np.abs(distance[i]) > 0.5*length:
-            pbcdist[i] = (distance[i] -
-                        np.rint(distance[i] * ilength) * length)
+        if np.abs(distance[i]) > 0.5 * length:
+            pbcdist[i] = distance[i] - np.rint(distance[i] * ilength) * length
         else:
             pbcdist[i] = distance[i]
     return pbcdist
@@ -53,7 +54,7 @@ class OrderParameter:
 
     """
 
-    def __init__(self, description='Generic order parameter', velocity=False):
+    def __init__(self, description="Generic order parameter", velocity=False):
         """Initialise the OrderParameter object.
 
         Parameters
@@ -67,29 +68,29 @@ class OrderParameter:
         if self.velocity_dependent:
             logger.debug(
                 'Order parameter "%s" was marked as velocity dependent.',
-                self.description
+                self.description,
             )
 
     @abstractmethod
     def calculate(self, system):
         """Calculate the main order parameter and return it.
 
-        All order parameters should implement this method as
-        this ensures that the order parameter can be calculated.
+                All order parameters should implement this method as
+                this ensures that the order parameter can be calculated.
 
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            This object contains the information needed to calculate
-            the order parameter.
+                Parameters
+                ----------
+                system : object like :py:class:`.System`
+                    This object contains the information needed to calculate
+                    the order parameter.
 
-        Returns
-        -------
-        out : list of floatsrom MDAnalysis.analysis.dihedrals import calc_dihedrals
-￼
-            The order parameter(s). The first order parameter returned
-            is used as the progress coordinate in path sampling
-            simulations!
+                Returns
+                -------
+                out : list of floatsrom MDAnalysis.analysis.dihedrals import calc_dihedrals
+        ￼
+                    The order parameter(s). The first order parameter returned
+                    is used as the progress coordinate in path sampling
+                    simulations!
 
         """
         return
@@ -98,11 +99,11 @@ class OrderParameter:
         """Return a simple string representation of the order parameter."""
         msg = [
             f'Order parameter: "{self.__class__.__name__}"',
-            f'{self.description}'
+            f"{self.description}",
         ]
         if self.velocity_dependent:
-            msg.append('This order parameter is velocity dependent.')
-        return '\n'.join(msg)
+            msg.append("This order parameter is velocity dependent.")
+        return "\n".join(msg)
 
     def load_restart_info(self, info):
         """Load the orderparameter restart info."""
@@ -142,9 +143,11 @@ class Distancevel(OrderParameter):
 
         """
         _verify_pair(index)
-        pbc = 'Periodic' if periodic else 'Non-periodic'
-        txt = (f'{pbc} rate-of-change-distance, particles {index[0]} and '
-               f'{index[1]}')
+        pbc = "Periodic" if periodic else "Non-periodic"
+        txt = (
+            f"{pbc} rate-of-change-distance, particles {index[0]} and "
+            f"{index[1]}"
+        )
         super().__init__(description=txt, velocity=True)
         self.periodic = periodic
         self.index = index
@@ -198,7 +201,7 @@ class Position(OrderParameter):
 
     """
 
-    def __init__(self, index, dim='x', periodic=False, description=None):
+    def __init__(self, index, dim="x", periodic=False, description=None):
         """Initialise the order parameter.
 
         Parameters
@@ -214,13 +217,13 @@ class Position(OrderParameter):
 
         """
         if description is None:
-            description = f'Position of particle {index} (dim: {dim})'
+            description = f"Position of particle {index} (dim: {dim})"
         super().__init__(description=description, velocity=False)
         self.periodic = periodic
         self.index = index
-        self.dim = {'x': 0, 'y': 1, 'z': 2}.get(dim, None)
+        self.dim = {"x": 0, "y": 1, "z": 2}.get(dim, None)
         if self.dim is None:
-            msg = f'Unknown dimension {dim} requested'
+            msg = f"Unknown dimension {dim} requested"
             logger.critical(msg)
             raise ValueError(msg)
 
@@ -277,8 +280,8 @@ class Distance(OrderParameter):
 
         """
         _verify_pair(index)
-        pbc = 'Periodic' if periodic else 'Non-periodic'
-        txt = f'{pbc} distance, particles {index[0]} and {index[1]}'
+        pbc = "Periodic" if periodic else "Non-periodic"
+        txt = f"{pbc} distance, particles {index[0]} and {index[1]}"
         super().__init__(description=txt, velocity=False)
         self.periodic = periodic
         self.index = index
@@ -325,7 +328,7 @@ class Velocity(OrderParameter):
 
     """
 
-    def __init__(self, index, dim='x'):
+    def __init__(self, index, dim="x"):
         """Initialise the order parameter.
 
         Parameters
@@ -337,12 +340,12 @@ class Velocity(OrderParameter):
             it should equal 'x', 'y' or 'z'.
 
         """
-        txt = f'Velocity of particle {index} (dim: {dim})'
+        txt = f"Velocity of particle {index} (dim: {dim})"
         super().__init__(description=txt, velocity=True)
         self.index = index
-        self.dim = {'x': 0, 'y': 1, 'z': 2}.get(dim, None)
+        self.dim = {"x": 0, "y": 1, "z": 2}.get(dim, None)
         if self.dim is None:
-            logger.critical('Unknown dimension %s requested', dim)
+            logger.critical("Unknown dimension %s requested", dim)
             raise ValueError
 
     def calculate(self, system):
@@ -383,40 +386,28 @@ def create_orderparameter(settings):
 
     """
     order_map = {
-        'orderparameter': {
-            'cls': OrderParameter
-        },
-        'position': {
-            'cls': Position
-        },
-        'velocity': {
-            'cls': Velocity
-        },
-        'distance': {
-            'cls': Distance
-        },
-        'dihedral': {
-            'cls': Dihedral
-        },
-        'distancevel': {
-            'cls': Distancevel
-        },
+        "orderparameter": {"cls": OrderParameter},
+        "position": {"cls": Position},
+        "velocity": {"cls": Velocity},
+        "distance": {"cls": Distance},
+        "dihedral": {"cls": Dihedral},
+        "distancevel": {"cls": Distancevel},
     }
 
-    if settings['orderparameter']['class'].lower() not in order_map:
-        return create_external(settings['orderparameter'],
-                               'orderparameter',
-                               ['calculate'])
+    if settings["orderparameter"]["class"].lower() not in order_map:
+        return create_external(
+            settings["orderparameter"], "orderparameter", ["calculate"]
+        )
 
-    main_order = generic_factory(settings['orderparameter'],
-                                 order_map,
-                                 name='engine')
+    main_order = generic_factory(
+        settings["orderparameter"], order_map, name="engine"
+    )
 
     if main_order is None:
-        logger.info('No order parameter created')
-        print('omg..')
+        logger.info("No order parameter created")
+        print("omg..")
         return None
-    logger.info('Created main order parameter:\n%s', main_order)
+    logger.info("Created main order parameter:\n%s", main_order)
     return main_order
 
 
@@ -438,35 +429,27 @@ def order_factory(settings):
 
     """
     factory_map = {
-        'orderparameter': {
-            'cls': OrderParameter
-        },
-        'position': {
-            'cls': Position
-        },
-        'velocity': {
-            'cls': Velocity
-        },
-        'distance': {
-            'cls': Distance
-        },
-        'distancevel': {
-            'cls': Distancevel
-        },
+        "orderparameter": {"cls": OrderParameter},
+        "position": {"cls": Position},
+        "velocity": {"cls": Velocity},
+        "distance": {"cls": Distance},
+        "distancevel": {"cls": Distancevel},
     }
-    return generic_factory(settings, factory_map, name='orderparameter')
+    return generic_factory(settings, factory_map, name="orderparameter")
 
 
 def _verify_pair(index):
     """Check that the given index contains a pair."""
     try:
         if len(index) != 2:
-            msg = ('Wrong number of atoms for pair definition. '
-                   f'Expected 2 got {len(index)}')
+            msg = (
+                "Wrong number of atoms for pair definition. "
+                f"Expected 2 got {len(index)}"
+            )
             logger.error(msg)
             raise ValueError(msg)
     except TypeError as err:
-        msg = 'Atom pair should be defined as a tuple/list of integers.'
+        msg = "Atom pair should be defined as a tuple/list of integers."
         logger.error(msg)
         raise TypeError(msg) from err
 
@@ -505,17 +488,21 @@ class Dihedral(OrderParameter):
         """
         try:
             if len(index) != 4:
-                msg = ('Wrong number of atoms for dihedral definition. '
-                       f'Expected 4 got {len(index)}')
+                msg = (
+                    "Wrong number of atoms for dihedral definition. "
+                    f"Expected 4 got {len(index)}"
+                )
                 logger.error(msg)
                 raise ValueError(msg)
         except TypeError as err:
-            msg = 'Dihedral should be defined as a tuple/list of integers!'
+            msg = "Dihedral should be defined as a tuple/list of integers!"
             logger.error(msg)
             raise TypeError(msg) from err
         self.index = [int(i) for i in index]
-        txt = ('Dihedral angle between particles '
-               f'{index[0]}, {index[1]}, {index[2]} and {index[3]}')
+        txt = (
+            "Dihedral angle between particles "
+            f"{index[0]}, {index[1]}, {index[2]} and {index[3]}"
+        )
         super().__init__(description=txt)
         self.periodic = periodic
 
@@ -546,9 +533,9 @@ class Dihedral(OrderParameter):
             vector3 = pbc_dist_coordinate(vector3, box)
         # Norm to simplify formulas:
         vector2 /= np.linalg.norm(vector2)
-        denom = (np.dot(vector1, vector3) -
-                 np.dot(vector1, vector2) * np.dot(vector2, vector3))
+        denom = np.dot(vector1, vector3) - np.dot(vector1, vector2) * np.dot(
+            vector2, vector3
+        )
         numer = np.dot(np.cross(vector1, vector2), vector3)
         angle = np.arctan2(numer, denom)
         return [angle]
-

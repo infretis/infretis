@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 import logging
 import numpy as np
 from numpy.random import RandomState
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
@@ -123,8 +124,15 @@ class RandomGeneratorBase(metaclass=ABCMeta):
         """
         return
 
-    def generate_maxwellian_velocities(self, particles, boltzmann, temperature,
-                                       dof, selection=None, zero_momentum=True):
+    def generate_maxwellian_velocities(
+        self,
+        particles,
+        boltzmann,
+        temperature,
+        dof,
+        selection=None,
+        zero_momentum=True,
+    ):
         """Generate velocities from a Maxwell distribution.
 
         The velocities are drawn to match a given temperature and this
@@ -168,17 +176,16 @@ class RandomGeneratorBase(metaclass=ABCMeta):
             vel, imass = particles.vel, particles.imass
         else:
             vel, imass = particles.vel[selection], particles.imass[selection]
-        vel = np.sqrt(imass) * self.normal(loc=0.0, scale=1.0,
-                                           size=vel.shape)
+        vel = np.sqrt(imass) * self.normal(loc=0.0, scale=1.0, size=vel.shape)
         # NOTE: x[None] = x for a numpy.array - this is not valid for a list.
         particles.vel[selection] = vel
         if zero_momentum:
             reset_momentum(particles, selection=selection)
 
-        _, avgtemp, _ = calculate_kinetic_temperature(particles, boltzmann,
-                                                      dof=dof,
-                                                      selection=selection)
-        scale_factor = np.sqrt(temperature/avgtemp)
+        _, avgtemp, _ = calculate_kinetic_temperature(
+            particles, boltzmann, dof=dof, selection=selection
+        )
+        scale_factor = np.sqrt(temperature / avgtemp)
         particles.vel[selection] *= scale_factor
 
     def draw_maxwellian_velocities(self, vel, mass, beta, sigma_v=None):
@@ -197,13 +204,13 @@ class RandomGeneratorBase(metaclass=ABCMeta):
 
         """
         if not sigma_v or sigma_v < 0.0:
-            kbt = (1.0/beta)
+            kbt = 1.0 / beta
             # sigma_v is (n, 1) matrix
-            sigma_v = np.sqrt(kbt*(1/mass))
+            sigma_v = np.sqrt(kbt * (1 / mass))
         # we might not have velocity information
-        #if type(vel)!=np.ndarray:
+        # if type(vel)!=np.ndarray:
         #    npart, dim = mass.shape[0],3
-        #else:
+        # else:
         npart, dim = vel.shape
         vel = self.normal(loc=0.0, scale=sigma_v, size=(npart, dim))
         return vel, sigma_v
@@ -291,14 +298,16 @@ class RandomGenerator(RandomGeneratorBase):
 
     def get_state(self):
         """Return current state."""
-        state = {'seed': self.seed,
-                 'state': self.rgen.get_state(),
-                 'rgen': 'rgen'}
+        state = {
+            "seed": self.seed,
+            "state": self.rgen.get_state(),
+            "rgen": "rgen",
+        }
         return state
 
     def set_state(self, state):
         """Set state for random generator."""
-        return self.rgen.set_state(state['state'])
+        return self.rgen.set_state(state["state"])
 
     def random_integers(self, low, high):
         """Draw random integers in [low, high].
@@ -377,9 +386,14 @@ class RandomGenerator(RandomGeneratorBase):
         """
         if cho is None:
             cho = np.linalg.cholesky(cov)
-        norm = self.normal(loc=0.0, scale=1.0, size=2*size)
+        norm = self.normal(loc=0.0, scale=1.0, size=2 * size)
         norm = norm.reshape(size, 2)
-        meanm = np.array([mean, ] * size)
+        meanm = np.array(
+            [
+                mean,
+            ]
+            * size
+        )
         return meanm + np.dot(norm, cho.T)
 
 
@@ -409,21 +423,38 @@ class MockRandomGenerator(RandomGeneratorBase):
 
         """
         super().__init__(seed=seed)
-        self.rgen = [0.78008018, 0.04459916, 0.76596775, 0.97676713,
-                     0.53799598, 0.98657116, 0.36343553, 0.55356511,
-                     0.03172585, 0.48984682, 0.73416687, 0.98453452,
-                     0.55129902, 0.40598753, 0.59448394, 0.26823255,
-                     0.31168372, 0.05072849, 0.44876368, 0.94301709]
+        self.rgen = [
+            0.78008018,
+            0.04459916,
+            0.76596775,
+            0.97676713,
+            0.53799598,
+            0.98657116,
+            0.36343553,
+            0.55356511,
+            0.03172585,
+            0.48984682,
+            0.73416687,
+            0.98453452,
+            0.55129902,
+            0.40598753,
+            0.59448394,
+            0.26823255,
+            0.31168372,
+            0.05072849,
+            0.44876368,
+            0.94301709,
+        ]
         self.length = len(self.rgen)
         self.randint = self.seed
         self.norm_shift = norm_shift
         logger.critical('You are using a "mock" random generator!\n')
         if norm_shift:
-            logger.critical('Fake-normal is shifted.\n')
-            logger.critical('Comparison with TISMOL might fail\n')
+            logger.critical("Fake-normal is shifted.\n")
+            logger.critical("Comparison with TISMOL might fail\n")
         else:
-            logger.critical('Fake-normal is not shifted.\n')
-            logger.critical('Random numbers not centered around 0.\n')
+            logger.critical("Fake-normal is not shifted.\n")
+            logger.critical("Random numbers not centered around 0.\n")
 
     def rand(self, shape=1):
         """Draw random numbers in [0, 1).
@@ -449,14 +480,12 @@ class MockRandomGenerator(RandomGeneratorBase):
 
     def get_state(self):
         """Return current state."""
-        state = {'seed': self.seed,
-                 'state': self.seed,
-                 'rgen': 'mock'}
+        state = {"seed": self.seed, "state": self.seed, "rgen": "mock"}
         return state
 
     def set_state(self, state):
         """Set current state."""
-        self.seed = state['state']
+        self.seed = state["state"]
 
     def random_integers(self, low, high):
         """Return random integers in [low, high].
@@ -474,7 +503,7 @@ class MockRandomGenerator(RandomGeneratorBase):
             This is a pseudo-random integer in [low, high].
 
         """
-        idx = self.rand()*(high-low+1)
+        idx = self.rand() * (high - low + 1)
         return int(idx) + low
 
     def normal(self, loc=0.0, scale=1.0, size=None):
@@ -503,13 +532,13 @@ class MockRandomGenerator(RandomGeneratorBase):
 
         """
         if self.norm_shift:
-            shift = loc-0.5
+            shift = loc - 0.5
         else:
-            shift = 0.
+            shift = 0.0
         if size is None:
-            return self.rand(shape=1)+shift
+            return self.rand(shape=1) + shift
         numbers = np.zeros(size)
-        for i in np.nditer(numbers, op_flags=['readwrite']):
+        for i in np.nditer(numbers, op_flags=["readwrite"]):
             i[...] = self.rand(shape=1)[0] + shift
         return numbers
 
@@ -544,10 +573,15 @@ class MockRandomGenerator(RandomGeneratorBase):
         numpy.random.multivariate_normal
 
         """
-        norm = self.normal(loc=0.0, scale=1.0, size=2*size)
+        norm = self.normal(loc=0.0, scale=1.0, size=2 * size)
         norm = norm.reshape(size, 2)
-        meanm = np.array([mean, ] * size)
-        return 0.01*(meanm + norm)
+        meanm = np.array(
+            [
+                mean,
+            ]
+            * size
+        )
+        return 0.01 * (meanm + norm)
 
     def choice(self, a, size=None, replace=True, p=None):
         """Choose random samples.
@@ -573,7 +607,7 @@ class MockRandomGenerator(RandomGeneratorBase):
         if type(a) is int:
             a = list(range(a))
         if p is None:
-            p = [1/len(a) for i in a]
+            p = [1 / len(a) for i in a]
         if size is None:
             size = 1
         out = []
@@ -582,7 +616,7 @@ class MockRandomGenerator(RandomGeneratorBase):
             p0 = 0
             # Make sure p sums to 1 even after popping
             p_sum = sum(p)
-            p = [i/p_sum for i in p]
+            p = [i / p_sum for i in p]
             for i, pi in zip(a, p):
                 p0 += pi
                 if r < p0:
@@ -605,10 +639,10 @@ class Borg:
     def update_state(cls, state):
         """Update the class state and enable sharing of it."""
         if cls.class_state is None:
-            logger.debug('Setting state to the shared.')
+            logger.debug("Setting state to the shared.")
             cls.class_state = state
         else:
-            logger.debug('Reusing shared state.')
+            logger.debug("Reusing shared state.")
         return cls.class_state
 
     @classmethod
@@ -663,24 +697,24 @@ def create_random_generator(settings=None):
     if settings is None:
         settings = {}
 
-    rgen = settings.get('rgen', 'rgen')
-    seed = settings.get('seed', 0)
-    logger.debug('Seed for random generator: %s %d', rgen, seed)
+    rgen = settings.get("rgen", "rgen")
+    seed = settings.get("seed", 0)
+    logger.debug("Seed for random generator: %s %d", rgen, seed)
 
     class_map = {
-        'rgen': RandomGenerator,
-        'rgen-borg': RandomGeneratorBorg,
-        'mock': MockRandomGenerator,
-        'mock-borg': MockRandomGeneratorBorg
+        "rgen": RandomGenerator,
+        "rgen-borg": RandomGeneratorBorg,
+        "mock": MockRandomGenerator,
+        "mock-borg": MockRandomGeneratorBorg,
     }
     rgen_class = class_map.get(rgen, RandomGenerator)
     rgen = rgen_class(seed=seed)
 
-    if 'state' in settings:
+    if "state" in settings:
         rgen.set_state(settings)
-        rgen.status = 'restarted'
+        rgen.status = "restarted"
     else:
-        rgen.status = 'new rgen'
+        rgen.status = "new rgen"
 
     return rgen
 
@@ -715,9 +749,9 @@ def _get_vel_mass(particles, selection=None):
     return vel, mass
 
 
-def calculate_kinetic_temperature(particles, boltzmann, dof=None,
-                                  selection=None,
-                                  kin_tensor=None):
+def calculate_kinetic_temperature(
+    particles, boltzmann, dof=None, selection=None, kin_tensor=None
+):
     """Return the kinetic temperature of a collection of particles.
 
     Parameters
@@ -751,8 +785,9 @@ def calculate_kinetic_temperature(particles, boltzmann, dof=None,
     ndof = npart * np.ones(vel[0].shape)
 
     if kin_tensor is None:
-        kin_tensor = calculate_kinetic_energy_tensor(particles,
-                                                     selection=selection)
+        kin_tensor = calculate_kinetic_energy_tensor(
+            particles, selection=selection
+        )
     if dof is not None:
         ndof = ndof - dof
     temperature = (2.0 * kin_tensor.diagonal() / ndof) / boltzmann
@@ -782,4 +817,3 @@ def calculate_kinetic_energy_tensor(particles, selection=None):
     vel, mass = _get_vel_mass(particles, selection=selection)
     _, kin = kinetic_energy(vel, mass)
     return kin
-
