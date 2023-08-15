@@ -1,13 +1,15 @@
 """Define the path class."""
-import pickle
-import os
 import logging
+import os
+import pickle
+
 import numpy as np
-from infretis.core.core import read_restart_file
-from infretis.classes.system import System
-from infretis.classes.formats.path import PathExtFile
-from infretis.classes.formats.order import OrderPathFile
+
 from infretis.classes.formats.energy import EnergyPathFile
+from infretis.classes.formats.order import OrderPathFile
+from infretis.classes.formats.path import PathExtFile
+from infretis.classes.system import System
+from infretis.core.core import read_restart_file
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -257,8 +259,8 @@ class Path:
             The method to use to re-calculate the order parameter,
             if it is velocity dependent.
         rev_v : boolean, optional
-            If True, also the velocities are reversed, if False, the velocities
-            for each frame are not altered.
+            If True, also the velocities are reversed, if False, the
+            velocities for each frame are not altered.
 
         """
         new_path = self.empty_path()
@@ -443,8 +445,12 @@ class Path:
                 len(self.phasepoints),
             )
         if len(vpot) != len(self.phasepoints):
+            msg = (
+                "Length of potential energy and phase"
+                " points differ %d != %d."
+            )
             logger.debug(
-                "Length of potential energy and phase points differ %d != %d.",
+                msg,
                 len(vpot),
                 len(self.phasepoints),
             )

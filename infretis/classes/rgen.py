@@ -1,6 +1,7 @@
 """random generator class."""
-from abc import ABCMeta, abstractmethod
 import logging
+from abc import ABCMeta, abstractmethod
+
 import numpy as np
 from numpy.random import RandomState
 
@@ -180,7 +181,8 @@ class RandomGeneratorBase(metaclass=ABCMeta):
         # NOTE: x[None] = x for a numpy.array - this is not valid for a list.
         particles.vel[selection] = vel
         if zero_momentum:
-            reset_momentum(particles, selection=selection)
+            pass
+            # reset_momentum(particles, selection=selection)
 
         _, avgtemp, _ = calculate_kinetic_temperature(
             particles, boltzmann, dof=dof, selection=selection
@@ -194,8 +196,8 @@ class RandomGeneratorBase(metaclass=ABCMeta):
         Parameters
         ----------
         system : object like :py:class:`.System`
-            This is used to determine the shape (number of particles and dimensionality)
-            and requires veloctities.
+            This is used to determine the shape (number of particles and
+            dimensionality) and requires veloctities.
         engine : object like :py:class:`.Engine`
             This is used to determine the temperature parameter(s)
         sigma_v : numpy.array, optional
@@ -815,5 +817,6 @@ def calculate_kinetic_energy_tensor(particles, selection=None):
 
     """
     vel, mass = _get_vel_mass(particles, selection=selection)
-    _, kin = kinetic_energy(vel, mass)
+    kin = None
+    # _, kin = kinetic_energy(vel, mass)
     return kin

@@ -1,14 +1,15 @@
 """Defines the main REPEX class for path handling and permanent calc."""
-import numpy as np
+import logging
 import os
+import pickle
 import time
 from datetime import datetime
+
+import numpy as np
 import tomli_w
-import pickle
-import logging
 
 from infretis.classes.formats.formatter import PathStorage
-from infretis.core.core import write_ensemble_restart, make_dirs
+from infretis.core.core import make_dirs, write_ensemble_restart
 from infretis.core.tis import calc_cv_vector
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -16,7 +17,7 @@ logger.addHandler(logging.NullHandler())
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
 
-class REPEX_state(object):
+class REPEX_state:
     """Define the REPEX object."""
 
     # set numpy random seed when we initiate REPEX_state
@@ -375,9 +376,9 @@ class REPEX_state(object):
                 )
 
         if self.cstep >= self.tsteps:
-            # should probably add a check for stopping when all workers are free
-            # to close the while loop, but for now when cstep >= tsteps we return
-            # false.
+            # should probably add a check for stopping when all workers are
+            # free to close the while loop, but for now when
+            # cstep >= tsteps we return false.
             self.save_rng()
             self.print_end()
             self.write_toml()
@@ -438,8 +439,8 @@ class REPEX_state(object):
 
         # Sort based on the index of the last non-zero values in the rows
         # argmax(a>0) gives back the first column index that is nonzero
-        # so looping over the columns backwards and multiplying by -1 gives the
-        # right ordering
+        # so looping over the columns backwards and multiplying
+        # by -1 gives the right ordering
         minus_idx = np.argsort(np.argmax(non_locked[:offset] > 0, axis=1))
         pos_idx = (
             np.argsort(-1 * np.argmax(non_locked[offset:, ::-1] > 0, axis=1))
@@ -602,7 +603,8 @@ class REPEX_state(object):
         scaled_arr = arr.copy()
         n = len(scaled_arr)
         # Rescaling the W-matrix avoids numerical instabilites when the
-        # matrix is large and contains large weights from high-acceptance moves
+        # matrix is large and contains large weights from
+        # high-acceptance moves
         for i in range(n):
             scaled_arr[i, :] /= np.max(scaled_arr[i, :])
         for i in range(n):
@@ -890,7 +892,7 @@ class REPEX_state(object):
                 ):
                     # if pn is larger than ensemble number ...
                     for adress in self.traj_data[pn_old]["adress"]:
-                        # #### Make checker? so it doesn't do anything super yabai
+                        # Make checker? so it doesn't do anything super yabai
                         os.remove(adress)
 
             # if ens_num == -1:

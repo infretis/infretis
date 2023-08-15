@@ -1,6 +1,7 @@
+import logging
 import math
 import os
-import logging
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -238,7 +239,7 @@ def read_txt_snapshots(filename, data_keys=None):
     if data_keys is None:
         data_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
     read_header = False
-    with open(filename, "r", encoding="utf8") as fileh:
+    with open(filename, encoding="utf8") as fileh:
         for lines in fileh:
             if read_header:
                 snapshot = {"header": lines.strip()}
@@ -299,8 +300,7 @@ def read_xyz_file(filename):
 
     """
     xyz_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
-    for snapshot in read_txt_snapshots(filename, data_keys=xyz_keys):
-        yield snapshot
+    yield from read_txt_snapshots(filename, data_keys=xyz_keys)
 
 
 def write_xyz_trajectory(

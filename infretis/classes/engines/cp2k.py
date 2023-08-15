@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2022, PyRETIS Development Team.
 # Distributed under the LGPLv2.1+ License. See LICENSE for more info.
 """A CP2K external MD integrator interface.
@@ -15,17 +14,19 @@ import logging
 import os
 import re
 import shlex
-from time import sleep
-import numpy as np
-from infretis.classes.engines.enginebase import EngineBase
-import subprocess
 import signal
+import subprocess
+from time import sleep
+
+import numpy as np
+
+from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
+    PERIODIC_TABLE,
+    convert_snapshot,
     look_for_input_files,
     read_xyz_file,
     write_xyz_trajectory,
-    convert_snapshot,
-    PERIODIC_TABLE,
 )
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -189,7 +190,7 @@ def read_cp2k_input(filename):
     """
     nodes = []
     current_node = None
-    with open(filename, "r", encoding="utf-8") as infile:
+    with open(filename, encoding="utf-8") as infile:
         for lines in infile:
             lstrip = lines.strip()
             if not lstrip:
@@ -412,16 +413,18 @@ def read_box_data(box_data):
         box_matrix[:, 0] = data["A"]
         box_matrix[:, 1] = data["B"]
         box_matrix[:, 2] = data["C"]
-        box = box_matrix_to_list(box_matrix)
+        # box = box_matrix_to_list(box_matrix)
+        box = None
     elif "ABC" in data:
         if "ALPHA_BETA_GAMMA" in data:
-            box_matrix = box_vector_angles(
-                data["ABC"],
-                data["ALPHA_BETA_GAMMA"][0],
-                data["ALPHA_BETA_GAMMA"][1],
-                data["ALPHA_BETA_GAMMA"][2],
-            )
-            box = box_matrix_to_list(box_matrix)
+            box = None
+            # box_matrix = box_vector_angles(
+            #    data["ABC"],
+            #    data["ALPHA_BETA_GAMMA"][0],
+            #    data["ALPHA_BETA_GAMMA"][1],
+            #    data["ALPHA_BETA_GAMMA"][2],
+            # )
+            # box = box_matrix_to_list(box_matrix)
         else:
             box = np.array(data["ABC"])
     else:
@@ -790,9 +793,9 @@ class CP2KEngine(EngineBase):
         for data in md_settings.data:
             if "temperature" in data.lower():
                 self.temperature = float(data.split()[-1])
-        if self.temperature == None:
+        if self.temperature is None:
             logger.info(
-                f"No temperature specified in cp2k input. Using 300 K."
+                "No temperature specified in cp2k input. Using 300 K."
             )
             self.temperature = 300.0
         self.kb = 3.16681534e-6  # hartree
@@ -1017,7 +1020,8 @@ class CP2KEngine(EngineBase):
                             path, phase_point, left, right
                         )
                         if stop:
-                            # process may have terminated since we last checked
+                            # process may have terminated since we
+                            # last checked
                             if exe.poll() is None:
                                 logger.debug("Terminating CP2K execution")
                                 os.kill(exe.pid, signal.SIGTERM)
@@ -1224,11 +1228,9 @@ class CP2KEngine(EngineBase):
         if kin_old == 0.0:
             dek = float("inf")
             logger.debug(
-                (
-                    "Kinetic energy not found for previous point."
-                    "\n(This happens when the initial configuration "
-                    "does not contain energies.)"
-                )
+                "Kinetic energy not found for previous point."
+                "\n(This happens when the initial configuration "
+                "does not contain energies.)"
             )
         else:
             dek = kin_new - kin_old
@@ -1241,9 +1243,9 @@ class ReadAndProcessOnTheFly:
     statement to be sure that they are closed.
 
     To do
-    use with open in here. Point at current pos and read N finished blocks. Put
-    pointer at that position and return traj. If only some frames ready, point at last
-    whole ready block read and return [] or the ready frames.
+    use with open in here. Point at current pos and read N finished blocks.
+    Put pointer at that position and return traj. If only some frames ready,
+    point at last whole ready block read and return [] or the ready frames.
     """
 
     def __init__(self, file_path, processing_function, read_mode="r"):
@@ -1278,7 +1280,7 @@ def xyz_processer(reader_class):
             block_size = N_atoms + 2  # 2 header lines
         # if we are not in the atom nr or header block
         if i % block_size > 1:
-            vals = line.split()
+            line.split()
             # if there arent enough values to iterate through
             # return the (posibly empty) ready trajectory frames
             if len(spl) != 4:

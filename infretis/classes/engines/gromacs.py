@@ -1,19 +1,21 @@
 """Gromacs engine."""
 
-from time import sleep
-import signal
-import subprocess
-import os
-import shutil
-import shlex
 import logging
+import os
+import shlex
+import shutil
+import signal
 import struct
+import subprocess
+from time import sleep
+
+import numpy as np
+
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
-    look_for_input_files,
     box_matrix_to_list,
+    look_for_input_files,
 )
-import numpy as np
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -124,7 +126,8 @@ class GromacsEngine(EngineBase):
         subcycles : integer
             The number of steps each GROMACS MD run is composed of.
         exe_path : string, optional
-            The absolute path at which the main PyRETIS simulation will be run.
+            The absolute path at which the main PyRETIS simulation will be
+            run.
         maxwarn : integer, optional
             Setting for the GROMACS ``grompp -maxwarn`` option.
         gmx_format : string, optional
@@ -815,7 +818,9 @@ class GromacsEngine(EngineBase):
                 self.input_files["input"], gen_mdp, settings, delim="="
             )
         # Run GROMACS grompp for this input file:
-        # out_grompp = self._execute_grompp(os.path.basename(gen_mdp), os.path.basename(input_file), 'genvel')
+        # out_grompp = self._execute_grompp(
+        #    os.path.basename(gen_mdp), os.path.basename(input_file), 'genvel'
+        # )
         out_grompp = self._execute_grompp(gen_mdp, input_file, "genvel")
         remove = [val for _, val in out_grompp.items()]
         # Run GROMACS mdrun for this tpr file:
@@ -954,11 +959,9 @@ class GromacsEngine(EngineBase):
         if kin_old is None or kin_new is None:
             dek = float("inf")
             logger.debug(
-                (
-                    "Kinetic energy not found for previous point."
-                    "\n(This happens when the initial configuration "
-                    "does not contain energies.)"
-                )
+                "Kinetic energy not found for previous point."
+                "\n(This happens when the initial configuration "
+                "does not contain energies.)"
             )
         else:
             dek = kin_new - kin_old
@@ -1107,12 +1110,14 @@ class GromacsRunner:
                     try:
                         header, new_bytes = read_trr_header(self.fileh)
                     except EOFError:
-                        new_fileh, new_ino = reopen_file(
-                            self.trr_file,
-                            self.fileh,
-                            self.ino,
-                            self.bytes_read,
-                        )
+                        # new_fileh, new_ino = reopen_file(
+                        # self.trr_file,
+                        # self.fileh,
+                        # self.ino,
+                        # self.bytes_read,
+                        # )
+                        new_ino = -1
+                        new_fileh = None
                         if new_fileh is not None:
                             self.fileh = new_fileh
                             self.ino = new_ino
@@ -1135,12 +1140,13 @@ class GromacsRunner:
                                         self.fileh, header
                                     )
                                 except EOFError:
-                                    new_fileh, new_ino = reopen_file(
-                                        self.trr_file,
-                                        self.fileh,
-                                        self.ino,
-                                        self.bytes_read,
-                                    )
+                                    new_fileh, new_ino = None, -1
+                                    # new_fileh, new_ino = reopen_file(
+                                    #    self.trr_file,
+                                    #    self.fileh,
+                                    #    self.ino,
+                                    #    self.bytes_read,
+                                    # )
                                     if new_fileh is not None:
                                         self.fileh = new_fileh
                                         self.ino = new_ino
@@ -1249,12 +1255,14 @@ def read_trr_header(fileh):
     if magic == _GROMACS_MAGIC:
         pass
     else:
-        magic = swap_integer(magic)
+        # magic = swap_integer(magic)
+        magic = -1
         if not magic == _GROMACS_MAGIC:
             logger.critical(
                 "TRR file might be inconsistent! Could find _GROMACS_MAGIC"
             )
-        endian = swap_endian(endian)
+        # endian = swap_endian(endian)
+        endian = -1
     slen = read_struct_buff(fileh, f"{endian}2i")
     raw = read_struct_buff(fileh, f"{endian}{slen[0] - 1}s")
     version = raw[0].split(b"\0", 1)[0].decode("utf-8")
@@ -1352,9 +1360,8 @@ def read_gromacs_file(filename):
         This dict contains the snapshot.
 
     """
-    with open(filename, "r", encoding="utf-8") as fileh:
-        for snapshot in read_gromacs_lines(fileh):
-            yield snapshot
+    with open(filename, encoding="utf-8") as fileh:
+        yield from read_gromacs_lines(fileh)
 
 
 def read_gromacs_gro_file(filename):
@@ -1388,7 +1395,7 @@ def read_gromacs_gro_file(filename):
     xyz = None
     vel = None
     box = None
-    with open(filename, "r", encoding="utf8") as fileh:
+    with open(filename, encoding="utf8") as fileh:
         snapshot = next(read_gromacs_lines(fileh))
         box = snapshot.get("box", None)
         xyz = snapshot.get("xyz", None)
@@ -1487,9 +1494,7 @@ def read_gromos96_file(filename):
         "VELOCITYRED": [],
     }
     section = None
-    with open(
-        filename, "r", encoding="utf-8", errors="replace"
-    ) as gromosfile:
+    with open(filename, encoding="utf-8", errors="replace") as gromosfile:
         for lines in gromosfile:
             new_section = False
             stripline = lines.strip()
@@ -1789,7 +1794,7 @@ def read_xvg_file(filename):
     """Return data in xvg file as numpy array."""
     data = []
     legends = []
-    with open(filename, "r", encoding="utf-8") as fileh:
+    with open(filename, encoding="utf-8") as fileh:
         for lines in fileh:
             if lines.startswith("@ s") and lines.find("legend") != -1:
                 legend = lines.split("legend")[-1].strip()

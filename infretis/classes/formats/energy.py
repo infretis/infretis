@@ -1,8 +1,10 @@
 import logging
+
 import numpy as np
+
 from infretis.classes.formats.formatter import (
-    OutputFormatter,
     FileIO,
+    OutputFormatter,
     read_some_lines,
 )
 
@@ -139,7 +141,7 @@ class EnergyPathFormatter(EnergyFormatter):
         if not path:  # when nullmoves = False
             return
         move = path.generated
-        yield "# Cycle: {}, status: {}, move: {}".format(step, status, move)
+        yield f"# Cycle: {step}, status: {status}, move: {move}"
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             energy = {}

@@ -1,8 +1,10 @@
 """Define the OrderParameter class."""
-from abc import abstractmethod
 import logging
+from abc import abstractmethod
+
 import numpy as np
-from infretis.core.core import generic_factory, create_external
+
+from infretis.core.core import create_external, generic_factory
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -75,22 +77,21 @@ class OrderParameter:
     def calculate(self, system):
         """Calculate the main order parameter and return it.
 
-                All order parameters should implement this method as
-                this ensures that the order parameter can be calculated.
+        All order parameters should implement this method as
+        this ensures that the order parameter can be calculated.
 
-                Parameters
-                ----------
-                system : object like :py:class:`.System`
-                    This object contains the information needed to calculate
-                    the order parameter.
+        Parameters
+        ----------
+        system : object like :py:class:`.System`
+            This object contains the information needed to calculate
+            the order parameter.
 
-                Returns
-                -------
-                out : list of floatsrom MDAnalysis.analysis.dihedrals import calc_dihedrals
-        ￼
-                    The order parameter(s). The first order parameter returned
-                    is used as the progress coordinate in path sampling
-                    simulations!
+        Returns
+        -------
+        out : list of floats
+            The order parameter(s). The first order parameter returned
+            is used as the progress coordinate in path sampling
+            simulations!
 
         """
         return

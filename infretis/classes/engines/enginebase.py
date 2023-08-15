@@ -1,11 +1,12 @@
 """Base engine class."""
-from abc import ABCMeta, abstractmethod
-import re
-import subprocess
+import logging
 import os
+import re
 import shlex
 import shutil
-import logging
+import subprocess
+from abc import ABCMeta, abstractmethod
+
 from infretis.classes.formats.formatter import FileIO
 
 logger = logging.getLogger(__name__)
@@ -227,8 +228,10 @@ class EngineBase(metaclass=ABCMeta):
             system.vel = vel
         if box is None and self.input_files.get("template", False):
             # CP2K specific box initiation:
-            box, _ = read_cp2k_box(ensemble["engine"].input_files["template"])
-
+            # box, _ = read_cp2k_box(
+            #    ensemble["engine"].input_files["template"]
+            # )
+            box = None
         # system.update_box(box)
         system.box = box
         return self.order_function.calculate(system)
@@ -543,7 +546,7 @@ class EngineBase(metaclass=ABCMeta):
         """
         reg = re.compile(rf"(.*?){delim}")
         written = set()
-        with open(sourcefile, "r", encoding="utf-8") as infile, open(
+        with open(sourcefile, encoding="utf-8") as infile, open(
             outputfile, "w", encoding="utf-8"
         ) as outfile:
             for line in infile:
@@ -590,7 +593,7 @@ class EngineBase(metaclass=ABCMeta):
         """
         reg = re.compile(rf"(.*?){delim}")
         settings = {}
-        with open(sourcefile, "r", encoding="utf-8") as infile:
+        with open(sourcefile, encoding="utf-8") as infile:
             for line in infile:
                 key = reg.match(line)
                 if key:

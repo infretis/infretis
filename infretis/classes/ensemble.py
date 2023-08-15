@@ -1,5 +1,6 @@
 """Creates the ensemble dicts."""
 import os
+
 from infretis.classes.rgen import create_random_generator
 from infretis.core.core import read_restart_file
 

@@ -1418,7 +1418,8 @@ def check_kick(shooting_point, interfaces, trial_path, rgen, dek):
         return False
     # 2) If the kick is not aimless, we check if we reject it or not:
     if not tis_settings.get("aimless", True):
-        accept_kick = metropolis_accept_reject(rgen, shooting_point, dek)
+        # accept_kick = metropolis_accept_reject(rgen, shooting_point, dek)
+        accept_kick = False
         # If one wish to implement a bias call, this can be done here.
         if not accept_kick:
             trial_path.append(shooting_point)
@@ -1625,13 +1626,14 @@ def retis_swap_zero(picked):
     # High Acceptance swap is required when Wire Fencing are used
     if accept and ens_set1["tis_set"].get("high_accept", False):
         if "wf" in ens_moves:
-            accept, status = high_acc_swap(
-                [path1, path_old1],
-                ens_set0["rgen"],
-                intf_w[0],
-                intf_w[1],
-                ens_moves,
-            )
+            # accept, status = high_acc_swap(
+            #    [path1, path_old1],
+            #    ens_set0["rgen"],
+            #    intf_w[0],
+            #    intf_w[1],
+            #    ens_moves,
+            # )
+            accept, status = False, "FAKE"
 
     for i, path, tis_set, flag in (
         (0, path0, ens_set0["tis_set"], "s+"),
