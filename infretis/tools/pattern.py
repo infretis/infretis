@@ -1,4 +1,3 @@
-import numpy as np
 import matplotlib.pyplot as plt
 
 plt.rcParams.update({"font.size": 16})
@@ -7,14 +6,14 @@ plt.rcParams.update({"font.size": 16})
 def pattern_reader(inp, cap=250):
     w_data = {}
     ensembles = []
-    with open(inp, "r") as read:
+    with open(inp) as read:
         for idx, line in enumerate(read):
             if "#" in line:
                 continue
             split = line.rstrip().split()
             if len(w_data) == 0:
-                start = float(split[1])
-            end = float(split[1]) + float(split[5])
+                float(split[1])
+            float(split[1]) + float(split[5])
             key = int(split[0])
             if key not in w_data:
                 w_data[key] = {
@@ -27,7 +26,7 @@ def pattern_reader(inp, cap=250):
                     "connect": [],
                 }
 
-            md_start = float(split[1])
+            float(split[1])
             w_data[key]["md_start"].append(float(split[1]))
             w_data[key]["wmd_start"].append(float(split[2]))
             w_data[key]["wmd_end"].append(float(split[3]))
@@ -142,5 +141,9 @@ def pattern(inp, cap=250, subtime=False, scatter=False):
     # plt.show()
     # lgd = plt.legend(bbox_to_anchor=(1.04, 0.5), loc="center left",
     #                  borderaxespad=0,  edgecolor='k', framealpha=1.0,)
-    # plt.savefig('pattern.pdf', bbox_extra_artists=(lgd,), bbox_inches='tight')
+    # plt.savefig(
+    #    "pattern.pdf",
+    #    bbox_extra_artists=(lgd,),
+    #    bbox_inches="tight"
+    # )
     plt.savefig("pattern.pdf", bbox_inches="tight")

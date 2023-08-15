@@ -1,9 +1,8 @@
-from infretis.classes.path import paste_paths
-from infretis.core.core import make_dirs
-import time
-import os
-
 import logging
+import os
+import time
+
+from infretis.classes.path import paste_paths
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -11,9 +10,8 @@ logger.addHandler(logging.NullHandler())
 
 def log_mdlogs(inp):
     logs = [log for log in os.listdir(inp) if "log" in log]
-    speed = []
     for log in logs:
-        with open(os.path.join(inp, log), "r") as read:
+        with open(os.path.join(inp, log)) as read:
             for line in read:
                 if "Performance" in line:
                     logger.info(
@@ -513,14 +511,20 @@ def wire_fencing(
         logger.debug("Trying a new web with Wire Fencing, jump %i", i)
         # Select the shooting point:
 
-        # sh_pt, idx, _ = prepare_shooting_point(new_segment, ensemble, engine)
+        # sh_pt, idx, _ = prepare_shooting_point(
+        #    new_segment, ensemble, engine
+        # )
         # engine.dump_phasepoint(sh_pt, str(counter()) + '_wf_shoot')
 
         success, trial_seg, status = shoot(
             sub_ens, new_segment, engine, start_cond=("L", "R")
         )
         start, end, _, _ = trial_seg.check_interfaces(wf_int)
-        # print('path_old0', trial_seg.length, [i.vel for i in trial_seg.phasepoints])
+        print(
+            "path_old0",
+            trial_seg.length,
+            [i.vel for i in trial_seg.phasepoints],
+        )
         logger.info(
             "Jump %s, len %s, status %s, intf: %s %s",
             i,
@@ -542,8 +546,16 @@ def wire_fencing(
         trial_path.status = "NSG"
         success = False
     else:
-        # print('path_old0', trial_seg.length, [i.vel_rev for i in trial_seg.phasepoints])
-        # print('path_old0', new_segment.length, [i.vel_rev for i in new_segment.phasepoints])
+        print(
+            "path_old0",
+            trial_seg.length,
+            [i.vel_rev for i in trial_seg.phasepoints],
+        )
+        print(
+            "path_old0",
+            new_segment.length,
+            [i.vel_rev for i in new_segment.phasepoints],
+        )
         success, trial_path, _ = extender(
             new_segment, engine, ens_set, start_cond
         )
@@ -552,7 +564,9 @@ def wire_fencing(
             trial_path, ens_set, engine, old_path, start_cond
         )
 
-    # trial_path.generated = ('wf', sh_pt.order[0], succ_seg, trial_path.length)
+    # trial_path.generated = (
+    #    'wf', sh_pt.order[0], succ_seg, trial_path.length
+    # )
     trial_path.generated = ("wf", 9000, succ_seg, trial_path.length)
 
     logger.debug("WF move %s", trial_path.status)
@@ -689,7 +703,8 @@ def stone_skipping(ensemble, tis_settings, start_cond):
     """
     path_old = ensemble["path_ensemble"].last_path
     intf = ensemble["interfaces"]
-    ph_pt1, ph_pt2 = crossing_finder(path_old, intf[1])
+    # ph_pt1, ph_pt2 = crossing_finder(path_old, intf[1])
+    ph_pt1, ph_pt2 = None, None
     if ph_pt1 == ph_pt2 is None:
         return False, path_old, "NCR"
     sub_ens = {
@@ -718,7 +733,8 @@ def stone_skipping(ensemble, tis_settings, start_cond):
             ensemble["system"] = sh_pt.copy()
             ensemble["engine"].modify_velocities(ensemble, tis_settings)
             # A path of two frames is going to be generated.
-            success, path = one_step_crossing(ensemble, intf[1])
+            # success, path = one_step_crossing(ensemble, intf[1])
+            success, path = None, None
             osc_try += 1
             if osc_try > 5 * tis_settings[
                 "n_jumps"
@@ -752,9 +768,10 @@ def stone_skipping(ensemble, tis_settings, start_cond):
             trial_path = new_segment
             break
 
-        ph_pt1, ph_pt2 = crossing_finder(
-            new_segment, intf[1], last_frame=True
-        )
+        # ph_pt1, ph_pt2 = crossing_finder(
+        #    new_segment, intf[1], last_frame=True
+        # )
+        ph_pt1, ph_pt2 = None, None
 
     logger.debug("SS web: %s, one step crossing tries: %s", success, osc_try)
 
@@ -841,7 +858,7 @@ def ss_wt_wf_metropolis_acc(path_old, path_new, ens_set, start_cond="L"):
     move = ens_set["mc_move"]
     high_accept = ens_set["tis_set"].get("high_accept", False)
     if move == "wt":
-        sour_int = tis_set["interface_sour"]
+        sour_int = ens_set["tis_set"]["interface_sour"]
         cr_old = segments_counter(path_old, sour_int, interfaces[1])
         cr_new = segments_counter(path_new, sour_int, interfaces[1])
         if ens_set["rgen"].rand() >= min(1.0, cr_old / cr_new):
@@ -1126,7 +1143,13 @@ def shoot_backwards(
         # Nope, backward trajectory end at wrong interface.
         trial_path += path_back  # Store path for analysis.
         trial_path.status = "BWI"
-        # print('boulder a', left, right, path_back.get_end_point(left, right), set(start_cond))
+        print(
+            "boulder a",
+            left,
+            right,
+            path_back.get_end_point(left, right),
+            set(start_cond),
+        )
         return False
     return True
 
@@ -1188,10 +1211,7 @@ def prepare_shooting_point(path, rgen, engine):
     # altering the original path:
     # Modify the velocities:
     tis_settings = {}
-    (
-        dek,
-        _,
-    ) = engine.modify_velocities(
+    dek, _, = engine.modify_velocities(
         shpt_copy,
         {
             "sigma_v": tis_settings.get("sigma_v", False),
@@ -1510,7 +1530,7 @@ def retis_swap_zero(picked):
     logger.debug("Creating path for [0^-]")
     # system = path_ensemble1.last_path.phasepoints[0].copy()
     shpt_copy = path_old1.phasepoints[0].copy()
-    shpt_copy2 = path_old1.phasepoints[0].copy()
+    path_old1.phasepoints[0].copy()
     logger.debug("Initial point is: %s", shpt_copy)
     # Propagate it backward in time:
     path_tmp = path_old1.empty_path(maxlen=maxlen1 - 1)

@@ -1,7 +1,8 @@
 """The functions to be used to run infretis via the terminal."""
 import argparse
-from infretis.setup import setup_config
+
 from infretis.scheduler import scheduler
+from infretis.setup import setup_config
 from infretis.tools.conv_inf_py import print_pathens
 from infretis.tools.pattern import pattern
 
