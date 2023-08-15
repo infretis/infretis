@@ -1211,7 +1211,7 @@ def prepare_shooting_point(path, rgen, engine):
     # altering the original path:
     # Modify the velocities:
     tis_settings = {}
-    dek, _, = engine.modify_velocities(
+    dek, _, _ = engine.modify_velocities(
         shpt_copy,
         {
             "sigma_v": tis_settings.get("sigma_v", False),
