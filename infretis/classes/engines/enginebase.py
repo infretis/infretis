@@ -7,6 +7,7 @@ import shlex
 import shutil
 import logging
 from infretis.classes.formats.formatter import FileIO
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -41,7 +42,7 @@ class EngineBase(metaclass=ABCMeta):
         self._exe_dir = None
         self.timestep = timestep
         self.subcycles = subcycles
-        self.ext = 'xyz'
+        self.ext = "xyz"
         self.input_files = {}
         self.order_function = None
 
@@ -57,8 +58,14 @@ class EngineBase(metaclass=ABCMeta):
         if exe_dir is not None:
             logger.debug('Setting exe_dir to "%s"', exe_dir)
             if not os.path.isdir(exe_dir):
-                logger.warning(('"Exe dir" for "%s" is set to "%s" which does'
-                                ' not exist!'), self.description, exe_dir)
+                logger.warning(
+                    (
+                        '"Exe dir" for "%s" is set to "%s" which does'
+                        " not exist!"
+                    ),
+                    self.description,
+                    exe_dir,
+                )
 
     def integration_step(self):
         """
@@ -101,27 +108,27 @@ class EngineBase(metaclass=ABCMeta):
             The right interface.
 
         """
-        status = 'Running propagate...'
+        status = "Running propagate..."
         success = False
         stop = False
         add = path.append(phase_point)
         if not add:
             if path.length >= path.maxlen:
-                status = 'Max. path length exceeded'
+                status = "Max. path length exceeded"
             else:  # pragma: no cover
-                status = 'Could not add for unknown reason'
+                status = "Could not add for unknown reason"
             success = False
             stop = True
         if path.phasepoints[-1].order[0] < left:
-            status = 'Crossed left interface!'
+            status = "Crossed left interface!"
             success = True
             stop = True
         elif path.phasepoints[-1].order[0] > right:
-            status = 'Crossed right interface!'
+            status = "Crossed right interface!"
             success = True
             stop = True
         if path.length == path.maxlen:
-            status = 'Max. path length exceeded!'
+            status = "Max. path length exceeded!"
             success = False
             stop = True
         return status, success, stop, add
@@ -218,18 +225,17 @@ class EngineBase(metaclass=ABCMeta):
                 system.vel = -1.0 * vel
         else:
             system.vel = vel
-        if box is None and self.input_files.get('template', False):
+        if box is None and self.input_files.get("template", False):
             # CP2K specific box initiation:
-            box, _ = read_cp2k_box(ensemble['engine'].input_files['template'])
+            box, _ = read_cp2k_box(ensemble["engine"].input_files["template"])
 
         # system.update_box(box)
         system.box = box
         return self.order_function.calculate(system)
 
-    def dump_phasepoint(self, phasepoint, deffnm='conf'):
+    def dump_phasepoint(self, phasepoint, deffnm="conf"):
         """Just dump the frame from a system object."""
-        pos_file = self.dump_config(phasepoint.config,
-                                    deffnm=deffnm)
+        pos_file = self.dump_config(phasepoint.config, deffnm=deffnm)
         phasepoint.set_pos((pos_file, None))
 
     def _name_output(self, basename):
@@ -250,10 +256,10 @@ class EngineBase(metaclass=ABCMeta):
             A file name with an extension.
 
         """
-        out_file = f'{basename}.{self.ext}'
+        out_file = f"{basename}.{self.ext}"
         return os.path.join(self.exe_dir, out_file)
 
-    def dump_config(self, config, deffnm='conf'):
+    def dump_config(self, config, deffnm="conf"):
         """Extract configuration frame from a system if needed.
 
         Parameters
@@ -281,11 +287,11 @@ class EngineBase(metaclass=ABCMeta):
             if pos_file != out_file:
                 self._copyfile(pos_file, out_file)
         else:
-            logger.debug('Config: %s', (config, ))
+            logger.debug("Config: %s", (config,))
             self._extract_frame(pos_file, idx, out_file)
         return out_file
 
-    def dump_frame(self, system, deffnm='conf'):
+    def dump_frame(self, system, deffnm="conf"):
         """Just dump the frame from a system object."""
         return self.dump_config(system.config, deffnm=deffnm)
 
@@ -312,7 +318,6 @@ class EngineBase(metaclass=ABCMeta):
         files = [item.name for item in os.scandir(dirname) if item.is_file()]
         if dirname is not None:
             self._remove_files(dirname, files)
-
 
     def propagate(self, path, ens_set, system, reverse=False):
         """
@@ -353,39 +358,39 @@ class EngineBase(metaclass=ABCMeta):
         """
         logger.debug('Running propagate with: "%s"', self.description)
 
-        prefix = ens_set['ens_name'] + '_' + str(counter())
+        prefix = ens_set["ens_name"] + "_" + str(counter())
         if reverse:
-            logger.debug('Running backward in time.')
-            name = prefix + '_trajB'
+            logger.debug("Running backward in time.")
+            name = prefix + "_trajB"
         else:
-            logger.debug('Running forward in time.')
-            name = prefix + '_trajF'
+            logger.debug("Running forward in time.")
+            name = prefix + "_trajF"
         logger.debug('Trajectory name: "%s"', name)
         # Also create a message file for inspecting progress:
-        msg_file_name = os.path.join(self.exe_dir, f'msg-{name}.txt')
-        logger.debug('Writing propagation progress to: %s', msg_file_name)
-        msg_file = FileIO(msg_file_name, 'w', None, backup=False)
+        msg_file_name = os.path.join(self.exe_dir, f"msg-{name}.txt")
+        logger.debug("Writing propagation progress to: %s", msg_file_name)
+        msg_file = FileIO(msg_file_name, "w", None, backup=False)
         msg_file.open()
-        msg_file.write(f'# Preparing propagation with {self.description}')
-        msg_file.write(f'# Trajectory label: {name}')
+        msg_file.write(f"# Preparing propagation with {self.description}")
+        msg_file.write(f"# Trajectory label: {name}")
 
         # initial_state = ensemble['system'].copy()
         # system = ensemble['system']
 
-        initial_file = self.dump_frame(system, deffnm=prefix + '_conf')
-        msg_file.write(f'# Initial file: {initial_file}')
-        logger.debug('Initial state: %s', system)
+        initial_file = self.dump_frame(system, deffnm=prefix + "_conf")
+        msg_file.write(f"# Initial file: {initial_file}")
+        logger.debug("Initial state: %s", system)
 
         if reverse != system.vel_rev:
-            logger.debug('Reversing velocities in initial config.')
-            msg_file.write('# Reversing velocities')
+            logger.debug("Reversing velocities in initial config.")
+            msg_file.write("# Reversing velocities")
             basepath = os.path.dirname(initial_file)
             localfile = os.path.basename(initial_file)
-            initial_conf = os.path.join(basepath, f'r_{localfile}')
+            initial_conf = os.path.join(basepath, f"r_{localfile}")
             self._reverse_velocities(initial_file, initial_conf)
         else:
             initial_conf = initial_file
-        msg_file.write(f'# Initial config: {initial_conf}')
+        msg_file.write(f"# Initial config: {initial_conf}")
 
         # Update system to point to the configuration file:
         system.set_pos((initial_conf, None))
@@ -393,12 +398,7 @@ class EngineBase(metaclass=ABCMeta):
         # Propagate from this point:
         # msg_file.write(f'# Interfaces: {ensemble["interfaces"]}')
         success, status = self._propagate_from(
-            name,
-            path,
-            system,
-            ens_set,
-            msg_file,
-            reverse=reverse
+            name, path, system, ens_set, msg_file, reverse=reverse
         )
         # Reset to initial state:
         # ensemble['system'] = initial_state
@@ -453,13 +453,13 @@ class EngineBase(metaclass=ABCMeta):
     def snapshot_to_system(system, snapshot):
         """Convert a snapshot to a system object."""
         system_copy = system.copy()
-        system_copy.order = snapshot.get('order', None)
+        system_copy.order = snapshot.get("order", None)
         # # particles = system_copy.particles
-        system_copy.pos = snapshot.get('pos', None)
-        system_copy.vel = snapshot.get('vel', None)
-        system_copy.vpot = snapshot.get('vpot', None)
-        system_copy.ekin = snapshot.get('ekin', None)
-        for external in ('config', 'vel_rev'):
+        system_copy.pos = snapshot.get("pos", None)
+        system_copy.vel = snapshot.get("vel", None)
+        system_copy.vpot = snapshot.get("vpot", None)
+        system_copy.ekin = snapshot.get("ekin", None)
+        for external in ("config", "vel_rev"):
             if hasattr(system_copy, external) and external in snapshot:
                 setattr(system_copy, external, snapshot[external])
         return system_copy
@@ -520,7 +520,7 @@ class EngineBase(metaclass=ABCMeta):
         return
 
     @staticmethod
-    def _modify_input(sourcefile, outputfile, settings, delim='='):
+    def _modify_input(sourcefile, outputfile, settings, delim="="):
         """
         Modify input file for external software.
 
@@ -541,27 +541,28 @@ class EngineBase(metaclass=ABCMeta):
             The delimiter used for separation keywords from settings.
 
         """
-        reg = re.compile(fr'(.*?){delim}')
+        reg = re.compile(rf"(.*?){delim}")
         written = set()
-        with open(sourcefile, 'r', encoding='utf-8') as infile, \
-                open(outputfile, 'w', encoding='utf-8') as outfile:
+        with open(sourcefile, "r", encoding="utf-8") as infile, open(
+            outputfile, "w", encoding="utf-8"
+        ) as outfile:
             for line in infile:
                 to_write = line
                 key = reg.match(line)
                 if key:
-                    keyword = ''.join([key.group(1), delim])
+                    keyword = "".join([key.group(1), delim])
                     keyword_strip = key.group(1).strip()
                     if keyword_strip in settings:
-                        to_write = f'{keyword} {settings[keyword_strip]}\n'
+                        to_write = f"{keyword} {settings[keyword_strip]}\n"
                     written.add(keyword_strip)
                 outfile.write(to_write)
             # Add settings not yet written:
             for key, value in settings.items():
                 if key not in written:
-                    outfile.write(f'{key} {delim} {value}\n')
+                    outfile.write(f"{key} {delim} {value}\n")
 
     @staticmethod
-    def _read_input_settings(sourcefile, delim='='):
+    def _read_input_settings(sourcefile, delim="="):
         """
         Read input settings for simulation input files.
 
@@ -587,9 +588,9 @@ class EngineBase(metaclass=ABCMeta):
         keyword per line.
 
         """
-        reg = re.compile(fr'(.*?){delim}')
+        reg = re.compile(rf"(.*?){delim}")
         settings = {}
-        with open(sourcefile, 'r', encoding='utf-8') as infile:
+        with open(sourcefile, "r", encoding="utf-8") as infile:
             for line in infile:
                 key = reg.match(line)
                 if key:
@@ -624,13 +625,13 @@ class EngineBase(metaclass=ABCMeta):
             The return code of the issued command.
 
         """
-        cmd2 = ' '.join(cmd)
-        logger.debug('Executing: %s', cmd2)
+        cmd2 = " ".join(cmd)
+        logger.debug("Executing: %s", cmd2)
         if inputs is not None:
-            logger.debug('With input: %s', inputs)
+            logger.debug("With input: %s", inputs)
 
-        out_name = 'stdout.txt'
-        err_name = 'stderr.txt'
+        out_name = "stdout.txt"
+        err_name = "stderr.txt"
 
         if cwd:
             out_name = os.path.join(cwd, out_name)
@@ -638,33 +639,38 @@ class EngineBase(metaclass=ABCMeta):
 
         return_code = None
 
-        with open(out_name, 'wb') as fout, open(err_name, 'wb') as ferr:
-            cmd = shlex.split(' '.join(cmd))
+        with open(out_name, "wb") as fout, open(err_name, "wb") as ferr:
+            cmd = shlex.split(" ".join(cmd))
             exe = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
                 stdout=fout,
                 stderr=ferr,
                 shell=False,
-                cwd=cwd
+                cwd=cwd,
             )
             exe.communicate(input=inputs)
             # Note: communicate will wait until process terminates.
             return_code = exe.returncode
             if return_code != 0:
-                logger.error('Execution of external program (%s) failed!',
-                             self.description)
-                logger.error('Attempted command: %s', cmd2)
-                logger.error('Execution directory: %s', cwd)
+                logger.error(
+                    "Execution of external program (%s) failed!",
+                    self.description,
+                )
+                logger.error("Attempted command: %s", cmd2)
+                logger.error("Execution directory: %s", cwd)
                 if inputs is not None:
-                    logger.error('Input to external program was: %s', inputs)
-                logger.error('Return code from external program: %i',
-                             return_code)
-                logger.error('STDOUT, see file: %s', out_name)
-                logger.error('STDERR, see file: %s', err_name)
-                msg = (f'Execution of external program ({self.description}) '
-                       f'failed with command:\n {cmd2}.\n'
-                       f'Return code: {return_code}')
+                    logger.error("Input to external program was: %s", inputs)
+                logger.error(
+                    "Return code from external program: %i", return_code
+                )
+                logger.error("STDOUT, see file: %s", out_name)
+                logger.error("STDERR, see file: %s", err_name)
+                msg = (
+                    f"Execution of external program ({self.description}) "
+                    f"failed with command:\n {cmd2}.\n"
+                    f"Return code: {return_code}"
+                )
                 raise RuntimeError(msg)
         if return_code is not None and return_code == 0:
             self._removefile(out_name)
@@ -674,13 +680,13 @@ class EngineBase(metaclass=ABCMeta):
     @staticmethod
     def _movefile(source, dest):
         """Move file from source to destination."""
-        logger.debug('Moving: %s -> %s', source, dest)
+        logger.debug("Moving: %s -> %s", source, dest)
         shutil.move(source, dest)
 
     @staticmethod
     def _copyfile(source, dest):
         """Copy file from source to destination."""
-        logger.debug('Copy: %s -> %s', source, dest)
+        logger.debug("Copy: %s -> %s", source, dest)
         shutil.copyfile(source, dest)
 
     @staticmethod
@@ -688,9 +694,9 @@ class EngineBase(metaclass=ABCMeta):
         """Remove a given file if it exist."""
         try:
             os.remove(filename)
-            logger.debug('Removing: %s', filename)
+            logger.debug("Removing: %s", filename)
         except OSError:
-            logger.debug('Could not remove: %s', filename)
+            logger.debug("Could not remove: %s", filename)
 
     def _remove_files(self, dirname, files):
         """Remove files from a directory.
@@ -709,34 +715,41 @@ class EngineBase(metaclass=ABCMeta):
     def __eq__(self, other):
         """Check if two engines are equal."""
         if self.__class__ != other.__class__:
-            logger.debug('%s and %s.__class__ differ', self, other)
+            logger.debug("%s and %s.__class__ differ", self, other)
             return False
 
         if set(self.__dict__) != set(other.__dict__):
-            logger.debug('%s and %s.__dict__ differ', self, other)
+            logger.debug("%s and %s.__dict__ differ", self, other)
             return False
 
-        for i in ['needs_order', 'description', '_exe_dir', 'timestep']:
+        for i in ["needs_order", "description", "_exe_dir", "timestep"]:
             if hasattr(self, i):
                 if getattr(self, i) != getattr(other, i):
-                    logger.debug('%s for %s and %s, attributes are %s and %s',
-                                 i, self, other,
-                                 getattr(self, i), getattr(other, i))
+                    logger.debug(
+                        "%s for %s and %s, attributes are %s and %s",
+                        i,
+                        self,
+                        other,
+                        getattr(self, i),
+                        getattr(other, i),
+                    )
                     return False
 
-        if hasattr(self, 'rgen'):
+        if hasattr(self, "rgen"):
             # pylint: disable=no-member
-            if (self.rgen.__class__ != other.rgen.__class__
-                    or set(self.rgen.__dict__) != set(other.rgen.__dict__)):
-                logger.debug('rgen class differs')
+            if self.rgen.__class__ != other.rgen.__class__ or set(
+                self.rgen.__dict__
+            ) != set(other.rgen.__dict__):
+                logger.debug("rgen class differs")
                 return False
 
             # pylint: disable=no-member
             for att1, att2 in zip(self.rgen.__dict__, other.rgen.__dict__):
                 # pylint: disable=no-member
                 if self.rgen.__dict__[att1] != other.rgen.__dict__[att2]:
-                    logger.debug('rgen class attribute %s and %s differs',
-                                 att1, att2)
+                    logger.debug(
+                        "rgen class attribute %s and %s differs", att1, att2
+                    )
                     return False
 
         return True
@@ -750,8 +763,8 @@ class EngineBase(metaclass=ABCMeta):
         """Fail if the engine can't be used with an empty order parameter."""
         if order_function is None and cls.needs_order:
             raise ValueError(
-                'No order parameter was defined, but the '
-                'engine *does* require it.'
+                "No order parameter was defined, but the "
+                "engine *does* require it."
             )
 
     def restart_info(self):
@@ -765,7 +778,7 @@ class EngineBase(metaclass=ABCMeta):
             Contains all the updated simulation settings and counters.
 
         """
-        info = {'description': self.description}
+        info = {"description": self.description}
 
         return info
 
@@ -779,7 +792,7 @@ class EngineBase(metaclass=ABCMeta):
             similar to the dict produced by :py:func:`.restart_info`.
 
         """
-        self.description = info.get('description')
+        self.description = info.get("description")
 
     def __str__(self):
         """Return the string description of the integrator."""
@@ -788,5 +801,5 @@ class EngineBase(metaclass=ABCMeta):
 
 def counter():
     """Return how many times this function is called."""
-    counter.count = 0 if not hasattr(counter, 'count') else counter.count + 1
+    counter.count = 0 if not hasattr(counter, "count") else counter.count + 1
     return counter.count

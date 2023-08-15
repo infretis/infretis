@@ -25,7 +25,7 @@ from infretis.classes.engines.engineparts import (
     read_xyz_file,
     write_xyz_trajectory,
     convert_snapshot,
-    PERIODIC_TABLE
+    PERIODIC_TABLE,
 )
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -33,16 +33,16 @@ logger.addHandler(logging.NullHandler())
 
 
 OUTPUT_FILES = {
-    'energy': '{}-1.ener',
-    'restart': '{}-1.restart',
-    'pos': '{}-pos-1.xyz',
-    'vel': '{}-vel-1.xyz',
-    'wfn': '{}-RESTART.wfn',
-    'wfn-bak': '{}-RESTART.wfn.bak-'
+    "energy": "{}-1.ener",
+    "restart": "{}-1.restart",
+    "pos": "{}-pos-1.xyz",
+    "vel": "{}-vel-1.xyz",
+    "wfn": "{}-RESTART.wfn",
+    "wfn-bak": "{}-RESTART.wfn.bak-",
 }
 
 
-REGEXP_BACKUP = re.compile(r'\.bak-\d$')
+REGEXP_BACKUP = re.compile(r"\.bak-\d$")
 
 
 class SectionNode:
@@ -129,19 +129,19 @@ def dfs_print(node, visited):
 
     """
     out = []
-    pre = ' ' * (2 * node.level)
+    pre = " " * (2 * node.level)
     if not node.settings:
-        out.append(f'{pre}&{node.title}')
+        out.append(f"{pre}&{node.title}")
     else:
         out.append(f'{pre}&{node.title} {" ".join(node.settings)}')
     for lines in node.data:
-        out.append(f'{pre}  {lines}')
+        out.append(f"{pre}  {lines}")
     visited.add(node)
     for child in node.children:
         if child not in visited:
             for lines in dfs_print(child, visited):
                 out.append(lines)
-    out.append(f'{pre}&END {node.title}')
+    out.append(f"{pre}&END {node.title}")
     return out
 
 
@@ -153,7 +153,7 @@ def set_parents(listofnodes):
         """DFS traverse the nodes."""
         if node.parents is None:
             node.get_all_parents()
-            par = '->'.join(node.parents)
+            par = "->".join(node.parents)
             if par in node_ref:
                 prev = node_ref.pop(par)
                 par1 = f'{par}->{" ".join(prev.settings)}'
@@ -189,23 +189,24 @@ def read_cp2k_input(filename):
     """
     nodes = []
     current_node = None
-    with open(filename, 'r', encoding="utf-8") as infile:
+    with open(filename, "r", encoding="utf-8") as infile:
         for lines in infile:
             lstrip = lines.strip()
             if not lstrip:
                 # skip empty lines
                 continue
-            if lstrip.startswith('&'):
+            if lstrip.startswith("&"):
                 strip = lstrip[1:].split()
-                if lstrip[1:].lower().startswith('end'):
+                if lstrip[1:].lower().startswith("end"):
                     current_node = current_node.parent
                 else:
                     if len(strip) > 1:
                         setts = strip[1:]
                     else:
                         setts = []
-                    new_node = SectionNode(strip[0].upper(),
-                                           current_node, setts)
+                    new_node = SectionNode(
+                        strip[0].upper(), current_node, setts
+                    )
                     if current_node is None:
                         nodes.append(new_node)
                     else:
@@ -221,25 +222,24 @@ def read_cp2k_input(filename):
 def _add_node(target, settings, data, nodes, node_ref):
     """Just add a new node."""
     # check if this is a root node:
-    root = target.find('->') == -1
+    root = target.find("->") == -1
     if root:
         new_node = SectionNode(target, None, settings, data=data)
         nodes.append(new_node)
     else:
-        parents = target.split('->')
+        parents = target.split("->")
         title = parents[-1]
-        par = '->'.join(parents[:-1])
+        par = "->".join(parents[:-1])
         if par not in node_ref:
             _add_node(par, None, None, nodes, node_ref)
-        parent = node_ref['->'.join(parents[:-1])]
+        parent = node_ref["->".join(parents[:-1])]
         new_node = SectionNode(title, parent, settings, data=data)
         new_node.level = parent.level + 1
         parent.add_child(new_node)
     node_ref[target] = new_node
 
 
-def update_node(target, settings, data, node_ref, nodes,
-                replace=False):
+def update_node(target, settings, data, node_ref, nodes, replace=False):
     """Update the given target node.
 
     If the node does not exist, it will be created.
@@ -276,7 +276,7 @@ def update_node(target, settings, data, node_ref, nodes,
         for line in node.data:
             key = line.split()[0]
             if key in data:
-                new_data.append(f'{key} {data[key]}')
+                new_data.append(f"{key} {data[key]}")
                 done.add(key)
             else:
                 new_data.append(line)
@@ -286,7 +286,7 @@ def update_node(target, settings, data, node_ref, nodes,
             if data[key] is None:
                 new_data.append(str(key))
             else:
-                new_data.append(f'{key} {data[key]}')
+                new_data.append(f"{key} {data[key]}")
         node.data = list(new_data)
     else:
         node.data = list(data)
@@ -356,21 +356,22 @@ def update_cp2k_input(template, output, update=None, remove=None):
     if update is not None:
         for target in update:
             value = update[target]
-            settings = value.get('settings', None)
-            replace = value.get('replace', False)
-            data = value.get('data', [])
-            update_node(target, settings, data, node_ref, nodes,
-                        replace=replace)
+            settings = value.get("settings", None)
+            replace = value.get("replace", False)
+            data = value.get("data", [])
+            update_node(
+                target, settings, data, node_ref, nodes, replace=replace
+            )
     if remove is not None:
         for nodei in remove:
             remove_node(nodei, node_ref, nodes)
-    with open(output, 'w', encoding='utf-8') as outf:
+    with open(output, "w", encoding="utf-8") as outf:
         for i, nodei in enumerate(nodes):
             vis = set()
             if i > 0:
-                outf.write('\n')
-            outf.write('\n'.join(dfs_print(nodei, vis)))
-            outf.write('\n')
+                outf.write("\n")
+            outf.write("\n".join(dfs_print(nodei, vis)))
+            outf.write("\n")
 
 
 def read_box_data(box_data):
@@ -389,39 +390,45 @@ def read_box_data(box_data):
         The periodic boundary setting for each dimension.
 
     """
-    to_read = {'A': 'vec', 'B': 'vec', 'C': 'vec', 'PERIODIC': 'string',
-               'ABC': 'vec', 'ALPHA_BETA_GAMMA': 'vec'}
+    to_read = {
+        "A": "vec",
+        "B": "vec",
+        "C": "vec",
+        "PERIODIC": "string",
+        "ABC": "vec",
+        "ALPHA_BETA_GAMMA": "vec",
+    }
     data = {}
     for lines in box_data:
         for key, val in to_read.items():
-            keyword = f'{key} '
+            keyword = f"{key} "
             if lines.startswith(keyword):
-                if val == 'vec':
+                if val == "vec":
                     data[key] = [float(i) for i in lines.split()[1:]]
-                elif val == 'string':
-                    data[key] = ' '.join(lines.split()[1:])
-    if all(('A' in data, 'B' in data, 'C' in data)):
+                elif val == "string":
+                    data[key] = " ".join(lines.split()[1:])
+    if all(("A" in data, "B" in data, "C" in data)):
         box_matrix = np.zeros((3, 3))
-        box_matrix[:, 0] = data['A']
-        box_matrix[:, 1] = data['B']
-        box_matrix[:, 2] = data['C']
+        box_matrix[:, 0] = data["A"]
+        box_matrix[:, 1] = data["B"]
+        box_matrix[:, 2] = data["C"]
         box = box_matrix_to_list(box_matrix)
-    elif 'ABC' in data:
-        if 'ALPHA_BETA_GAMMA' in data:
+    elif "ABC" in data:
+        if "ALPHA_BETA_GAMMA" in data:
             box_matrix = box_vector_angles(
-                data['ABC'],
-                data['ALPHA_BETA_GAMMA'][0],
-                data['ALPHA_BETA_GAMMA'][1],
-                data['ALPHA_BETA_GAMMA'][2],
+                data["ABC"],
+                data["ALPHA_BETA_GAMMA"][0],
+                data["ALPHA_BETA_GAMMA"][1],
+                data["ALPHA_BETA_GAMMA"][2],
             )
             box = box_matrix_to_list(box_matrix)
         else:
-            box = np.array(data['ABC'])
+            box = np.array(data["ABC"])
     else:
         box = None
     periodic = []
-    periodic_setting = data.get('PERIODIC', 'XYZ')
-    for val in ('X', 'Y', 'Z'):
+    periodic_setting = data.get("PERIODIC", "XYZ")
+    for val in ("X", "Y", "Z"):
         periodic.append(val in periodic_setting.upper())
     return box, periodic
 
@@ -440,16 +447,19 @@ def read_cp2k_energy(energy_file):
         This dict contains the energy terms read from the CP2K energy file.
 
     """
-    data = np.genfromtxt(energy_file, invalid_raise = False)
+    data = np.genfromtxt(energy_file, invalid_raise=False)
     energy = {}
-    for i, key in ((1, 'time'), (2, 'ekin'), (3, 'temp'), (4, 'vpot')):
+    for i, key in ((1, "time"), (2, "ekin"), (3, "temp"), (4, "vpot")):
         try:
             energy[key] = data[:, i]
         except IndexError:
-            logger.warning('Could not read energy term %s from CP2kfile %s',
-                           key, energy_file)
-    if 'ekin' in energy and 'vpot' in energy:
-        energy['etot'] = energy['ekin'] + energy['vpot']
+            logger.warning(
+                "Could not read energy term %s from CP2kfile %s",
+                key,
+                energy_file,
+            )
+    if "ekin" in energy and "vpot" in energy:
+        energy["etot"] = energy["ekin"] + energy["vpot"]
     return energy
 
 
@@ -476,9 +486,9 @@ def read_cp2k_restart(restart_file):
     """
     nodes = read_cp2k_input(restart_file)
     node_ref = set_parents(nodes)
-    velocity = 'FORCE_EVAL->SUBSYS->VELOCITY'
-    coord = 'FORCE_EVAL->SUBSYS->COORD'
-    cell = 'FORCE_EVAL->SUBSYS->CELL'
+    velocity = "FORCE_EVAL->SUBSYS->VELOCITY"
+    coord = "FORCE_EVAL->SUBSYS->COORD"
+    cell = "FORCE_EVAL->SUBSYS->CELL"
 
     atoms, pos, vel = [], [], []
 
@@ -514,11 +524,13 @@ def read_cp2k_box(inputfile):
     node_ref = set_parents(nodes)
     try:
         box, periodic = read_box_data(
-            node_ref['FORCE_EVAL->SUBSYS->CELL'].data
+            node_ref["FORCE_EVAL->SUBSYS->CELL"].data
         )
     except KeyError:
         logger.warning('No CELL found in CP2K file "%s"', inputfile)
-        box = np.array([[100., 0., 0.], [0., 100., 0.], [0., 0., 100.]])
+        box = np.array(
+            [[100.0, 0.0, 0.0], [0.0, 100.0, 0.0], [0.0, 0.0, 100.0]]
+        )
         periodic = [True, True, True]
     return box, periodic
 
@@ -534,18 +546,28 @@ def guess_particle_mass(particle_no, particle_type):
     particle_type : string
         Used to identify the particle.
     """
-    logger.info(('Mass not specified for particle no. %i\n'
-                 'Will guess from particle type "%s"'), particle_no,
-                particle_type)
+    logger.info(
+        (
+            "Mass not specified for particle no. %i\n"
+            'Will guess from particle type "%s"'
+        ),
+        particle_no,
+        particle_type,
+    )
     mass = PERIODIC_TABLE.get(particle_type, None)
     if mass is None:
         particle_mass = 1822.8884858012982
-        logger.info(('-> Could not find mass. '
-                     'Assuming %f (internal units)'), particle_mass)
+        logger.info(
+            ("-> Could not find mass. " "Assuming %f (internal units)"),
+            particle_mass,
+        )
     else:
         particle_mass = 1822.8884858012982 * mass
-        logger.info(('-> Using a mass of %f g/mol '
-                     '(%f in internal units)'), mass, particle_mass)
+        logger.info(
+            ("-> Using a mass of %f g/mol " "(%f in internal units)"),
+            mass,
+            particle_mass,
+        )
     return particle_mass
 
 
@@ -571,8 +593,9 @@ def kinetic_energy(vel, mass):
     if len(mass) == 1:
         kin = 0.5 * np.outer(mom, vel)
     else:
-        kin = 0.5 * np.einsum('ij,ik->jk', mom, vel)
+        kin = 0.5 * np.einsum("ij,ik->jk", mom, vel)
     return kin.trace(), kin
+
 
 def reset_momentum(vel, mass):
     """Set the linear momentum of all particles to zero.
@@ -582,9 +605,9 @@ def reset_momentum(vel, mass):
     Parameters
     ----------
     vel : numpy.array
-        The velocities of the particles in system. 
+        The velocities of the particles in system.
     mass : numpy.array
-        The masses of the particles in the system. 
+        The masses of the particles in the system.
 
     Returns
     -------
@@ -594,13 +617,22 @@ def reset_momentum(vel, mass):
     """
     # avoid creating an extra dimension by indexing array with None
 
-    mom = np.sum(vel * mass,  axis=0)
-    vel -= (mom / mass.sum())
+    mom = np.sum(vel * mass, axis=0)
+    vel -= mom / mass.sum()
     return vel
 
 
-def write_for_run_vel(infile, outfile, timestep, nsteps, subcycles, posfile, 
-                       vel, name='md_step', print_freq=None):
+def write_for_run_vel(
+    infile,
+    outfile,
+    timestep,
+    nsteps,
+    subcycles,
+    posfile,
+    vel,
+    name="md_step",
+    print_freq=None,
+):
     """Create input file to perform n steps.
 
     Note, a single step actually consists of a number of subcycles.
@@ -633,50 +665,37 @@ def write_for_run_vel(infile, outfile, timestep, nsteps, subcycles, posfile,
     if print_freq is None:
         print_freq = subcycles
     to_update = {
-        'GLOBAL': {
-            'data': [f'PROJECT {name}',
-                     'RUN_TYPE MD',
-                     'PRINT_LEVEL LOW'],
-            'replace': True,
+        "GLOBAL": {
+            "data": [f"PROJECT {name}", "RUN_TYPE MD", "PRINT_LEVEL LOW"],
+            "replace": True,
         },
-        'MOTION->MD':  {
-            'data': {'STEPS': nsteps*subcycles,
-                     'TIMESTEP': timestep}
+        "MOTION->MD": {
+            "data": {"STEPS": nsteps * subcycles, "TIMESTEP": timestep}
         },
-        'MOTION->PRINT->RESTART': {
-            'data': ['BACKUP_COPIES 0'],
-            'replace': True,
+        "MOTION->PRINT->RESTART": {
+            "data": ["BACKUP_COPIES 0"],
+            "replace": True,
         },
-        'MOTION->PRINT->RESTART->EACH': {
-            'data': {'MD': print_freq}
+        "MOTION->PRINT->RESTART->EACH": {"data": {"MD": print_freq}},
+        "MOTION->PRINT->VELOCITIES->EACH": {"data": {"MD": print_freq}},
+        "MOTION->PRINT->TRAJECTORY->EACH": {"data": {"MD": print_freq}},
+        "FORCE_EVAL->SUBSYS->TOPOLOGY": {
+            "data": {"COORD_FILE_NAME": posfile, "COORD_FILE_FORMAT": "xyz"}
         },
-        'MOTION->PRINT->VELOCITIES->EACH': {
-            'data': {'MD': print_freq}
+        "FORCE_EVAL->SUBSYS->VELOCITY": {
+            "data": [],
+            "replace": True,
         },
-        'MOTION->PRINT->TRAJECTORY->EACH': {
-            'data': {'MD': print_freq}
-        },
-        'FORCE_EVAL->SUBSYS->TOPOLOGY': {
-            'data': {'COORD_FILE_NAME': posfile,
-                     'COORD_FILE_FORMAT': 'xyz'}
-        },
-        'FORCE_EVAL->SUBSYS->VELOCITY': {
-            'data': [],
-            'replace': True,
-        },
-        'FORCE_EVAL->DFT->SCF->PRINT->RESTART': {
-            'data': ['BACKUP_COPIES 0'],
-            'replace': True,
+        "FORCE_EVAL->DFT->SCF->PRINT->RESTART": {
+            "data": ["BACKUP_COPIES 0"],
+            "replace": True,
         },
     }
     for veli in vel:
-        to_update['FORCE_EVAL->SUBSYS->VELOCITY']['data'].append(
-            f'{veli[0]} {veli[1]} {veli[2]}'
+        to_update["FORCE_EVAL->SUBSYS->VELOCITY"]["data"].append(
+            f"{veli[0]} {veli[1]} {veli[2]}"
         )
-    remove = [
-        'EXT_RESTART',
-        'FORCE_EVAL->SUBSYS->COORD'
-    ]
+    remove = ["EXT_RESTART", "FORCE_EVAL->SUBSYS->COORD"]
     update_cp2k_input(infile, outfile, update=to_update, remove=remove)
 
 
@@ -703,9 +722,17 @@ class CP2KEngine(EngineBase):
 
     """
 
-    def __init__(self, cp2k, input_path, timestep, subcycles,
-                 extra_files=None, exe_path=os.path.abspath('.'),  seed=0,
-                sleep=0.1): 
+    def __init__(
+        self,
+        cp2k,
+        input_path,
+        timestep,
+        subcycles,
+        extra_files=None,
+        exe_path=os.path.abspath("."),
+        seed=0,
+        sleep=0.1,
+    ):
         """Set up the CP2K engine.
 
         Parameters
@@ -728,43 +755,48 @@ class CP2KEngine(EngineBase):
             The path on which the engine is executed
 
         """
-        super().__init__('CP2K external engine', timestep,
-                         subcycles)
-        self.ext = 'xyz'
+        super().__init__("CP2K external engine", timestep, subcycles)
+        self.ext = "xyz"
         self.cp2k = shlex.split(cp2k)
         self.sleep = sleep
-        logger.info('Command for execution of CP2K: %s', ' '.join(self.cp2k))
+        logger.info("Command for execution of CP2K: %s", " ".join(self.cp2k))
         # Store input path:
         self.input_path = os.path.join(exe_path, input_path)
         # Set the defaults input files:
         default_files = {
-            'conf': f'initial.{self.ext}',
-            'template': 'cp2k.inp',
+            "conf": f"initial.{self.ext}",
+            "template": "cp2k.inp",
         }
         # Check the presence of the defaults input files or, if absent,
         # try to find then by extension.
-        self.input_files = look_for_input_files(self.input_path, default_files)
-        
-        # add mass, temperature and unit information to engine 
-        # which is needed for velocity modification 
-        pos, vel, box, atoms = self._read_configuration(self.input_files['conf'])
-        mass = [guess_particle_mass(i, name) for i,name in enumerate(atoms)]
-        self.mass = np.reshape(mass,(len(mass),1))
-        
+        self.input_files = look_for_input_files(
+            self.input_path, default_files
+        )
+
+        # add mass, temperature and unit information to engine
+        # which is needed for velocity modification
+        pos, vel, box, atoms = self._read_configuration(
+            self.input_files["conf"]
+        )
+        mass = [guess_particle_mass(i, name) for i, name in enumerate(atoms)]
+        self.mass = np.reshape(mass, (len(mass), 1))
+
         # read temperature from cp2k input, defaults to 300
-        self.temperature=None
-        section = 'MOTION->MD'
-        nodes = read_cp2k_input(self.input_files['template'])
+        self.temperature = None
+        section = "MOTION->MD"
+        nodes = read_cp2k_input(self.input_files["template"])
         node_ref = set_parents(nodes)
         md_settings = node_ref[section]
         for data in md_settings.data:
-            if 'temperature' in data.lower():
+            if "temperature" in data.lower():
                 self.temperature = float(data.split()[-1])
-        if self.temperature==None:
-            logger.info(f'No temperature specified in cp2k input. Using 300 K.')
-            self.temperature=300.0
+        if self.temperature == None:
+            logger.info(
+                f"No temperature specified in cp2k input. Using 300 K."
+            )
+            self.temperature = 300.0
         self.kb = 3.16681534e-6  # hartree
-        self.beta = 1/(self.temperature * self.kb)
+        self.beta = 1 / (self.temperature * self.kb)
 
         # todo, these info can be processed by look_for_input_files using
         # the extra_files option.
@@ -773,8 +805,9 @@ class CP2KEngine(EngineBase):
             for key in extra_files:
                 fname = os.path.join(self.input_path, key)
                 if not os.path.isfile(fname):
-                    logger.critical('Extra CP2K input file "%s" not found!',
-                                    fname)
+                    logger.critical(
+                        'Extra CP2K input file "%s" not found!', fname
+                    )
                 else:
                     self.extra_files.append(fname)
 
@@ -800,14 +833,18 @@ class CP2KEngine(EngineBase):
             if i == idx:
                 box, xyz, vel, names = convert_snapshot(snapshot)
                 if os.path.isfile(out_file):
-                    logger.debug('CP2K will overwrite %s', out_file)
-                write_xyz_trajectory(out_file, xyz, vel, names, box,
-                                     append=False)
+                    logger.debug("CP2K will overwrite %s", out_file)
+                write_xyz_trajectory(
+                    out_file, xyz, vel, names, box, append=False
+                )
                 return
-        logger.error('CP2K could not extract index %i from %s!',
-                     idx, traj_file)
+        logger.error(
+            "CP2K could not extract index %i from %s!", idx, traj_file
+        )
 
-    def _propagate_from(self, name, path, system, ens_set, msg_file, reverse=False):
+    def _propagate_from(
+        self, name, path, system, ens_set, msg_file, reverse=False
+    ):
         """
         Propagate with CP2K from the current system configuration.
 
@@ -854,53 +891,59 @@ class CP2KEngine(EngineBase):
             propagation.
 
         """
-        status = f'propagating with CP2K (reverse = {reverse})'
-        interfaces = ens_set['interfaces']
+        status = f"propagating with CP2K (reverse = {reverse})"
+        interfaces = ens_set["interfaces"]
         logger.debug(status)
         success = False
         left, _, right = interfaces
-        logger.debug('Adding input files for CP2K')
+        logger.debug("Adding input files for CP2K")
         # First, copy the required input files:
         self.add_input_files(self.exe_dir)
         # Get positions and velocities from the input file.
         initial_conf = system.config[0]
         box, xyz, vel, atoms = self._read_configuration(initial_conf)
         if box is None:
-            box, _ = read_cp2k_box(self.input_files['template'])
+            box, _ = read_cp2k_box(self.input_files["template"])
         # Add CP2K input for N steps:
-        run_input = os.path.join(self.exe_dir, 'run.inp')
-        write_for_run_vel(self.input_files['template'], run_input,
-                           self.timestep, path.maxlen, self.subcycles,
-                           os.path.basename(initial_conf),
-                           vel, name=name)
+        run_input = os.path.join(self.exe_dir, "run.inp")
+        write_for_run_vel(
+            self.input_files["template"],
+            run_input,
+            self.timestep,
+            path.maxlen,
+            self.subcycles,
+            os.path.basename(initial_conf),
+            vel,
+            name=name,
+        )
         # Get the order parameter before the run:
         order = self.calculate_order(system, xyz=xyz, vel=vel, box=box)
-        traj_file = os.path.join(self.exe_dir, f'{name}.{self.ext}')
+        traj_file = os.path.join(self.exe_dir, f"{name}.{self.ext}")
         # Create a message file with some info about this run:
         msg_file.write(
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
-        msg_file.write(f'# Trajectory file is: {traj_file}')
+        msg_file.write(f"# Trajectory file is: {traj_file}")
         # Get CP2K output files:
         out_files = {}
         for key, val in OUTPUT_FILES.items():
             out_files[key] = os.path.join(self.exe_dir, val.format(name))
-        restart_file = os.path.join(self.exe_dir, out_files['restart'])
-        prestart_file = os.path.join(self.exe_dir, 'previous.restart')
-        wave_file = os.path.join(self.exe_dir, out_files['wfn'])
-        pwave_file = os.path.join(self.exe_dir, 'previous.wfn')
+        restart_file = os.path.join(self.exe_dir, out_files["restart"])
+        prestart_file = os.path.join(self.exe_dir, "previous.restart")
+        wave_file = os.path.join(self.exe_dir, out_files["wfn"])
+        pwave_file = os.path.join(self.exe_dir, "previous.wfn")
 
         # cp2k runner
-        logger.debug('Executing CP2K %s: %s', name, 'run.inp')
-        cmd = self.cp2k + ['-i', 'run.inp']
+        logger.debug("Executing CP2K %s: %s", name, "run.inp")
+        cmd = self.cp2k + ["-i", "run.inp"]
         cwd = self.exe_dir
         inputs = None
         # from external.exe_command
-        cmd2 = ' '.join(cmd)
-        logger.debug('Executing: %s', cmd2)
-        
-        out_name = 'stdout.txt'
-        err_name = 'stderr.txt'
+        cmd2 = " ".join(cmd)
+        logger.debug("Executing: %s", cmd2)
+
+        out_name = "stdout.txt"
+        err_name = "stderr.txt"
 
         if cwd:
             out_name = os.path.join(cwd, out_name)
@@ -909,103 +952,128 @@ class CP2KEngine(EngineBase):
         return_code = None
         cp2k_was_terminated = False
 
-        with open(out_name, 'wb') as fout, open(err_name, 'wb') as ferr:
+        with open(out_name, "wb") as fout, open(err_name, "wb") as ferr:
             exe = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
                 stdout=fout,
                 stderr=ferr,
                 shell=False,
-                cwd=cwd
+                cwd=cwd,
             )
             # wait for trajectories to appear
-            while not os.path.exists(out_files['pos']) or \
-                not os.path.exists(out_files['vel']):
+            while not os.path.exists(out_files["pos"]) or not os.path.exists(
+                out_files["vel"]
+            ):
                 sleep(self.sleep)
                 if exe.poll() is not None:
-                    logger.debug('CP2K execution stopped')
+                    logger.debug("CP2K execution stopped")
                     break
 
             # cp2k may have finished after last checking files
             # or it may have crashed without writing the files
-            if exe.poll() is None or exe.returncode==0:
-                pos_reader = ReadAndProcessOnTheFly(out_files['pos'], xyz_processer)
-                vel_reader = ReadAndProcessOnTheFly(out_files['vel'], xyz_processer)
+            if exe.poll() is None or exe.returncode == 0:
+                pos_reader = ReadAndProcessOnTheFly(
+                    out_files["pos"], xyz_processer
+                )
+                vel_reader = ReadAndProcessOnTheFly(
+                    out_files["vel"], xyz_processer
+                )
                 # start reading on the fly as cp2k is still running
                 # if it stops, perform one more iteration to read
                 # the remaning contnent in the files. Note that we assume here
                 # that cp2k writes in blocks of frames, and never partially
                 # finished frames.
-                iterations_after_stop=0
+                iterations_after_stop = 0
                 step_nr = 0
                 pos_traj = []
                 vel_traj = []
-                while exe.poll() is None or iterations_after_stop<=1:
+                while exe.poll() is None or iterations_after_stop <= 1:
                     # we may still have some data in one of the trajectories
                     # so use += here
                     pos_traj += pos_reader.read_and_process_content()
                     vel_traj += vel_reader.read_and_process_content()
                     # loop over the frames that are ready
-                    for frame in range(min(len(pos_traj),len(vel_traj))):
+                    for frame in range(min(len(pos_traj), len(vel_traj))):
                         pos = pos_traj.pop(0)
                         vel = vel_traj.pop(0)
-                        write_xyz_trajectory(traj_file, pos, vel, 
-                                             atoms, box)
+                        write_xyz_trajectory(traj_file, pos, vel, atoms, box)
                         # calculate order, check for crossings, etc
-                        order = self.calculate_order(system, xyz=pos, vel=vel, box=box)
-                        msg_file.write(f'{step_nr} {" ".join([str(j) for j in order])}')
-                        snapshot = {'order': order, 'config': (traj_file, step_nr),
-                                    'vel_rev': reverse}
-                        phase_point = self.snapshot_to_system(system, snapshot)
-                        status, success, stop, add = self.add_to_path(path, phase_point,
-                                                          left, right)
+                        order = self.calculate_order(
+                            system, xyz=pos, vel=vel, box=box
+                        )
+                        msg_file.write(
+                            f'{step_nr} {" ".join([str(j) for j in order])}'
+                        )
+                        snapshot = {
+                            "order": order,
+                            "config": (traj_file, step_nr),
+                            "vel_rev": reverse,
+                        }
+                        phase_point = self.snapshot_to_system(
+                            system, snapshot
+                        )
+                        status, success, stop, add = self.add_to_path(
+                            path, phase_point, left, right
+                        )
                         if stop:
                             # process may have terminated since we last checked
                             if exe.poll() is None:
-                                logger.debug('Terminating CP2K execution')
+                                logger.debug("Terminating CP2K execution")
                                 os.kill(exe.pid, signal.SIGTERM)
-                            logger.debug('CP2K propagation ended at %i. Reason: %s',
-                            step_nr, status)
+                            logger.debug(
+                                "CP2K propagation ended at %i. Reason: %s",
+                                step_nr,
+                                status,
+                            )
                             # exit while loop without reading additional data
-                            iterations_after_stop=2
+                            iterations_after_stop = 2
                             cp2k_was_terminated = True
                             break
-                            
-                        step_nr += 1    
+
+                        step_nr += 1
                     sleep(self.sleep)
                     # if cp2k finished, we run one more loop
-                    if exe.poll() is not None and iterations_after_stop<=1:
+                    if exe.poll() is not None and iterations_after_stop <= 1:
                         iterations_after_stop += 1
-                
+
             return_code = exe.returncode
             if return_code != 0 and not cp2k_was_terminated:
-                logger.error('Execution of external program (%s) failed!',
-                             self.description)
-                logger.error('Attempted command: %s', cmd2)
-                logger.error('Execution directory: %s', cwd)
+                logger.error(
+                    "Execution of external program (%s) failed!",
+                    self.description,
+                )
+                logger.error("Attempted command: %s", cmd2)
+                logger.error("Execution directory: %s", cwd)
                 if inputs is not None:
-                    logger.error('Input to external program was: %s', inputs)
-                logger.error('Return code from external program: %i',
-                             return_code)
-                logger.error('STDOUT, see file: %s', out_name)
-                logger.error('STDERR, see file: %s', err_name)
-                msg = (f'Execution of external program ({self.description}) '
-                       f'failed with command:\n {cmd2}.\n'
-                       f'Return code: {return_code}')
+                    logger.error("Input to external program was: %s", inputs)
+                logger.error(
+                    "Return code from external program: %i", return_code
+                )
+                logger.error("STDOUT, see file: %s", out_name)
+                logger.error("STDERR, see file: %s", err_name)
+                msg = (
+                    f"Execution of external program ({self.description}) "
+                    f"failed with command:\n {cmd2}.\n"
+                    f"Return code: {return_code}"
+                )
                 raise RuntimeError(msg)
-        if (return_code is not None) and (return_code == 0 or cp2k_was_terminated):
+        if (return_code is not None) and (
+            return_code == 0 or cp2k_was_terminated
+        ):
             self._removefile(out_name)
             self._removefile(err_name)
 
-        msg_file.write('# Propagation done.')
-        energy_file = out_files['energy']
-        msg_file.write(f'# Reading energies from: {energy_file}')
+        msg_file.write("# Propagation done.")
+        energy_file = out_files["energy"]
+        msg_file.write(f"# Reading energies from: {energy_file}")
         energy = read_cp2k_energy(energy_file)
         end = (step_nr + 1) * self.subcycles
-        ekin = energy.get('ekin', [])
-        vpot = energy.get('vpot', [])
-        path.update_energies(ekin[:end:self.subcycles],
-                             vpot[:end:self.subcycles])
+        ekin = energy.get("ekin", [])
+        vpot = energy.get("vpot", [])
+        path.update_energies(
+            ekin[: end : self.subcycles], vpot[: end : self.subcycles]
+        )
         for _, files in out_files.items():
             self._removefile(files)
         self._removefile(prestart_file)
@@ -1031,8 +1099,9 @@ class CP2KEngine(EngineBase):
             basename = os.path.basename(files)
             dest = os.path.join(dirname, basename)
             if not os.path.isfile(dest):
-                logger.debug('Adding input file "%s" to "%s"',
-                             basename, dirname)
+                logger.debug(
+                    'Adding input file "%s" to "%s"', basename, dirname
+                )
                 self._copyfile(files, dest)
 
     @staticmethod
@@ -1078,9 +1147,9 @@ class CP2KEngine(EngineBase):
 
     def set_mdrun(self, config, md_items):
         """Remove or rename?"""
-        self.exe_dir = md_items['w_folder']
-        #self.rgen = md_items['picked']['tis_set']['rgen']
-        self.rgen = md_items['picked'][md_items['ens_nums'][0]]['ens']['rgen']
+        self.exe_dir = md_items["w_folder"]
+        # self.rgen = md_items['picked']['tis_set']['rgen']
+        self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"]
 
     def _reverse_velocities(self, filename, outfile):
         """Reverse velocity in a given snapshot.
@@ -1095,26 +1164,29 @@ class CP2KEngine(EngineBase):
 
         """
         box, xyz, vel, names = self._read_configuration(filename)
-        write_xyz_trajectory(outfile, xyz, -1.0*vel, names, box, append=False)
+        write_xyz_trajectory(
+            outfile, xyz, -1.0 * vel, names, box, append=False
+        )
 
     def modify_velocities(self, system, vel_settings=None):
         """
         Modfy the velocities of all particles. Note that cp2k by default
-        removes the center of mass motion, thus, we need to rescale the 
+        removes the center of mass motion, thus, we need to rescale the
         momentum to zero by default.
 
         """
         rgen = self.rgen
         mass = self.mass
-        beta  = self.beta
-        rescale = vel_settings.get('rescale_energy',
-    	                               vel_settings.get('rescale'))
+        beta = self.beta
+        rescale = vel_settings.get(
+            "rescale_energy", vel_settings.get("rescale")
+        )
         pos = self.dump_frame(system)
         box, xyz, vel, atoms = self._read_configuration(pos)
-        #system.pos = xyz
+        # system.pos = xyz
         if box is None:
-            box, _ = read_cp2k_box(self.input_files['template'])
-    	# to-do: retrieve system.vpot from previous energy file.
+            box, _ = read_cp2k_box(self.input_files["template"])
+        # to-do: retrieve system.vpot from previous energy file.
         if None not in ((rescale, system.vpot)) and rescale is not False:
             print("Rescale")
             if rescale > 0:
@@ -1122,57 +1194,67 @@ class CP2KEngine(EngineBase):
                 do_rescale = True
             else:
                 print("Warning")
-                logger.warning('Ignored re-scale 6.2%f < 0.0.', rescale)
+                logger.warning("Ignored re-scale 6.2%f < 0.0.", rescale)
                 return 0.0, kinetic_energy(vel, mass)[0]
         else:
             kin_old = kinetic_energy(vel, mass)[0]
             do_rescale = False
-        if vel_settings.get('aimless', False):
+        if vel_settings.get("aimless", False):
             vel, _ = rgen.draw_maxwellian_velocities(vel, mass, beta)
         else:
-            dvel, _ = rgen.draw_maxwellian_velocities(vel, mass, beta, sigma_v=vel_settings['sigma_v'])
+            dvel, _ = rgen.draw_maxwellian_velocities(
+                vel, mass, beta, sigma_v=vel_settings["sigma_v"]
+            )
             vel += dvel
         # make reset momentum the default
-        if vel_settings.get('zero_momentum', True):
+        if vel_settings.get("zero_momentum", True):
             vel = reset_momentum(vel, mass)
         if do_rescale:
-            #system.rescale_velocities(rescale, external=True)
-            raise NotImplementedError("Option 'rescale_energy' is not implemented for CP2K yet.")
-        conf_out = os.path.join(self.exe_dir,
-                '{}.{}'.format('genvel', self.ext))
-        write_xyz_trajectory(conf_out, xyz, vel,
-                atoms, box, append=False)
+            # system.rescale_velocities(rescale, external=True)
+            raise NotImplementedError(
+                "Option 'rescale_energy' is not implemented for CP2K yet."
+            )
+        conf_out = os.path.join(
+            self.exe_dir, "{}.{}".format("genvel", self.ext)
+        )
+        write_xyz_trajectory(conf_out, xyz, vel, atoms, box, append=False)
         kin_new = kinetic_energy(vel, mass)[0]
-        system.config=(conf_out, None)
+        system.config = (conf_out, None)
         system.ekin = kin_new
         if kin_old == 0.0:
-            dek = float('inf')
-            logger.debug(('Kinetic energy not found for previous point.'
-                '\n(This happens when the initial configuration '
-                'does not contain energies.)'))
+            dek = float("inf")
+            logger.debug(
+                (
+                    "Kinetic energy not found for previous point."
+                    "\n(This happens when the initial configuration "
+                    "does not contain energies.)"
+                )
+            )
         else:
             dek = kin_new - kin_old
         return dek, kin_new
 
+
 class ReadAndProcessOnTheFly:
-    """Read from an open fileobject on the fly and do some processing on 
+    """Read from an open fileobject on the fly and do some processing on
     new data that is written to it. Files should be opened using a 'with open'
     statement to be sure that they are closed.
 
     To do
-    use with open in here. Point at current pos and read N finished blocks. Put 
+    use with open in here. Point at current pos and read N finished blocks. Put
     pointer at that position and return traj. If only some frames ready, point at last
     whole ready block read and return [] or the ready frames.
     """
-    def __init__(self, file_path, processing_function, read_mode='r'):
+
+    def __init__(self, file_path, processing_function, read_mode="r"):
         self.file_path = file_path
         self.processing_function = processing_function
         self.current_position = 0
-        self.file_object=None
+        self.file_object = None
         self.read_mode = read_mode
 
     def read_and_process_content(self):
-        # we may open at a time where the file 
+        # we may open at a time where the file
         # is currently not open for reading
         try:
             with open(self.file_path, self.read_mode) as self.file_object:
@@ -1183,31 +1265,32 @@ class ReadAndProcessOnTheFly:
         except FileNotFoundError:
             return []
 
+
 def xyz_processer(reader_class):
-    # trajectory of ready frames to be returned 
+    # trajectory of ready frames to be returned
     trajectory = []
     # holder for storing frame coordinates
     frame_coordinates = []
-    for i,line in enumerate(reader_class.file_object.readlines()):
+    for i, line in enumerate(reader_class.file_object.readlines()):
         spl = line.split()
-        if i ==0 and spl:
+        if i == 0 and spl:
             N_atoms = int(spl[0])
-            block_size = N_atoms + 2 # 2 header lines
+            block_size = N_atoms + 2  # 2 header lines
         # if we are not in the atom nr or header block
-        if i%block_size>1:
+        if i % block_size > 1:
             vals = line.split()
             # if there arent enough values to iterate through
             # return the (posibly empty) ready trajectory frames
-            if len(spl)!=4:
+            if len(spl) != 4:
                 reader_class.current_position = reader_class.previous_position
                 return trajectory
             else:
-                frame_coordinates.append([float(spl[i]) for i in range(1,4)])
+                frame_coordinates.append([float(spl[i]) for i in range(1, 4)])
         # if we are done with one block
         # update the file object pointer to the new position
-        if i%block_size==N_atoms+1 and i>0:
+        if i % block_size == N_atoms + 1 and i > 0:
             trajectory.append(np.array(frame_coordinates))
             reader_class.current_position = reader_class.file_object.tell()
             frame_coordinates = []
-        
+
     return trajectory
