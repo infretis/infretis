@@ -5,7 +5,7 @@ HEAD = "#     Step    No.-acc  No.-shoot l m r  Length Acc Mc            Min-O  
 
 def read_infinity(inp):
     path_dic = {}
-    with open(inp, "r") as read:
+    with open(inp) as read:
         for idx, line in enumerate(read):
             strip = line.rstrip()
             if "#" in line:
@@ -33,7 +33,7 @@ def read_infinity(inp):
 def print_pathens(inp):
     dic, ens_len = read_infinity(inp)
     keys = list(dic.keys())
-    rang = range(min(keys), max(keys))
+    range(min(keys), max(keys))
     enss = [f"{i:03.0f}" for i in range(ens_len)]
     steps = {ens: 0 for ens in enss}
     moves = {ens: "sh" if ens in ["000", "001"] else "wf" for ens in enss}
