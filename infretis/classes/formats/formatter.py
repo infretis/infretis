@@ -1,11 +1,12 @@
-from infretis.core.core import make_dirs
-
+import logging
+import os
+import shutil
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+
 import numpy as np
-import shutil
-import os
-import logging
+
+from infretis.core.core import make_dirs
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -80,7 +81,7 @@ def read_some_lines(filename, line_parser, block_label="#"):
     new_block = {"comment": [], "data": []}
     yield_block = False
     read_comment = False
-    with open(filename, "r", encoding="utf-8") as fileh:
+    with open(filename, encoding="utf-8") as fileh:
         for i, line in enumerate(fileh):
             stripline = line.strip()
             if stripline.startswith(block_label):
@@ -143,9 +144,9 @@ def _make_header(labels, width, spacing=1):
         except IndexError:
             wid = width[-1]
         if i == 0:
-            fmt = "# {{:>{}s}}".format(wid - 2)
+            fmt = f"# {{:>{wid - 2}s}}"
         else:
-            fmt = "{{:>{}s}}".format(wid)
+            fmt = f"{{:>{wid}s}}"
         heading.append(fmt.format(col))
     str_white = " " * spacing
     return str_white.join(heading)
@@ -219,7 +220,7 @@ class OutputFormatter:
             this is something we can iterate over.
 
         """
-        out = ["{}".format(step)]
+        out = [f"{step}"]
         for i in data:
             out.append(self._FMT.format(i))
         yield " ".join(out)
@@ -399,7 +400,7 @@ class OrderPathFormatter(OrderFormatter):
         if not path:  # E.g. when null-moves are False.
             return
         move = path.generated
-        yield "# Cycle: {}, status: {}, move: {}".format(step, status, move)
+        yield f"# Cycle: {step}, status: {status}, move: {move}"
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             yield self.format_data(i, phasepoint.order)
@@ -543,7 +544,7 @@ class FileIO(OutputBase):
             )
         try:
             self.fileh = open(self.filename, self.file_mode)
-        except (OSError, IOError) as error:
+        except OSError as error:
             if "energy" not in self.filename:
                 logger.critical(
                     'Could not open file "%s" for reading', self.filename
@@ -558,7 +559,7 @@ class FileIO(OutputBase):
 
         In this method, we also handle the possible backup settings.
         """
-        if not self.file_mode[0] in ("a", "w"):
+        if self.file_mode[0] not in ("a", "w"):
             raise ValueError(
                 ('Inconsistent file mode "{}" ' "for writing").format(
                     self.file_mode
@@ -581,7 +582,7 @@ class FileIO(OutputBase):
                             'Overwriting existing file "%s"', self.filename
                         )
             self.fileh = open(self.filename, self.file_mode)
-        except (OSError, IOError) as error:  # pragma: no cover
+        except OSError as error:  # pragma: no cover
             logger.critical(
                 'Could not open file "%s" for writing', self.filename
             )
@@ -600,7 +601,7 @@ class FileIO(OutputBase):
             return self.open_file_read()
         if self.file_mode[0] in ("a", "w"):
             return self.open_file_write()
-        raise ValueError('Unknown file mode "{}"'.format(self.file_mode))
+        raise ValueError(f'Unknown file mode "{self.file_mode}"')
 
     def load(self):
         """Read blocks or lines from the file."""
@@ -629,15 +630,13 @@ class FileIO(OutputBase):
         if self.fileh is not None and not self.fileh.closed:
             try:
                 if end is not None:
-                    self.fileh.write("{}{}".format(towrite, end))
+                    self.fileh.write(f"{towrite}{end}")
                     status = True
                 else:
                     self.fileh.write(towrite)
                     status = True
-            except (OSError, IOError) as error:  # pragma: no cover
-                msg = "Write I/O error ({}): {}".format(
-                    error.errno, error.strerror
-                )
+            except OSError as error:  # pragma: no cover
+                msg = f"Write I/O error ({error.errno}): {error.strerror}"
                 logger.critical(msg)
             if self.last_flush is None:
                 self.flush()
@@ -703,11 +702,11 @@ class FileIO(OutputBase):
 
     def __str__(self):
         """Return basic info."""
-        msg = ['FileIO (file: "{}")'.format(self.filename)]
+        msg = [f'FileIO (file: "{self.filename}")']
         if self.fileh is not None and not self.fileh.closed:
             msg += ["\t* File is open"]
-            msg += ["\t* Mode: {}".format(self.fileh.mode)]
-        msg += ["\t* Formatter: {}".format(self.formatter)]
+            msg += [f"\t* Mode: {self.fileh.mode}"]
+        msg += [f"\t* Formatter: {self.formatter}"]
         return "\n".join(msg)
 
 
@@ -850,7 +849,7 @@ class EnergyPathFormatter(EnergyFormatter):
         if not path:  # when nullmoves = False
             return
         move = path.generated
-        yield "# Cycle: {}, status: {}, move: {}".format(step, status, move)
+        yield f"# Cycle: {step}, status: {status}, move: {move}"
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             energy = {}
@@ -864,9 +863,7 @@ class EnergyFile(FileIO):
 
     def __init__(self, filename, file_mode, backup=True):
         """Create the file object and attach the energy formatter."""
-        super().__init__(
-            filename, file_mode, EnergyFormatter(), backup=backup
-        )
+        super().__init__(filename, file_mode, EnergyFormatter(), backup=backup)
 
 
 class EnergyPathFile(FileIO):
@@ -926,7 +923,7 @@ class PathExtFormatter(OutputFormatter):
         path, status = data[0], data[1]
         if not path:  # E.g. when null-moves are False.
             return
-        yield "# Cycle: {}, status: {}".format(step, status)
+        yield f"# Cycle: {step}, status: {status}"
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             filename, idx = phasepoint.config
@@ -1056,9 +1053,9 @@ class PathStorage(OutputBase):
                 self.out_dir_fmt.format(step), val["file"]
             )
             files.append((full_path, relative_path))
-            with open(full_path, "w", encoding="utf8") as output:
+            with open(full_path, mode="w", encoding="utf8") as output:
                 for line in fmt.format(step, (path, status)):
-                    output.write("{}\n".format(line))
+                    output.write(f"{line}\n")
         return files
 
     @staticmethod
@@ -1153,7 +1150,7 @@ class PathStorage(OutputBase):
 
     def __str__(self):
         """Return basic info."""
-        return "{} - archive writer.".format(self.__class__.__name__)
+        return f"{self.__class__.__name__} - archive writer."
 
 
 def get_log_formatter(level):
