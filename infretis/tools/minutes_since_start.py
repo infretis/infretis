@@ -30,10 +30,7 @@ def calculate_minutes_since_start(datetime_array):
     # Convert dates and times to datetime objects
     datetime_strings = [f"{date} {time}" for date, time in zip(dates, times)]
     datetimes = np.array(
-        [
-            datetime.strptime(dt, "%Y.%m.%d %H:%M:%S")
-            for dt in datetime_strings
-        ]
+        [datetime.strptime(dt, "%Y.%m.%d %H:%M:%S") for dt in datetime_strings]
     )
 
     # Calculate the time difference in minutes

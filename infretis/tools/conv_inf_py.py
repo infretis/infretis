@@ -45,7 +45,9 @@ def print_pathens(inp):
     for i in keys:
         for ens in enss:
             if ens in dic[i].keys():
-                pline = f"{steps[ens]:10.0f} {steps[ens]:10.0f} {steps[ens]:10.0f}"
+                pline = (
+                    f"{steps[ens]:10.0f} {steps[ens]:10.0f} {steps[ens]:10.0f}"
+                )
                 pline += " R R R \t"
                 pline += f"  {dic[i]['len']:4.0f} ACC {moves[ens]}"
                 pline += f" {0:2.10e}"

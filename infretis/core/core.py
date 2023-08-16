@@ -291,9 +291,7 @@ def import_from(module_path, function_name):
     try:
         module_name = os.path.basename(module_path)
         module_name = os.path.splitext(module_name)[0]
-        spec = importlib.util.spec_from_file_location(
-            module_name, module_path
-        )
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         sys.modules[module_name] = module

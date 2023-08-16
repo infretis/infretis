@@ -39,9 +39,7 @@ def pattern_reader(inp, cap=250):
                 w_data[key]["connect"].append("-")
             else:
                 eset = set(w_data[key]["enss"][-2] + w_data[key]["enss"][-1])
-                connect = (
-                    "-" if len(eset) == 1 else f"{min(eset)}-{max(eset)}"
-                )
+                connect = "-" if len(eset) == 1 else f"{min(eset)}-{max(eset)}"
                 w_data[key]["connect"].append(connect)
             if idx >= cap:
                 break
