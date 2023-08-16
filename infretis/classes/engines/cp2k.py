@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2022, PyRETIS Development Team.
-# Distributed under the LGPLv2.1+ License. See LICENSE for more info.
 """A CP2K external MD integrator interface.
 
 This module defines a class for using CP2K as an external engine.
@@ -15,17 +12,19 @@ import logging
 import os
 import re
 import shlex
-from time import sleep
-import numpy as np
-from infretis.classes.engines.enginebase import EngineBase
-import subprocess
 import signal
+import subprocess
+from time import sleep
+
+import numpy as np
+
+from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
+    PERIODIC_TABLE,
+    convert_snapshot,
     look_for_input_files,
     read_xyz_file,
     write_xyz_trajectory,
-    convert_snapshot,
-    PERIODIC_TABLE,
 )
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -189,7 +188,7 @@ def read_cp2k_input(filename):
     """
     nodes = []
     current_node = None
-    with open(filename, "r", encoding="utf-8") as infile:
+    with open(filename, encoding="utf-8") as infile:
         for lines in infile:
             lstrip = lines.strip()
             if not lstrip:
@@ -769,9 +768,7 @@ class CP2KEngine(EngineBase):
         }
         # Check the presence of the defaults input files or, if absent,
         # try to find then by extension.
-        self.input_files = look_for_input_files(
-            self.input_path, default_files
-        )
+        self.input_files = look_for_input_files(self.input_path, default_files)
 
         # add mass, temperature and unit information to engine
         # which is needed for velocity modification
@@ -790,10 +787,8 @@ class CP2KEngine(EngineBase):
         for data in md_settings.data:
             if "temperature" in data.lower():
                 self.temperature = float(data.split()[-1])
-        if self.temperature == None:
-            logger.info(
-                f"No temperature specified in cp2k input. Using 300 K."
-            )
+        if self.temperature is None:
+            logger.info("No temperature specified in cp2k input. Using 300 K.")
             self.temperature = 300.0
         self.kb = 3.16681534e-6  # hartree
         self.beta = 1 / (self.temperature * self.kb)
@@ -1010,9 +1005,7 @@ class CP2KEngine(EngineBase):
                             "config": (traj_file, step_nr),
                             "vel_rev": reverse,
                         }
-                        phase_point = self.snapshot_to_system(
-                            system, snapshot
-                        )
+                        phase_point = self.snapshot_to_system(system, snapshot)
                         status, success, stop, add = self.add_to_path(
                             path, phase_point, left, right
                         )
@@ -1224,11 +1217,9 @@ class CP2KEngine(EngineBase):
         if kin_old == 0.0:
             dek = float("inf")
             logger.debug(
-                (
-                    "Kinetic energy not found for previous point."
-                    "\n(This happens when the initial configuration "
-                    "does not contain energies.)"
-                )
+                "Kinetic energy not found for previous point."
+                "\n(This happens when the initial configuration "
+                "does not contain energies.)"
             )
         else:
             dek = kin_new - kin_old
@@ -1242,8 +1233,8 @@ class ReadAndProcessOnTheFly:
 
     To do
     use with open in here. Point at current pos and read N finished blocks. Put
-    pointer at that position and return traj. If only some frames ready, point at last
-    whole ready block read and return [] or the ready frames.
+    pointer at that position and return traj. If only some frames ready, point
+    at last whole ready block read and return [] or the ready frames.
     """
 
     def __init__(self, file_path, processing_function, read_mode="r"):

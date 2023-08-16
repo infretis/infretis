@@ -1,19 +1,21 @@
 """Gromacs engine."""
 
-from time import sleep
-import signal
-import subprocess
-import os
-import shutil
-import shlex
 import logging
+import os
+import shlex
+import shutil
+import signal
 import struct
+import subprocess
+from time import sleep
+
+import numpy as np
+
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
-    look_for_input_files,
     box_matrix_to_list,
+    look_for_input_files,
 )
-import numpy as np
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -954,11 +956,9 @@ class GromacsEngine(EngineBase):
         if kin_old is None or kin_new is None:
             dek = float("inf")
             logger.debug(
-                (
-                    "Kinetic energy not found for previous point."
-                    "\n(This happens when the initial configuration "
-                    "does not contain energies.)"
-                )
+                "Kinetic energy not found for previous point."
+                "\n(This happens when the initial configuration "
+                "does not contain energies.)"
             )
         else:
             dek = kin_new - kin_old
@@ -1352,9 +1352,8 @@ def read_gromacs_file(filename):
         This dict contains the snapshot.
 
     """
-    with open(filename, "r", encoding="utf-8") as fileh:
-        for snapshot in read_gromacs_lines(fileh):
-            yield snapshot
+    with open(filename, encoding="utf-8") as fileh:
+        yield from read_gromacs_lines(fileh)
 
 
 def read_gromacs_gro_file(filename):
@@ -1388,7 +1387,7 @@ def read_gromacs_gro_file(filename):
     xyz = None
     vel = None
     box = None
-    with open(filename, "r", encoding="utf8") as fileh:
+    with open(filename, encoding="utf8") as fileh:
         snapshot = next(read_gromacs_lines(fileh))
         box = snapshot.get("box", None)
         xyz = snapshot.get("xyz", None)
@@ -1487,9 +1486,7 @@ def read_gromos96_file(filename):
         "VELOCITYRED": [],
     }
     section = None
-    with open(
-        filename, "r", encoding="utf-8", errors="replace"
-    ) as gromosfile:
+    with open(filename, encoding="utf-8", errors="replace") as gromosfile:
         for lines in gromosfile:
             new_section = False
             stripline = lines.strip()
@@ -1518,9 +1515,7 @@ def read_gromos96_file(filename):
         for line in rawdata[key + "RED"]:
             txt = line[:_pos]
             txtdata[key].append(txt)
-            pos = [
-                float(line[i : i + _len]) for i in range(0, 3 * _len, _len)
-            ]
+            pos = [float(line[i : i + _len]) for i in range(0, 3 * _len, _len)]
             xyzdata[key].append(pos)
         xyzdata[key] = np.array(xyzdata[key])
     rawdata["POSITION"] = txtdata["POSITION"]
@@ -1789,7 +1784,7 @@ def read_xvg_file(filename):
     """Return data in xvg file as numpy array."""
     data = []
     legends = []
-    with open(filename, "r", encoding="utf-8") as fileh:
+    with open(filename, encoding="utf-8") as fileh:
         for lines in fileh:
             if lines.startswith("@ s") and lines.find("legend") != -1:
                 legend = lines.split("legend")[-1].strip()
