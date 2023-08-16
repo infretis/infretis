@@ -304,9 +304,10 @@ class Distance(OrderParameter):
             The distance order parameter.
 
         """
+        box = np.array(system.box[:3])
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic:
-            delta = system.box.pbc_dist_coordinate(delta)
+            delta = pbc_dist_coordinate(delta, box)
         lamb = np.sqrt(np.dot(delta, delta))
         return [lamb]
 
