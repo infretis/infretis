@@ -5,10 +5,12 @@ import errno
 import sys
 import logging
 import pickle
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-def generic_factory(settings, object_map, name='generic'):
+
+def generic_factory(settings, object_map, name="generic"):
     """Create instances of classes based on settings.
 
     This method is intended as a semi-generic factory for creating
@@ -34,17 +36,21 @@ def generic_factory(settings, object_map, name='generic'):
 
     """
     try:
-        klass = settings['class'].lower()
+        klass = settings["class"].lower()
     except KeyError:
-        msg = 'No class given for %s -- could not create object!'
+        msg = "No class given for %s -- could not create object!"
         logger.critical(msg, name)
         return None
     if klass not in object_map:
-        logger.critical('Could not create unknown class "%s" for %s',
-                        settings['class'], name)
+        logger.critical(
+            'Could not create unknown class "%s" for %s',
+            settings["class"],
+            name,
+        )
         return None
-    cls = object_map[klass]['cls']
+    cls = object_map[klass]["cls"]
     return initiate_instance(cls, settings)
+
 
 def initiate_instance(klass, settings):
     """Initialise a class with optional arguments.
@@ -69,16 +75,16 @@ def initiate_instance(klass, settings):
     mod = klass.__module__
     if not args:
         if not kwargs:
-            logger.debug(msg, name, mod, 'without arguments.')
+            logger.debug(msg, name, mod, "without arguments.")
             return klass()
-        logger.debug(msg, name, mod, 'with keyword arguments.')
+        logger.debug(msg, name, mod, "with keyword arguments.")
         return klass(**kwargs)
     if not kwargs:
-        logger.debug(msg, name, mod, 'with positional arguments.')
+        logger.debug(msg, name, mod, "with positional arguments.")
         return klass(*args)
-    logger.debug(msg, name, mod,
-                 'with positional and keyword arguments.')
+    logger.debug(msg, name, mod, "with positional and keyword arguments.")
     return klass(*args, **kwargs)
+
 
 def _pick_out_arg_kwargs(klass, settings):
     """Pick out arguments for a class from settings.
@@ -100,8 +106,8 @@ def _pick_out_arg_kwargs(klass, settings):
     """
     info = inspect_function(klass.__init__)
     used, args, kwargs = set(), [], {}
-    for arg in info['args']:
-        if arg == 'self':
+    for arg in info["args"]:
+        if arg == "self":
             continue
         try:
             args.append(settings[arg])
@@ -109,12 +115,13 @@ def _pick_out_arg_kwargs(klass, settings):
         except KeyError:
             msg = f'Required argument "{arg}" for "{klass}" not found!'
             raise ValueError(msg)
-    for arg in info['kwargs']:
-        if arg == 'self':
+    for arg in info["kwargs"]:
+        if arg == "self":
             continue
         if arg in settings:
             kwargs[arg] = settings[arg]
     return args, kwargs
+
 
 def inspect_function(function):
     """Return arguments/kwargs of a given function.
@@ -141,17 +148,18 @@ def inspect_function(function):
         * `keywords` : list of keyword arguments
 
     """
-    out = {'args': [], 'kwargs': [],
-           'varargs': [], 'keywords': []}
+    out = {"args": [], "kwargs": [], "varargs": [], "keywords": []}
     arguments = inspect.signature(function)  # pylint: disable=no-member
     for arg in arguments.parameters.values():
         kind = _arg_kind(arg)
         if kind is not None:
             out[kind].append(arg.name)
         else:  # pragma: no cover
-            logger.critical('Unknown variable kind "%s" for "%s"',
-                            arg.kind, arg.name)
+            logger.critical(
+                'Unknown variable kind "%s" for "%s"', arg.kind, arg.name
+            )
     return out
+
 
 def _arg_kind(arg):
     """Determine kind for a given argument.
@@ -173,19 +181,20 @@ def _arg_kind(arg):
     kind = None
     if arg.kind == arg.POSITIONAL_OR_KEYWORD:
         if arg.default is arg.empty:
-            kind = 'args'
+            kind = "args"
         else:
-            kind = 'kwargs'
+            kind = "kwargs"
     elif arg.kind == arg.POSITIONAL_ONLY:
-        kind = 'args'
+        kind = "args"
     elif arg.kind == arg.VAR_POSITIONAL:
-        kind = 'varargs'
+        kind = "varargs"
     elif arg.kind == arg.VAR_KEYWORD:
-        kind = 'keywords'
+        kind = "keywords"
     elif arg.kind == arg.KEYWORD_ONLY:
         # We treat these as keyword arguments:
-        kind = 'kwargs'
+        kind = "kwargs"
     return kind
+
 
 def create_external(settings, key, required_methods, key_settings=None):
     """Create external objects from settings.
@@ -222,8 +231,8 @@ def create_external(settings, key, required_methods, key_settings=None):
         This object represents the class we are requesting here.
 
     """
-    klass = settings.get('class', None)
-    module = settings.get('module', None)
+    klass = settings.get("class", None)
+    module = settings.get("module", None)
     if key_settings is None:
         try:
             key_settings = settings[key]
@@ -237,9 +246,8 @@ def create_external(settings, key, required_methods, key_settings=None):
     if os.path.isfile(module):
         obj = import_from(module, klass)
     else:
-        if 'exe_path' in settings['simulation']:
-            module = os.path.join(settings['simulation']['exe_path'],
-                                  module)
+        if "exe_path" in settings["simulation"]:
+            module = os.path.join(settings["simulation"]["exe_path"], module)
             obj = import_from(module, klass)
         else:
             msg = 'Could not find module "{}" for {}!'.format(module, key)
@@ -248,17 +256,16 @@ def create_external(settings, key, required_methods, key_settings=None):
     for function in required_methods:
         objfunc = getattr(obj, function, None)
         if not objfunc:
-            msg = 'Could not find method {}.{}'.format(klass,
-                                                       function)
+            msg = "Could not find method {}.{}".format(klass, function)
             logger.critical(msg)
             raise ValueError(msg)
         else:
             if not callable(objfunc):
-                msg = 'Method {}.{} is not callable!'.format(klass,
-                                                             function)
+                msg = "Method {}.{} is not callable!".format(klass, function)
                 logger.critical(msg)
                 raise ValueError(msg)
     return initiate_instance(obj, settings)
+
 
 def import_from(module_path, function_name):
     """Import a method/class from a module.
@@ -284,20 +291,22 @@ def import_from(module_path, function_name):
     try:
         module_name = os.path.basename(module_path)
         module_name = os.path.splitext(module_name)[0]
-        spec = importlib.util.spec_from_file_location(module_name,
-                                                      module_path)
+        spec = importlib.util.spec_from_file_location(
+            module_name, module_path
+        )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         sys.modules[module_name] = module
-        logger.debug('Imported module: %s', module)
+        logger.debug("Imported module: %s", module)
         return getattr(module, function_name)
     except (ImportError, IOError):
-        msg = f'Could not import module: {module_path}'
+        msg = f"Could not import module: {module_path}"
         logger.critical(msg)
     except AttributeError:
         msg = f'Could not import "{function_name}" from "{module_path}"'
         logger.critical(msg)
     raise ValueError(msg)
+
 
 def make_dirs(dirname):
     """Create directories for path simulations.
@@ -332,6 +341,7 @@ def make_dirs(dirname):
             msg = f'Directory "{dirname}" already exist.'
     return msg
 
+
 def write_ensemble_restart(ensemble, config, save):
     """Write a restart file for a path ensemble.
 
@@ -355,17 +365,19 @@ def write_ensemble_restart(ensemble, config, save):
 
     """
     info = {}
-    info['rgen'] = ensemble['rgen'].get_state()
+    info["rgen"] = ensemble["rgen"].get_state()
 
     filename = os.path.join(
         os.getcwd(),
-        config['simulation']['load_dir'],
+        config["simulation"]["load_dir"],
         save,
-        'ensemble.restart')
+        "ensemble.restart",
+    )
 
-    with open(filename, 'wb') as outfile:
-        toprint = os.path.join(save, 'ensemble.restart')
+    with open(filename, "wb") as outfile:
+        toprint = os.path.join(save, "ensemble.restart")
         pickle.dump(info, outfile)
+
 
 def read_restart_file(filename):
     """Read restart info for a simulation.
@@ -376,6 +388,6 @@ def read_restart_file(filename):
         The file we are going to read from.
 
     """
-    with open(filename, 'rb') as infile:
+    with open(filename, "rb") as infile:
         info = pickle.load(infile)
     return info

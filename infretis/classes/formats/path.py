@@ -1,15 +1,22 @@
 import logging
 import os
 import numpy as np
-from infretis.classes.formats.formatter import OutputFormatter, FileIO, read_some_lines
+from infretis.classes.formats.formatter import (
+    OutputFormatter,
+    FileIO,
+    read_some_lines,
+)
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
 
 __all__ = [
-    'PathExtFormatter',
-    'PathExtFile',
+    "PathExtFormatter",
+    "PathExtFile",
 ]
+
+
 class PathExtFormatter(OutputFormatter):
     """A class for formatting external trajectories.
 
@@ -23,14 +30,17 @@ class PathExtFormatter(OutputFormatter):
 
     """
 
-    FMT = '{:>10}  {:>20s}  {:>10}  {:>5}'
+    FMT = "{:>10}  {:>20s}  {:>10}  {:>5}"
 
     def __init__(self):
         """Initialise the PathExtFormatter formatter."""
-        header = {'labels': ['Step', 'Filename', 'index', 'vel'],
-                  'width': [10, 20, 10, 5], 'spacing': 2}
+        header = {
+            "labels": ["Step", "Filename", "index", "vel"],
+            "width": [10, 20, 10, 5],
+            "spacing": 2,
+        }
 
-        super().__init__('PathExtFormatter', header=header)
+        super().__init__("PathExtFormatter", header=header)
         self.print_header = False
 
     def format(self, step, data):
@@ -54,7 +64,7 @@ class PathExtFormatter(OutputFormatter):
         path, status = data[0], data[1]
         if not path:  # E.g. when null-moves are False.
             return
-        yield '# Cycle: {}, status: {}'.format(step, status)
+        yield "# Cycle: {}, status: {}".format(step, status)
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             filename, idx = phasepoint.particles.get_pos()
@@ -87,5 +97,6 @@ class PathExtFile(FileIO):
 
     def __init__(self, filename, file_mode, backup=True):
         """Create the path writer with correct format for external paths."""
-        super().__init__(filename, file_mode, PathExtFormatter(),
-                         backup=backup)
+        super().__init__(
+            filename, file_mode, PathExtFormatter(), backup=backup
+        )

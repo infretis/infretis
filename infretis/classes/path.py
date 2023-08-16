@@ -8,6 +8,7 @@ from infretis.classes.system import System
 from infretis.classes.formats.path import PathExtFile
 from infretis.classes.formats.order import OrderPathFile
 from infretis.classes.formats.energy import EnergyPathFile
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -52,7 +53,7 @@ class Path:
     def check_interfaces(self, interfaces):
         """Check interfaces."""
         if self.length < 1:
-            logger.warning('Path is empty!')
+            logger.warning("Path is empty!")
             return None, None, None, None
         ordermax, ordermin = self.ordermax[0], self.ordermin[0]
         cross = [ordermin < interpos <= ordermax for interpos in interfaces]
@@ -60,7 +61,7 @@ class Path:
         # Check end & start point:
         end = self.get_end_point(left, right)
         start = self.get_start_point(left, right)
-        middle = 'M' if cross[1] else '*'
+        middle = "M" if cross[1] else "*"
         return start, end, middle, cross
 
     def get_end_point(self, left, right=None):
@@ -88,12 +89,12 @@ class Path:
         assert left <= right
 
         if self.phasepoints[-1].order[0] <= left:
-            end = 'L'
+            end = "L"
         elif self.phasepoints[-1].order[0] >= right:
-            end = 'R'
+            end = "R"
         else:
             end = None
-            logger.debug('Undefined end point.')
+            logger.debug("Undefined end point.")
         return end
 
     def get_start_point(self, left, right=None):
@@ -120,12 +121,12 @@ class Path:
             right = left
         assert left <= right
         if self.phasepoints[0].order[0] <= left:
-            start = 'L'
+            start = "L"
         elif self.phasepoints[0].order[0] >= right:
-            start = 'R'
+            start = "R"
         else:
             start = None
-            logger.debug('Undefined starting point.')
+            logger.debug("Undefined starting point.")
         return start
 
     # def get_shooting_point(self):
@@ -147,7 +148,7 @@ class Path:
         if self.maxlen is None or self.length < self.maxlen:
             self.phasepoints.append(phasepoint)
             return True
-        logger.debug('Max length exceeded. Could not append to path.')
+        logger.debug("Max length exceeded. Could not append to path.")
         return False
 
     def get_path_data(self, status, interfaces):
@@ -165,16 +166,16 @@ class Path:
 
         """
         path_info = {
-            'generated': self.generated,
-            'status': status,
-            'length': self.length,
-            'ordermax': self.ordermax,
-            'ordermin': self.ordermin,
-            'weights': self.weights,
+            "generated": self.generated,
+            "status": status,
+            "length": self.length,
+            "ordermax": self.ordermax,
+            "ordermin": self.ordermin,
+            "weights": self.weights,
         }
 
         start, end, middle, _ = self.check_interfaces(interfaces)
-        path_info['interface'] = (start, middle, end)
+        path_info["interface"] = (start, middle, end)
 
         return path_info
 
@@ -220,7 +221,7 @@ class Path:
             app = self.append(phasepoint.copy())
             if not app:
                 logger.warning(
-                    'Truncated path at %d while adding paths', self.length
+                    "Truncated path at %d while adding paths", self.length
                 )
                 return self
         return self
@@ -269,7 +270,7 @@ class Path:
                 self.reverse_velocities(new_point)
             app = new_path.append(new_point)
             if not app:  # pragma: no cover
-                msg = 'Could not reverse path'
+                msg = "Could not reverse path"
                 logger.error(msg)
                 return None
         if order_function and order_function.velocity_dependent and rev_v:
@@ -280,13 +281,13 @@ class Path:
     def restart_info(self):
         """Return a dictionary with restart information."""
         info = {
-            'generated': self.generated,
-            'time_origin': self.time_origin,
-            'status': self.status,
-            'weights': self.weights,
-            'min_valid': self.min_valid,
-            'path_number': self.path_number,
-            'phasepoints': self.phasepoints
+            "generated": self.generated,
+            "time_origin": self.time_origin,
+            "status": self.status,
+            "weights": self.weights,
+            "min_valid": self.min_valid,
+            "path_number": self.path_number,
+            "phasepoints": self.phasepoints
             # [i.restart_info() for i in self.phasepoints]
         }
         return info
@@ -297,7 +298,7 @@ class Path:
             # For phasepoints, create new System objects
             # and load the information for these.
             # The snaps still need to forcefield to be re-initiated.
-            if key == 'phasepoints':
+            if key == "phasepoints":
                 for point in val:
                     self.append(point)
             else:
@@ -306,7 +307,7 @@ class Path:
 
     def write_restart_file(self, loc):
         """Write restart file."""
-        with open(loc, 'wb') as outfile:
+        with open(loc, "wb") as outfile:
             pickle.dump(self.restart_info(), outfile)
 
     def empty_path(self, **kwargs):
@@ -318,50 +319,59 @@ class Path:
             A new empty path.
 
         """
-        maxlen = kwargs.get('maxlen', None)
-        time_origin = kwargs.get('time_origin', 0)
-        return self.__class__(maxlen=maxlen,
-                              time_origin=time_origin)
+        maxlen = kwargs.get("maxlen", None)
+        time_origin = kwargs.get("time_origin", 0)
+        return self.__class__(maxlen=maxlen, time_origin=time_origin)
 
     def __eq__(self, other):
         """Check if two paths are equal."""
         if self.__class__ != other.__class__:
-            logger.debug('%s and %s.__class__ differ', self, other)
+            logger.debug("%s and %s.__class__ differ", self, other)
             # print('crab 1')
             return False
 
         if set(self.__dict__) != set(other.__dict__):
-            logger.debug('%s and %s.__dict__ differ', self, other)
+            logger.debug("%s and %s.__dict__ differ", self, other)
             # print('crab 2')
             return False
 
         # Compare phasepoints:
         if not len(self.phasepoints) == len(other.phasepoints):
-            print('crab 3')
+            print("crab 3")
             return False
         for i, j in zip(self.phasepoints, other.phasepoints):
             if not i == j:
-                print('toto', i, j)
-                print('crab 4')
+                print("toto", i, j)
+                print("crab 4")
                 return False
         if self.phasepoints:
             # Compare other attributes:
-            for i in ('maxlen', 'time_origin', 'status', 'generated',
-                      'length', 'ordermax', 'ordermin', 'path_number'):
+            for i in (
+                "maxlen",
+                "time_origin",
+                "status",
+                "generated",
+                "length",
+                "ordermax",
+                "ordermin",
+                "path_number",
+            ):
                 attr_self = hasattr(self, i)
                 attr_other = hasattr(other, i)
                 if attr_self ^ attr_other:  # pragma: no cover
-                    logger.warning('Failed comparing path due to missing "%s"',
-                                   i)
-                    print('crab 5')
+                    logger.warning(
+                        'Failed comparing path due to missing "%s"', i
+                    )
+                    print("crab 5")
                     return False
                 if not attr_self and not attr_other:
                     logger.warning(
                         'Skipping comparison of missing path attribute "%s"',
-                        i)
+                        i,
+                    )
                     continue
                 if getattr(self, i) != getattr(other, i):
-                    print('crab 6')
+                    print("crab 6")
                     return False
         return True
 
@@ -396,9 +406,9 @@ class Path:
             The ordered phase points from the path.
 
         """
-        if key in ('ekin', 'vpot'):
+        if key in ("ekin", "vpot"):
             sort_after = [getattr(i.particles, key) for i in self.phasepoints]
-        elif key == 'order':
+        elif key == "order":
             sort_after = [getattr(i, key)[0] for i in self.phasepoints]
         else:
             sort_after = [getattr(i, key) for i in self.phasepoints]
@@ -424,31 +434,33 @@ class Path:
         """
         if len(ekin) != len(vpot):
             logger.debug(
-                'Kinetic and potential energies have different length.'
+                "Kinetic and potential energies have different length."
             )
         if len(ekin) != len(self.phasepoints):
             logger.debug(
-                'Length of kinetic energy and phase points differ %d != %d.',
-                len(ekin), len(self.phasepoints)
+                "Length of kinetic energy and phase points differ %d != %d.",
+                len(ekin),
+                len(self.phasepoints),
             )
         if len(vpot) != len(self.phasepoints):
             logger.debug(
-                'Length of potential energy and phase points differ %d != %d.',
-                len(vpot), len(self.phasepoints)
+                "Length of potential energy and phase points differ %d != %d.",
+                len(vpot),
+                len(self.phasepoints),
             )
         for i, phasepoint in enumerate(self.phasepoints):
             try:
                 vpoti = vpot[i]
             except IndexError:
                 logger.warning(
-                    'Ran out of potential energies, setting to None.'
+                    "Ran out of potential energies, setting to None."
                 )
                 vpoti = None
             try:
                 ekini = ekin[i]
             except IndexError:
                 logger.warning(
-                    'Ran out of kinetic energies, setting to None.'
+                    "Ran out of kinetic energies, setting to None."
                 )
                 ekini = None
             phasepoint.vpot = vpoti
@@ -502,14 +514,14 @@ def paste_paths(path_back, path_forw, overlap=True, maxlen=None):
             # Note that now there is a chance of truncating the path while
             # pasting!
             maxlen = max(path_back.maxlen, path_forw.maxlen)
-            msg = f'Unequal length: Using {maxlen} for the new path!'
+            msg = f"Unequal length: Using {maxlen} for the new path!"
             logger.warning(msg)
     time_origin = path_back.time_origin - path_back.length + 1
     new_path = path_back.empty_path(maxlen=maxlen, time_origin=time_origin)
     for phasepoint in reversed(path_back.phasepoints):
         app = new_path.append(phasepoint)
         if not app:
-            msg = 'Truncated while pasting backwards at: {}'
+            msg = "Truncated while pasting backwards at: {}"
             msg = msg.format(new_path.length)
             logger.warning(msg)
             return new_path
@@ -520,7 +532,7 @@ def paste_paths(path_back, path_forw, overlap=True, maxlen=None):
             continue
         app = new_path.append(phasepoint)
         if not app:
-            msg = f'Truncated path at: {new_path.length}'
+            msg = f"Truncated path at: {new_path.length}"
             logger.warning(msg)
             return new_path
     return new_path
@@ -528,28 +540,28 @@ def paste_paths(path_back, path_forw, overlap=True, maxlen=None):
 
 def load_trajtxt(dirname):
     """Load traj_txt."""
-    traj_file_name = os.path.join(dirname, 'traj.txt')
-    with PathExtFile(traj_file_name, 'r') as trajfile:
+    traj_file_name = os.path.join(dirname, "traj.txt")
+    with PathExtFile(traj_file_name, "r") as trajfile:
         # Just get the first trajectory:
         traj = next(trajfile.load())
 
         # Update trajectory to use full path names:
-        for i, snapshot in enumerate(traj['data']):
+        for i, snapshot in enumerate(traj["data"]):
             config = os.path.join(dirname, snapshot[1])
-            traj['data'][i][1] = config
-            reverse = (int(snapshot[3]) == -1)
+            traj["data"][i][1] = config
+            reverse = int(snapshot[3]) == -1
             idx = int(snapshot[2])
-            traj['data'][i][2] = idx
-            traj['data'][i][3] = reverse
+            traj["data"][i][2] = idx
+            traj["data"][i][3] = reverse
         return traj
 
 
 def load_ordertxt(dirname):
     """Load order_txt."""
-    order_file_name = os.path.join(dirname, 'order.txt')
-    with OrderPathFile(order_file_name, 'r') as orderfile:
+    order_file_name = os.path.join(dirname, "order.txt")
+    with OrderPathFile(order_file_name, "r") as orderfile:
         order = next(orderfile.load())
-        return order['data'][:, 1:]
+        return order["data"][:, 1:]
 
 
 def restart_path(restart_file):
@@ -562,34 +574,34 @@ def restart_path(restart_file):
 
 def load_path(pdir):
     """Load path."""
-    trajtxt = os.path.join(pdir, 'traj.txt')
-    ordertxt = os.path.join(pdir, 'order.txt')
+    trajtxt = os.path.join(pdir, "traj.txt")
+    ordertxt = os.path.join(pdir, "order.txt")
     assert os.path.isfile(trajtxt)
     assert os.path.isfile(ordertxt)
 
     # load trajtxt
-    with PathExtFile(trajtxt, 'r') as trajfile:
+    with PathExtFile(trajtxt, "r") as trajfile:
         # Just get the first trajectory:
         traj = next(trajfile.load())
 
         # Update trajectory to use full path names:
-        for i, snapshot in enumerate(traj['data']):
-            config = os.path.join(pdir, 'accepted', snapshot[1])
-            traj['data'][i][1] = config
-            reverse = (int(snapshot[3]) == -1)
+        for i, snapshot in enumerate(traj["data"]):
+            config = os.path.join(pdir, "accepted", snapshot[1])
+            traj["data"][i][1] = config
+            reverse = int(snapshot[3]) == -1
             idx = int(snapshot[2])
-            traj['data'][i][2] = idx
-            traj['data'][i][3] = reverse
+            traj["data"][i][2] = idx
+            traj["data"][i][3] = reverse
 
-        for config in set(frame[1] for frame in traj['data']):
+        for config in set(frame[1] for frame in traj["data"]):
             assert os.path.isfile(config)
 
     # load ordertxt
-    with OrderPathFile(ordertxt, 'r') as orderfile:
-        orderdata = next(orderfile.load())['data'][:, 1:]
+    with OrderPathFile(ordertxt, "r") as orderfile:
+        orderdata = next(orderfile.load())["data"][:, 1:]
 
     path = Path()
-    for snapshot, order in zip(traj['data'], orderdata):
+    for snapshot, order in zip(traj["data"], orderdata):
         frame = System()
         frame.order = order
         frame.config = (snapshot[1], snapshot[2])
@@ -615,19 +627,19 @@ def _check_path(path, path_ensemble, warning=True):
     """
     start, end, _, cross = path.check_interfaces(path_ensemble.interfaces)
     accept = True
-    status = 'ACC'
+    status = "ACC"
 
     if start is None or start not in path_ensemble.start_condition:
         msg = "Initial path for %s starts at the wrong interface!"
-        status = 'SWI'
+        status = "SWI"
         accept = False
-    if end not in ('R', 'L'):
+    if end not in ("R", "L"):
         msg = "Initial path for %s ends at the wrong interface!"
-        status = 'EWI'
+        status = "EWI"
         accept = False
     if not cross[1]:
         msg = "Initial path for %s does not cross the middle interface!"
-        status = 'NCR'
+        status = "NCR"
         accept = False
 
     if not accept:
@@ -656,28 +668,29 @@ def _load_energies_for_path(path, dirname):
 
     """
     # Get energies if any:
-    energy_file_name = os.path.join(dirname, 'energy.txt')
+    energy_file_name = os.path.join(dirname, "energy.txt")
     try:
-        with EnergyPathFile(energy_file_name, 'r') as energyfile:
+        with EnergyPathFile(energy_file_name, "r") as energyfile:
             energy = next(energyfile.load())
-            path.update_energies(energy['data']['ekin'],
-                                 energy['data']['vpot'])
+            path.update_energies(
+                energy["data"]["ekin"], energy["data"]["vpot"]
+            )
     except FileNotFoundError:
         pass
 
 
 def load_paths_from_disk(config):
     """Load paths from disk."""
-    load_dir = config['simulation']['load_dir']
+    load_dir = config["simulation"]["load_dir"]
     paths = []
-    for pnumber in config['current']['active']:
-        restart_file = os.path.join(load_dir, str(pnumber), 'path.restart')
+    for pnumber in config["current"]["active"]:
+        restart_file = os.path.join(load_dir, str(pnumber), "path.restart")
         if os.path.isfile(restart_file):
             paths.append(restart_path(restart_file))
         else:
             # load path
             new_path = load_path(os.path.join(load_dir, str(pnumber)))
-            new_path.generated = ('ld', None, None, None)
+            new_path.generated = ("ld", None, None, None)
             new_path.write_restart_file(restart_file)
             paths.append(new_path)
 
