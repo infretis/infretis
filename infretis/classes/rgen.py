@@ -1,6 +1,7 @@
 """random generator class."""
-from abc import ABCMeta, abstractmethod
 import logging
+from abc import ABCMeta, abstractmethod
+
 import numpy as np
 from numpy.random import RandomState
 
