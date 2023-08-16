@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2019, PyRETIS Development Team.
 """This is a 2D example potential."""
 import logging
+
 import numpy as np
 from pyretis.forcefield.potential import PotentialFunction
 

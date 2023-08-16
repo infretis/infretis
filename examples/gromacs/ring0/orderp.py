@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2022, PyRETIS Development Team.
 """This file defines the order parameter used for the GROMACS example."""
 import logging
+
 import numpy as np
-from numpy import average, rint, dot, sqrt
+from numpy import average, dot, rint, sqrt
+
 from infretis.newc.orderparameter import OrderParameter
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
