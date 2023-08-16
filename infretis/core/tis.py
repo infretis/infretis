@@ -1,9 +1,8 @@
-from infretis.classes.path import paste_paths
-from infretis.core.core import make_dirs
-import time
-import os
-
 import logging
+import os
+import time
+
+from infretis.classes.path import paste_paths
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -11,7 +10,6 @@ logger.addHandler(logging.NullHandler())
 
 def log_mdlogs(inp):
     logs = [log for log in os.listdir(inp) if "log" in log]
-    speed = []
     for log in logs:
         with open(os.path.join(inp, log), "r") as read:
             for line in read:
