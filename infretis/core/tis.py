@@ -11,7 +11,7 @@ logger.addHandler(logging.NullHandler())
 def log_mdlogs(inp):
     logs = [log for log in os.listdir(inp) if "log" in log]
     for log in logs:
-        with open(os.path.join(inp, log), "r") as read:
+        with open(os.path.join(inp, log)) as read:
             for line in read:
                 if "Performance" in line:
                     logger.info(
@@ -569,9 +569,7 @@ def wire_fencing(
 
 # def ss_wt_wf_acceptance(trial_path, ensemble, tis_settings,
 #                         start_cond='L'):
-def ss_wt_wf_acceptance(
-    trial_path, ens_set, engine, path_old, start_cond="L"
-):
+def ss_wt_wf_acceptance(trial_path, ens_set, engine, path_old, start_cond="L"):
     """Weights, possibly reverses and accept/rejects generated SS/WT/WFpaths.
 
     Parameters
@@ -700,9 +698,7 @@ def stone_skipping(ensemble, tis_settings, start_cond):
         # Here we choose between the two
         # possible shooting points that describe a crossing.
         sh_pt = ph_pt1 if ensemble["rgen"].rand() >= 0.5 else ph_pt2
-        ensemble["engine"].dump_phasepoint(
-            sh_pt, str(counter()) + "_ss_shoot"
-        )
+        ensemble["engine"].dump_phasepoint(sh_pt, str(counter()) + "_ss_shoot")
         # To continue, we must be sure that the new path
         # CROSSES the interface in ONLY ONE step.
         # Generate paths until it succeed. That is
@@ -750,9 +746,7 @@ def stone_skipping(ensemble, tis_settings, start_cond):
             trial_path = new_segment
             break
 
-        ph_pt1, ph_pt2 = crossing_finder(
-            new_segment, intf[1], last_frame=True
-        )
+        ph_pt1, ph_pt2 = crossing_finder(new_segment, intf[1], last_frame=True)
 
     logger.debug("SS web: %s, one step crossing tries: %s", success, osc_try)
 
@@ -855,9 +849,7 @@ def ss_wt_wf_metropolis_acc(path_old, path_new, ens_set, start_cond="L"):
                     path_new.status = "SSA"
                     return False
             elif move == "wf":
-                wf_cap = ens_set["tis_set"].get(
-                    "interface_cap", interfaces[2]
-                )
+                wf_cap = ens_set["tis_set"].get("interface_cap", interfaces[2])
                 cr_old, _ = wirefence_weight_and_pick(
                     path_old, interfaces[1], wf_cap
                 )
@@ -993,9 +985,7 @@ def web_throwing(ensemble, tis_set, start_cond="L"):
 
     logger.debug("WT segments accepted: %s", save_acc)
 
-    accept, trial_path, _ = extender(
-        source_seg, ensemble, tis_set, start_cond
-    )
+    accept, trial_path, _ = extender(source_seg, ensemble, tis_set, start_cond)
 
     trial_path.generated = (
         "wt",
@@ -1005,9 +995,7 @@ def web_throwing(ensemble, tis_set, start_cond="L"):
     )
     # Also Check that we did not get a B to A or a B to B path.
     if accept:
-        accept, trial_path = ss_wt_wf_acceptance(
-            trial_path, ensemble, tis_set
-        )
+        accept, trial_path = ss_wt_wf_acceptance(trial_path, ensemble, tis_set)
     logger.debug("WT move: %s", trial_path.status)
 
     # Set the path flags
