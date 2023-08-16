@@ -6,12 +6,16 @@ import numpy as np
 import shutil
 import os
 import logging
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
-LOG_FMT = '[%(levelname)s]: %(message)s'
-LOG_DEBUG_FMT = ('[%(levelname)s] [%(name)s, %(funcName)s() at'
-                 ' line %(lineno)d]: %(message)s')
+LOG_FMT = "[%(levelname)s]: %(message)s"
+LOG_DEBUG_FMT = (
+    "[%(levelname)s] [%(name)s, %(funcName)s() at"
+    " line %(lineno)d]: %(message)s"
+)
+
 
 def _read_line_data(ncol, stripline, line_parser):
     """Read data for :py:func:`.read_some_lines.`.
@@ -44,69 +48,75 @@ def _read_line_data(ncol, stripline, line_parser):
     # We assume that this is line is malformed --- skip it!
     return None, False, -1
 
-def read_some_lines(filename, line_parser, block_label='#'):                   
-    """Open a file and try to read as many lines as possible.                  
-                                                                               
-    This method will read a file using the given `line_parser`.                
-    If the given `line_parser` fails at a line in the file,                    
-    `read_some_lines` will stop here. Further, this method                     
-    will read data in blocks and yield a block when a new                      
-    block is found. A special string (`block_label`) is assumed to             
-    identify the start of blocks.                                              
-                                                                               
-    Parameters                                                                 
-    ----------                                                                 
-    filename : string                                                          
-        This is the name/path of the file to open and read.                    
-    line_parser : function, optional                                           
-        This is a function which knows how to translate a given line           
-        to a desired internal format. If not given, a simple float             
-        will be used.                                                          
-    block_label : string, optional                                             
-        This string is used to identify blocks.                                
-                                                                               
-    Yields                                                                     
-    ------                                                                     
-    data : list                                                                
-        The data read from the file, arranged in dicts.                        
-                                                                               
-    """                                                                        
-    ncol = -1  # The number of columns                                         
-    new_block = {'comment': [], 'data': []}                                    
-    yield_block = False                                                        
-    read_comment = False                                                       
-    with open(filename, 'r', encoding='utf-8') as fileh:                       
-        for i, line in enumerate(fileh):                                       
-            stripline = line.strip()                                           
-            if stripline.startswith(block_label):                              
-                # this is a comment, then a new block will follow,             
-                # unless this is a multi-line comment.                         
-                if read_comment:  # part of multi-line comment...              
-                    new_block['comment'].append(stripline)                     
-                else:                                                          
-                    if yield_block:                                            
-                        # Yield the current block                              
-                        yield_block = False                                    
-                        yield new_block                                        
-                    new_block = {'comment': [stripline], 'data': []}           
-                    yield_block = True  # Data has been added                  
-                    ncol = -1                                                  
-                    read_comment = True                                        
-            else:                                                              
-                read_comment = False                                           
-                data, _yieldb, _ncol = _read_line_data(ncol, stripline,        
-                                                       line_parser)            
-                if data:                                                       
-                    new_block['data'].append(data)                             
-                    ncol = _ncol                                               
-                    yield_block = _yieldb                                      
-                else:                                                          
-                    logger.warning('Skipped malformed data in "%s", line: %i', 
-                                   filename, i)                                
-    # if the block has not been yielded, yield it                              
-    if yield_block:                                                            
-        yield_block = False                                                    
-        yield new_block                                                        
+
+def read_some_lines(filename, line_parser, block_label="#"):
+    """Open a file and try to read as many lines as possible.
+
+    This method will read a file using the given `line_parser`.
+    If the given `line_parser` fails at a line in the file,
+    `read_some_lines` will stop here. Further, this method
+    will read data in blocks and yield a block when a new
+    block is found. A special string (`block_label`) is assumed to
+    identify the start of blocks.
+
+    Parameters
+    ----------
+    filename : string
+        This is the name/path of the file to open and read.
+    line_parser : function, optional
+        This is a function which knows how to translate a given line
+        to a desired internal format. If not given, a simple float
+        will be used.
+    block_label : string, optional
+        This string is used to identify blocks.
+
+    Yields
+    ------
+    data : list
+        The data read from the file, arranged in dicts.
+
+    """
+    ncol = -1  # The number of columns
+    new_block = {"comment": [], "data": []}
+    yield_block = False
+    read_comment = False
+    with open(filename, "r", encoding="utf-8") as fileh:
+        for i, line in enumerate(fileh):
+            stripline = line.strip()
+            if stripline.startswith(block_label):
+                # this is a comment, then a new block will follow,
+                # unless this is a multi-line comment.
+                if read_comment:  # part of multi-line comment...
+                    new_block["comment"].append(stripline)
+                else:
+                    if yield_block:
+                        # Yield the current block
+                        yield_block = False
+                        yield new_block
+                    new_block = {"comment": [stripline], "data": []}
+                    yield_block = True  # Data has been added
+                    ncol = -1
+                    read_comment = True
+            else:
+                read_comment = False
+                data, _yieldb, _ncol = _read_line_data(
+                    ncol, stripline, line_parser
+                )
+                if data:
+                    new_block["data"].append(data)
+                    ncol = _ncol
+                    yield_block = _yieldb
+                else:
+                    logger.warning(
+                        'Skipped malformed data in "%s", line: %i',
+                        filename,
+                        i,
+                    )
+    # if the block has not been yielded, yield it
+    if yield_block:
+        yield_block = False
+        yield new_block
+
 
 def _make_header(labels, width, spacing=1):
     """Format a table header with the given labels.
@@ -133,12 +143,13 @@ def _make_header(labels, width, spacing=1):
         except IndexError:
             wid = width[-1]
         if i == 0:
-            fmt = '# {{:>{}s}}'.format(wid - 2)
+            fmt = "# {{:>{}s}}".format(wid - 2)
         else:
-            fmt = '{{:>{}s}}'.format(wid)
+            fmt = "{{:>{}s}}".format(wid)
         heading.append(fmt.format(col))
-    str_white = ' ' * spacing
+    str_white = " " * spacing
     return str_white.join(heading)
+
 
 class OutputFormatter:
     """A generic class for formatting output from PyRETIS.
@@ -157,7 +168,7 @@ class OutputFormatter:
 
     """
 
-    _FMT = '{}'
+    _FMT = "{}"
 
     def __init__(self, name, header=None):
         """Initialise the formatter.
@@ -174,12 +185,14 @@ class OutputFormatter:
         self._header = None
         self.print_header = True
         if header is not None:
-            if 'width' in header and 'labels' in header:
-                self._header = _make_header(header['labels'],
-                                            header['width'],
-                                            spacing=header.get('spacing', 1))
+            if "width" in header and "labels" in header:
+                self._header = _make_header(
+                    header["labels"],
+                    header["width"],
+                    spacing=header.get("spacing", 1),
+                )
             else:
-                self._header = header.get('text', None)
+                self._header = header.get("text", None)
         else:
             self.print_header = False
 
@@ -206,10 +219,10 @@ class OutputFormatter:
             this is something we can iterate over.
 
         """
-        out = ['{}'.format(step)]
+        out = ["{}".format(step)]
         for i in data:
             out.append(self._FMT.format(i))
-        yield ' '.join(out)
+        yield " ".join(out)
 
     @staticmethod
     def parse(line):
@@ -230,8 +243,10 @@ class OutputFormatter:
             The parsed input data.
 
         """
-        return [int(col) if i == 0 else
-                float(col) for i, col in enumerate(line.split())]
+        return [
+            int(col) if i == 0 else float(col)
+            for i, col in enumerate(line.split())
+        ]
 
     def load(self, filename):
         """Read generic data from a file.
@@ -260,13 +275,13 @@ class OutputFormatter:
 
         """
         for blocks in read_some_lines(filename, self.parse):
-            data_dict = {'comment': blocks['comment'],
-                         'data': blocks['data']}
+            data_dict = {"comment": blocks["comment"], "data": blocks["data"]}
             yield data_dict
 
     def __str__(self):
         """Return basic info about the formatter."""
         return self.name
+
 
 class OrderFormatter(OutputFormatter):
     """A class for formatting order parameter data.
@@ -287,11 +302,11 @@ class OrderFormatter(OutputFormatter):
 
     # Format for order files. Note that we don't know how many parameters
     # we need to format yet.
-    ORDER_FMT = ['{:>10d}', '{:>12.6f}']
+    ORDER_FMT = ["{:>10d}", "{:>12.6f}"]
 
-    def __init__(self, name='OrderFormatter'):
+    def __init__(self, name="OrderFormatter"):
         """Initialise a `OrderFormatter` formatter."""
-        header = {'labels': ['Time', 'Orderp'], 'width': [10, 12]}
+        header = {"labels": ["Time", "Orderp"], "width": [10, 12]}
         super().__init__(name, header=header)
 
     def format_data(self, step, orderdata):
@@ -313,7 +328,7 @@ class OrderFormatter(OutputFormatter):
         towrite = [self.ORDER_FMT[0].format(step)]
         for orderp in orderdata:
             towrite.append(self.ORDER_FMT[1].format(orderp))
-        out = ' '.join(towrite)
+        out = " ".join(towrite)
         return out
 
     def format(self, step, data):
@@ -346,8 +361,10 @@ class OrderFormatter(OutputFormatter):
 
         """
         for blocks in read_some_lines(filename, self.parse):
-            data_dict = {'comment': blocks['comment'],
-                         'data': np.array(blocks['data'])}
+            data_dict = {
+                "comment": blocks["comment"],
+                "data": np.array(blocks["data"]),
+            }
             yield data_dict
 
 
@@ -356,7 +373,7 @@ class OrderPathFormatter(OrderFormatter):
 
     def __init__(self):
         """Initialise."""
-        super().__init__(name='OrderPathFormatter')
+        super().__init__(name="OrderPathFormatter")
         self.print_header = False
 
     def format(self, step, data):
@@ -382,10 +399,11 @@ class OrderPathFormatter(OrderFormatter):
         if not path:  # E.g. when null-moves are False.
             return
         move = path.generated
-        yield '# Cycle: {}, status: {}, move: {}'.format(step, status, move)
+        yield "# Cycle: {}, status: {}, move: {}".format(step, status, move)
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             yield self.format_data(i, phasepoint.order)
+
 
 class OutputBase(metaclass=ABCMeta):
     """A generic class for handling output.
@@ -428,7 +446,7 @@ class OutputBase(metaclass=ABCMeta):
             self.write(line)
 
     @abstractmethod
-    def write(self, towrite, end='\n'):
+    def write(self, towrite, end="\n"):
         """Write a string to the output defined by this class.
 
         Parameters
@@ -454,7 +472,8 @@ class OutputBase(metaclass=ABCMeta):
 
     def __str__(self):
         """Return basic info."""
-        return f'{self.__class__.__name__}\n\t* Formatter: {self.formatter}'
+        return f"{self.__class__.__name__}\n\t* Formatter: {self.formatter}"
+
 
 class FileIO(OutputBase):
     """A generic class for handling IO with files.
@@ -482,7 +501,7 @@ class FileIO(OutputBase):
 
     """
 
-    target = 'file'
+    target = "file"
     FILE_FLUSH = 1  # Interval for flushing files in seconds.
 
     def __init__(self, filename, file_mode, formatter, backup=True):
@@ -505,31 +524,32 @@ class FileIO(OutputBase):
         self.filename = filename
         self.file_mode = file_mode
         if backup not in (True, False):
-            logger.info('Setting backup to default: True')
+            logger.info("Setting backup to default: True")
             self.backup = True
         else:
             self.backup = backup
         self.fileh = None
-        if self.file_mode.startswith('a') and self.formatter is not None:
+        if self.file_mode.startswith("a") and self.formatter is not None:
             self.formatter.print_header = False
         self.last_flush = None
 
     def open_file_read(self):
         """Open a file for reading."""
-        if not self.file_mode.startswith('r'):
+        if not self.file_mode.startswith("r"):
             raise ValueError(
-                ('Inconsistent file mode "{}" '
-                 'for reading').format(self.file_mode)
+                ('Inconsistent file mode "{}" ' "for reading").format(
+                    self.file_mode
+                )
             )
         try:
             self.fileh = open(self.filename, self.file_mode)
         except (OSError, IOError) as error:
-            if 'energy' not in self.filename:
+            if "energy" not in self.filename:
                 logger.critical(
                     'Could not open file "%s" for reading', self.filename
                 )
                 logger.critical(
-                    'I/O error ({%d}): {%s}', error.errno, error.strerror
+                    "I/O error ({%d}): {%s}", error.errno, error.strerror
                 )
         return self.fileh
 
@@ -538,16 +558,17 @@ class FileIO(OutputBase):
 
         In this method, we also handle the possible backup settings.
         """
-        if not self.file_mode[0] in ('a', 'w'):
+        if not self.file_mode[0] in ("a", "w"):
             raise ValueError(
-                ('Inconsistent file mode "{}" '
-                 'for writing').format(self.file_mode)
+                ('Inconsistent file mode "{}" ' "for writing").format(
+                    self.file_mode
+                )
             )
         msg = []
         try:
             if os.path.isfile(self.filename):
-                msg = ''
-                if self.file_mode.startswith('a'):
+                msg = ""
+                if self.file_mode.startswith("a"):
                     logger.info(
                         'Appending to existing file "%s"', self.filename
                     )
@@ -564,22 +585,20 @@ class FileIO(OutputBase):
             logger.critical(
                 'Could not open file "%s" for writing', self.filename
             )
-            logger.critical(
-                'I/O error (%d): %d', error.errno, error.strerror
-            )
+            logger.critical("I/O error (%d): %d", error.errno, error.strerror)
         return self.fileh
 
     def open(self):
         """Open a file for reading or writing."""
         if self.fileh is not None:
             logger.debug(
-                '%s asked to open file, but it has already opened a file.',
-                self.__class__.__name__
+                "%s asked to open file, but it has already opened a file.",
+                self.__class__.__name__,
             )
             return self.fileh
-        if self.file_mode[0] in ('r',):
+        if self.file_mode[0] in ("r",):
             return self.open_file_read()
-        if self.file_mode[0] in ('a', 'w'):
+        if self.file_mode[0] in ("a", "w"):
             return self.open_file_write()
         raise ValueError('Unknown file mode "{}"'.format(self.file_mode))
 
@@ -587,7 +606,7 @@ class FileIO(OutputBase):
         """Read blocks or lines from the file."""
         return self.formatter.load(self.filename)
 
-    def write(self, towrite, end='\n'):
+    def write(self, towrite, end="\n"):
         """Write a string to the file.
 
         Parameters
@@ -610,14 +629,15 @@ class FileIO(OutputBase):
         if self.fileh is not None and not self.fileh.closed:
             try:
                 if end is not None:
-                    self.fileh.write('{}{}'.format(towrite, end))
+                    self.fileh.write("{}{}".format(towrite, end))
                     status = True
                 else:
                     self.fileh.write(towrite)
                     status = True
             except (OSError, IOError) as error:  # pragma: no cover
-                msg = 'Write I/O error ({}): {}'.format(error.errno,
-                                                        error.strerror)
+                msg = "Write I/O error ({}): {}".format(
+                    error.errno, error.strerror
+                )
                 logger.critical(msg)
             if self.last_flush is None:
                 self.flush()
@@ -628,11 +648,11 @@ class FileIO(OutputBase):
                 self.last_flush = datetime.now()
             return status
         if self.fileh is not None and self.fileh.closed:
-            logger.warning('Ignored writing to closed file %s', self.filename)
+            logger.warning("Ignored writing to closed file %s", self.filename)
         if self.fileh is None:
             logger.critical(
-                'Attempting to write to empty file handle for file %s',
-                self.filename
+                "Attempting to write to empty file handle for file %s",
+                self.filename,
             )
         return status
 
@@ -685,10 +705,11 @@ class FileIO(OutputBase):
         """Return basic info."""
         msg = ['FileIO (file: "{}")'.format(self.filename)]
         if self.fileh is not None and not self.fileh.closed:
-            msg += ['\t* File is open']
-            msg += ['\t* Mode: {}'.format(self.fileh.mode)]
-        msg += ['\t* Formatter: {}'.format(self.formatter)]
-        return '\n'.join(msg)
+            msg += ["\t* File is open"]
+            msg += ["\t* Mode: {}".format(self.fileh.mode)]
+        msg += ["\t* Formatter: {}".format(self.formatter)]
+        return "\n".join(msg)
+
 
 class OrderFile(FileIO):
     """A class for handling PyRETIS order parameter files."""
@@ -703,8 +724,10 @@ class OrderPathFile(FileIO):
 
     def __init__(self, filename, file_mode, backup=True):
         """Create the order path file with correct formatter."""
-        super().__init__(filename, file_mode, OrderPathFormatter(),
-                         backup=backup)
+        super().__init__(
+            filename, file_mode, OrderPathFormatter(), backup=backup
+        )
+
 
 class EnergyFormatter(OutputFormatter):
     """A class for formatting energy data from PyRETIS.
@@ -725,13 +748,14 @@ class EnergyFormatter(OutputFormatter):
     """
 
     # Format for the energy files:
-    ENERGY_FMT = ['{:>10d}'] + 5*['{:>14.6f}']
-    ENERGY_TERMS = ('vpot', 'ekin', 'etot', 'temp')
-    HEADER = {'labels': ['Time', 'Potential', 'Kinetic', 'Total',
-                         'Temperature'],
-              'width': [10, 14]}
+    ENERGY_FMT = ["{:>10d}"] + 5 * ["{:>14.6f}"]
+    ENERGY_TERMS = ("vpot", "ekin", "etot", "temp")
+    HEADER = {
+        "labels": ["Time", "Potential", "Kinetic", "Total", "Temperature"],
+        "width": [10, 14],
+    }
 
-    def __init__(self, name='EnergyFormatter'):
+    def __init__(self, name="EnergyFormatter"):
         """Initialise the formatter for energy."""
         super().__init__(name, header=self.HEADER)
 
@@ -755,10 +779,10 @@ class EnergyFormatter(OutputFormatter):
         for i, key in enumerate(self.ENERGY_TERMS):
             value = energy.get(key, None)
             if value is None:
-                towrite.append(self.ENERGY_FMT[i + 1].format(float('nan')))
+                towrite.append(self.ENERGY_FMT[i + 1].format(float("nan")))
             else:
                 towrite.append(self.ENERGY_FMT[i + 1].format(float(value)))
-        return ' '.join(towrite)
+        return " ".join(towrite)
 
     def format(self, step, data):
         """Yield formatted energy data. See :py:meth:.`apply_format`."""
@@ -781,25 +805,27 @@ class EnergyFormatter(OutputFormatter):
 
         """
         for blocks in read_some_lines(filename, line_parser=self.parse):
-            data = np.array(blocks['data'])
+            data = np.array(blocks["data"])
             col = tuple(data.shape)
             col_max = min(col[1], len(self.ENERGY_TERMS) + 1)
-            data_dict = {'comment': blocks['comment'],
-                         'data': {'time': data[:, 0]}}
-            for i in range(col_max-1):
-                data_dict['data'][self.ENERGY_TERMS[i]] = data[:, i+1]
+            data_dict = {
+                "comment": blocks["comment"],
+                "data": {"time": data[:, 0]},
+            }
+            for i in range(col_max - 1):
+                data_dict["data"][self.ENERGY_TERMS[i]] = data[:, i + 1]
             yield data_dict
+
 
 class EnergyPathFormatter(EnergyFormatter):
     """A class for formatting energy data for paths."""
 
-    ENERGY_TERMS = ('vpot', 'ekin')
-    HEADER = {'labels': ['Time', 'Potential', 'Kinetic'],
-              'width': [10, 14]}
+    ENERGY_TERMS = ("vpot", "ekin")
+    HEADER = {"labels": ["Time", "Potential", "Kinetic"], "width": [10, 14]}
 
     def __init__(self):
         """Initialise."""
-        super().__init__(name='EnergyPathFormatter')
+        super().__init__(name="EnergyPathFormatter")
         self.print_header = False
 
     def format(self, step, data):
@@ -824,7 +850,7 @@ class EnergyPathFormatter(EnergyFormatter):
         if not path:  # when nullmoves = False
             return
         move = path.generated
-        yield '# Cycle: {}, status: {}, move: {}'.format(step, status, move)
+        yield "# Cycle: {}, status: {}, move: {}".format(step, status, move)
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             energy = {}
@@ -832,12 +858,15 @@ class EnergyPathFormatter(EnergyFormatter):
                 energy[key] = getattr(phasepoint, key, None)
             yield self.apply_format(i, energy)
 
+
 class EnergyFile(FileIO):
     """A class for handling PyRETIS energy files."""
 
     def __init__(self, filename, file_mode, backup=True):
         """Create the file object and attach the energy formatter."""
-        super().__init__(filename, file_mode, EnergyFormatter(), backup=backup)
+        super().__init__(
+            filename, file_mode, EnergyFormatter(), backup=backup
+        )
 
 
 class EnergyPathFile(FileIO):
@@ -845,8 +874,9 @@ class EnergyPathFile(FileIO):
 
     def __init__(self, filename, file_mode, backup=True):
         """Create the file object and attach the energy formatter."""
-        super().__init__(filename, file_mode, EnergyPathFormatter(),
-                         backup=backup)
+        super().__init__(
+            filename, file_mode, EnergyPathFormatter(), backup=backup
+        )
 
 
 class PathExtFormatter(OutputFormatter):
@@ -862,14 +892,17 @@ class PathExtFormatter(OutputFormatter):
 
     """
 
-    FMT = '{:>10}  {:>20s}  {:>10}  {:>5}'
+    FMT = "{:>10}  {:>20s}  {:>10}  {:>5}"
 
     def __init__(self):
         """Initialise the PathExtFormatter formatter."""
-        header = {'labels': ['Step', 'Filename', 'index', 'vel'],
-                  'width': [10, 20, 10, 5], 'spacing': 2}
+        header = {
+            "labels": ["Step", "Filename", "index", "vel"],
+            "width": [10, 20, 10, 5],
+            "spacing": 2,
+        }
 
-        super().__init__('PathExtFormatter', header=header)
+        super().__init__("PathExtFormatter", header=header)
         self.print_header = False
 
     def format(self, step, data):
@@ -893,7 +926,7 @@ class PathExtFormatter(OutputFormatter):
         path, status = data[0], data[1]
         if not path:  # E.g. when null-moves are False.
             return
-        yield '# Cycle: {}, status: {}'.format(step, status)
+        yield "# Cycle: {}, status: {}".format(step, status)
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             filename, idx = phasepoint.config
@@ -926,8 +959,10 @@ class PathExtFile(FileIO):
 
     def __init__(self, filename, file_mode, backup=True):
         """Create the path writer with correct format for external paths."""
-        super().__init__(filename, file_mode, PathExtFormatter(),
-                         backup=backup)
+        super().__init__(
+            filename, file_mode, PathExtFormatter(), backup=backup
+        )
+
 
 class PathStorage(OutputBase):
     """A class for handling storage of external trajectories.
@@ -954,16 +989,16 @@ class PathStorage(OutputBase):
 
     """
 
-    target = 'file-archive'
-    archive_acc = 'traj-acc'
-    archive_rej = 'traj-rej'
-    archive_traj = 'traj'
+    target = "file-archive"
+    archive_acc = "traj-acc"
+    archive_rej = "traj-rej"
+    archive_traj = "traj"
     formatters = {
-        'order': {'fmt': OrderPathFormatter(), 'file': 'order.txt'},
-        'energy': {'fmt': EnergyPathFormatter(), 'file': 'energy.txt'},
-        'traj': {'fmt': PathExtFormatter(), 'file': 'traj.txt'},
+        "order": {"fmt": OrderPathFormatter(), "file": "order.txt"},
+        "energy": {"fmt": EnergyPathFormatter(), "file": "energy.txt"},
+        "traj": {"fmt": PathExtFormatter(), "file": "traj.txt"},
     }
-    out_dir_fmt = '{}'
+    out_dir_fmt = "{}"
 
     def __init__(self):
         """Set up the storage.
@@ -978,7 +1013,7 @@ class PathStorage(OutputBase):
 
     def archive_name_from_status(self, status):
         """Return the name of the archive to use."""
-        return self.archive_acc if status == 'ACC' else self.archive_rej
+        return self.archive_acc if status == "ACC" else self.archive_rej
 
     def output_path_files(self, step, data, target_dir):
         """Write the output files for energy, path and order parameter.
@@ -1005,19 +1040,25 @@ class PathStorage(OutputBase):
             archives.
 
         """
-        path, status, = data[0], data[1]
+        (
+            path,
+            status,
+        ) = (
+            data[0],
+            data[1],
+        )
         files = []
         for key, val in self.formatters.items():
-            logger.debug('Storing: %s', key)
-            fmt = val['fmt']
-            full_path = os.path.join(target_dir, val['file'])
+            logger.debug("Storing: %s", key)
+            fmt = val["fmt"]
+            full_path = os.path.join(target_dir, val["file"])
             relative_path = os.path.join(
-                self.out_dir_fmt.format(step), val['file']
+                self.out_dir_fmt.format(step), val["file"]
             )
             files.append((full_path, relative_path))
-            with open(full_path, 'w', encoding="utf8") as output:
+            with open(full_path, "w", encoding="utf8") as output:
                 for line in fmt.format(step, (path, status)):
-                    output.write('{}\n'.format(line))
+                    output.write("{}\n".format(line))
         return files
 
     @staticmethod
@@ -1040,8 +1081,9 @@ class PathStorage(OutputBase):
 
         """
         path_copy = path.copy()
-        new_pos, source = _generate_file_names(path_copy, target_dir,
-                                               prefix=prefix)
+        new_pos, source = _generate_file_names(
+            path_copy, target_dir, prefix=prefix
+        )
         # Update positions:
         for pos, phasepoint in zip(new_pos, path_copy.phasepoints):
             phasepoint.config = (pos[0], pos[1])
@@ -1050,9 +1092,9 @@ class PathStorage(OutputBase):
             if src != dest:
                 if os.path.exists(dest):
                     if os.path.isfile(dest):
-                        logger.debug('Removing %s as it exists', dest)
+                        logger.debug("Removing %s as it exists", dest)
                         os.remove(dest)
-                logger.debug('Copy %s -> %s', src, dest)
+                logger.debug("Copy %s -> %s", src, dest)
                 shutil.copy(src, dest)
         return path_copy
 
@@ -1078,40 +1120,41 @@ class PathStorage(OutputBase):
         # path_ensemble = data
         # path = path_ensemble.last_path
         # home_dir = path_ensemble.directory['home_dir'] + '/trajs'
-        path = data['path']
-        home_dir = data['dir']
-        archive = self.archive_name_from_status('ACC')
+        path = data["path"]
+        home_dir = data["dir"]
+        archive = self.archive_name_from_status("ACC")
         # This is the path on form: /path/to/000/traj/11
         archive_path = os.path.join(
             home_dir,
-            f'{path.path_number}',
+            f"{path.path_number}",
         )
 
         # To organize things we create a subfolder for storing the
         # files. This is on form: /path/to/000/traj/11/traj
-        traj_dir = os.path.join(archive_path, 'accepted')
+        traj_dir = os.path.join(archive_path, "accepted")
         # Create the needed directories:
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
-        files = self.output_path_files(step, (path, 'ACC'), archive_path)
+        files = self.output_path_files(step, (path, "ACC"), archive_path)
         path = self._copy_path(path, traj_dir)
         return path
         # return files
 
-    def write(self, towrite, end='\n'):
+    def write(self, towrite, end="\n"):
         """We do not need the write method for this object."""
         logger.critical(
             '%s does *not* support the "write" method!',
-            self.__class__.__name__
+            self.__class__.__name__,
         )
 
     def formatter_info(self):
         """Return info about the formatters."""
-        return [val['fmt'].__class__ for val in self.formatters.values()]
+        return [val["fmt"].__class__ for val in self.formatters.values()]
 
     def __str__(self):
         """Return basic info."""
-        return '{} - archive writer.'.format(self.__class__.__name__)
+        return "{} - archive writer.".format(self.__class__.__name__)
+
 
 def get_log_formatter(level):
     """Select a log format based on a given level.
@@ -1134,6 +1177,7 @@ def get_log_formatter(level):
         return PyretisLogFormatter(LOG_DEBUG_FMT)
     return PyretisLogFormatter(LOG_FMT)
 
+
 class PyretisLogFormatter(logging.Formatter):  # pragma: no cover
     """Hard-coded formatter for the PyRETIS log file.
 
@@ -1152,6 +1196,7 @@ class PyretisLogFormatter(logging.Formatter):  # pragma: no cover
         #     else:
         #         out = out.replace('\n', '\n' + ' ' * 4)
         return out
+
 
 def _generate_file_names(path, target_dir, prefix=None):
     """Generate new file names for moving copying paths.
@@ -1181,7 +1226,7 @@ def _generate_file_names(path, target_dir, prefix=None):
         if pos_file not in source:
             localfile = os.path.basename(pos_file)
             if prefix is not None:
-                localfile = f'{prefix}{localfile}'
+                localfile = f"{prefix}{localfile}"
             dest = os.path.join(target_dir, localfile)
             source[pos_file] = dest
         dest = source[pos_file]
