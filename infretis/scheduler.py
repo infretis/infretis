@@ -1,6 +1,6 @@
 """The main infretis loop."""
-from infretis.setup import setup_internal, setup_dask
 from infretis.core.tis import run_md
+from infretis.setup import setup_dask, setup_internal
 
 
 def scheduler(config):
