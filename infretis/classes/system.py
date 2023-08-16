@@ -1,15 +1,18 @@
 """Defines the snapshot system class."""
 from copy import copy
 import logging
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
 class System:
     """System class."""
+
     config = None
     order = None
     pos = None
+
     def __init__(self):
         """Initiate class."""
         self.vel = None

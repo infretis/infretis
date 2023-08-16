@@ -1,15 +1,20 @@
 import logging
 import numpy as np
-from infretis.classes.formats.formatter import OutputFormatter, FileIO, read_some_lines
+from infretis.classes.formats.formatter import (
+    OutputFormatter,
+    FileIO,
+    read_some_lines,
+)
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
 
 __all__ = [
-    'EnergyFormatter',
-    'EnergyPathFormatter',
-    'EnergyFile',
-    'EnergyPathFile',
+    "EnergyFormatter",
+    "EnergyPathFormatter",
+    "EnergyFile",
+    "EnergyPathFile",
 ]
 
 
@@ -32,13 +37,14 @@ class EnergyFormatter(OutputFormatter):
     """
 
     # Format for the energy files:
-    ENERGY_FMT = ['{:>10d}'] + 5*['{:>14.6f}']
-    ENERGY_TERMS = ('vpot', 'ekin', 'etot', 'temp')
-    HEADER = {'labels': ['Time', 'Potential', 'Kinetic', 'Total',
-                         'Temperature'],
-              'width': [10, 14]}
+    ENERGY_FMT = ["{:>10d}"] + 5 * ["{:>14.6f}"]
+    ENERGY_TERMS = ("vpot", "ekin", "etot", "temp")
+    HEADER = {
+        "labels": ["Time", "Potential", "Kinetic", "Total", "Temperature"],
+        "width": [10, 14],
+    }
 
-    def __init__(self, name='EnergyFormatter'):
+    def __init__(self, name="EnergyFormatter"):
         """Initialise the formatter for energy."""
         super().__init__(name, header=self.HEADER)
 
@@ -62,10 +68,10 @@ class EnergyFormatter(OutputFormatter):
         for i, key in enumerate(self.ENERGY_TERMS):
             value = energy.get(key, None)
             if value is None:
-                towrite.append(self.ENERGY_FMT[i + 1].format(float('nan')))
+                towrite.append(self.ENERGY_FMT[i + 1].format(float("nan")))
             else:
                 towrite.append(self.ENERGY_FMT[i + 1].format(float(value)))
-        return ' '.join(towrite)
+        return " ".join(towrite)
 
     def format(self, step, data):
         """Yield formatted energy data. See :py:meth:.`apply_format`."""
@@ -88,26 +94,27 @@ class EnergyFormatter(OutputFormatter):
 
         """
         for blocks in read_some_lines(filename, line_parser=self.parse):
-            data = np.array(blocks['data'])
+            data = np.array(blocks["data"])
             col = tuple(data.shape)
             col_max = min(col[1], len(self.ENERGY_TERMS) + 1)
-            data_dict = {'comment': blocks['comment'],
-                         'data': {'time': data[:, 0]}}
-            for i in range(col_max-1):
-                data_dict['data'][self.ENERGY_TERMS[i]] = data[:, i+1]
+            data_dict = {
+                "comment": blocks["comment"],
+                "data": {"time": data[:, 0]},
+            }
+            for i in range(col_max - 1):
+                data_dict["data"][self.ENERGY_TERMS[i]] = data[:, i + 1]
             yield data_dict
 
 
 class EnergyPathFormatter(EnergyFormatter):
     """A class for formatting energy data for paths."""
 
-    ENERGY_TERMS = ('vpot', 'ekin')
-    HEADER = {'labels': ['Time', 'Potential', 'Kinetic'],
-              'width': [10, 14]}
+    ENERGY_TERMS = ("vpot", "ekin")
+    HEADER = {"labels": ["Time", "Potential", "Kinetic"], "width": [10, 14]}
 
     def __init__(self):
         """Initialise."""
-        super().__init__(name='EnergyPathFormatter')
+        super().__init__(name="EnergyPathFormatter")
         self.print_header = False
 
     def format(self, step, data):
@@ -132,7 +139,7 @@ class EnergyPathFormatter(EnergyFormatter):
         if not path:  # when nullmoves = False
             return
         move = path.generated
-        yield '# Cycle: {}, status: {}, move: {}'.format(step, status, move)
+        yield "# Cycle: {}, status: {}, move: {}".format(step, status, move)
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             energy = {}
@@ -146,7 +153,9 @@ class EnergyFile(FileIO):
 
     def __init__(self, filename, file_mode, backup=True):
         """Create the file object and attach the energy formatter."""
-        super().__init__(filename, file_mode, EnergyFormatter(), backup=backup)
+        super().__init__(
+            filename, file_mode, EnergyFormatter(), backup=backup
+        )
 
 
 class EnergyPathFile(FileIO):
@@ -154,5 +163,6 @@ class EnergyPathFile(FileIO):
 
     def __init__(self, filename, file_mode, backup=True):
         """Create the file object and attach the energy formatter."""
-        super().__init__(filename, file_mode, EnergyPathFormatter(),
-                         backup=backup)
+        super().__init__(
+            filename, file_mode, EnergyPathFormatter(), backup=backup
+        )

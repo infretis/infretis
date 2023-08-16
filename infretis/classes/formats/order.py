@@ -1,15 +1,20 @@
 import logging
 import numpy as np
-from infretis.classes.formats.formatter import OutputFormatter, FileIO, read_some_lines
+from infretis.classes.formats.formatter import (
+    OutputFormatter,
+    FileIO,
+    read_some_lines,
+)
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
 
 __all__ = [
-    'OrderFormatter',
-    'OrderPathFormatter',
-    'OrderFile',
-    'OrderPathFile',
+    "OrderFormatter",
+    "OrderPathFormatter",
+    "OrderFile",
+    "OrderPathFile",
 ]
 
 
@@ -32,11 +37,11 @@ class OrderFormatter(OutputFormatter):
 
     # Format for order files. Note that we don't know how many parameters
     # we need to format yet.
-    ORDER_FMT = ['{:>10d}', '{:>12.6f}']
+    ORDER_FMT = ["{:>10d}", "{:>12.6f}"]
 
-    def __init__(self, name='OrderFormatter'):
+    def __init__(self, name="OrderFormatter"):
         """Initialise a `OrderFormatter` formatter."""
-        header = {'labels': ['Time', 'Orderp'], 'width': [10, 12]}
+        header = {"labels": ["Time", "Orderp"], "width": [10, 12]}
         super().__init__(name, header=header)
 
     def format_data(self, step, orderdata):
@@ -58,7 +63,7 @@ class OrderFormatter(OutputFormatter):
         towrite = [self.ORDER_FMT[0].format(step)]
         for orderp in orderdata:
             towrite.append(self.ORDER_FMT[1].format(orderp))
-        out = ' '.join(towrite)
+        out = " ".join(towrite)
         return out
 
     def format(self, step, data):
@@ -91,8 +96,10 @@ class OrderFormatter(OutputFormatter):
 
         """
         for blocks in read_some_lines(filename, self.parse):
-            data_dict = {'comment': blocks['comment'],
-                         'data': np.array(blocks['data'])}
+            data_dict = {
+                "comment": blocks["comment"],
+                "data": np.array(blocks["data"]),
+            }
             yield data_dict
 
 
@@ -101,7 +108,7 @@ class OrderPathFormatter(OrderFormatter):
 
     def __init__(self):
         """Initialise."""
-        super().__init__(name='OrderPathFormatter')
+        super().__init__(name="OrderPathFormatter")
         self.print_header = False
 
     def format(self, step, data):
@@ -127,7 +134,7 @@ class OrderPathFormatter(OrderFormatter):
         if not path:  # E.g. when null-moves are False.
             return
         move = path.generated
-        yield '# Cycle: {}, status: {}, move: {}'.format(step, status, move)
+        yield "# Cycle: {}, status: {}, move: {}".format(step, status, move)
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             yield self.format_data(i, phasepoint.order)
@@ -146,5 +153,6 @@ class OrderPathFile(FileIO):
 
     def __init__(self, filename, file_mode, backup=True):
         """Create the order path file with correct formatter."""
-        super().__init__(filename, file_mode, OrderPathFormatter(),
-                         backup=backup)
+        super().__init__(
+            filename, file_mode, OrderPathFormatter(), backup=backup
+        )
