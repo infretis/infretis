@@ -2,6 +2,7 @@
 import logging
 from infretis.classes.engines.gromacs import GromacsEngine
 from infretis.classes.engines.cp2k import CP2KEngine
+from infretis.classes.engines.turtlemd import TurtleMDEngine
 from infretis.core.core import generic_factory, create_external
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ def create_engine(settings):
     engine_map = {
         "gromacs": {"cls": GromacsEngine},
         "cp2k": {"cls": CP2KEngine},
+        "turtlemd": {'cls': TurtleMDEngine},
     }
 
     if settings["engine"]["class"].lower() not in engine_map:
