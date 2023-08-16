@@ -75,22 +75,22 @@ class OrderParameter:
     def calculate(self, system):
         """Calculate the main order parameter and return it.
 
-                All order parameters should implement this method as
-                this ensures that the order parameter can be calculated.
+        All order parameters should implement this method as
+        this ensures that the order parameter can be calculated.
 
-                Parameters
-                ----------
-                system : object like :py:class:`.System`
-                    This object contains the information needed to calculate
-                    the order parameter.
+        Parameters
+        ----------
+        system : object like :py:class:`.System`
+            This object contains the information needed to calculate
+            the order parameter.
 
-                Returns
-                -------
-                out : list of floatsrom MDAnalysis.analysis.dihedrals import calc_dihedrals
+        Returns
+        -------
+        out : list of floatsrom MDAnalysis.analysis.dihedrals import calc_dihedrals
         ￼
-                    The order parameter(s). The first order parameter returned
-                    is used as the progress coordinate in path sampling
-                    simulations!
+            The order parameter(s). The first order parameter returned
+            is used as the progress coordinate in path sampling
+            simulations!
 
         """
         return
