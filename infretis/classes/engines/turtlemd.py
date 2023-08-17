@@ -45,7 +45,7 @@ class TurtleMDEngine(EngineBase):
 
     """
     def __init__(self, turtlemd, input_path, timestep, subcycles):
-        self.temperature=1/2.5*10
+        self.temperature=1/2.5*100
         self.boltzmann = 1
         self.beta = 1/self.temperature 
         self.timestep = 0.1
@@ -233,7 +233,7 @@ class TurtleMDEngine(EngineBase):
                             potentials = self.potentials
                             )
         tmd_simulation = MDSimulation(
-            system=tmd_system, integrator=self.integrator(self.timestep, gamma=self.gamma, beta=self.beta),
+            system=tmd_system, integrator=self.integrator(self.timestep, gamma=self.gamma, beta=self.beta, seed = np.random.randint(42000)),
             steps=path.maxlen*self.subcycles
             )
         order = self.calculate_order(system, xyz=pos,
