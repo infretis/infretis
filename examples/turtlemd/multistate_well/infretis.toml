@@ -1,8 +1,12 @@
 # infretis config
 
 [dask]
-workers = 1
+workers = 8
 wmdrun = ['not used',
+	  'not used',
+	  'not used',
+	  'not used',
+	  'not used',
 	  'not used',
 	  'not used',
 	  'not used',]
