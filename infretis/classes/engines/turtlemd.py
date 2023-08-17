@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2022, PyRETIS Development Team.
 # Distributed under the LGPLv2.1+ License. See LICENSE for more info.
-"""A CP2K external MD integrator interface.
+"""A TurtleMD integrator interface.
 
-This module defines a class for using CP2K as an external engine.
+This module defines a class for using the TurtleMD.
 
 Important classes defined here
 ------------------------------
@@ -24,10 +24,12 @@ from infretis.classes.engines.engineparts import (
 )
 from numpy.random import default_rng
 from turtlemd.potentials.lennardjones import LennardJonesCut
+from turtlemd.potentials.jax_well import *
 from turtlemd.system.particles import generate_maxwell_velocities, Particles
 from turtlemd.system.box import Box
 from turtlemd.system.system import System
 from turtlemd.integrators import VelocityVerlet
+from turtlemd.integrators import LangevinInertia
 from turtlemd.simulation import MDSimulation
 from infretis.classes.engines.cp2k import (
     kinetic_energy,
@@ -42,11 +44,32 @@ class TurtleMDEngine(EngineBase):
     """
 
     """
-    def __init__(self, turtlemd, input_path, timestep, subcycles): 
-        """
-        """
+    def __init__(self, turtlemd, input_path, timestep, subcycles):
+        self.temperature=1/2.5*10
+        self.boltzmann = 1
+        self.beta = 1/self.temperature 
+        self.timestep = 0.1
+        self.gamma = 2.5
+        self.subcycles = 1
+        self.dim = 2
+        self.mass = np.array([1])
 
-        mass = 1.008 # g/mol
+        self.particles = Particles(dim=self.dim)
+        self.box = Box(periodic=[False,False])
+        self.particles.add_particle(np.zeros(2))
+        self.particles.pos = np.array([[-0.9, 0.]])
+        self.potentials = [MyWell()]
+        self.system = System(self.box, self.particles, self.potentials)
+        self.integrator = LangevinInertia
+
+
+        super().__init__('TurtleMD internal engine', self.timestep,
+                         self.subcycles)
+
+    def old__init__(self, turtlemd, input_path, timestep, subcycles): 
+        """
+        """
+        mass = 1.008
         name = "H"
         self.timestep = timestep # ps
         self.subcycles = subcycles
@@ -60,7 +83,7 @@ class TurtleMDEngine(EngineBase):
             [0.370, 0.424, 0.443],
         ]
 
-        particles = Particles()
+        particles = Particles(dim=self.dim)
         for pos in positions:
             particles.add_particle(pos, mass=mass, name=name)
 
@@ -111,7 +134,7 @@ class TurtleMDEngine(EngineBase):
             [0.496, 0.424, 0.378],
         ]
 
-        particles = Particles()
+        particles = Particles(dim=self.dim)
         for pos in positions:
             particles.add_particle(pos, mass=mass, name=name)
 
@@ -201,7 +224,7 @@ class TurtleMDEngine(EngineBase):
         # these variables will be used later
         box, pos, vel, atoms = self._read_configuration(initial_conf)
         # inititalize turtlemd system
-        particles = Particles()
+        particles = Particles(dim=self.dim)
         for i in range(self.particles.npart):
             particles.add_particle(pos[i][:self.dim], vel=vel[i][:self.dim],
                                    mass=self.particles.mass[i], name=self.particles.name[i]
@@ -210,7 +233,7 @@ class TurtleMDEngine(EngineBase):
                             potentials = self.potentials
                             )
         tmd_simulation = MDSimulation(
-            system=tmd_system, integrator=self.integrator(self.timestep),
+            system=tmd_system, integrator=self.integrator(self.timestep, gamma=self.gamma, beta=self.beta),
             steps=path.maxlen*self.subcycles
             )
         order = self.calculate_order(system, xyz=pos,
@@ -222,13 +245,12 @@ class TurtleMDEngine(EngineBase):
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
         msg_file.write(f'# Trajectory file is: {traj_file}')
-        # cp2k runner
         logger.debug('Running TurtleMD')
         step_nr = 0
         # dict for storing ene  rgies
         thermo = defaultdict(list)
         # loop over n subcycles
-        # where the first step is the initial phase point, that is, for i=0
+        # The first step of the loop is the initial phase point, i.e., for i=0
         # turtlemd does not integrate the equations of motion, it just
         # returns the initial system
         for i,step in enumerate(tmd_simulation.run()):
@@ -275,7 +297,7 @@ class TurtleMDEngine(EngineBase):
     @staticmethod
     def _read_configuration(filename):
         """
-        Read CP2K output configuration.
+        Read TurtleMD output configuration.
 
         This method is used when we calculate the order parameter.
 
@@ -325,7 +347,7 @@ class TurtleMDEngine(EngineBase):
 
     def modify_velocities(self, system, vel_settings=None):
         """
-        Modfy the velocities of all particles. Note that cp2k by default
+        Modfy the velocities of all particles. Note that default
         removes the center of mass motion, thus, we need to rescale the 
         momentum to zero by default.
 
@@ -337,8 +359,9 @@ class TurtleMDEngine(EngineBase):
     	                               vel_settings.get('rescale'))
         pos = self.dump_frame(system)
         box, xyz, vel, atoms = self._read_configuration(pos)
-        vel = np.zeros((2,3))
     	# to-do: retrieve system.vpot from previous energy file.
+        print(rescale, system.vpot)
+        print(vel_settings)
         if None not in ((rescale, system.vpot)) and rescale is not False:
             print("Rescale")
             if rescale > 0:
@@ -361,7 +384,7 @@ class TurtleMDEngine(EngineBase):
             vel = reset_momentum(vel, mass)
         if do_rescale:
             #system.rescale_velocities(rescale, external=True)
-            raise NotImplementedError("Option 'rescale_energy' is not implemented for CP2K yet.")
+            raise NotImplementedError("Option 'rescale_energy' is not implemented yet.")
         conf_out = os.path.join(self.exe_dir,
                 '{}.{}'.format('genvel', self.ext))
         write_xyz_trajectory(conf_out, xyz, vel,
