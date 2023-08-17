@@ -29,7 +29,7 @@ from turtlemd.system.particles import generate_maxwell_velocities, Particles
 from turtlemd.system.box import Box
 from turtlemd.system.system import System
 from turtlemd.integrators import VelocityVerlet
-from turtlemd.integrators import LangevinInertia
+from turtlemd.integrators import LangevinIntertia
 from turtlemd.simulation import MDSimulation
 from infretis.classes.engines.cp2k import (
     kinetic_energy,
