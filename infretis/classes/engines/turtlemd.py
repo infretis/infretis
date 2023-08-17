@@ -60,7 +60,7 @@ class TurtleMDEngine(EngineBase):
         self.particles.pos = np.array([[-0.9, 0.]])
         self.potentials = [MyWell()]
         self.system = System(self.box, self.particles, self.potentials)
-        self.integrator = LangevinInertia
+        self.integrator = LangevinIntertia
 
 
         super().__init__('TurtleMD internal engine', self.timestep,
