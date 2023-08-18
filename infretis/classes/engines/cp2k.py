@@ -21,6 +21,8 @@ import numpy as np
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     PERIODIC_TABLE,
+    box_matrix_to_list,
+    box_vector_angles,
     convert_snapshot,
     look_for_input_files,
     read_xyz_file,
@@ -1269,7 +1271,6 @@ def xyz_processer(reader_class):
             block_size = N_atoms + 2  # 2 header lines
         # if we are not in the atom nr or header block
         if i % block_size > 1:
-            vals = line.split()
             # if there arent enough values to iterate through
             # return the (posibly empty) ready trajectory frames
             if len(spl) != 4:
