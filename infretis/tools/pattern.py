@@ -12,8 +12,8 @@ def pattern_reader(inp, cap=250):
                 continue
             split = line.rstrip().split()
             if len(w_data) == 0:
-                float(split[1])
-            float(split[1]) + float(split[5])
+                _ = float(split[1])
+            _ = float(split[1]) + float(split[5])
             key = int(split[0])
             if key not in w_data:
                 w_data[key] = {
@@ -139,5 +139,6 @@ def pattern(inp, cap=250, subtime=False, scatter=False):
     # plt.show()
     # lgd = plt.legend(bbox_to_anchor=(1.04, 0.5), loc="center left",
     #                  borderaxespad=0,  edgecolor='k', framealpha=1.0,)
-    # plt.savefig('pattern.pdf', bbox_extra_artists=(lgd,), bbox_inches='tight')
+    # plt.savefig('pattern.pdf', bbox_extra_artists=(lgd,),
+    # bbox_inches='tight')
     plt.savefig("pattern.pdf", bbox_inches="tight")
