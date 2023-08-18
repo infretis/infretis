@@ -33,7 +33,6 @@ def read_infinity(inp):
 def print_pathens(inp):
     dic, ens_len = read_infinity(inp)
     keys = list(dic.keys())
-    range(min(keys), max(keys))
     enss = [f"{i:03.0f}" for i in range(ens_len)]
     steps = {ens: 0 for ens in enss}
     moves = {ens: "sh" if ens in ["000", "001"] else "wf" for ens in enss}
