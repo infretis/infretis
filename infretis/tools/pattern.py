@@ -11,9 +11,6 @@ def pattern_reader(inp, cap=250):
             if "#" in line:
                 continue
             split = line.rstrip().split()
-            if len(w_data) == 0:
-                _ = float(split[1])
-            _ = float(split[1]) + float(split[5])
             key = int(split[0])
             if key not in w_data:
                 w_data[key] = {
@@ -26,7 +23,6 @@ def pattern_reader(inp, cap=250):
                     "connect": [],
                 }
 
-            float(split[1])
             w_data[key]["md_start"].append(float(split[1]))
             w_data[key]["wmd_start"].append(float(split[2]))
             w_data[key]["wmd_end"].append(float(split[3]))
