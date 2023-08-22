@@ -166,13 +166,13 @@ def crossing_finder(path, interface, last_frame=False):
     ph1, ph2 = [], []
     for i in range(len(path.phasepoints[:-1])):
         op1 = path.phasepoints[i].order[0]
-        op2 = path.phasepoints[i+1].order[0]
+        op2 = path.phasepoints[i + 1].order[0]
         if op2 >= interface > op1 or op1 >= interface > op2:
             ph1.append(path.phasepoints[i])
-            ph2.append(path.phasepoints[i+1])
+            ph2.append(path.phasepoints[i + 1])
     if not ph1:
         return None, None
-    assert ph1, 'No crossing point available'
+    assert ph1, "No crossing point available"
     idx = -1 if last_frame else path.rgen.random_integers(0, len(ph1) - 1)
     return ph1[idx], ph2[idx]
 
@@ -1721,12 +1721,14 @@ def one_step_crossing(ensemble, interface):
 
     """
     # The trial path we need to generate. Note, 1 step = 2 points
-    trial_path = Path(rgen=ensemble['rgen'], maxlen=2)
+    trial_path = Path(rgen=ensemble["rgen"], maxlen=2)
     interfaces = [-float("inf"), float("inf"), float("inf")]
-    sub_ensemble = {'interfaces': interfaces,
-                    'system': ensemble['system'],
-                    'order_function': ensemble['order_function']}
-    ensemble['engine'].propagate(trial_path, sub_ensemble)
+    sub_ensemble = {
+        "interfaces": interfaces,
+        "system": ensemble["system"],
+        "order_function": ensemble["order_function"],
+    }
+    ensemble["engine"].propagate(trial_path, sub_ensemble)
     if crossing_counter(trial_path, interface) == 0:
         return False, trial_path
 
@@ -1763,8 +1765,9 @@ def metropolis_accept_reject(rgen, system, deltae):
     """
     if deltae < 0.0:  # short-cut to avoid calculating np.exp()
         return True
-    pacc = np.exp(-system.temperature['beta'] * deltae)
+    pacc = np.exp(-system.temperature["beta"] * deltae)
     return rgen.rand(shape=1)[0] < pacc
+
 
 def high_acc_swap(paths, rgen, intf0, intf1, ens_moves):
     """Accept or Reject a swap move using the High Acceptance weights.
@@ -1802,14 +1805,18 @@ def high_acc_swap(paths, rgen, intf0, intf1, ens_moves):
     c1_new = compute_weight(paths[1], intf0, ens_moves[0])
     c2_new = compute_weight(paths[0], intf1, ens_moves[1])
     if c1_old == 0 or c2_old == 0:
-        logger.warning("div_by_zero. c1_old, c2_old, ens_moves: [%i,%i], %s",
-                       c1_old, c2_old, str(ens_moves))
+        logger.warning(
+            "div_by_zero. c1_old, c2_old, ens_moves: [%i,%i], %s",
+            c1_old,
+            c2_old,
+            str(ens_moves),
+        )
         p_swap_acc = 1
     else:
-        p_swap_acc = c1_new*c2_new/(c1_old*c2_old)
+        p_swap_acc = c1_new * c2_new / (c1_old * c2_old)
 
     # Finally, randomly decide to accept or not:
     if rgen.rand() < p_swap_acc:
-        return True, 'ACC'  # Accepted
+        return True, "ACC"  # Accepted
 
-    return False, 'HAS'  # Rejected
+    return False, "HAS"  # Rejected
