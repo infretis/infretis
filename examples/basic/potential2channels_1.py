@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2019, PyRETIS Development Team.
-# Distributed under the LGPLv2.1+ License. See LICENSE for more info.
 """This is a 2D example potential."""
 import logging
+
 import numpy as np
 from pyretis.forcefield.potential import PotentialFunction
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
@@ -48,7 +47,7 @@ class PotentialTwoChannels(PotentialFunction):
 
     """
 
-    def __init__(self, desc='2D surface with 2 reaction channels'):
+    def __init__(self, desc="2D surface with 2 reaction channels"):
         """Set up the potential.
 
         Parameters
@@ -64,8 +63,13 @@ class PotentialTwoChannels(PotentialFunction):
 
         """
         super().__init__(dim=2, desc=desc)
-        self.params = {'Vmin1': 0.0, 'Vmin2': 0.0, 'Vmax': 0.0, 'L': 0.0,
-                'c': 0.0 }
+        self.params = {
+            "Vmin1": 0.0,
+            "Vmin2": 0.0,
+            "Vmax": 0.0,
+            "L": 0.0,
+            "c": 0.0,
+        }
 
     def potential(self, system):
         """Evaluate the potential.
@@ -82,30 +86,30 @@ class PotentialTwoChannels(PotentialFunction):
             The potential energy.
 
         """
-        #x = system.particles.pos[:, 0]  # pylint: disable=invalid-name
-        #y = system.particles.pos[:, 1]  # pylint: disable=invalid-name
+        # x = system.particles.pos[:, 0]  # pylint: disable=invalid-name
+        # y = system.particles.pos[:, 1]  # pylint: disable=invalid-name
         # I need to do WRAPPING!
         pos = system.box.pbc_wrap(system.particles.pos)
         x = pos[:, 0]  # pylint: disable=invalid-name
         y = pos[:, 1]  # pylint: disable=invalid-name
-        Vmin1 = self.params['Vmin1']
-        Vmin2 = self.params['Vmin2']
-        Vmax = self.params['Vmax']
-        c = self.params['c']
-        L = self.params['L']
+        Vmin1 = self.params["Vmin1"]
+        Vmin2 = self.params["Vmin2"]
+        Vmax = self.params["Vmax"]
+        c = self.params["c"]
+        L = self.params["L"]
 
-        A = (Vmin2-Vmin1)/2
-        B = Vmax/2-Vmin1/4-Vmin2/4
+        A = (Vmin2 - Vmin1) / 2
+        B = Vmax / 2 - Vmin1 / 4 - Vmin2 / 4
 
-        f1 = A*np.sin(2*np.pi*y/L)
-        f2 = B*np.cos(4*np.pi*y/L)  # different period
-        f3 = np.exp(-c*x**2)
+        f1 = A * np.sin(2 * np.pi * y / L)
+        f2 = B * np.cos(4 * np.pi * y / L)  # different period
+        f3 = np.exp(-c * x**2)
 
         # V_\text{pot}(x, y) = \exp(-cx^2)
         # ( Vmin/4 + Vmin2/4 + Vmax/2
         # + (Vmin2-Vmin1)/2 \sin(2\pi y/L)
         # + (Vmax/2-Vmin1/2-Vmin2/2) \cos(4\pi y/L) )
-        v_pot = (Vmin1 + A + B + f1 + f2)*f3
+        v_pot = (Vmin1 + A + B + f1 + f2) * f3
 
         return v_pot.sum()
 
@@ -129,29 +133,32 @@ class PotentialTwoChannels(PotentialFunction):
         pos = system.box.pbc_wrap(system.particles.pos)
         x = pos[:, 0]  # pylint: disable=invalid-name
         y = pos[:, 1]  # pylint: disable=invalid-name
-        Vmin1 = self.params['Vmin1']
-        Vmin2 = self.params['Vmin2']
-        Vmax = self.params['Vmax']
-        c = self.params['c']
-        L = self.params['L']
+        Vmin1 = self.params["Vmin1"]
+        Vmin2 = self.params["Vmin2"]
+        Vmax = self.params["Vmax"]
+        c = self.params["c"]
+        L = self.params["L"]
 
-        A = (Vmin2-Vmin1)/2
-        B = Vmax/2-Vmin1/4-Vmin2/4
+        A = (Vmin2 - Vmin1) / 2
+        B = Vmax / 2 - Vmin1 / 4 - Vmin2 / 4
 
-        f1 = A*np.sin(2*np.pi*y/L)
-        f2 = B*np.cos(4*np.pi*y/L)  # different period
-        f3 = np.exp(-c*x**2)
+        f1 = A * np.sin(2 * np.pi * y / L)
+        f2 = B * np.cos(4 * np.pi * y / L)  # different period
+        f3 = np.exp(-c * x**2)
 
         # V_\text{pot}(x, y) = \exp(-cx^2)
         # ( Vmin/4 + Vmin2/4 + Vmax/2
         # + (Vmin2-Vmin1)/2 \sin(2\pi y/L)
         # + (Vmax/2-Vmin1/2-Vmin2/2) \cos(4\pi y/L) )
-        #v_pot = (Vmin1 + A + B + f1 + f2)*f3
+        # v_pot = (Vmin1 + A + B + f1 + f2)*f3
         forces = np.zeros_like(system.particles.pos)
-        forces[:, 0] = 2.*c*x*(Vmin1 + A + B + f1 + f2)*f3   # -( -2*c*x) = +2*c*x
-        forces[:, 1] = -f3*(A*2*np.pi/L*np.cos(2*np.pi*y/L)
-                              -B*4*np.pi/L*np.sin(4*np.pi*y/L) )
-
+        forces[:, 0] = (
+            2.0 * c * x * (Vmin1 + A + B + f1 + f2) * f3
+        )  # -( -2*c*x) = +2*c*x
+        forces[:, 1] = -f3 * (
+            A * 2 * np.pi / L * np.cos(2 * np.pi * y / L)
+            - B * 4 * np.pi / L * np.sin(4 * np.pi * y / L)
+        )
 
         virial = np.zeros((self.dim, self.dim))  # just return zeros here
         return forces, virial

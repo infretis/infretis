@@ -1,6 +1,6 @@
 """Defines the snapshot system class."""
-from copy import copy
 import logging
+from copy import copy
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

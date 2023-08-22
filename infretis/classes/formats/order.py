@@ -1,8 +1,10 @@
 import logging
+
 import numpy as np
+
 from infretis.classes.formats.formatter import (
-    OutputFormatter,
     FileIO,
+    OutputFormatter,
     read_some_lines,
 )
 
@@ -134,7 +136,7 @@ class OrderPathFormatter(OrderFormatter):
         if not path:  # E.g. when null-moves are False.
             return
         move = path.generated
-        yield "# Cycle: {}, status: {}, move: {}".format(step, status, move)
+        yield f"# Cycle: {step}, status: {status}, move: {move}"
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             yield self.format_data(i, phasepoint.order)

@@ -1,6 +1,7 @@
+import logging
 import math
 import os
-import logging
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -148,8 +149,7 @@ def box_vector_angles(length, alpha, beta, gamma):
     box_matrix[0, 2] = length[2] * cos_beta
     box_matrix[1, 1] = math.sqrt(length[1] ** 2 - box_matrix[0, 1] ** 2)
     box_matrix[1, 2] = (
-        length[1] * length[2] * cos_alpha
-        - box_matrix[0, 1] * box_matrix[0, 2]
+        length[1] * length[2] * cos_alpha - box_matrix[0, 1] * box_matrix[0, 2]
     ) / box_matrix[1, 1]
     box_matrix[2, 2] = math.sqrt(
         length[2] ** 2 - box_matrix[0, 2] ** 2 - box_matrix[1, 2] ** 2
@@ -238,7 +238,7 @@ def read_txt_snapshots(filename, data_keys=None):
     if data_keys is None:
         data_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
     read_header = False
-    with open(filename, "r", encoding="utf8") as fileh:
+    with open(filename, encoding="utf8") as fileh:
         for lines in fileh:
             if read_header:
                 snapshot = {"header": lines.strip()}
@@ -299,8 +299,7 @@ def read_xyz_file(filename):
 
     """
     xyz_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
-    for snapshot in read_txt_snapshots(filename, data_keys=xyz_keys):
-        yield snapshot
+    yield from read_txt_snapshots(filename, data_keys=xyz_keys)
 
 
 def write_xyz_trajectory(
@@ -468,9 +467,7 @@ def look_for_input_files(input_path, required_files, extra_files=None):
             if file_to_check in files_in_input_path:
                 input_files["extra_files"].append(file_to_check)
             else:
-                msg = (
-                    f"Extra file {file_to_check} not present in {input_path}"
-                )
+                msg = f"Extra file {file_to_check} not present in {input_path}"
                 logger.info(msg)
 
     return input_files
