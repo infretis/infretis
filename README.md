@@ -1,16 +1,14 @@
 # infretis
+![Tests](https://github.com/infretis/infretis/actions/workflows/test.yaml/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/infretis/infretis/badge.svg?branch=main)](https://coveralls.io/github/infretis/infretis?branch=main)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-1. Requires https://gitlab.com/danielzh/pyretis/-/tree/dz24/dask to be installed.
-2. Run "python -m pip install -e ." in this root folder
-3. pip install dask distributed tomli_w
-4. run pyretisrun -i retis.rst with load and steps=0. to copy ensemble.restart files..
-5. If you have external orderp.py file, need to specfiy in infretis.toml dask > files = ["orderp.py"].
-6. The bash scripts in examples/internal/ and examples/gromacs/ explains how to run infretis.
 
-Todo:
-* inhouse path sampling code
-	1. Classes & Functions (from pyretis&ops)
-	2. Smart restart
-	3. Toy external engine
-	4. Reimplement subtrajectory MC moves
-	5. Multiple runnable ways (pin, hpc, etc.)
+## Installation 
+
+1. Clone the repository
+2. (Optional) Create a virtual environment
+3. Install with:
+   ```bash   
+   python -m pip install -e .
+   ```

@@ -1,8 +1,10 @@
 """Define the OrderParameter class."""
-from abc import abstractmethod
 import logging
+from abc import abstractmethod
+
 import numpy as np
-from infretis.core.core import generic_factory, create_external
+
+from infretis.core.core import create_external, generic_factory
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -86,7 +88,7 @@ class OrderParameter:
 
         Returns
         -------
-        out : list of floatsrom MDAnalysis.analysis.dihedrals import calc_dihedrals
+        out : list of floats
         ￼
             The order parameter(s). The first order parameter returned
             is used as the progress coordinate in path sampling
@@ -239,6 +241,7 @@ class Position(OrderParameter):
         pos = system.pos[self.index[0], self.index[1]]
         posy = system.pos[self.index[0], 1]
         return [pos, posy]
+
 
 class old_Position(OrderParameter):
     """A positional order parameter.

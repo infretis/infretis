@@ -1,11 +1,16 @@
 import numpy as np
 
-HEAD = "#     Step    No.-acc  No.-shoot l m r  Length Acc Mc            Min-O            Max-O Idx-Min Idx-Max          O-shoot  Idx-sh Idx-shN  Weight"
+HEAD = (
+    "#     Step    No.-acc  No.-shoot l m r  Length Acc Mc            "
+    "Min-O            Max-O Idx-Min Idx-Max          "
+    "O-shoot  Idx-sh Idx-shN  Weight"
+)
 
 
 def read_infinity(inp):
     path_dic = {}
-    with open(inp, "r") as read:
+    split_len = -1
+    with open(inp) as read:
         for idx, line in enumerate(read):
             strip = line.rstrip()
             if "#" in line:
@@ -33,7 +38,6 @@ def read_infinity(inp):
 def print_pathens(inp):
     dic, ens_len = read_infinity(inp)
     keys = list(dic.keys())
-    rang = range(min(keys), max(keys))
     enss = [f"{i:03.0f}" for i in range(ens_len)]
     steps = {ens: 0 for ens in enss}
     moves = {ens: "sh" if ens in ["000", "001"] else "wf" for ens in enss}
@@ -45,7 +49,9 @@ def print_pathens(inp):
     for i in keys:
         for ens in enss:
             if ens in dic[i].keys():
-                pline = f"{steps[ens]:10.0f} {steps[ens]:10.0f} {steps[ens]:10.0f}"
+                pline = (
+                    f"{steps[ens]:10.0f} {steps[ens]:10.0f} {steps[ens]:10.0f}"
+                )
                 pline += " R R R \t"
                 pline += f"  {dic[i]['len']:4.0f} ACC {moves[ens]}"
                 pline += f" {0:2.10e}"

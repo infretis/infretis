@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2022, PyRETIS Development Team.
-# Distributed under the LGPLv2.1+ License. See LICENSE for more info.
 """This file defines the order parameter used for the GROMACS example."""
 import logging
+
 import numpy as np
-from numpy import average, rint, dot, sqrt
+from numpy import average, dot, rint, sqrt
+
 from infretis.newc.orderparameter import OrderParameter
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
@@ -40,16 +40,42 @@ class RingDiffusion(OrderParameter):
             applied to the position.
 
         """
-        super().__init__(description='Ring diffusion for hydrate')
+        super().__init__(description="Ring diffusion for hydrate")
         self.idx1 = np.array([56, 64, 104, 112, 200, 208], dtype=np.int16)
         # convert to atom index:
         self.idx1 *= 4
         self.idx1 -= 3
         # convert to 0 index:
         self.idx1 -= 1
-        self.idx2 = np.array([56, 64, 72, 80, 104, 112, 136, 152, 168, 176,
-                              200, 208, 232, 248, 264, 272, 296, 304, 328,
-                              336, 344, 352, 360, 368], dtype=np.int16)
+        self.idx2 = np.array(
+            [
+                56,
+                64,
+                72,
+                80,
+                104,
+                112,
+                136,
+                152,
+                168,
+                176,
+                200,
+                208,
+                232,
+                248,
+                264,
+                272,
+                296,
+                304,
+                328,
+                336,
+                344,
+                352,
+                360,
+                368,
+            ],
+            dtype=np.int16,
+        )
         # convert to atom index:
         self.idx2 *= 4
         self.idx2 -= 3

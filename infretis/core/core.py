@@ -1,10 +1,10 @@
-import inspect
-import os
-import importlib
 import errno
-import sys
+import importlib
+import inspect
 import logging
+import os
 import pickle
+import sys
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -250,18 +250,18 @@ def create_external(settings, key, required_methods, key_settings=None):
             module = os.path.join(settings["simulation"]["exe_path"], module)
             obj = import_from(module, klass)
         else:
-            msg = 'Could not find module "{}" for {}!'.format(module, key)
+            msg = f'Could not find module "{module}" for {key}!'
             raise ValueError(msg)
     # run some checks:
     for function in required_methods:
         objfunc = getattr(obj, function, None)
         if not objfunc:
-            msg = "Could not find method {}.{}".format(klass, function)
+            msg = f"Could not find method {klass}.{function}"
             logger.critical(msg)
             raise ValueError(msg)
         else:
             if not callable(objfunc):
-                msg = "Method {}.{} is not callable!".format(klass, function)
+                msg = f"Method {klass}.{function} is not callable!"
                 logger.critical(msg)
                 raise ValueError(msg)
     return initiate_instance(obj, settings)
@@ -291,15 +291,13 @@ def import_from(module_path, function_name):
     try:
         module_name = os.path.basename(module_path)
         module_name = os.path.splitext(module_name)[0]
-        spec = importlib.util.spec_from_file_location(
-            module_name, module_path
-        )
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         sys.modules[module_name] = module
         logger.debug("Imported module: %s", module)
         return getattr(module, function_name)
-    except (ImportError, IOError):
+    except (OSError, ImportError):
         msg = f"Could not import module: {module_path}"
         logger.critical(msg)
     except AttributeError:
@@ -375,7 +373,6 @@ def write_ensemble_restart(ensemble, config, save):
     )
 
     with open(filename, "wb") as outfile:
-        toprint = os.path.join(save, "ensemble.restart")
         pickle.dump(info, outfile)
 
 
