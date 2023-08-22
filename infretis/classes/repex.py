@@ -58,7 +58,7 @@ class REPEX_state:
         self._locks = np.ones(shape=(n))
         self._last_prob = None
         self._random_count = 0
-        self._trajs = ["" for i in range(n)]
+        self._trajs = [""] * n
         self.zeroswap = 0.5
 
         # detect any locked ens-path pairs exist pre start
