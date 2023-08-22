@@ -9,6 +9,7 @@ HEAD = (
 
 def read_infinity(inp):
     path_dic = {}
+    split_len = -1
     with open(inp) as read:
         for idx, line in enumerate(read):
             strip = line.rstrip()
