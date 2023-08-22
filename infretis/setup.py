@@ -1,14 +1,16 @@
 """Setup all that is needed for the infretis simulation."""
-import os
 import logging
+import os
+
 import tomli
-from dask.distributed import dask, Client, as_completed, get_worker
-from infretis.classes.repex import REPEX_state
+from dask.distributed import Client, as_completed, dask, get_worker
+
+from infretis.classes.engines.factory import create_engines
+from infretis.classes.ensemble import create_ensembles
 from infretis.classes.formats.formatter import get_log_formatter
 from infretis.classes.orderparameter import create_orderparameters
-from infretis.classes.ensemble import create_ensembles
-from infretis.classes.engines.factory import create_engines
 from infretis.classes.path import load_paths_from_disk
+from infretis.classes.repex import REPEX_state
 
 logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)
