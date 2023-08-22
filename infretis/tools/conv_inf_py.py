@@ -1,6 +1,10 @@
 import numpy as np
 
-HEAD = "#     Step    No.-acc  No.-shoot l m r  Length Acc Mc            Min-O            Max-O Idx-Min Idx-Max          O-shoot  Idx-sh Idx-shN  Weight"
+HEAD = (
+    "#     Step    No.-acc  No.-shoot l m r  Length Acc Mc            "
+    "Min-O            Max-O Idx-Min Idx-Max          "
+    "O-shoot  Idx-sh Idx-shN  Weight"
+)
 
 
 def read_infinity(inp):
