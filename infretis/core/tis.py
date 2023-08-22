@@ -518,7 +518,10 @@ def wire_fencing(
             sub_ens, new_segment, engine, start_cond=("L", "R")
         )
         start, end, _, _ = trial_seg.check_interfaces(wf_int)
-        # print('path_old0', trial_seg.length, [i.vel for i in trial_seg.phasepoints])
+        # print(
+        #    'path_old0', trial_seg.length,
+        #    [i.vel for i in trial_seg.phasepoints]
+        # )
         logger.info(
             "Jump %s, len %s, status %s, intf: %s %s",
             i,
@@ -540,8 +543,16 @@ def wire_fencing(
         trial_path.status = "NSG"
         success = False
     else:
-        # print('path_old0', trial_seg.length, [i.vel_rev for i in trial_seg.phasepoints])
-        # print('path_old0', new_segment.length, [i.vel_rev for i in new_segment.phasepoints])
+        # print(
+        #    'path_old0',
+        #    trial_seg.length,
+        #    [i.vel_rev for i in trial_seg.phasepoints]
+        # )
+        # print(
+        #    'path_old0',
+        #    new_segment.length,
+        #    [i.vel_rev for i in new_segment.phasepoints]
+        # )
         success, trial_path, _ = extender(
             new_segment, engine, ens_set, start_cond
         )
@@ -550,7 +561,7 @@ def wire_fencing(
             trial_path, ens_set, engine, old_path, start_cond
         )
 
-    # trial_path.generated = ('wf', sh_pt.order[0], succ_seg, trial_path.length)
+    trial_path.generated = ("wf", sh_pt.order[0], succ_seg, trial_path.length)
     trial_path.generated = ("wf", 9000, succ_seg, trial_path.length)
 
     logger.debug("WF move %s", trial_path.status)
@@ -1112,7 +1123,12 @@ def shoot_backwards(
         # Nope, backward trajectory end at wrong interface.
         trial_path += path_back  # Store path for analysis.
         trial_path.status = "BWI"
-        # print('boulder a', left, right, path_back.get_end_point(left, right), set(start_cond))
+        # print(
+        #    'boulder a',
+        #    left, right,
+        #    path_back.get_end_point(left, right),
+        #    set(start_cond)
+        # )
         return False
     return True
 
