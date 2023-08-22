@@ -36,7 +36,6 @@ subcycles = 1
 
 [engine.integrator]
 class = 'LangevinInertia'
-
 [engine.integrator.settings]
 gamma = 0.3
 beta = 1.0 # boltzmann constant
