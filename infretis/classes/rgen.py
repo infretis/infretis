@@ -650,4 +650,3 @@ def create_random_generator(settings=None):
         rgen.status = "new rgen"
 
     return rgen
-
