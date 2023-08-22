@@ -1,0 +1,4 @@
+#       time        trajfile      index   vel
+         0        traj.xyz          0     1
+         1        traj.xyz          1     1
+         2        traj.xyz          2     1
