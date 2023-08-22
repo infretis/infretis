@@ -125,78 +125,14 @@ class RandomGeneratorBase(metaclass=ABCMeta):
         """
         return
 
-    def generate_maxwellian_velocities(
-        self,
-        particles,
-        boltzmann,
-        temperature,
-        dof,
-        selection=None,
-        zero_momentum=True,
-    ):
-        """Generate velocities from a Maxwell distribution.
-
-        The velocities are drawn to match a given temperature and this
-        function can be applied to a subset of the particles.
-
-        The generation is done in three steps:
-
-        1) We generate velocities from a standard normal distribution.
-
-        2) We scale the velocity of particle `i` with
-           ``1.0/sqrt(mass_i)`` and reset the momentum.
-
-        3) We scale the velocities to the set temperature.
-
-        Parameters
-        ----------
-        particles : object like :py:class:`.Particles`
-            These are the particles to set the velocity of.
-        boltzmann : float
-            The Boltzmann factor in correct units.
-        temperature : float
-            The desired temperature.
-            Typically, `system.temperature['set']` will be used here.
-        dof : list of floats, optional
-            The degrees of freedom to subtract. Its shape should
-            be equal to the number of dimensions.
-        selection : list of ints, optional
-            A list with indices of the particles to consider.
-            Can be used to only apply it to a selection of particles
-        zero_momentum : boolean, optional
-            If true, we will reset the momentum.
-
-        Returns
-        -------
-        out : None
-            Returns `None` but modifies velocities of the selected
-            particles.
-
-        """
-        if selection is None:
-            vel, imass = particles.vel, particles.imass
-        else:
-            vel, imass = particles.vel[selection], particles.imass[selection]
-        vel = np.sqrt(imass) * self.normal(loc=0.0, scale=1.0, size=vel.shape)
-        # NOTE: x[None] = x for a numpy.array - this is not valid for a list.
-        particles.vel[selection] = vel
-        if zero_momentum:
-            reset_momentum(particles, selection=selection)
-
-        _, avgtemp, _ = calculate_kinetic_temperature(
-            particles, boltzmann, dof=dof, selection=selection
-        )
-        scale_factor = np.sqrt(temperature / avgtemp)
-        particles.vel[selection] *= scale_factor
-
     def draw_maxwellian_velocities(self, vel, mass, beta, sigma_v=None):
         """Draw numbers from a Gaussian distribution.
 
         Parameters
         ----------
         system : object like :py:class:`.System`
-            This is used to determine the shape (number of particles and dimensionality)
-            and requires veloctities.
+            This is used to determine the shape (number of particles
+            and dimensionality) and requires veloctities.
         engine : object like :py:class:`.Engine`
             This is used to determine the temperature parameter(s)
         sigma_v : numpy.array, optional
@@ -206,12 +142,8 @@ class RandomGeneratorBase(metaclass=ABCMeta):
         """
         if not sigma_v or sigma_v < 0.0:
             kbt = 1.0 / beta
-            # sigma_v is (n, 1) matrix
             sigma_v = np.sqrt(kbt * (1 / mass))
-        # we might not have velocity information
-        # if type(vel)!=np.ndarray:
-        #    npart, dim = mass.shape[0],3
-        # else:
+
         npart, dim = vel.shape
         vel = self.normal(loc=0.0, scale=sigma_v, size=(npart, dim))
         return vel, sigma_v
@@ -605,7 +537,7 @@ class MockRandomGenerator(RandomGeneratorBase):
             The picked choices.
 
         """
-        if type(a) is int:
+        if isinstance(a, int):
             a = list(range(a))
         if p is None:
             p = [1 / len(a) for i in a]
@@ -719,102 +651,3 @@ def create_random_generator(settings=None):
 
     return rgen
 
-
-def _get_vel_mass(particles, selection=None):
-    """Return velocity and mass for a selection.
-
-    This is just for convenience since we are using this
-    selection a lot.
-
-    Parameters
-    ----------
-    particles : object like :py:class:`.Particles`
-        This object represents the particles.
-    selection : list of integers, optional
-        A list with indices of particles to use in the calculation.
-
-    Returns
-    -------
-    out[0] : numpy.array
-        The velocities corresponding to the selection.
-    out[1] : numpy.array, optional
-        The masses corresponding to the selection.
-
-    """
-    if selection is None:
-        vel = particles.vel
-        mass = particles.mass
-    else:
-        vel = particles.vel[selection]
-        mass = particles.mass[selection]
-    return vel, mass
-
-
-def calculate_kinetic_temperature(
-    particles, boltzmann, dof=None, selection=None, kin_tensor=None
-):
-    """Return the kinetic temperature of a collection of particles.
-
-    Parameters
-    ----------
-    particles : object like :py:class:`.Particles`
-        This object represents the particles.
-    boltzmann : float
-        This is the Boltzmann factor/constant in correct units.
-    dof : list of floats, optional
-        The degrees of freedom to subtract. Its shape should
-        be equal to the number of dimensions.
-    selection : list of integers, optional
-        A list with indices of particles to use in the calculation.
-    kin_tensor : numpy.array optional
-        The kinetic energy tensor. If the kinetic energy tensor is not
-        given, it will be recalculated here.
-
-    Returns
-    -------
-    out[0] : numpy.array
-        Array with the same size as the kinetic energy. It
-        contains the temperature in each spatial dimension.
-    out[1] : float
-        The temperature averaged over all dimensions.
-    out[2] : numpy.array
-        The kinetic energy tensor.
-
-    """
-    vel, mass = _get_vel_mass(particles, selection=selection)
-    npart = len(mass)  # using mass, since selection may be != particles.npart
-    ndof = npart * np.ones(vel[0].shape)
-
-    if kin_tensor is None:
-        kin_tensor = calculate_kinetic_energy_tensor(
-            particles, selection=selection
-        )
-    if dof is not None:
-        ndof = ndof - dof
-    temperature = (2.0 * kin_tensor.diagonal() / ndof) / boltzmann
-    return temperature, np.average(temperature), kin_tensor
-
-
-def calculate_kinetic_energy_tensor(particles, selection=None):
-    """Return the kinetic energy tensor for a selection of particles.
-
-    The tensor is formed as the outer product of the velocities.
-
-    Parameters
-    ----------
-    particles : object like :py:class:`.Particles`
-        This object represents the particles.
-    selection : list of integers, optional
-        A list with indices of particles to use in the calculation.
-
-    Returns
-    -------
-    out : numpy.array
-        The kinetic energy tensor. Dimensionality is equal to (dim, dim)
-        where dim is the number of dimensions used in the velocities.
-        The trace gives the kinetic energy.
-
-    """
-    vel, mass = _get_vel_mass(particles, selection=selection)
-    _, kin = kinetic_energy(vel, mass)
-    return kin
