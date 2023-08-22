@@ -373,7 +373,6 @@ def write_ensemble_restart(ensemble, config, save):
     )
 
     with open(filename, "wb") as outfile:
-        toprint = os.path.join(save, "ensemble.restart")
         pickle.dump(info, outfile)
 
 
