@@ -565,22 +565,16 @@ class FileIO(OutputBase):
                     self.file_mode
                 )
             )
-        msg = []
         try:
             if os.path.isfile(self.filename):
-                msg = ""
                 if self.file_mode.startswith("a"):
                     logger.info(
                         'Appending to existing file "%s"', self.filename
                     )
                 else:
-                    if self.backup:
-                        msg = create_backup(self.filename)
-                        logger.debug(msg)
-                    else:
-                        logger.debug(
-                            'Overwriting existing file "%s"', self.filename
-                        )
+                    logger.debug(
+                        'Overwriting existing file "%s"', self.filename
+                    )
             self.fileh = open(self.filename, self.file_mode)
         except OSError as error:  # pragma: no cover
             logger.critical(

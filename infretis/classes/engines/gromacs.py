@@ -1978,3 +1978,48 @@ def _add_matrices_to_snapshot(snapshot):
     snapshot["xyz"] = xyz
     snapshot["vel"] = vel
     return xyz, vel
+
+def reopen_file(filename, fileh, inode, bytes_read):
+    """Reopen a file if the inode has changed.
+
+    Parameters
+    ----------
+    filename : string
+        The name of the file we are working with.
+    fileh : file object
+        The current open file object.
+    inode : integer
+        The current inode we are using.
+    bytes_read : integer
+        The position we should start reading at.
+
+    Returns
+    -------
+    out[0] : file object or None
+        The new file object.
+    out[1] : integer or None
+        The new inode.
+
+    """
+    if os.stat(filename).st_ino != inode:
+        new_fileh = open(filename, 'rb')
+        fileh.close()
+        new_inode = os.fstat(new_fileh.fileno()).st_ino
+        new_fileh.seek(bytes_read)
+        return new_fileh, new_inode
+    return None, None
+
+def swap_integer(integer):
+    """Convert little/big endian."""
+    return (((integer << 24) & 0xff000000) | ((integer << 8) & 0x00ff0000) |
+            ((integer >> 8) & 0x0000ff00) | ((integer >> 24) & 0x000000ff))
+
+
+def swap_endian(endian):
+    """Just swap the string for selecting big/little."""
+    if endian == '>':
+        return '<'
+    if endian == '<':
+        return '>'
+    raise ValueError('Undefined swap!')
+

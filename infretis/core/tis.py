@@ -2,7 +2,9 @@ import logging
 import os
 import time
 
-from infretis.classes.path import paste_paths
+import numpy as np
+
+from infretis.classes.path import Path, paste_paths
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -138,6 +140,41 @@ def crossing_counter(path, interface):
         if op2 >= interface > op1 or op1 >= interface > op2:
             cnt += 1
     return cnt
+
+
+def crossing_finder(path, interface, last_frame=False):
+    """Find the crossing to an interfaces.
+
+    Method to select the crosses of a path over an interface.
+
+    Parameters
+    -----------
+    path : object like :py:class:`.PathBase`
+        Input path which will be trimmed.
+    interface : float
+        Interface position.
+    last_frame : boolean, optional
+        Determines if the last crossing will be selected or not.
+
+    Returns
+    -------
+    ph1, ph2 : snapshots
+        Snapshots to define the randomly picked crossing,
+        one right before and one right after the interface.
+
+    """
+    ph1, ph2 = [], []
+    for i in range(len(path.phasepoints[:-1])):
+        op1 = path.phasepoints[i].order[0]
+        op2 = path.phasepoints[i+1].order[0]
+        if op2 >= interface > op1 or op1 >= interface > op2:
+            ph1.append(path.phasepoints[i])
+            ph2.append(path.phasepoints[i+1])
+    if not ph1:
+        return None, None
+    assert ph1, 'No crossing point available'
+    idx = -1 if last_frame else path.rgen.random_integers(0, len(ph1) - 1)
+    return ph1[idx], ph2[idx]
 
 
 def wirefence_weight_and_pick(
@@ -415,8 +452,6 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
     return True, trial_path, trial_path.status
 
 
-# def wire_fencing(ensemble, tis_settings, start_cond):
-# def wire_fencing(pens, shooting_point=None, start_cond=('L',)):
 def wire_fencing(
     ens_set, trial_path, engine, shooting_point=None, start_cond=("L",)
 ):
@@ -561,7 +596,6 @@ def wire_fencing(
             trial_path, ens_set, engine, old_path, start_cond
         )
 
-    trial_path.generated = ("wf", sh_pt.order[0], succ_seg, trial_path.length)
     trial_path.generated = ("wf", 9000, succ_seg, trial_path.length)
 
     logger.debug("WF move %s", trial_path.status)
@@ -844,7 +878,7 @@ def ss_wt_wf_metropolis_acc(path_old, path_new, ens_set, start_cond="L"):
     move = ens_set["mc_move"]
     high_accept = ens_set["tis_set"].get("high_accept", False)
     if move == "wt":
-        sour_int = tis_set["interface_sour"]
+        sour_int = ens_set["interface_sour"]
         cr_old = segments_counter(path_old, sour_int, interfaces[1])
         cr_new = segments_counter(path_new, sour_int, interfaces[1])
         if ens_set["rgen"].rand() >= min(1.0, cr_old / cr_new):
@@ -1512,7 +1546,7 @@ def retis_swap_zero(picked):
     logger.debug("Creating path for [0^-]")
     # system = path_ensemble1.last_path.phasepoints[0].copy()
     shpt_copy = path_old1.phasepoints[0].copy()
-    shpt_copy2 = path_old1.phasepoints[0].copy()
+    # shpt_copy2 = path_old1.phasepoints[0].copy()
     logger.debug("Initial point is: %s", shpt_copy)
     # Propagate it backward in time:
     path_tmp = path_old1.empty_path(maxlen=maxlen1 - 1)
@@ -1648,3 +1682,134 @@ def swap_ensemble_attributes(ens1, ens2, settings):
         old_attr = ens1[attr]
         ens1[attr] = ens2[attr]
         ens2[attr] = old_attr
+
+
+def one_step_crossing(ensemble, interface):
+    """Create a path of one step and check the crossing with the interface.
+
+    This function will do a single step to try to cross the interface.
+    Note that a step might involve several substeps, depending on the
+    input file selection/sampling strategy.
+    This task is the Achilles` Heel of Stone Skipping. If not wisely
+    done, a large number of attempts to cross the interface
+    in one step will be done, destroying the sampling efficiency.
+
+
+    Parameters
+    ----------
+    ensemble : dictionary of objects
+        It contains:
+
+        * `system`: object like :py:class:`.System`
+          System is used here since we need access to the temperature
+          and to the particle list.
+        * `order_function`: object like :py:class:`.OrderParameter`
+          The class used for obtaining the order parameter(s).
+        * `engine`: object like :py:class:`.EngineBase`
+          The engine to use for propagating a path.
+        * `rgen`: object like :py:class:`.RandomGenerator`
+          This is the random generator that will be used.
+    interface : float
+        This is the interface position to be crossed.
+
+    Returns
+    -------
+    out[0] : boolean
+        True if the path can be accepted.
+    out[1] : object like :py:class:`.PathBase`
+        Returns the generated path.
+
+    """
+    # The trial path we need to generate. Note, 1 step = 2 points
+    trial_path = Path(rgen=ensemble['rgen'], maxlen=2)
+    interfaces = [-float("inf"), float("inf"), float("inf")]
+    sub_ensemble = {'interfaces': interfaces,
+                    'system': ensemble['system'],
+                    'order_function': ensemble['order_function']}
+    ensemble['engine'].propagate(trial_path, sub_ensemble)
+    if crossing_counter(trial_path, interface) == 0:
+        return False, trial_path
+
+    return True, trial_path
+
+
+def metropolis_accept_reject(rgen, system, deltae):
+    """Accept/reject a energy change according to the metropolis rule.
+
+    FIXME: Check if metropolis really is a good name here.
+
+    Parameters
+    ----------
+    rgen : object like :py:class:`.RandomGenerator`
+        The random number generator.
+    system : object like :py:class:`.System`
+        The system object we are investigating. This is used
+        to access the beta factor.
+    deltae : float
+        The change in energy.
+
+    Returns
+    -------
+    out : boolean
+        True if the move is accepted, False otherwise.
+
+    Notes
+    -----
+    An overflow is possible when using `numpy.exp()` here.
+    This can, for instance, happen in an umbrella simulation
+    where the bias potential is infinite or very large.
+    Right now, this is just ignored.
+
+    """
+    if deltae < 0.0:  # short-cut to avoid calculating np.exp()
+        return True
+    pacc = np.exp(-system.temperature['beta'] * deltae)
+    return rgen.rand(shape=1)[0] < pacc
+
+def high_acc_swap(paths, rgen, intf0, intf1, ens_moves):
+    """Accept or Reject a swap move using the High Acceptance weights.
+
+    Parameters
+    ----------
+    paths: list of object like :py:class:`.PathBase`
+        The path in the LOWER and UPPER ensemble to exchange.
+    rgen : object like :py:class:`.RandomGenerator`
+        This is a random generator.
+    intf0: list of float
+        The interfaces of the LOWER ensemble.
+    intf1: list of float
+        The interfaces of the HIGHER ensemble.
+    ens_moves: list of string
+        The moves used in the two ensembles.
+
+    Returns
+    -------
+    out[0] : boolean
+        True if the move should be accepted.
+
+    Notes
+    -----
+     -  This function is needed only when paths generated via Wire Fencing or
+        Stone Skipping are involved.
+      - In the case that a path bears a flag 'ld', the swap is accepted,
+            but the flag will be unchanged.
+
+    """
+    # Crossing before the move
+    c1_old = compute_weight(paths[0], intf0, ens_moves[0])
+    c2_old = compute_weight(paths[1], intf1, ens_moves[1])
+    # Crossing if the move would be accepted
+    c1_new = compute_weight(paths[1], intf0, ens_moves[0])
+    c2_new = compute_weight(paths[0], intf1, ens_moves[1])
+    if c1_old == 0 or c2_old == 0:
+        logger.warning("div_by_zero. c1_old, c2_old, ens_moves: [%i,%i], %s",
+                       c1_old, c2_old, str(ens_moves))
+        p_swap_acc = 1
+    else:
+        p_swap_acc = c1_new*c2_new/(c1_old*c2_old)
+
+    # Finally, randomly decide to accept or not:
+    if rgen.rand() < p_swap_acc:
+        return True, 'ACC'  # Accepted
+
+    return False, 'HAS'  # Rejected
