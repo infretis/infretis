@@ -1,8 +1,8 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from datetime import datetime
-import subprocess
 import argparse
+from datetime import datetime
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 parser = argparse.ArgumentParser(
     description="Analyze the time since starting an infretis simulation."
@@ -15,7 +15,7 @@ args = parser.parse_args()
 
 def grep(infile):
     out = []
-    with open(infile, "r") as f:
+    with open(infile) as f:
         for line in f.readlines():
             if "date" in line:
                 out.append(line.split()[-2:])
@@ -30,10 +30,7 @@ def calculate_minutes_since_start(datetime_array):
     # Convert dates and times to datetime objects
     datetime_strings = [f"{date} {time}" for date, time in zip(dates, times)]
     datetimes = np.array(
-        [
-            datetime.strptime(dt, "%Y.%m.%d %H:%M:%S")
-            for dt in datetime_strings
-        ]
+        [datetime.strptime(dt, "%Y.%m.%d %H:%M:%S") for dt in datetime_strings]
     )
 
     # Calculate the time difference in minutes

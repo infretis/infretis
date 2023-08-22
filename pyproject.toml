@@ -31,12 +31,12 @@ pytest-randomly = "^3.13.0"
 pre-commit = "^3.3.3"
 
 [tool.ruff]
-line-length = 78
+line-length = 79
 select = ["F", "E", "W", "I001", "UP"]
 ignore-init-module-imports = true
 
 [tool.black]
-line-length = 78
+line-length = 79
 target-version = ["py310", "py311"]
 
 [tool.mypy]

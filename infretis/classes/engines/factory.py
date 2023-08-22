@@ -1,8 +1,9 @@
 """Engine factory."""
 import logging
-from infretis.classes.engines.gromacs import GromacsEngine
+
 from infretis.classes.engines.cp2k import CP2KEngine
-from infretis.core.core import generic_factory, create_external
+from infretis.classes.engines.gromacs import GromacsEngine
+from infretis.core.core import create_external, generic_factory
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

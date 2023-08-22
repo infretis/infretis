@@ -1,10 +1,9 @@
 import logging
 import os
-import numpy as np
+
 from infretis.classes.formats.formatter import (
-    OutputFormatter,
     FileIO,
-    read_some_lines,
+    OutputFormatter,
 )
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -64,7 +63,7 @@ class PathExtFormatter(OutputFormatter):
         path, status = data[0], data[1]
         if not path:  # E.g. when null-moves are False.
             return
-        yield "# Cycle: {}, status: {}".format(step, status)
+        yield f"# Cycle: {step}, status: {status}"
         yield self.header
         for i, phasepoint in enumerate(path.phasepoints):
             filename, idx = phasepoint.particles.get_pos()
