@@ -2,6 +2,7 @@
 import logging
 import os
 import pickle
+import sys
 import time
 from datetime import datetime
 
@@ -1000,7 +1001,7 @@ def write_to_pathens(state, pn_archive):
                 frac.append("----" if f0 == 0.0 else str(f0))
                 if weight == 0:
                     print("tortoise", frac, weight)
-                    exit("fish")
+                    sys.exit("fish")
                 weight.append("----" if f0 == 0.0 else str(w0))
                 frac += ["----"] * (size - 2)
                 weight += ["----"] * (size - 2)
