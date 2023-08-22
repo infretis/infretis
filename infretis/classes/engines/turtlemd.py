@@ -55,6 +55,8 @@ class TurtleMDEngine(EngineBase):
         * In the langevin integrator we get beta from
           the engine settings. How should we handle this
           with other integrators?
+        * Velocity generation adds needs to accound for
+          the dimensionality of the system
     """
 
     def __init__(
