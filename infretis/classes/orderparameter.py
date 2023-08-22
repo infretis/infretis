@@ -237,8 +237,8 @@ class Position(OrderParameter):
 
         """
         pos = system.pos[self.index[0], self.index[1]]
-        posy = system.pos[self.index[0], 1]
-        return [pos, posy]
+        return [pos]
+
 
 class old_Position(OrderParameter):
     """A positional order parameter.
