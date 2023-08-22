@@ -226,9 +226,6 @@ class EngineBase(metaclass=ABCMeta):
                 system.vel = -1.0 * vel
         else:
             system.vel = vel
-        if box is None and self.input_files.get("template", False):
-            # CP2K specific box initiation:
-            box, _ = read_cp2k_box(ensemble["engine"].input_files["template"])
 
         # system.update_box(box)
         system.box = box

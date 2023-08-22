@@ -1008,10 +1008,6 @@ class PathStorage(OutputBase):
         """
         super().__init__(None)
 
-    def archive_name_from_status(self, status):
-        """Return the name of the archive to use."""
-        return self.archive_acc if status == "ACC" else self.archive_rej
-
     def output_path_files(self, step, data, target_dir):
         """Write the output files for energy, path and order parameter.
 
@@ -1119,7 +1115,6 @@ class PathStorage(OutputBase):
         # home_dir = path_ensemble.directory['home_dir'] + '/trajs'
         path = data["path"]
         home_dir = data["dir"]
-        archive = self.archive_name_from_status("ACC")
         # This is the path on form: /path/to/000/traj/11
         archive_path = os.path.join(
             home_dir,
@@ -1132,10 +1127,9 @@ class PathStorage(OutputBase):
         # Create the needed directories:
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
-        files = self.output_path_files(step, (path, "ACC"), archive_path)
+        _ = self.output_path_files(step, (path, "ACC"), archive_path)
         path = self._copy_path(path, traj_dir)
         return path
-        # return files
 
     def write(self, towrite, end="\n"):
         """We do not need the write method for this object."""
