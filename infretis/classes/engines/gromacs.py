@@ -817,7 +817,6 @@ class GromacsEngine(EngineBase):
                 self.input_files["input"], gen_mdp, settings, delim="="
             )
         # Run GROMACS grompp for this input file:
-        # out_grompp = self._execute_grompp(os.path.basename(gen_mdp), os.path.basename(input_file), 'genvel')
         out_grompp = self._execute_grompp(gen_mdp, input_file, "genvel")
         remove = [val for _, val in out_grompp.items()]
         # Run GROMACS mdrun for this tpr file:
