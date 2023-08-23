@@ -437,7 +437,7 @@ class MockRandomGenerator(RandomGeneratorBase):
 
         """
         idx = self.rand() * (high - low + 1)
-        return int(idx) + low
+        return int(idx[0]) + low
 
     def normal(self, loc=0.0, scale=1.0, size=None):
         """Return values from a normal distribution.
