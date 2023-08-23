@@ -52,9 +52,6 @@ class TurtleMDEngine(EngineBase):
     """
     To do:
         * Add support for multiple potentials?
-        * In the langevin integrator we get beta from
-          the engine settings. How should we handle this
-          with other integrators?
         * Velocity generation adds needs to accound for
           the dimensionality of the system
     """
@@ -64,6 +61,7 @@ class TurtleMDEngine(EngineBase):
         timestep,
         subcycles,
         temperature,
+        boltzmann,
         integrator,
         potential,
         particles,
@@ -77,13 +75,8 @@ class TurtleMDEngine(EngineBase):
             "TurtleMD internal engine", self.timestep, self.subcycles
         )
 
-        if integrator["settings"].get("beta", False):
-            self.beta = integrator["settings"]["beta"]
-            self.boltzmann = 1 / (
-                integrator["settings"]["beta"] * self.temperature
-            )
-        else:
-            exit("Fix this")
+        self.boltzmann = boltzmann
+        self.beta = 1 / (self.boltzmann * self.temperature)
 
         self.subcycles = subcycles
 
@@ -91,6 +84,14 @@ class TurtleMDEngine(EngineBase):
         self.integrator_settings = integrator["settings"]
         self.potential = POTENTIAL_MAPS[potential["class"].lower()]
         self.potential = [self.potential(**potential["settings"])]
+
+        if integrator["class"].lower() in [
+            "langevininertia",
+            "langevinoverdamped",
+        ]:
+            self.langevin_rgen = default_rng(
+                seed=integrator["settings"].pop("seed")
+            )
 
         self.dim = self.potential[0].dim
 
@@ -165,12 +166,11 @@ class TurtleMDEngine(EngineBase):
         tmd_system = System(
             box=self.box, particles=particles, potentials=self.potential
         )
+        seed = self.rgen.random_integers(0, 1e9)
         tmd_simulation = MDSimulation(
             system=tmd_system,
             integrator=self.integrator(
-                timestep=self.timestep,
-                **self.integrator_settings,
-                seed=np.random.randint(42000),
+                timestep=self.timestep, **self.integrator_settings, seed=seed
             ),
             steps=path.maxlen * self.subcycles,
         )
@@ -193,9 +193,6 @@ class TurtleMDEngine(EngineBase):
         # turtlemd does not integrate the equations of motion, it just
         # returns the initial system
         for i, step in enumerate(tmd_simulation.run()):
-            tmd_system.particles.vel = reset_momentum(
-                tmd_system.particles.vel, tmd_system.particles.mass
-            )
             if (i) % (self.subcycles) == 0:
                 thermoi = step.thermo(self.boltzmann)
                 for key, val in thermoi.items():
