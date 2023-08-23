@@ -40,7 +40,7 @@ class = 'LangevinInertia'
 [engine.integrator.settings]
 gamma = 0.3
 beta = 14.285714285714285 # 1/(boltzmann*T)
-seed = 69 # seed for the langevin integrator
+seed = 69 # not used atm
 
 [engine.potential]
 class = 'DoubleWell'
