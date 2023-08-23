@@ -32,13 +32,15 @@ class = 'turtlemd'
 engine = 'turtlemd'
 timestep = 0.025
 temperature = 0.07
+boltzmann = 1.0
 subcycles = 1
 
 [engine.integrator]
 class = 'LangevinInertia'
 [engine.integrator.settings]
 gamma = 0.3
-beta = 1.0 # boltzmann constant
+beta = 14.285714285714285 # 1/(boltzmann*T)
+seed = 69 # seed for the langevin integrator
 
 [engine.potential]
 class = 'DoubleWell'
