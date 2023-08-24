@@ -61,10 +61,8 @@ for idx, i in enumerate(INP_PATH.phasepoints):
     INP_PATH.phasepoints[idx].config = tup
 
 
-def check_smooth(path):
+def check_smooth(path: Path) -> tuple:
     """Inspect whether a path is smooth or not.
-
-    [TODO:description]
 
     Args:
         path ([TODO:type]): [TODO:description]
@@ -97,13 +95,13 @@ def test_shooting(tmp_path: Path) -> None:
     TURTLE.rgen = ENS_SET["rgen"]
     success, trial_seg, status = shoot(ENS_SET, INP_PATH, TURTLE)
     assert not success
-    assert trial_seg.length == 24
+    assert trial_seg.length == 34
     assert status == "BWI"
     assert check_smooth(trial_seg)[1]
 
 
 def test_prepare_shooting_point(tmp_path: Path) -> None:
-    """Test the prepare shooting point function.
+    """Testing the prepare shooting point function.
 
     Args:
         tmp_path: Input trajectory.

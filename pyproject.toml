@@ -34,6 +34,8 @@ pre-commit = "^3.3.3"
 line-length = 79
 select = ["F", "E", "W", "I001", "UP"]
 ignore-init-module-imports = true
+[tool.ruff.pydocstyle]
+convention = "google"
 
 [tool.black]
 line-length = 79
