@@ -340,7 +340,7 @@ class MockRandomGenerator(RandomGeneratorBase):
     be used for actual production runs!
     """
 
-    def __init__(self, seed=0, norm_shift=False):
+    def __init__(self, seed=0):
         """Initialise the mock random number generator.
 
         Here, we set up some predefined random number which we will
@@ -350,10 +350,6 @@ class MockRandomGenerator(RandomGeneratorBase):
         ----------
         seed : int, optional
             An integer used for seeding the generator if needed.
-        norm_shift: boolean
-            If True is will ensure that the fake 'normal distribution'
-            is shifted to get the right mean.
-
         """
         super().__init__(seed=seed)
         self.rgen = [
@@ -380,14 +376,7 @@ class MockRandomGenerator(RandomGeneratorBase):
         ]
         self.length = len(self.rgen)
         self.randint = self.seed
-        self.norm_shift = norm_shift
         logger.critical('You are using a "mock" random generator!\n')
-        if norm_shift:
-            logger.critical("Fake-normal is shifted.\n")
-            logger.critical("Comparison with TISMOL might fail\n")
-        else:
-            logger.critical("Fake-normal is not shifted.\n")
-            logger.critical("Random numbers not centered around 0.\n")
 
     def rand(self, shape=1):
         """Draw random numbers in [0, 1).
@@ -464,15 +453,11 @@ class MockRandomGenerator(RandomGeneratorBase):
         the value of loc.
 
         """
-        if self.norm_shift:
-            shift = loc - 0.5
-        else:
-            shift = 0.0
         if size is None:
-            return self.rand(shape=1) + shift
+            return self.rand(shape=1)
         numbers = np.zeros(size)
         for i in np.nditer(numbers, op_flags=["readwrite"]):
-            i[...] = self.rand(shape=1)[0] + shift
+            i[...] = self.rand(shape=1)[0]
         return numbers
 
     def multivariate_normal(self, mean, cov, cho=None, size=1):

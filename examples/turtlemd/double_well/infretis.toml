@@ -70,3 +70,4 @@ energy-file = 1
 trajectory-file = -1
 screen = 1
 pattern = 1
+delete_old = true
