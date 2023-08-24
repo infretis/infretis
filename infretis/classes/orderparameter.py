@@ -242,7 +242,6 @@ class Position(OrderParameter):
         return [pos]
 
 
-
 class old_Position(OrderParameter):
     """A positional order parameter.
 
