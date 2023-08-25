@@ -352,8 +352,8 @@ class TurtleMDEngine(EngineBase):
             dek = float("inf")
             logger.debug(
                 "Kinetic energy not found for previous point."
-                    "\n(This happens when the initial configuration "
-                    "does not contain energies.)"
+                "\n(This happens when the initial configuration "
+                "does not contain energies.)"
             )
         else:
             dek = kin_new - kin_old
