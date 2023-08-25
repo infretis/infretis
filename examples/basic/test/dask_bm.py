@@ -1,17 +1,18 @@
-import numpy as np
-import psutil
 import os
 import subprocess
+
 from dask.distributed import Client, as_completed
 
-# GMX = 'mdrun -s topol.tpr -deffnm sim00 -ntomp 4 -pin on -nsteps 50000 -resethway -notunepme -bonded cpu -pinoffset 0 -pinstride 1 -gpu_id 0'
+# GMX = 'mdrun -s topol.tpr -deffnm sim00 -ntomp 4 -pin on -nsteps 50000
+# -resethway -notunepme -bonded cpu -pinoffset 0 -pinstride 1 -gpu_id 0'
 # CMD = [0: '']
 NTOMP = 1
-GMX = f"gmx mdrun -s topol.tpr -deffnm worker-itnum -ntmpi {NTOMP} -nsteps 25 -pin on -pinoffset xxx -pinstride 1"
+GMX = f"gmx mdrun -s topol.tpr -deffnm worker-itnum -ntmpi {NTOMP} " \
+        + "-nsteps 25 -pin on -pinoffset xxx -pinstride 1"
 
 
 def read_log(deffnm):
-    with open(f"{deffnm}.log", "r") as read:
+    with open(f"{deffnm}.log") as read:
         for line in read:
             if "Performance" in line:
                 return line.rstrip().split()[1]
@@ -21,7 +22,7 @@ def run_gromacs(md_items):
     deffnm = f"sim-{md_items['w_id']}-{md_items['w_it']}"
     run = md_items["run"].replace("worker-itnum", deffnm)
     with open("output.txt", "w") as out:
-        return_code = subprocess.Popen(run.split(" "), stderr=out)
+        subprocess.Popen(run.split(" "), stderr=out)
     md_items["perf"] = read_log(deffnm)
 
     return md_items

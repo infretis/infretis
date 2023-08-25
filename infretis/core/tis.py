@@ -438,6 +438,7 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
 
     # Last check - Did we cross the middle interface?
     # Don't do this for paths that can start everywhere
+    start_cond = ens_set.get("start_cond", start_cond)
     if set(("R", "L")) == set(start_cond):
         pass
     elif not trial_path.check_interfaces(interfaces)[-1][1]:
@@ -539,6 +540,7 @@ def wire_fencing(
         "allowmaxlength": True,
         "maxlength": 100000,
         "ens_name": ens_set["ens_name"],
+        "start_cond": ens_set["start_cond"],
     }
 
     succ_seg = 0
@@ -1140,7 +1142,6 @@ def shoot_backwards(
     success_back, _ = engine.propagate(
         path_back, ens_set, system, reverse=True
     )
-    # print('crab a', ens_set['interfaces'])
     if not success_back:
         # Something went wrong, most probably the path length was exceeded.
         trial_path.status = "BTL"  # BTL = backward trajectory too long.

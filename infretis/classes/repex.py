@@ -245,6 +245,7 @@ class REPEX_state:
         # allocate worker pin:
         for ens_num in md_items["ens_nums"]:
             if self.config["dask"].get("wmdrun", False):
+                # also sets the rgen
                 md_items["picked"][ens_num]["engine"].set_mdrun(
                     self.config, md_items
                 )
