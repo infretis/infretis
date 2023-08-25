@@ -28,7 +28,7 @@ from turtlemd.potentials.well import DoubleWell
 from turtlemd.system.particles import generate_maxwell_velocities, Particles
 from turtlemd.system.box import Box
 from turtlemd.system.system import System
-from turtlemd.integrators import langevinInertia, LangevinOverdamped, VelocityVerlet, Verlet
+from turtlemd.integrators import LangevinInertia, LangevinOverdamped, VelocityVerlet, Verlet
 from turtlemd.simulation import MDSimulation
 from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 
