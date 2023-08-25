@@ -18,7 +18,7 @@ tomli = "^2.0.1"
 tomli-w = "^1.0.0"
 dask = "2023.3.0"
 distributed = "2023.3.0"
-turtlemd = "2023.2.dev3"
+turtlemd = "2023.3"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.0.282"

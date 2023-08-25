@@ -23,12 +23,12 @@ from infretis.classes.engines.engineparts import (
     convert_snapshot,
 )
 from numpy.random import default_rng
-from turtlemd.potentials.lennardjones import *
-from turtlemd.potentials.well import *
+from turtlemd.potentials.lennardjones import LennardJonesCut
+from turtlemd.potentials.well import DoubleWell
 from turtlemd.system.particles import generate_maxwell_velocities, Particles
 from turtlemd.system.box import Box
 from turtlemd.system.system import System
-from turtlemd.integrators import *
+from turtlemd.integrators import langevinInertia, LangevinOverdamped, VelocityVerlet, Verlet
 from turtlemd.simulation import MDSimulation
 from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 
