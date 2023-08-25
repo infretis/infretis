@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2022, PyRETIS Development Team.
-# Distributed under the LGPLv2.1+ License. See LICENSE for more info.
 """A TurtleMD integrator interface.
 
 This module defines a class for using the TurtleMD.
@@ -11,29 +8,32 @@ Important classes defined here
 CP2KEngine (:py:class:`.CP2KEngine`)
     A class responsible for interfacing CP2K.
 """
-from collections import defaultdict
-
 import logging
 import os
+from collections import defaultdict
+
 import numpy as np
-from infretis.classes.engines.enginebase import EngineBase
-from infretis.classes.engines.engineparts import (
-    read_xyz_file,
-    write_xyz_trajectory,
-    convert_snapshot,
-)
 from numpy.random import default_rng
+from turtlemd.integrators import (
+    LangevinInertia,
+    LangevinOverdamped,
+    VelocityVerlet,
+    Verlet,
+)
 from turtlemd.potentials.lennardjones import LennardJonesCut
 from turtlemd.potentials.well import DoubleWell
-from turtlemd.system.particles import generate_maxwell_velocities, Particles
-from turtlemd.system.box import Box
-from turtlemd.system.system import System
-from turtlemd.integrators import LangevinInertia, LangevinOverdamped, VelocityVerlet, Verlet
 from turtlemd.simulation import MDSimulation
+from turtlemd.system.box import Box
+from turtlemd.system.particles import Particles
+from turtlemd.system.system import System
+
 from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
-
-from infretis.core.core import generic_factory
-
+from infretis.classes.engines.enginebase import EngineBase
+from infretis.classes.engines.engineparts import (
+    convert_snapshot,
+    read_xyz_file,
+    write_xyz_trajectory,
+)
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -199,8 +199,8 @@ class TurtleMDEngine(EngineBase):
                     thermo[key].append(val)
                 # update coordinates, velocities and box
                 # for the relevant dimensions. We need this here
-                # because we use xyz format for trajecories, which has 3 dimensions
-                # for coords, vel and the box.
+                # because we use xyz format for trajecories, which has
+                # 3 dimensions for coords, vel and the box.
                 pos[:, : self.dim] = tmd_system.particles.pos
                 vel[:, : self.dim] = tmd_system.particles.vel
                 box[: self.dim] = tmd_system.box.length
@@ -351,11 +351,9 @@ class TurtleMDEngine(EngineBase):
         if kin_old == 0.0:
             dek = float("inf")
             logger.debug(
-                (
-                    "Kinetic energy not found for previous point."
+                "Kinetic energy not found for previous point."
                     "\n(This happens when the initial configuration "
                     "does not contain energies.)"
-                )
             )
         else:
             dek = kin_new - kin_old
