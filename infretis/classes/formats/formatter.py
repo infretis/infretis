@@ -422,8 +422,6 @@ class OutputBase(metaclass=ABCMeta):
 
     """
 
-    target = None
-
     def __init__(self, formatter):
         """Create the object and attach a formatter."""
         self.formatter = formatter
@@ -769,12 +767,18 @@ class EnergyFormatter(OutputFormatter):
 
         """
         towrite = [self.ENERGY_FMT[0].format(step)]
-        for i, key in enumerate(self.ENERGY_TERMS):
-            value = energy.get(key, None)
-            if value is None:
-                towrite.append(self.ENERGY_FMT[i + 1].format(float("nan")))
-            else:
-                towrite.append(self.ENERGY_FMT[i + 1].format(float(value)))
+        if self.name == "EnergyFormatter":
+            for i, key in enumerate(self.ENERGY_TERMS):
+                value = energy.get(key, None)
+                if value is None:
+                    towrite.append(self.ENERGY_FMT[i + 1].format(float("nan")))
+                else:
+                    towrite.append(self.ENERGY_FMT[i + 1].format(float(value)))
+        elif self.name == "EnergyPathFormatter":
+            for i, key in enumerate(self.ENERGY_TERMS):
+                value = energy.get(key, None)
+                if value is not None:
+                    towrite.append(self.ENERGY_FMT[i + 1].format(float(value)))
         return " ".join(towrite)
 
     def format(self, step, data):
@@ -813,7 +817,6 @@ class EnergyFormatter(OutputFormatter):
 class EnergyPathFormatter(EnergyFormatter):
     """A class for formatting energy data for paths."""
 
-    ENERGY_TERMS = ("vpot", "ekin")
     HEADER = {"labels": ["Time", "Potential", "Kinetic"], "width": [10, 14]}
 
     def __init__(self):
