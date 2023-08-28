@@ -35,6 +35,7 @@ pre-commit = "^3.3.3"
 line-length = 79
 select = ["F", "E", "W", "I001", "UP"]
 ignore-init-module-imports = true
+
 [tool.ruff.pydocstyle]
 convention = "google"
 
@@ -46,6 +47,10 @@ target-version = ["py310", "py311"]
 warn_unused_ignores = true
 show_error_codes = true
 plugins = "numpy.typing.mypy_plugin"
+
+[[tool.mypy.overrides]]
+module = "matplotlib.*"
+ignore_missing_imports = true
 
 [tool.poetry.scripts]
 infretisrun = "infretis.bin:infretisrun"
