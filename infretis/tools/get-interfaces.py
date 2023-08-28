@@ -1,7 +1,6 @@
-import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
-from scipy.optimize import minimize
+import numpy as np
+from scipy.optimize import curve_fit, minimize
 
 """
 A simple script to recaluclate the interface positions
