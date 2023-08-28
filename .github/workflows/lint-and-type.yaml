@@ -51,4 +51,4 @@ jobs:
         run: poetry run ruff infretis
 
       - name: "Run mypy"
-        run: poetry run mypy infretis
+        run: poetry run mypy -p infretis

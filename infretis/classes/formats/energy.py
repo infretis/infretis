@@ -111,7 +111,6 @@ class EnergyFormatter(OutputFormatter):
 class EnergyPathFormatter(EnergyFormatter):
     """A class for formatting energy data for paths."""
 
-    ENERGY_TERMS = ("vpot", "ekin")
     HEADER = {"labels": ["Time", "Potential", "Kinetic"], "width": [10, 14]}
 
     def __init__(self):
