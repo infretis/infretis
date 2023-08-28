@@ -25,10 +25,10 @@ class REPEX_state:
     np.random.seed(0)
 
     # dicts to hold *toml, path data, ensembles and engines.
-    config = {}
-    traj_data = {}
-    ensembles = {}
-    engines = {}
+    config: dict = {}
+    traj_data: dict = {}
+    ensembles: dict = {}
+    engines: dict = {}
 
     # holds counts current worker.
     cworker = None
