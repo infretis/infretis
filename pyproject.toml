@@ -52,6 +52,11 @@ plugins = "numpy.typing.mypy_plugin"
 module = "matplotlib.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "scipy.optimize.*"
+ignore_missing_imports = true
+
+
 [tool.poetry.scripts]
 infretisrun = "infretis.bin:infretisrun"
 infretisanalyze = "infretis.bin:infretisanalyze"
