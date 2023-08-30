@@ -1,20 +1,24 @@
 """Test methods from infretis.core.core"""
 import errno
+import inspect
 import logging
 import os  # Used to simulate errors for make_dirs
 import pathlib
+import sys  # Used to make a local import
 
 import pytest
 
 from infretis.core.core import (
     _pick_out_arg_kwargs,
     generic_factory,
+    import_from,
     initiate_instance,
     inspect_function,
     make_dirs,
 )
 
 THIS_FILE = pathlib.Path(__file__).resolve()
+LOCAL_DIR = THIS_FILE.parent.resolve()
 
 
 def mock_mkdir(path, mode=0o777):
@@ -289,3 +293,32 @@ def test_initiate_instance(caplog):
     # Test that we fail when we miss an argument:
     with pytest.raises(ValueError):
         initiate_instance(ClassForTestingArg, {})
+
+
+def test_import_from():
+    """Test that we can import dynamically."""
+    module = LOCAL_DIR / "foo.py"
+    klass = "Foo"
+    imp = import_from(module, klass)
+    sys.path.insert(0, str(LOCAL_DIR))
+    from foo import Foo
+
+    del sys.path[0]
+    assert inspect.getsource(imp) == inspect.getsource(Foo)
+
+
+def test_import_from_errors(caplog):
+    """Test that we handle the errors for import_from."""
+    module = LOCAL_DIR / "foo.py"
+    klass = "DoesNotExist"
+    with caplog.at_level(logging.CRITICAL):
+        with pytest.raises(ValueError):
+            import_from(module, klass)
+        assert f'Could not import "{klass}" from' in caplog.text
+    caplog.clear()
+
+    module = LOCAL_DIR / "this-file-should-not-exist.py"
+    with caplog.at_level(logging.CRITICAL):
+        with pytest.raises(ValueError):
+            import_from(module, klass)
+        assert "Could not import module" in caplog.text
