@@ -1,11 +1,15 @@
 """Test methods from infretis.core.core"""
 import errno
+import logging
 import os  # Used to simulate errors for make_dirs
 import pathlib
 
 import pytest
 
-from infretis.core.core import make_dirs
+from infretis.core.core import (
+    generic_factory,
+    make_dirs,
+)
 
 THIS_FILE = pathlib.Path(__file__).resolve()
 
@@ -42,3 +46,42 @@ def test_make_dirs(tmp_path, monkeypatch):
             msg = make_dirs(tmp_path / "some_directory_to_create")
             assert msg is None
             assert errorinfo.value.errno == errno.EPERM
+
+
+class KlassForTesting:
+    """A class for testing."""
+
+    def __init__(self):
+        self.variable = 10
+
+    def method1(self):
+        return self.variable
+
+    def multiply(self, number):
+        self.variable *= number
+
+
+def test_generic_factory(caplog):
+    """Test that we can create classes with the generic factory."""
+    factory_map = {"my_new_class": {"cls": KlassForTesting}}
+
+    # Check that we can create the class:
+    settings = {"class": "my_new_class"}
+    cls = generic_factory(settings, factory_map, name="Testing")
+    assert isinstance(cls, KlassForTesting)
+
+    # Check that we raises an error when no class is given
+    # (this is case sensitive):
+    settings = {"clAsS": "my_new_class"}
+    with caplog.at_level(logging.CRITICAL):
+        cls = generic_factory(settings, factory_map, name="Testing")
+        assert "No class given for" in caplog.text
+        assert cls is None
+    caplog.clear()
+    # Check that we fail when we request a class that is
+    # not in the mapping:
+    settings = {"class": "A class not in the mapping"}
+    with caplog.at_level(logging.CRITICAL):
+        cls = generic_factory(settings, factory_map, name="Testing")
+        assert "Could not create unknown class" in caplog.text
+        assert cls is None
