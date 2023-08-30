@@ -188,3 +188,16 @@ def test_inspect(func, expected):
     """Test that we can inspect methods."""
     args = inspect_function(func)
     assert args == expected
+
+
+def test_arg_kind():
+    """Test a function with only positional arguments."""
+    # To get into the "arg.kind == arg.POSITIONAL_ONLY", just
+    # use the equal method of range:
+    args = inspect_function(range.__eq__)
+    assert not args["keywords"]
+    assert not args["varargs"]
+    assert not args["kwargs"]
+    assert "self" in args["args"]
+    assert "value" in args["args"]
+    assert len(args["args"]) == 2
