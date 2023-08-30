@@ -6,15 +6,13 @@ import pathlib
 
 import pytest
 
-from infretis.core.core import (
-    generic_factory,
-    make_dirs,
-)
+from infretis.core.core import generic_factory, inspect_function, make_dirs
 
 THIS_FILE = pathlib.Path(__file__).resolve()
 
 
 def mock_mkdir(path, mode=0o777):
+    """A version of mkdir that just makes an error."""
     if path is not None:
         raise PermissionError(errno.EPERM, "Permission denied")
     return path, mode
@@ -85,3 +83,108 @@ def test_generic_factory(caplog):
         cls = generic_factory(settings, factory_map, name="Testing")
         assert "Could not create unknown class" in caplog.text
         assert cls is None
+
+
+# Define some functions for testing the inspect method.
+# These functions are just various permulations of using arguments
+# and keyword arguments:
+
+
+def function1(arg1, arg2, arg3, arg4):
+    """To test positional arguments."""
+    return arg1, arg2, arg3, arg4
+
+
+def function2(arg1, arg2, arg3, arg4=10):
+    """To test positional and keyword arguments."""
+    return arg1, arg2, arg3, arg4
+
+
+# pylint: disable=unused-argument
+def function3(arg1, arg2, arg3, arg4=100, arg5=10):
+    """To test positional and keyword arguments."""
+    return arg1, arg2, arg3, arg4, arg5
+
+
+def function4(*args, **kwargs):
+    """To test positional and keyword arguments."""
+    return args, kwargs
+
+
+def function5(arg1, arg2, *args, arg3=100, arg4=100):
+    """To test positional and keyword arguments."""
+    return arg1, arg2, args, arg3, arg4
+
+
+def function6(arg1, arg2, arg3=100, *, arg4=10):
+    """To test positional and keyword arguments."""
+    return arg1, arg2, arg3, arg4
+
+
+def function7(arg1, arg2, arg3=100, *args, arg4, arg5=10):
+    """To test positional and keyword arguments."""
+    return arg1, arg2, arg3, arg4, arg5, *args
+
+
+def function8(arg1, arg2=100, self="something"):
+    """To test redifinition of __init__."""
+    return arg1, arg2, self
+
+
+functions_for_testing = [
+    function1,
+    function2,
+    function3,
+    function4,
+    function5,
+    function6,
+    function7,
+]
+correctly_read_functions = [
+    {
+        "args": ["arg1", "arg2", "arg3", "arg4"],
+        "varargs": [],
+        "kwargs": [],
+        "keywords": [],
+    },
+    {
+        "args": ["arg1", "arg2", "arg3"],
+        "varargs": [],
+        "kwargs": ["arg4"],
+        "keywords": [],
+    },
+    {
+        "args": ["arg1", "arg2", "arg3"],
+        "varargs": [],
+        "kwargs": ["arg4", "arg5"],
+        "keywords": [],
+    },
+    {"args": [], "varargs": ["args"], "kwargs": [], "keywords": ["kwargs"]},
+    {
+        "args": ["arg1", "arg2"],
+        "kwargs": ["arg3", "arg4"],
+        "varargs": ["args"],
+        "keywords": [],
+    },
+    {
+        "args": ["arg1", "arg2"],
+        "kwargs": ["arg3", "arg4"],
+        "varargs": [],
+        "keywords": [],
+    },
+    {
+        "args": ["arg1", "arg2"],
+        "kwargs": ["arg3", "arg4", "arg5"],
+        "varargs": ["args"],
+        "keywords": [],
+    },
+]
+
+
+@pytest.mark.parametrize(
+    "func, expected", zip(functions_for_testing, correctly_read_functions)
+)
+def test_inspect(func, expected):
+    """Test that we can inspect methods."""
+    args = inspect_function(func)
+    assert args == expected
