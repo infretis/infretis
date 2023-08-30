@@ -6,7 +6,13 @@ import pathlib
 
 import pytest
 
-from infretis.core.core import generic_factory, inspect_function, make_dirs
+from infretis.core.core import (
+    _pick_out_arg_kwargs,
+    generic_factory,
+    initiate_instance,
+    inspect_function,
+    make_dirs,
+)
 
 THIS_FILE = pathlib.Path(__file__).resolve()
 
@@ -46,7 +52,7 @@ def test_make_dirs(tmp_path, monkeypatch):
             assert errorinfo.value.errno == errno.EPERM
 
 
-class KlassForTesting:
+class ClassForTesting:
     """A class for testing."""
 
     def __init__(self):
@@ -61,12 +67,12 @@ class KlassForTesting:
 
 def test_generic_factory(caplog):
     """Test that we can create classes with the generic factory."""
-    factory_map = {"my_new_class": {"cls": KlassForTesting}}
+    factory_map = {"my_new_class": {"cls": ClassForTesting}}
 
     # Check that we can create the class:
     settings = {"class": "my_new_class"}
     cls = generic_factory(settings, factory_map, name="Testing")
-    assert isinstance(cls, KlassForTesting)
+    assert isinstance(cls, ClassForTesting)
 
     # Check that we raises an error when no class is given
     # (this is case sensitive):
@@ -143,42 +149,36 @@ functions_for_testing = [
 correctly_read_functions = [
     {
         "args": ["arg1", "arg2", "arg3", "arg4"],
-        "varargs": [],
-        "kwargs": [],
-        "keywords": [],
     },
     {
         "args": ["arg1", "arg2", "arg3"],
-        "varargs": [],
         "kwargs": ["arg4"],
-        "keywords": [],
     },
     {
         "args": ["arg1", "arg2", "arg3"],
-        "varargs": [],
         "kwargs": ["arg4", "arg5"],
-        "keywords": [],
     },
-    {"args": [], "varargs": ["args"], "kwargs": [], "keywords": ["kwargs"]},
+    {"varargs": ["args"], "keywords": ["kwargs"]},
     {
         "args": ["arg1", "arg2"],
         "kwargs": ["arg3", "arg4"],
         "varargs": ["args"],
-        "keywords": [],
     },
     {
         "args": ["arg1", "arg2"],
         "kwargs": ["arg3", "arg4"],
-        "varargs": [],
-        "keywords": [],
     },
     {
         "args": ["arg1", "arg2"],
         "kwargs": ["arg3", "arg4", "arg5"],
         "varargs": ["args"],
-        "keywords": [],
     },
 ]
+
+for item in correctly_read_functions:
+    for key in ("args", "kwargs", "varargs", "keywords"):
+        if key not in item:
+            item[key] = []
 
 
 @pytest.mark.parametrize(
@@ -201,3 +201,91 @@ def test_arg_kind():
     assert "self" in args["args"]
     assert "value" in args["args"]
     assert len(args["args"]) == 2
+
+
+def test_pick_out_kwargs():
+    """Test pick out of "self" for kwargs."""
+    # In some cases, "self" might be given as a keyword argument,
+    # this will check that we pick it out correctly so that
+    # it is not passed along
+    settings = {"arg1": 10, "arg2": 100, "self": "text"}
+
+    class Abomination:
+        """Just to allow redefinition of __init__."""
+
+    abo = Abomination()
+    abo.__init__ = function8
+
+    args, kwargs = _pick_out_arg_kwargs(abo, settings)
+    assert "self" not in args
+    assert "self" not in kwargs
+
+
+class ClassForTestingNoArg:
+    def __init__(self):
+        """Without any arguments."""
+
+
+class ClassForTestingArg:
+    def __init__(self, variable):
+        """With argument."""
+        self.variable = variable
+
+
+class ClassForTestingKwarg:
+    def __init__(self, variable=51):
+        """With argument."""
+        self.variable = variable
+
+
+class ClassForTestingArgKwarg:
+    def __init__(self, variable1, variable2=123):
+        self.variable1 = variable1
+        self.variable2 = variable2
+
+
+def test_initiate_instance(caplog):
+    """Test that we can initiate classes."""
+    # First, a class without any arguments:
+    with caplog.at_level(logging.DEBUG):
+        cls = initiate_instance(ClassForTestingNoArg, {})
+        assert isinstance(cls, ClassForTestingNoArg)
+        assert "without arguments." in caplog.text
+    caplog.clear()
+    # A class with only keyword arguments:
+    with caplog.at_level(logging.DEBUG):
+        cls = initiate_instance(ClassForTestingKwarg, {})
+        assert isinstance(cls, ClassForTestingKwarg)
+        assert "without arguments." in caplog.text
+        assert cls.variable == 51
+
+        cls = initiate_instance(ClassForTestingKwarg, {"variable": 1})
+        assert isinstance(cls, ClassForTestingKwarg)
+        assert "with keyword arguments." in caplog.text
+        assert cls.variable == 1
+    caplog.clear()
+    # A class with only arguments:
+    with caplog.at_level(logging.DEBUG):
+        cls = initiate_instance(ClassForTestingArg, {"variable": 1})
+        assert isinstance(cls, ClassForTestingArg)
+        assert "with positional arguments." in caplog.text
+        assert cls.variable == 1
+    caplog.clear()
+    # A class with arguments and keyword arguments:
+    with caplog.at_level(logging.DEBUG):
+        cls = initiate_instance(ClassForTestingArgKwarg, {"variable1": 1})
+        assert isinstance(cls, ClassForTestingArgKwarg)
+        assert "with positional arguments." in caplog.text
+        assert cls.variable1 == 1
+        assert cls.variable2 == 123
+
+        cls = initiate_instance(
+            ClassForTestingArgKwarg, {"variable1": 1, "variable2": 2}
+        )
+        assert isinstance(cls, ClassForTestingArgKwarg)
+        assert "with positional and keyword arguments." in caplog.text
+        assert cls.variable1 == 1
+        assert cls.variable2 == 2
+    # Test that we fail when we miss an argument:
+    with pytest.raises(ValueError):
+        initiate_instance(ClassForTestingArg, {})
