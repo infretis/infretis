@@ -297,11 +297,11 @@ def test_initiate_instance(caplog):
 
 def test_import_from():
     """Test that we can import dynamically."""
-    module = LOCAL_DIR / "foo.py"
+    module = LOCAL_DIR / "foobarbaz.py"
     klass = "Foo"
     imp = import_from(module, klass)
     sys.path.insert(0, str(LOCAL_DIR))
-    from foo import Foo
+    from foobarbaz import Foo
 
     del sys.path[0]
     assert inspect.getsource(imp) == inspect.getsource(Foo)
@@ -309,7 +309,7 @@ def test_import_from():
 
 def test_import_from_errors(caplog):
     """Test that we handle the errors for import_from."""
-    module = LOCAL_DIR / "foo.py"
+    module = LOCAL_DIR / "foobarbaz.py"
     klass = "DoesNotExist"
     with caplog.at_level(logging.CRITICAL):
         with pytest.raises(ValueError):
