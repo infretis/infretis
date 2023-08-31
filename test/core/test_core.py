@@ -5,8 +5,11 @@ import logging
 import os  # Used to simulate errors for make_dirs
 import pathlib
 import sys  # Used to make a local import
+from contextlib import contextmanager
 
+import numpy as np
 import pytest
+from numpy.random import RandomState
 
 from infretis.core.core import (
     _pick_out_arg_kwargs,
@@ -15,6 +18,8 @@ from infretis.core.core import (
     initiate_instance,
     inspect_function,
     make_dirs,
+    read_restart_file,
+    write_ensemble_restart,
 )
 
 THIS_FILE = pathlib.Path(__file__).resolve()
@@ -26,6 +31,17 @@ def mock_mkdir(path, mode=0o777):
     if path is not None:
         raise PermissionError(errno.EPERM, "Permission denied")
     return path, mode
+
+
+@contextmanager
+def change_dir(dest):
+    """Context manger for chdir"""
+    cwd = os.getcwd()
+    os.chdir(dest)
+    try:
+        yield
+    finally:
+        os.chdir(cwd)
 
 
 def test_make_dirs(tmp_path, monkeypatch):
@@ -322,3 +338,20 @@ def test_import_from_errors(caplog):
         with pytest.raises(ValueError):
             import_from(module, klass)
         assert "Could not import module" in caplog.text
+
+
+def test_write_ensemble_restart(tmp_path):
+    ensemble = {"rgen": RandomState(1234)}
+    config = {"simulation": {"load_dir": "this-is-a-folder"}}
+    test_dir = tmp_path / config["simulation"]["load_dir"] / "test"
+    make_dirs(test_dir)
+    with change_dir(tmp_path):
+        write_ensemble_restart(ensemble, config, "test")
+        info = read_restart_file(test_dir / "ensemble.restart")
+        state = ensemble["rgen"].get_state()
+        assert len(info["rgen"]) == len(state)
+        for i, (vali, valj) in enumerate(zip(state, info["rgen"])):
+            if i == 1:
+                assert np.array_equal(vali, valj)
+            else:
+                assert vali == valj
