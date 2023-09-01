@@ -12,3 +12,9 @@ repos:
     rev: 23.7.0
     hooks:
     -   id: black
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.0.286
+  hooks:
+    - id: ruff
+      types_or: [python, pyi, jupyter]

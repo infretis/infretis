@@ -330,7 +330,7 @@ def make_dirs(dirname):
         os.makedirs(dirname)
         msg = f'Created directory: "{dirname}"'
     except OSError as err:
-        if err.errno != errno.EEXIST:  # pragma: no cover
+        if err.errno != errno.EEXIST:
             raise err
         if os.path.isfile(dirname):
             msg = f'"{dirname}" is a file. Will abort!'
