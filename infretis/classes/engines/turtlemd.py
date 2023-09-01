@@ -85,12 +85,18 @@ class TurtleMDEngine(EngineBase):
         self.potential = POTENTIAL_MAPS[potential["class"].lower()]
         self.potential = [self.potential(**potential["settings"])]
 
+        # print('baba')
+        # print(integrator["settings"])
+        # print(integrator["settings"].get("seed", 0))
+        # exit('b')
         if integrator["class"].lower() in [
             "langevininertia",
             "langevinoverdamped",
         ]:
             self.langevin_rgen = default_rng(
-                seed=integrator["settings"].pop("seed")
+                # seed=integrator["settings"].get("seed", 0)
+                # seed=integrator["settings"].pop("seed")
+                seed=0
             )
 
         self.dim = self.potential[0].dim

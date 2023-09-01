@@ -38,7 +38,11 @@ def setup_internal(config):
     state.load_paths(paths)
 
     # create first md_items dict
-    md_items = {"mc_moves": state.mc_moves, "interfaces": state.interfaces}
+    md_items = {
+        "mc_moves": state.mc_moves,
+        "interfaces": state.interfaces,
+        "cap": state.cap,
+    }
 
     # write pattern header
     if state.pattern:

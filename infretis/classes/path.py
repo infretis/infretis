@@ -131,11 +131,11 @@ class Path:
             logger.debug("Undefined starting point.")
         return start
 
-    # def get_shooting_point(self):
-    #     idx = self.rgen.random_integers(1, self.length - 2)
-    #     logger.debug("Selected point with orderp %s",
-    #                  self.phasepoints[idx].order[0])
-    #     return self.phasepoints[idx], idx
+    def get_shooting_point(self, rgen):
+        idx = rgen.random_integers(1, self.length - 2)
+        order = self.phasepoints[idx].order[0]
+        logger.debug(f"Selected point with orderp {order}")
+        return self.phasepoints[idx], idx
 
     def append(self, phasepoint):
         """Append a new phase point to the path.

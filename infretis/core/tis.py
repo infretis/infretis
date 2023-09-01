@@ -4,7 +4,7 @@ import time
 
 import numpy as np
 
-from infretis.classes.path import Path, paste_paths
+from infretis.classes.path import paste_paths
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -43,6 +43,7 @@ def run_md(md_items):
                 trial,
                 md_items["interfaces"],
                 md_items["mc_moves"],
+                cap=md_items["cap"],
                 minus=minus,
             )
             picked[ens_num]["traj"] = trial
@@ -52,7 +53,7 @@ def run_md(md_items):
     return md_items
 
 
-def calc_cv_vector(path, interfaces, moves, minus=False):
+def calc_cv_vector(path, interfaces, moves, cap=None, minus=False):
     path_max, _ = path.ordermax
 
     cv = []
@@ -61,7 +62,8 @@ def calc_cv_vector(path, interfaces, moves, minus=False):
 
     for idx, intf_i in enumerate(interfaces[:-1]):
         if moves[idx + 1] == "wf":
-            intfs = [interfaces[0], intf_i, interfaces[-1]]
+            intf_cap = cap if cap is not None else interfaces[-1]
+            intfs = [interfaces[0], intf_i, intf_cap]
             cv.append(compute_weight(path, intfs, moves[idx + 1]))
         else:
             cv.append(1.0 if intf_i <= path_max else 0.0)
@@ -98,9 +100,7 @@ def compute_weight(path, interfaces, move):
     """
     weight = 1.0
 
-    if move == "ss":
-        weight = 1.0 * crossing_counter(path, interfaces[1])
-    elif move == "wf":
+    if move == "wf":
         wf_weight, _ = wirefence_weight_and_pick(
             path, interfaces[1], interfaces[2]
         )
@@ -113,68 +113,6 @@ def compute_weight(path, interfaces, move):
             weight *= 2
 
     return weight
-
-
-def crossing_counter(path, interface):
-    """Count the crossing to an interfaces.
-
-    Method to count the crosses of a path over an interface.
-
-    Parameters
-    -----------
-    path : object like :py:class:`.PathBase`
-        Input path which will be trimmed.
-    interface : float
-        The position of the interface.
-
-    Returns
-    -------
-    cnt : integer
-        Number of crossing of the given interface.
-
-    """
-    cnt = 0
-    for i in range(len(path.phasepoints[:-1])):
-        op1 = path.phasepoints[i].order[0]
-        op2 = path.phasepoints[i + 1].order[0]
-        if op2 >= interface > op1 or op1 >= interface > op2:
-            cnt += 1
-    return cnt
-
-
-def crossing_finder(path, interface, last_frame=False):
-    """Find the crossing to an interfaces.
-
-    Method to select the crosses of a path over an interface.
-
-    Parameters
-    -----------
-    path : object like :py:class:`.PathBase`
-        Input path which will be trimmed.
-    interface : float
-        Interface position.
-    last_frame : boolean, optional
-        Determines if the last crossing will be selected or not.
-
-    Returns
-    -------
-    ph1, ph2 : snapshots
-        Snapshots to define the randomly picked crossing,
-        one right before and one right after the interface.
-
-    """
-    ph1, ph2 = [], []
-    for i in range(len(path.phasepoints[:-1])):
-        op1 = path.phasepoints[i].order[0]
-        op2 = path.phasepoints[i + 1].order[0]
-        if op2 >= interface > op1 or op1 >= interface > op2:
-            ph1.append(path.phasepoints[i])
-            ph2.append(path.phasepoints[i + 1])
-    if not ph1:
-        return None, None
-    assert ph1, "No crossing point available"
-    idx = -1 if last_frame else path.rgen.random_integers(0, len(ph1) - 1)
-    return ph1[idx], ph2[idx]
 
 
 def wirefence_weight_and_pick(
@@ -304,8 +242,6 @@ def select_shoot(picked, start_cond=("L",)):
 
     """
     sh_moves = {
-        "wt": web_throwing,
-        "ss": stone_skipping,
         "wf": wire_fencing,
         "sh": shoot,
     }
@@ -447,15 +383,11 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
         return False, trial_path, trial_path.status
 
     trial_path.status = "ACC"
-    # print('boya', [i.vel for i in trial_path.phasepoints])
-    # exit('keke')
 
     return True, trial_path, trial_path.status
 
 
-def wire_fencing(
-    ens_set, trial_path, engine, shooting_point=None, start_cond=("L",)
-):
+def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
     """Perform a wire_fencing move.
 
     This function will perform the non famous wire fencing move
@@ -505,34 +437,21 @@ def wire_fencing(
         :py:const:`.path._STATUS`.
 
     """
-
-    # ensemble = pens['ens']
-    # engine = pens['engine']
-    # trial_path = path
-
-    # trial_path = ensemble['path_ensemble'].last_path
-    # engine = ensemble['engine']
-    # wf_int = [ensemble['interfaces'][1], ensemble['interfaces'][1],
-    #           tis_settings.get('interface_cap', ensemble['interfaces'][2])]
     old_path = trial_path.copy()
-    intf_cap = ens_set.get("interface_cap", ens_set["interfaces"][2])
+    intf_cap = ens_set["tis_set"].get(
+        "interface_cap",
+        ens_set["interfaces"][2],
+    )
     wf_int = list([ens_set["interfaces"][1]] * 2) + [intf_cap]
     n_frames, new_segment = wirefence_weight_and_pick(
         trial_path, wf_int[0], wf_int[2], return_seg=True, ens_set=ens_set
     )
 
-    # This is probably a too strong condition. It helps for [0^-] but it might
-    # hinder implementation problems or bad sampling.
+    # Check if no frames to shoot from
     if n_frames == 0:
         logger.warning("Wire fencing move not usable. N frames of Path = 0")
         logger.warning(f"between interfaces {wf_int[0]} and {wf_int[-1]}.")
         return False, trial_path, "NSG"
-
-    #### sub_ens = {'interfaces': wf_int, 'engine': engine,
-    ####            'order_function': ensemble['order_function'],
-    ####            'path_ensemble': ensemble['path_ensemble']}
-    #### sub_settings = tis_settings.copy()
-    #### sub_settings['allowmaxlength'] = True
 
     sub_ens = {
         "interfaces": wf_int,
@@ -544,28 +463,14 @@ def wire_fencing(
     }
 
     succ_seg = 0
-    for i in range(ens_set["tis_set"]["n_jumps"]):
+    for i in range(ens_set["tis_set"].get("n_jumps", 2)):
         logger.debug("Trying a new web with Wire Fencing, jump %i", i)
-        # Select the shooting point:
-
-        # sh_pt, idx, _ = prepare_shooting_point(new_segment, ensemble, engine)
-        # engine.dump_phasepoint(sh_pt, str(counter()) + '_wf_shoot')
-
         success, trial_seg, status = shoot(
             sub_ens, new_segment, engine, start_cond=("L", "R")
         )
         start, end, _, _ = trial_seg.check_interfaces(wf_int)
-        # print(
-        #    'path_old0', trial_seg.length,
-        #    [i.vel for i in trial_seg.phasepoints]
-        # )
         logger.info(
-            "Jump %s, len %s, status %s, intf: %s %s",
-            i,
-            trial_seg.length,
-            status,
-            start,
-            end,
+            f"Jump {i}, len {trial_seg.length}, status {status}, intf: {start} {end}"
         )
         if not success:
             # This handles R to R (start_cond = L) paths. Counter + 1, no ups.
@@ -574,27 +479,16 @@ def wire_fencing(
             logger.debug("Acceptable Wire Fence link.")
             succ_seg += 1
             new_segment = trial_seg.copy()
-
     if succ_seg == 0:
         # No usable segments were generated.
         trial_path.status = "NSG"
         success = False
     else:
-        # print(
-        #    'path_old0',
-        #    trial_seg.length,
-        #    [i.vel_rev for i in trial_seg.phasepoints]
-        # )
-        # print(
-        #    'path_old0',
-        #    new_segment.length,
-        #    [i.vel_rev for i in new_segment.phasepoints]
-        # )
         success, trial_path, _ = extender(
             new_segment, engine, ens_set, start_cond
         )
     if success:
-        success, trial_path = ss_wt_wf_acceptance(
+        success, trial_path = subt_acceptance(
             trial_path, ens_set, engine, old_path, start_cond
         )
 
@@ -606,17 +500,16 @@ def wire_fencing(
 
     # This might get triggered when accepting 0-L paths.
     left, _, right = ens_set["interfaces"]
-    assert start_cond == trial_path.get_start_point(
-        left, right
+    print(start_cond, tuple(trial_path.get_start_point(left, right)))
+    assert set(start_cond) == set(
+        trial_path.get_start_point(left, right)
     ), "WF: Path has an implausible start."
 
     trial_path.status = "ACC"
     return True, trial_path, trial_path.status
 
 
-# def ss_wt_wf_acceptance(trial_path, ensemble, tis_settings,
-#                         start_cond='L'):
-def ss_wt_wf_acceptance(trial_path, ens_set, engine, path_old, start_cond="L"):
+def subt_acceptance(trial_path, ens_set, engine, path_old, start_cond=("L",)):
     """Weights, possibly reverses and accept/rejects generated SS/WT/WFpaths.
 
     Parameters
@@ -654,25 +547,15 @@ def ss_wt_wf_acceptance(trial_path, ens_set, engine, path_old, start_cond="L"):
         Returns the weighed and possibly reversed path.
 
     """
-    # intf = [i for i in ensemble['interfaces']]
     intf = list(ens_set["interfaces"])
     move = ens_set["mc_move"]
 
-    if move == "wt" or not ens_set["tis_set"].get("high_accept", False):
-        trial_path.weight = 1.0
-    else:
-        if move == "wf":
-            intf[2] = ens_set["tis_set"].get("interface_cap", intf[2])
-        trial_path.weight = compute_weight(trial_path, intf, move)
-        if start_cond != trial_path.get_start_point(intf[0], intf[2]):
-            ####
-            ####
-            ####
-            ####
-            trial_path = trial_path.reverse(engine.order_function)
+    if move == "wf":
+        intf[2] = ens_set["tis_set"].get("interface_cap", intf[2])
+    trial_path.weight = compute_weight(trial_path, intf, move)
+    if set(start_cond) != set(trial_path.get_start_point(intf[0], intf[2])):
+        trial_path = trial_path.reverse(engine.order_function)
 
-    # success = ss_wt_wf_metropolis_acc(trial_path, ensemble, tis_settings,
-    #                                   start_cond)
     success = ss_wt_wf_metropolis_acc(
         path_old, trial_path, ens_set, start_cond
     )
@@ -680,153 +563,6 @@ def ss_wt_wf_acceptance(trial_path, ens_set, engine, path_old, start_cond="L"):
     return success, trial_path
 
 
-def stone_skipping(ensemble, tis_settings, start_cond):
-    """Perform a stone_skipping move.
-
-    This function will perform the famous stone skipping move
-    from an initial path.
-
-    Parameters
-    ----------
-    ensemble: dict
-        It contains:
-
-        * `path_ensemble`: object like :py:class:`.PathEnsemble`
-          This is the path ensemble to perform the TIS step for.
-        * `system`: object like :py:class:`.System`
-          System is used here since we need access to the temperature
-          and to the particle list.
-        * `order_function`: object like :py:class:`.OrderParameter`
-          The class used for obtaining the order parameter(s).
-        * `engine`: object like :py:class:`.EngineBase`
-          The engine to use for propagating a path.
-        * `rgen`: object like :py:class:`.RandomGenerator`
-          This is the random generator that will be used.
-        * `interfaces`: list of floats
-          These are the interface positions on form
-          [left, middle, right].
-
-    tis_settings : dict
-        This contains the settings for TIS. Keys used here:
-
-        * `aimless`: boolean, is the shooting aimless or not?
-        * `allowmaxlength`: boolean, should paths be allowed to reach
-          maximum length?
-        * `maxlength`: integer, maximum allowed length of paths.
-        * `high_accept`: boolean, the option for High Acceptance SS.
-
-    start_cond : string
-        The starting condition for the current ensemble, 'L'eft or
-        'R'ight.
-
-    Returns
-    -------
-    out[0] : boolean
-        True if the path can be accepted.
-    out[1] : object like :py:class:`.PathBase`
-        Returns the generated path.
-    out[2] : string
-        Status of the path, this is one of the strings defined in
-        :py:const:`.path._STATUS`.
-
-    """
-    path_old = ensemble["path_ensemble"].last_path
-    intf = ensemble["interfaces"]
-    ph_pt1, ph_pt2 = crossing_finder(path_old, intf[1])
-    if ph_pt1 == ph_pt2 is None:
-        return False, path_old, "NCR"
-    sub_ens = {
-        "interfaces": [intf[1], intf[1], intf[2]],
-        "order_function": ensemble["order_function"],
-    }
-    osc_try = 0  # One step crossing attempt counter
-    for i in range(tis_settings["n_jumps"]):
-        logger.debug("Trying a new stone skipping move, jump %i", i)
-        # Here we choose between the two
-        # possible shooting points that describe a crossing.
-        sh_pt = ph_pt1 if ensemble["rgen"].rand() >= 0.5 else ph_pt2
-        ensemble["engine"].dump_phasepoint(sh_pt, str(counter()) + "_ss_shoot")
-        # To continue, we must be sure that the new path
-        # CROSSES the interface in ONLY ONE step.
-        # Generate paths until it succeed. That is
-        # what makes this version of the SS move useless for large systems.
-        for j in range(tis_settings["maxlength"]):
-            # This function can become actually fun to work on.
-            # e.g. have a 50% chance to give random v for each particle
-            # Modify the velocities:
-            # todo modify_v could just use system directly
-            logger.debug(f"jump{i}, try {j}, start: {sh_pt.order[0]}")
-            ensemble["system"] = sh_pt.copy()
-            ensemble["engine"].modify_velocities(ensemble, tis_settings)
-            # A path of two frames is going to be generated.
-            success, path = one_step_crossing(ensemble, intf[1])
-            osc_try += 1
-            if osc_try > 5 * tis_settings[
-                "n_jumps"
-            ] and path_old.get_move() in {"ld", "ki", "is"}:
-                logger.info("Performing a shooting move before the use of ss")
-                success, trial_path, status = shoot(
-                    ensemble, tis_settings, start_cond, sh_pt
-                )
-                trial_path.set_move("is")
-                return success, trial_path, status
-
-            if success:
-                break
-        else:  # In case we reached maxlength in jumps attempts.
-            success = False
-            path.status = "NSS"
-            trial_path = path
-            break
-
-        # Depending on the shooting point (before or after the interface),
-        # a backward path or a continuation has to be generated.
-        new_segment = path.empty_path(maxlen=tis_settings["maxlength"] - 1)
-        if path.get_end_point(intf[1], intf[2]) == start_cond:
-            path = path.reverse(ensemble["order_function"])
-        sub_ens["system"] = path.phasepoints[1].copy()
-        success, _ = ensemble["engine"].propagate(new_segment, sub_ens)
-        new_segment.phasepoints.insert(0, path.phasepoints[0].copy())
-
-        if not success:
-            new_segment.status = "XSS"
-            trial_path = new_segment
-            break
-
-        ph_pt1, ph_pt2 = crossing_finder(new_segment, intf[1], last_frame=True)
-
-    logger.debug("SS web: %s, one step crossing tries: %s", success, osc_try)
-
-    if success:
-        if ensemble["rgen"].rand() < 0.5:
-            new_segment = new_segment.reverse(ensemble["order_function"])
-        success, trial_path, _ = extender(
-            new_segment, ensemble, tis_settings, start_cond
-        )
-
-    if success:
-        success, trial_path = ss_wt_wf_acceptance(
-            trial_path, ensemble, tis_settings, start_cond
-        )
-
-    trial_path.generated = ("ss", sh_pt.order[0], osc_try, trial_path.length)
-
-    logger.debug("SS move: %s", trial_path.status)
-    if not success:
-        return False, trial_path, trial_path.status
-
-    # This might get triggered when accepting 0-L paths.
-    assert start_cond == trial_path.get_start_point(
-        intf[0], intf[2]
-    ), "SS: Path has an implausible start."
-
-    trial_path.status = "ACC"
-
-    return True, trial_path, trial_path.status
-
-
-# def ss_wt_wf_metropolis_acc(path_new, ensemble,
-#                             tis_settings, start_cond='L'):
 def ss_wt_wf_metropolis_acc(path_old, path_new, ens_set, start_cond="L"):
     """Accept or reject the path_new.
 
@@ -876,183 +612,30 @@ def ss_wt_wf_metropolis_acc(path_old, path_new, ens_set, start_cond="L"):
 
     """
     interfaces = ens_set["interfaces"]
-    # path_old = ensemble['path_ensemble'].last_path
     move = ens_set["mc_move"]
     high_accept = ens_set["tis_set"].get("high_accept", False)
-    if move == "wt":
-        sour_int = ens_set["interface_sour"]
-        cr_old = segments_counter(path_old, sour_int, interfaces[1])
-        cr_new = segments_counter(path_new, sour_int, interfaces[1])
-        if ens_set["rgen"].rand() >= min(1.0, cr_old / cr_new):
-            path_new.status = "WTA"
-            return False
+    if not high_accept:
+        if move == "wf":
+            wf_cap = ens_set["tis_set"].get("interface_cap", interfaces[2])
+            cr_old, _ = wirefence_weight_and_pick(
+                path_old, interfaces[1], wf_cap
+            )
+            cr_new, _ = wirefence_weight_and_pick(
+                path_new, interfaces[1], wf_cap
+            )
+            if ens_set["rgen"].rand() >= min(1.0, cr_old / cr_new):
+                path_new.status = "WFA"
+                return False
 
-    else:
-        if not high_accept:
-            if move == "ss":
-                cr_old = crossing_counter(path_old, interfaces[1])
-                cr_new = crossing_counter(path_new, interfaces[1])
-                if ens_set["rgen"].rand() >= min(1.0, cr_old / cr_new):
-                    path_new.status = "SSA"
-                    return False
-            elif move == "wf":
-                wf_cap = ens_set["tis_set"].get("interface_cap", interfaces[2])
-                cr_old, _ = wirefence_weight_and_pick(
-                    path_old, interfaces[1], wf_cap
-                )
-                cr_new, _ = wirefence_weight_and_pick(
-                    path_new, interfaces[1], wf_cap
-                )
-                if ens_set["rgen"].rand() >= min(1.0, cr_old / cr_new):
-                    path_new.status = "WFA"
-                    return False
-
-    if start_cond != path_new.get_start_point(interfaces[0], interfaces[2]):
+    if set(start_cond) != set(
+        path_new.get_start_point(interfaces[0], interfaces[2])
+    ):
         path_new.status = "BWI"
         return False
     path_new.status = "ACC"
     return True
 
 
-def web_throwing(ensemble, tis_set, start_cond="L"):
-    """Perform a web_throwing move.
-
-    This function performs the great web throwing move from an initial path.
-
-    Parameters
-    ----------
-    ensemble : dict
-        It contains:
-
-        * `path_ensemble`: object like :py:class:`.PathEnsemble`
-          This is the path ensemble to perform the TIS step for.
-        * `system`: object like :py:class:`.System`
-          System is used here since we need access to the temperature
-          and to the particle list.
-        * `order_function`: object like :py:class:`.OrderParameter`
-          The class used for obtaining the order parameter(s).
-        * `engine`: object like :py:class:`.EngineBase`
-          The engine to use for propagating a path.
-        * `rgen`: object like :py:class:`.RandomGenerator`
-          This is the random generator that will be used.
-        * `interfaces`: list of floats
-          These are the interface positions on form
-          [left, middle, right].
-
-    tis_set : dict
-        This contains the settings for TIS. Keys used here:
-
-        * `aimless`: boolean, is the shooting aimless or not?
-        * `allowmaxlength`: boolean, should paths be allowed to reach
-          maximum length?
-        * `maxlength`: integer, maximum allowed length of paths.
-
-    start_cond : string, optional
-        The starting condition for the current ensemble, 'L'eft or
-        'R'ight.
-
-
-    Returns
-    -------
-    out[0] : boolean
-        True if the path can be accepted.
-    out[1] : object like :py:class:`.PathBase`
-        Returns the generated path.
-    out[2] : string
-        Status of the path, this is one of the strings defined in
-        :py:const:`.path._STATUS`.
-
-    """
-    path_old = ensemble["path_ensemble"].last_path
-    interfaces = ensemble["interfaces"]
-    sour = tis_set["interface_sour"]
-    assert (
-        interfaces[0] < sour <= interfaces[1]
-    ), "SOUR interface is not correctly positioned"
-
-    ccnt = segments_counter(path_old, sour, interfaces[1])
-    if ccnt == 0:
-        return False, path_old, "NSG"
-
-    seg_i = int(ensemble["rgen"].rand() * ccnt)
-    wt_int = [sour, sour, ensemble["interfaces"][1]]
-    source_seg = select_and_trim_a_segment(path_old, sour, wt_int[2], seg_i)
-    sub_ens = {
-        "interfaces": wt_int,
-        "order_function": ensemble["order_function"],
-    }
-
-    shoots, save_acc = [0], 0
-
-    key = ensemble["rgen"].rand() >= 0.5  # Start from a random side
-    for _ in range(tis_set["n_jumps"]):
-        if ensemble["rgen"].rand() >= 0.5:
-            shoots[-1] += 1  # One more on the Same side
-        else:
-            shoots.append(1)  # A move in the other side
-
-    for n_virtual in shoots:
-        key = not key  # Change side, key controls also path reverse
-        for _ in range(n_virtual):
-            if key:
-                pre_shooting_point = source_seg.phasepoints[-1]
-                shooting_point = source_seg.phasepoints[-2]
-            else:
-                pre_shooting_point = source_seg.phasepoints[0]
-                shooting_point = source_seg.phasepoints[1]
-
-            prefix = str(counter())
-            ensemble["engine"].dump_phasepoint(
-                pre_shooting_point, prefix + "_wt_pre_shoot"
-            )
-            ensemble["engine"].dump_phasepoint(
-                shooting_point, prefix + "_wt_shoot"
-            )
-
-            new_seg = path_old.empty_path(maxlen=tis_set["maxlength"])
-            new_seg.append(pre_shooting_point)
-            logger.debug("Trying a new web")
-            sub_ens["system"] = shooting_point.copy()
-            ensemble["engine"].propagate(new_seg, sub_ens, reverse=key)
-            start = new_seg.get_start_point(wt_int[0], wt_int[-1])
-            end = new_seg.get_end_point(wt_int[0], wt_int[-1])
-            logger.debug(
-                "WT web starts %s, ends %s, reverse %s", start, end, key
-            )
-            if segments_counter(new_seg, sour, wt_int[2], reverse=key) == 1:
-                logger.debug("Web successful")
-                source_seg = (
-                    new_seg.reverse(ensemble["order_function"], rev_v=False)
-                    if key
-                    else new_seg
-                )
-                source_seg.status = "ACC"
-                save_acc += 1
-                break
-
-    logger.debug("WT segments accepted: %s", save_acc)
-
-    accept, trial_path, _ = extender(source_seg, ensemble, tis_set, start_cond)
-
-    trial_path.generated = (
-        "wt",
-        source_seg.phasepoints[1].order[0],
-        save_acc,
-        trial_path.length,
-    )
-    # Also Check that we did not get a B to A or a B to B path.
-    if accept:
-        accept, trial_path = ss_wt_wf_acceptance(trial_path, ensemble, tis_set)
-    logger.debug("WT move: %s", trial_path.status)
-
-    # Set the path flags
-    if accept and path_old.get_move() == "ld" and save_acc == 0:
-        trial_path.set_move("ld")
-
-    return accept, trial_path, trial_path.status
-
-
-# def extender(source_seg, ensemble, tis_set, start_cond=('R', 'L')):
 def extender(source_seg, engine, ens_set, start_cond=("R", "L")):
     interfaces = ens_set["interfaces"]
     # ensemble['system'] = source_seg.phasepoints[0].copy()
@@ -1168,14 +751,6 @@ def shoot_backwards(
     return True
 
 
-def get_shooting_point(rgen, path):
-    idx = rgen.random_integers(1, path.length - 2)
-    logger.debug(
-        "Selected point with orderp %s", path.phasepoints[idx].order[0]
-    )
-    return path.phasepoints[idx], idx
-
-
 def prepare_shooting_point(path, rgen, engine):
     """Select and modify velocities for a shooting move.
 
@@ -1215,9 +790,7 @@ def prepare_shooting_point(path, rgen, engine):
         The change in kinetic energy when modifying the velocities.
 
     """
-    shooting_point, idx = get_shooting_point(rgen, path)
-    # shooting_point, idx = path.get_shooting_point()
-    # engine = ensemble['engine']
+    shooting_point, idx = path.get_shooting_point(rgen)
     orderp = shooting_point.order
     shpt_copy = shooting_point.copy()
     logger.info("Shooting from order parameter/index: %f, %d", orderp[0], idx)
@@ -1240,153 +813,6 @@ def prepare_shooting_point(path, rgen, engine):
     orderp = engine.calculate_order(shpt_copy)
     shpt_copy.order = orderp
     return shpt_copy, idx, dek
-
-
-def counter():
-    """Return how many times this function is called."""
-    counter.count = 0 if not hasattr(counter, "count") else counter.count + 1
-    return counter.count
-
-
-def segments_counter(path, interface_l, interface_r, reverse=False):
-    """Count the directional segment between interfaces.
-
-    Method to count the number of the directional segments of the path,
-    along the orderp, that connect FROM interface_l TO interface_r.
-
-    Parameters
-    -----------
-    path : object like :py:class:`.PathBase`
-        This is the input path which segments will be counted.
-    interface_r : float
-        This is the position of the RIGHT interface.
-    interface_l : float
-        This is the position of the LEFT interface.
-    reverse : boolean, optional
-        Check on a reversed path.
-
-    Returns
-    -------
-    n_segments : integer
-        Segment counter
-
-    """
-    icros, n_segments = -1, 0
-    for i in range(path.length - 1):
-        op1 = path.phasepoints[i].order[0]
-        op2 = path.phasepoints[i + 1].order[0]
-        if (
-            reverse
-            and op1 >= interface_r > op2
-            or not reverse
-            and op2 > interface_l >= op1
-        ):
-            icros = i
-        if (
-            reverse
-            and op1 >= interface_l > op2
-            or not reverse
-            and op2 > interface_r >= op1
-        ):
-            if icros != -1:
-                icros = -1
-                n_segments += 1
-    return n_segments
-
-
-def select_and_trim_a_segment(
-    path, interface_l, interface_r, segment_to_pick=None
-):
-    """Cut a directional segment from interface_l to interface_r.
-
-    It keeps what is within the range [interface_l interface_r)
-    AND the snapshots just after/before the interface.
-
-    Parameters
-    ----------
-    path : object like :py:class:`.PathBase`
-        This is the input path which will be trimmed.
-    interface_r : float
-        This is the position of the RIGHT interface.
-    interface_l : float
-        This is the position of the LEFT interface.
-    segment_to_pick : integer (n.b. it starts from 0)
-        This is the segment to be selected, None = random
-
-    Returns
-    -------
-    segment : a path segment composed only the snapshots for which
-        orderp is between interface_r and interface_l and the
-        ones right after/before the interfaces.
-
-    """
-    key = False
-    segment = path.empty_path()
-    segment_i = -1
-    if segment_to_pick is None:
-        segment_number = segments_counter(path, interface_l, interface_r)
-        segment_to_pick = path.rgen.random_integers(0, segment_number)
-
-    for i, phasepoint in enumerate(path.phasepoints[:-1]):
-        op1 = path.phasepoints[i].order[0]
-        op2 = path.phasepoints[i + 1].order[0]
-        # NB: these are directional crossing
-        if op2 >= interface_l > op1:
-            # We are in the good region, segment_i
-            if not key:
-                segment_i += 1
-            key = True
-        if key:
-            if segment_i == segment_to_pick:
-                segment.append(phasepoint)
-                isave = i
-        if op2 >= interface_r > op1:
-            if key and segment_i == segment_to_pick:
-                segment.append(path.phasepoints[i + 1])
-            key = False
-
-    if segment.length == 1:
-        segment.append(path.phasepoints[isave + 1])
-    segment.maxlen = path.maxlen
-    segment.status = path.status
-    segment.time_origin = path.time_origin
-    segment.generated = "sg"
-    segment.rgen = path.rgen
-    return segment
-
-
-def priority_checker(ensembles, settings):
-    """Determine the shooting ensemble during a RETIS simulation.
-
-    Here we check whether to do priority shooting or not. If True,
-    we either shoot from the ensemble with the fewest paths or
-    ensemble [0^-] if all ensembles have the same no. of paths.
-
-    Parameters
-    ----------
-    ensembles : list of dictionaries of objects
-        Lit of dict of ensembles we are using in a path method.
-    settings : dict
-        This dict contains the settings for the RETIS method.
-
-    Returns
-    -------
-    out[0] : list
-        Returns a list of boolean dictating whether certain
-        ensembles are to be skipped or not.
-
-    """
-    priority = settings.get("simulation", {}).get("priority_shooting", False)
-    prio_skip = [False] * len(ensembles)
-    if priority:
-        lst_cycles = [
-            ens["path_ensemble"].nstats["npath"] for ens in ensembles
-        ]
-        # Are all ensemble npath values the same?
-        if any(i != lst_cycles[0] for i in lst_cycles):
-            # If not, let's make a list:
-            prio_skip = [i == max(lst_cycles) for i in lst_cycles]
-    return prio_skip
 
 
 def check_kick(shooting_point, interfaces, trial_path, rgen, dek):
@@ -1514,8 +940,6 @@ def retis_swap_zero(picked):
     maxlen0 = ens_set0.get("maxlength", 100000)
     maxlen1 = ens_set1.get("maxlength", 100000)
 
-    # ens_moves = [settings['ensemble'][i]['tis'].get('shooting_move', 'sh')
-    #              for i in [0, 1]]
     ens_moves = [ens_set0["mc_move"], ens_set1["mc_move"]]
     intf_w = [list(ens_set0["interfaces"]), list(ens_set1["interfaces"])]
 
@@ -1671,82 +1095,17 @@ def retis_swap_zero(picked):
     return accept, (path0, path1), status
 
 
-def swap_ensemble_attributes(ens1, ens2, settings):
-    """Inplace swapping of attributes between ensembles."""
-    for attr in settings.get("simulation", dict()).get("swap_attributes", []):
-        logger.debug(
-            "Swapping attribute '%s' between ensembles: " "%s <-> %s.",
-            attr,
-            ens1["path_ensemble"].ensemble_name,
-            ens2["path_ensemble"].ensemble_name,
-        )
-        old_attr = ens1[attr]
-        ens1[attr] = ens2[attr]
-        ens2[attr] = old_attr
-
-
-def one_step_crossing(ensemble, interface):
-    """Create a path of one step and check the crossing with the interface.
-
-    This function will do a single step to try to cross the interface.
-    Note that a step might involve several substeps, depending on the
-    input file selection/sampling strategy.
-    This task is the Achilles` Heel of Stone Skipping. If not wisely
-    done, a large number of attempts to cross the interface
-    in one step will be done, destroying the sampling efficiency.
-
-
-    Parameters
-    ----------
-    ensemble : dictionary of objects
-        It contains:
-
-        * `system`: object like :py:class:`.System`
-          System is used here since we need access to the temperature
-          and to the particle list.
-        * `order_function`: object like :py:class:`.OrderParameter`
-          The class used for obtaining the order parameter(s).
-        * `engine`: object like :py:class:`.EngineBase`
-          The engine to use for propagating a path.
-        * `rgen`: object like :py:class:`.RandomGenerator`
-          This is the random generator that will be used.
-    interface : float
-        This is the interface position to be crossed.
-
-    Returns
-    -------
-    out[0] : boolean
-        True if the path can be accepted.
-    out[1] : object like :py:class:`.PathBase`
-        Returns the generated path.
-
-    """
-    # The trial path we need to generate. Note, 1 step = 2 points
-    trial_path = Path(rgen=ensemble["rgen"], maxlen=2)
-    interfaces = [-float("inf"), float("inf"), float("inf")]
-    sub_ensemble = {
-        "interfaces": interfaces,
-        "system": ensemble["system"],
-        "order_function": ensemble["order_function"],
-    }
-    ensemble["engine"].propagate(trial_path, sub_ensemble)
-    if crossing_counter(trial_path, interface) == 0:
-        return False, trial_path
-
-    return True, trial_path
-
-
 def metropolis_accept_reject(rgen, system, deltae):
-    """Accept/reject a energy change according to the metropolis rule.
+    """accept/reject a energy change according to the metropolis rule.
 
-    FIXME: Check if metropolis really is a good name here.
+    fixme: check if metropolis really is a good name here.
 
-    Parameters
+    parameters
     ----------
-    rgen : object like :py:class:`.RandomGenerator`
-        The random number generator.
-    system : object like :py:class:`.System`
-        The system object we are investigating. This is used
+    rgen : object like :py:class:`.randomgenerator`
+        the random number generator.
+    system : object like :py:class:`.system`
+        the system object we are investigating. this is used
         to access the beta factor.
     deltae : float
         The change in energy.

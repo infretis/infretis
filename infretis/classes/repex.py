@@ -101,6 +101,11 @@ class REPEX_state:
         return self.config["simulation"]["shooting_moves"]
 
     @property
+    def cap(self):
+        """Retrive mc moves list from config dict."""
+        return self.config["simulation"]["tis_set"].get("interface_cap", None)
+
+    @property
     def pattern(self):
         """Retrive pattern_file from config dict."""
         return self.config["output"].get("pattern", False)
@@ -933,6 +938,7 @@ class REPEX_state:
                 paths[i + 1],
                 self.config["simulation"]["interfaces"],
                 self.mc_moves,
+                cap=self.cap,
             )
             self.add_traj(
                 ens=i,
