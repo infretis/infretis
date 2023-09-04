@@ -54,7 +54,7 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
         assert filecmp.cmp(f'./{item}', f'{basepath}/data/10steps_wf/{item}')
 
     change_toml_steps("restart.toml", 20)
-    os.system("infretisrun -i restart.toml >| out.txt")
+    os.system("infretisrun -i restart.toml >> out.txt")
     rm_restarted_from("restart.toml")
 
     # compare
@@ -63,15 +63,15 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
         assert filecmp.cmp(f'./{item}', f'{basepath}/data/20steps_wf/{item}')
 
     # change_toml_steps("restart.toml", 30)
-    # os.system("infretisrun -i restart.toml >| out.txt")
+    # os.system("infretisrun -i restart.toml >> out.txt")
+    # rm_restarted_from("restart.toml")
 
-    # shutil.copy(str(folder) + '/load/23/energy.txt', basepath + '/energy.txt')
+    # # shutil.copy(str(folder) + '/load/23/energy.txt', basepath + '/energy.txt')
     # shutil.copy(str(folder) + '/sim.log', basepath + '/sim.log')
     # shutil.copy(str(folder) + '/restart.toml', basepath + '/restart.toml')
     # shutil.copy(str(folder) + '/infretis_data.txt', basepath + '/infretis_data.txt')
     # shutil.copy(str(folder) + '/out.txt', basepath + '/out.txt')
-
-    # rm_restarted_from("restart.toml")
+    # shutil.copytree(str(folder) + '/load', basepath + '/load')
 
     # # compare
     # items = ['infretis_data.txt', 'restart.toml']

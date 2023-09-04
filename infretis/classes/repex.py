@@ -376,6 +376,19 @@ class REPEX_state:
                 self.config["current"].get("restarted_from", 0),
             ):
                 logger.info("date: " + datetime.now().strftime(DATE_FORMAT))
+                for key in list(self.ensembles.keys()):
+                    # keys = list(self.ensembles.keys())
+                    seed = self.ensembles[key]["rgen"].get_state()
+                    print(
+                        f"ens: {key}",
+                        seed["seed"],
+                        seed["state"][0],
+                        seed["state"][2:],
+                    )
+                # eng_seed = self.engines['turtlemd'].langevin_rgen.get_state()
+                # print('eng:', eng_seed['seed'], eng_seed['state'][0], eng_seed['state'][2:])
+                print("eng:", dir(self.engines["turtlemd"].langevin_rgen))
+
                 logger.info(
                     f"------- infinity {self.cstep:5.0f} END ------- " + "\n"
                 )

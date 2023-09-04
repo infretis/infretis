@@ -5,9 +5,11 @@ import pickle
 
 import numpy as np
 
-from infretis.classes.formats.energy import EnergyPathFile
-from infretis.classes.formats.order import OrderPathFile
-from infretis.classes.formats.path import PathExtFile
+from infretis.classes.formats.formatter import (
+    EnergyPathFile,
+    OrderPathFile,
+    PathExtFile,
+)
 from infretis.classes.system import System
 from infretis.core.core import read_restart_file
 

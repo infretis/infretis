@@ -767,18 +767,12 @@ class EnergyFormatter(OutputFormatter):
 
         """
         towrite = [self.ENERGY_FMT[0].format(step)]
-        if self.name == "EnergyFormatter":
-            for i, key in enumerate(self.ENERGY_TERMS):
-                value = energy.get(key, None)
-                if value is None:
-                    towrite.append(self.ENERGY_FMT[i + 1].format(float("nan")))
-                else:
-                    towrite.append(self.ENERGY_FMT[i + 1].format(float(value)))
-        elif self.name == "EnergyPathFormatter":
-            for i, key in enumerate(self.ENERGY_TERMS):
-                value = energy.get(key, None)
-                if value is not None:
-                    towrite.append(self.ENERGY_FMT[i + 1].format(float(value)))
+        for i, key in enumerate(self.ENERGY_TERMS):
+            value = energy.get(key, None)
+            if value is None:
+                towrite.append(self.ENERGY_FMT[i + 1].format(float("nan")))
+            else:
+                towrite.append(self.ENERGY_FMT[i + 1].format(float(value)))
         return " ".join(towrite)
 
     def format(self, step, data):

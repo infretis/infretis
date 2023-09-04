@@ -85,10 +85,6 @@ class TurtleMDEngine(EngineBase):
         self.potential = POTENTIAL_MAPS[potential["class"].lower()]
         self.potential = [self.potential(**potential["settings"])]
 
-        # print('baba')
-        # print(integrator["settings"])
-        # print(integrator["settings"].get("seed", 0))
-        # exit('b')
         if integrator["class"].lower() in [
             "langevininertia",
             "langevinoverdamped",
