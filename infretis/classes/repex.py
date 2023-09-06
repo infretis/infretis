@@ -7,10 +7,11 @@ import time
 from datetime import datetime
 
 import numpy as np
+from numpy.random import default_rng
 import tomli_w
 
 from infretis.classes.formats.formatter import PathStorage
-from infretis.core.core import make_dirs, write_ensemble_restart
+from infretis.core.core import make_dirs  # , write_ensemble_restart
 from infretis.core.tis import calc_cv_vector
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -22,7 +23,7 @@ class REPEX_state:
     """Define the REPEX object."""
 
     # set numpy random seed when we initiate REPEX_state
-    np.random.seed(0)
+    # np.random.seed(0)
 
     # dicts to hold *toml, path data, ensembles and engines.
     config: dict = {}
@@ -43,8 +44,12 @@ class REPEX_state:
         """Initiate REPEX given confic dict from *toml file."""
         # set rng
         self.config = config
+        # self.rgen = default_rng(seed=config.get("seed", 0))
+        # print('bimbo a', self.rgen.bit_generator.state['state'])
         if "restarted_from" in config["current"]:
             self.set_rng()
+        else:
+            self.rgen = default_rng(seed=config.get("seed", 0))
 
         n = config["current"]["size"]
         if minus:
@@ -138,7 +143,7 @@ class REPEX_state:
     def pick(self):
         """Pick path and ens."""
         prob = self.prob.astype("float64").flatten()
-        p = np.random.choice(self.n**2, p=np.nan_to_num(prob / np.sum(prob)))
+        p = self.rgen.choice(self.n**2, p=np.nan_to_num(prob / np.sum(prob)))
         traj, ens = np.divmod(p, self.n)
         self.swap(traj, ens)
         self.lock(ens)
@@ -151,7 +156,8 @@ class REPEX_state:
         if (
             (ens == self._offset and not self._locks[self._offset - 1])
             or (ens == self._offset - 1 and not self._locks[self._offset])
-        ) and np.random.random() < self.zeroswap:
+        # ) and np.random.random() < self.zeroswap:
+        ) and self.rgen.random() < self.zeroswap:
             if ens == self._offset:
                 # ens = 0
                 other = self._offset - 1
@@ -174,6 +180,8 @@ class REPEX_state:
         picked = {}
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
             ens_pick = self.ensembles[ens_num + 1]
+            ens_pick["rgen"] = self.rgen.spawn(1)[0]
+            logger.info('fried c:' + str(ens_pick["rgen"].bit_generator.state['state']['state']) + ' ' + str(ens_pick["rgen"].bit_generator.seed_seq.n_children_spawned))
             picked[ens_num] = {
                 "ens": ens_pick,
                 "traj": inp_traj,
@@ -186,7 +194,8 @@ class REPEX_state:
     def pick_traj_ens(self, ens):
         """Pick traj ens."""
         prob = self.prob.astype("float64")[:, ens].flatten()
-        traj = np.random.choice(self.n, p=np.nan_to_num(prob / np.sum(prob)))
+        # traj = np.random.choice(self.n, p=np.nan_to_num(prob / np.sum(prob)))
+        traj = self.rgen.choice(self.n, p=np.nan_to_num(prob / np.sum(prob)))
         self.swap(traj, ens)
         self.lock(ens)
         return self._trajs[ens]
@@ -214,6 +223,8 @@ class REPEX_state:
             self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
         picked = {}
         for ens_num, inp_traj in zip(enss, trajs):
+            self.ensembles[ens_num]["rgen"] = self.rgen.spawn(1)[0]
+            logger.info('fried a:' + str(self.ensembles[ens_num]["rgen"].bit_generator.state['state']['state'])+ ' ' + str(self.ensembles[ens_num]["rgen"].bit_generator.seed_seq.n_children_spawned))
             picked[ens_num] = {
                 "ens": self.ensembles[ens_num],
                 "traj": inp_traj,
@@ -250,10 +261,14 @@ class REPEX_state:
         # allocate worker pin:
         for ens_num in md_items["ens_nums"]:
             if self.config["dask"].get("wmdrun", False):
-                # also sets the rgen
+                # also sets the rgen for {cp2k, turtlemd}
                 md_items["picked"][ens_num]["engine"].set_mdrun(
                     self.config, md_items
                 )
+            if md_items["picked"][ens_num]["engine"].name in ('cp2k', 'turtlemd'):
+                md_items["picked"][ens_num]["engine"].rgen = self.rgen.spawn(1)[0]
+                logger.info('fried b:' + str(md_items["picked"][ens_num]["engine"].rgen.bit_generator.state['state']['state']) + ' ' + str(md_items["picked"][ens_num]["engine"].rgen.bit_generator.seed_seq.n_children_spawned))
+
             # clean up
             md_items["picked"][ens_num]["engine"].clean_up()
 
@@ -354,19 +369,27 @@ class REPEX_state:
 
     def save_rng(self):
         """Save numpy random generator state.."""
-        rng_dic = {"rng-state": np.random.get_state()}
+        # rng_dic = {"rng-state": np.random.get_state()}
+        # rng_dic = {"rng-state": np.random.get_state()}
         save_loc = self.config["simulation"].get("save_loc", "./")
         save_loc = os.path.join("./", save_loc, "infretis.restart")
+        # seed keeps track of number of children spawned
+        seed_state = {'seed': self.rgen.bit_generator.seed_seq,
+                      'state': self.rgen.bit_generator.state}
         with open(save_loc, "wb") as outfile:
-            pickle.dump(rng_dic, outfile)
+            # pickle.dump(rng_dic, outfile)
+            pickle.dump(seed_state, outfile)
 
     def set_rng(self):
         """Set numpy random generator state from restart."""
         save_loc = self.config["simulation"].get("save_loc", "./")
         save_loc = os.path.join("./", save_loc, "infretis.restart")
         with open(save_loc, "rb") as infile:
-            info = pickle.load(infile)
-        np.random.set_state(info["rng-state"])
+            seed_state = pickle.load(infile)
+        self.rgen = default_rng(seed_state['seed'])
+        self.rgen.bit_generator.state = seed_state['state']
+        # self.rgen.bit_generator.state = state
+        # np.random.set_state(info["rng-state"])
 
     def loop(self):
         """Check and interate loop."""
@@ -376,18 +399,20 @@ class REPEX_state:
                 self.config["current"].get("restarted_from", 0),
             ):
                 logger.info("date: " + datetime.now().strftime(DATE_FORMAT))
-                for key in list(self.ensembles.keys()):
-                    # keys = list(self.ensembles.keys())
-                    seed = self.ensembles[key]["rgen"].get_state()
-                    print(
-                        f"ens: {key}",
-                        seed["seed"],
-                        seed["state"][0],
-                        seed["state"][2:],
-                    )
+                # for key in list(self.ensembles.keys()):
+                #     # keys = list(self.ensembles.keys())
+                #     print('cheese', self.ensembles[key])
+                    # seed = self.ensembles[key]["rgen"].get_state()
+                    # print(
+                    #     f"ens: {key}",
+                    #     seed["seed"],
+                    #     seed["state"][0],
+                    #     seed["state"][2:],
+                    # )
                 # eng_seed = self.engines['turtlemd'].langevin_rgen.get_state()
                 # print('eng:', eng_seed['seed'], eng_seed['state'][0], eng_seed['state'][2:])
-                print("eng:", dir(self.engines["turtlemd"].langevin_rgen))
+                # print("eng:", dir(self.engines["turtlemd"].langevin_rgen))
+                logger.info('hotdog a:' + str(self.rgen.bit_generator.state['state']['state']) + ' ' + str(self.rgen.bit_generator.seed_seq.n_children_spawned))
 
                 logger.info(
                     f"------- infinity {self.cstep:5.0f} END ------- " + "\n"
@@ -408,6 +433,7 @@ class REPEX_state:
         if self.printing() and self.cstep <= self.tsteps:
             logger.info(f"------- infinity {self.cstep:5.0f} START ------- ")
             logger.info("date: " + datetime.now().strftime(DATE_FORMAT))
+            logger.info('hotdog b:' + str(self.rgen.bit_generator.state['state']['state']) + ' ' + str(self.rgen.bit_generator.seed_seq.n_children_spawned))
 
         return self.cstep <= self.tsteps
 
@@ -654,15 +680,18 @@ class REPEX_state:
         temp = np.where(current_state == 1)
 
         for i in range(n):
-            direction = np.random.choice(p_m)
+            # direction = np.random.choice(p_m)
+            direction = self.rgen.choice(p_m)
             if not even:
-                start = np.random.choice(zero_one)
+                # start = np.random.choice(zero_one)
+                start = self.rgen.choice(zero_one)
 
             temp_left = prob_left[temp]
             temp_right = prob_right[temp]
 
             if not even:
-                start = np.random.choice(zero_one)
+                # start = np.random.choice(zero_one)
+                start = self.rgen.choice(zero_one)
 
             if direction == -1:
                 probs = (
@@ -672,7 +701,8 @@ class REPEX_state:
             else:
                 probs = temp_right[start:-1:2] * temp_left[start + 1 :: 2]
 
-            r_nums = np.random.random(choices)
+            # r_nums = np.random.random(choices)
+            r_nums = self.rgen.random(choices)
             success = r_nums < probs
 
             for j in np.where(success)[0]:
@@ -885,7 +915,7 @@ class REPEX_state:
                 # move to accept:
                 ens_save_idx = self.traj_data[pn_old]["ens_save_idx"]
                 out_traj.path_number = traj_num
-                make_dirs(f"./trajs/{out_traj.path_number}")
+                # make_dirs(f"./trajs/{out_traj.path_number}")
                 data = {
                     "path": out_traj,
                     "dir": os.path.join(
@@ -911,10 +941,10 @@ class REPEX_state:
                         # Make checker? so it doesn't do anything super yabai
                         os.remove(adress)
 
-            # if ens_num == -1:
-            write_ensemble_restart(
-                self.ensembles[ens_num + 1], self.config, save=f"e{ens_num+1}"
-            )
+            # # if ens_num == -1:
+            # write_ensemble_restart(
+            #     self.ensembles[ens_num + 1], self.config, save=f"e{ens_num+1}"
+            # )
 
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
@@ -1000,6 +1030,55 @@ class REPEX_state:
                     +"[s]\tMD_end [s]\t Dask_end [s]",
                     +f"\tEnsembles\t{self.start_time}\n",
                 )
+
+    def initiate_ensembles(self):
+        """Create all the ensemble dicts from the *toml config dict."""
+        intfs = self.config["simulation"]["interfaces"]
+        ens_intfs = []
+
+        # set intfs for [0-] and [0+]
+        ens_intfs.append([float("-inf"), intfs[0], intfs[0]])
+        ens_intfs.append([intfs[0], intfs[0], intfs[-1]])
+
+        # set interfaces and set detect for [1+], [2+], ...
+        reactant, product = intfs[0], intfs[-1]
+        for i in range(len(intfs) - 2):
+            middle = intfs[i + 1]
+            ens_intfs.append([reactant, middle, product])
+
+        # create all path ensembles
+        pensembles = {}
+        # create a random generator to initiate the actualy random generators
+        # rgen = RandomGenerator(
+        #     settings={"seed": config["simulation"]["seed"]}
+        # )
+        for i, ens_intf in enumerate(ens_intfs):
+            # check if restart file is available:
+            # restart_file = os.path.join(
+            #     config["simulation"]["load_dir"], f"e{i}", "ensemble.restart"
+            # )
+            # if os.path.isfile(restart_file):
+            #     restart = read_restart_file(restart_file)
+            #     rgen_state = {
+            #         "seed": restart["rgen"]["seed"],
+            #         "state": restart["rgen"]["state"],
+            #         "rgen": "rgen",
+            #     }
+            #     # rgen_ens = create_random_generator(rgen_state)
+            # else:
+            #     ens_seed = rgen.random_integers(1, 9999999)
+            #     rgen_ens = create_random_generator(settings={"seed": ens_seed})
+    
+            pensembles[i] = {
+                "interfaces": tuple(ens_intf),
+                "tis_set": self.config["simulation"]["tis_set"],
+                "mc_move": self.config["simulation"]["shooting_moves"][i],
+                "eng_name": self.config["engine"]["engine"],
+                "ens_name": f"{i:03d}",
+                "start_cond": "R" if i == 0 else "L",
+                # "rgen": rgen_ens,
+            }
+        self.ensembles = pensembles
 
 
 def write_to_pathens(state, pn_archive):

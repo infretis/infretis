@@ -70,6 +70,7 @@ class TurtleMDEngine(EngineBase):
         self.temperature = temperature
         self.timestep = timestep
         self.subcycles = subcycles
+        self.name = "turtlemd"
 
         super().__init__(
             "TurtleMD internal engine", self.timestep, self.subcycles
@@ -168,7 +169,7 @@ class TurtleMDEngine(EngineBase):
         tmd_system = System(
             box=self.box, particles=particles, potentials=self.potential
         )
-        seed = self.rgen.random_integers(0, 1e9)
+        seed = self.rgen.integers(0, 1e9)
         tmd_simulation = MDSimulation(
             system=tmd_system,
             integrator=self.integrator(
@@ -280,7 +281,8 @@ class TurtleMDEngine(EngineBase):
         """Remove or rename?"""
         self.exe_dir = md_items["w_folder"]
         # self.rgen = md_items['picked']['tis_set']['rgen']
-        self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"]
+        # self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"].spawn()
+        # self.rgen = md_items["picked"][md_items["ens_nums"][0]]["rgen"].spawn(1)[0]
 
     def _reverse_velocities(self, filename, outfile):
         """Reverse velocity in a given snapshot.
@@ -328,9 +330,9 @@ class TurtleMDEngine(EngineBase):
             kin_old = kinetic_energy(vel, mass)[0]
             do_rescale = False
         if vel_settings.get("aimless", False):
-            vel, _ = rgen.draw_maxwellian_velocities(vel, mass, beta)
+            vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
         else:
-            dvel, _ = rgen.draw_maxwellian_velocities(
+            dvel, _ = self.draw_maxwellian_velocities(
                 vel, mass, beta, sigma_v=vel_settings["sigma_v"]
             )
             vel += dvel

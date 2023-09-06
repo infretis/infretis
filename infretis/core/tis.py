@@ -172,7 +172,7 @@ def wirefence_weight_and_pick(
     n_frames = sum([i[2] for i in path_arr]) if path_arr else 0
     if return_seg and n_frames:
         sum_frames = 0
-        subpath_select = ens_set["rgen"].rand()
+        subpath_select = ens_set["rgen"].random()
         for i in path_arr:
             sum_frames += i[2]
             if sum_frames / n_frames >= subpath_select:
@@ -249,15 +249,25 @@ def select_shoot(picked, start_cond=("L",)):
     if len(picked) == 1:
         pens = next(iter(picked.values()))
         ens_set, path, engine = (pens[i] for i in ["ens", "traj", "engine"])
+        #TODO: just put the rgen here for now for backwards compatib.
+        # ens_set["rgen"] = pens["rgen"]
+        
+        logger.info('bean a: ' + str(ens_set["rgen"].bit_generator.state['state']['state']) + ' ' + str(ens_set["rgen"].bit_generator.seed_seq.n_children_spawned))
+        logger.info('bean b: ' + str(engine.rgen.bit_generator.state['state']['state']) + ' ' + str(engine.rgen.bit_generator.seed_seq.n_children_spawned))
+
         move = ens_set["mc_move"]
+        logger.info(f"starting {move} in {ens_set['ens_name']} with path_n {path.path_number}")
         start_cond = ens_set["start_cond"]
         accept, new_path, status = sh_moves[move](
             ens_set, path, engine, start_cond=start_cond
         )
         new_paths = [new_path]
     else:
+        # picked[0]["ens"]["rgen"] = picked[0]["rgen"]
+        # picked[1]["ens"]["rgen"] = picked[1]["rgen"]
         accept, new_paths, status = retis_swap_zero(picked)
 
+    logger.info(f"Move was {accept} with status {status}\n")
     return accept, new_paths, status
 
 
@@ -295,11 +305,15 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
     # respect the detail balance anyway):
     if path.get_move() == "ld" or ens_set.get("allowmaxlength", False):
         maxlen = ens_set.get("maxlength", 100000)
+        logger.info('cabin a')
     else:
         maxlen = min(
-            int((path.length - 2) / ens_set["rgen"].rgen.rand()) + 2,
+            int((path.length - 2) / ens_set["rgen"].random()) + 2,
             ens_set.get("maxlength", 100000),
         )
+        logger.info('cabin b')
+    # logger.info('cream ' + path.get_move() + ' ' + str(maxlen))
+    logger.info(f"cream {path.get_move()} {maxlen} {ens_set.get('allowmaxlength', False)}")
     # Since the forward path must be at least one step, the maximum
     # length for the backward path is maxlen-1.
     # Generate the backward path:
@@ -313,6 +327,8 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
     ):
         return False, trial_path, trial_path.status
 
+    for idx, i in enumerate(path_back.phasepoints):
+        logger.info(f'gori {idx}\t{i.order[0]}')
     # Everything seems fine, now propagate forward.
     # Note that the length of the forward path is adjusted to
     # account for the fact that it shares a point with the backward
@@ -340,6 +356,8 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
         overlap=True,
         maxlen=ens_set.get("maxlength", 100000),
     )
+    for idx, i in enumerate(trial_path.phasepoints):
+        logger.info(f'bori {idx}\t{i.order[0]}')
 
     # Also update information about the shooting:
     trial_path.generated = (
@@ -623,7 +641,7 @@ def ss_wt_wf_metropolis_acc(path_old, path_new, ens_set, start_cond="L"):
             cr_new, _ = wirefence_weight_and_pick(
                 path_new, interfaces[1], wf_cap
             )
-            if ens_set["rgen"].rand() >= min(1.0, cr_old / cr_new):
+            if ens_set["rgen"].random() >= min(1.0, cr_old / cr_new):
                 path_new.status = "WFA"
                 return False
 
@@ -1176,7 +1194,7 @@ def high_acc_swap(paths, rgen, intf0, intf1, ens_moves):
         p_swap_acc = c1_new * c2_new / (c1_old * c2_old)
 
     # Finally, randomly decide to accept or not:
-    if rgen.rand() < p_swap_acc:
+    if rgen.random() < p_swap_acc:
         return True, "ACC"  # Accepted
 
     return False, "HAS"  # Rejected

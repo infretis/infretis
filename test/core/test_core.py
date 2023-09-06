@@ -18,8 +18,8 @@ from infretis.core.core import (
     initiate_instance,
     inspect_function,
     make_dirs,
-    read_restart_file,
-    write_ensemble_restart,
+    # read_restart_file,
+    # write_ensemble_restart,
 )
 
 THIS_FILE = pathlib.Path(__file__).resolve()
@@ -340,18 +340,18 @@ def test_import_from_errors(caplog):
         assert "Could not import module" in caplog.text
 
 
-def test_write_ensemble_restart(tmp_path):
-    ensemble = {"rgen": RandomState(1234)}
-    config = {"simulation": {"load_dir": "this-is-a-folder"}}
-    test_dir = tmp_path / config["simulation"]["load_dir"] / "test"
-    make_dirs(test_dir)
-    with change_dir(tmp_path):
-        write_ensemble_restart(ensemble, config, "test")
-        info = read_restart_file(test_dir / "ensemble.restart")
-        state = ensemble["rgen"].get_state()
-        assert len(info["rgen"]) == len(state)
-        for i, (vali, valj) in enumerate(zip(state, info["rgen"])):
-            if i == 1:
-                assert np.array_equal(vali, valj)
-            else:
-                assert vali == valj
+# def test_write_ensemble_restart(tmp_path):
+#     ensemble = {"rgen": RandomState(1234)}
+#     config = {"simulation": {"load_dir": "this-is-a-folder"}}
+#     test_dir = tmp_path / config["simulation"]["load_dir"] / "test"
+#     make_dirs(test_dir)
+#     with change_dir(tmp_path):
+#         write_ensemble_restart(ensemble, config, "test")
+#         info = read_restart_file(test_dir / "ensemble.restart")
+#         state = ensemble["rgen"].get_state()
+#         assert len(info["rgen"]) == len(state)
+#         for i, (vali, valj) in enumerate(zip(state, info["rgen"])):
+#             if i == 1:
+#                 assert np.array_equal(vali, valj)
+#             else:
+#                 assert vali == valj

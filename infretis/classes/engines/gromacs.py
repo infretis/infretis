@@ -139,6 +139,7 @@ class GromacsEngine(EngineBase):
         """
         super().__init__("GROMACS engine zamn", timestep, subcycles)
         self.ext = gmx_format
+        self.name = "gromacs"
         if self.ext not in ("g96", "gro"):
             msg = 'Unknown GROMACS format: "%s"'
             logger.error(msg, self.ext)

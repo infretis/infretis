@@ -11,7 +11,7 @@ from infretis.classes.formats.formatter import (
     PathExtFile,
 )
 from infretis.classes.system import System
-from infretis.core.core import read_restart_file
+# from infretis.core.core import read_restart_file
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -134,7 +134,9 @@ class Path:
         return start
 
     def get_shooting_point(self, rgen):
-        idx = rgen.random_integers(1, self.length - 2)
+        ###idx = rgen.random_integers(1, self.length - 2)
+        idx = rgen.integers(1, self.length - 1)
+
         order = self.phasepoints[idx].order[0]
         logger.debug(f"Selected point with orderp {order}")
         return self.phasepoints[idx], idx
@@ -568,7 +570,9 @@ def load_ordertxt(dirname):
 
 def restart_path(restart_file):
     """Restart path from restart file."""
-    restart_info = read_restart_file(restart_file)
+    with open(restart_file, "rb") as infile:
+        restart_info = pickle.load(infile)
+    # restart_info = read_restart_file(restart_file)
     new_path = Path()
     new_path.load_restart_info(restart_info)
     return new_path
@@ -687,14 +691,20 @@ def load_paths_from_disk(config):
     paths = []
     for pnumber in config["current"]["active"]:
         restart_file = os.path.join(load_dir, str(pnumber), "path.restart")
-        if os.path.isfile(restart_file):
-            paths.append(restart_path(restart_file))
-        else:
+        # if os.path.isfile(restart_file):
+        #     paths.append(restart_path(restart_file))
+        # else:
             # load path
-            new_path = load_path(os.path.join(load_dir, str(pnumber)))
-            new_path.generated = ("ld", None, None, None)
-            new_path.write_restart_file(restart_file)
-            paths.append(new_path)
+        new_path = load_path(os.path.join(load_dir, str(pnumber)))
+        
+        status = "re" if "restarted_from" in config["current"] else "ld"
+        print('whadabaa', status)
+        #status = 're' if "restarted_from" in config["current"]:
+        ### TODO: important for shooting move if 'ld' is. need a smart way
+        ### to remember if status is 'sh' or 'wf' etc. maybe in the toml file.
+        new_path.generated = (status, None, None, None)
+        new_path.write_restart_file(restart_file)
+        paths.append(new_path)
 
         # assign pnumber
         paths[-1].path_number = pnumber
