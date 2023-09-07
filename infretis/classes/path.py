@@ -1,15 +1,15 @@
 """Define the path class."""
 import logging
 import os
-import pickle
 
 import numpy as np
 
-from infretis.classes.formats.energy import EnergyPathFile
-from infretis.classes.formats.order import OrderPathFile
-from infretis.classes.formats.path import PathExtFile
+from infretis.classes.formatter import (
+    EnergyPathFile,
+    OrderPathFile,
+    PathExtFile,
+)
 from infretis.classes.system import System
-from infretis.core.core import read_restart_file
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -131,11 +131,13 @@ class Path:
             logger.debug("Undefined starting point.")
         return start
 
-    # def get_shooting_point(self):
-    #     idx = self.rgen.random_integers(1, self.length - 2)
-    #     logger.debug("Selected point with orderp %s",
-    #                  self.phasepoints[idx].order[0])
-    #     return self.phasepoints[idx], idx
+    def get_shooting_point(self, rgen):
+        ### TODO: probably need an unittest for this to check if correct.
+        ### idx = rgen.random_integers(1, self.length - 2)
+        idx = rgen.integers(1, self.length - 1)
+        order = self.phasepoints[idx].order[0]
+        logger.debug(f"Selected point with orderp {order}")
+        return self.phasepoints[idx], idx
 
     def append(self, phasepoint):
         """Append a new phase point to the path.
@@ -279,38 +281,6 @@ class Path:
             for phasepoint in new_path.phasepoints:
                 phasepoint.order = order_function.calculate(phasepoint)
         return new_path
-
-    def restart_info(self):
-        """Return a dictionary with restart information."""
-        info = {
-            "generated": self.generated,
-            "time_origin": self.time_origin,
-            "status": self.status,
-            "weights": self.weights,
-            "min_valid": self.min_valid,
-            "path_number": self.path_number,
-            "phasepoints": self.phasepoints
-            # [i.restart_info() for i in self.phasepoints]
-        }
-        return info
-
-    def load_restart_info(self, info):
-        """Set up the path using restart information."""
-        for key, val in info.items():
-            # For phasepoints, create new System objects
-            # and load the information for these.
-            # The snaps still need to forcefield to be re-initiated.
-            if key == "phasepoints":
-                for point in val:
-                    self.append(point)
-            else:
-                if hasattr(self, key):
-                    setattr(self, key, val)
-
-    def write_restart_file(self, loc):
-        """Write restart file."""
-        with open(loc, "wb") as outfile:
-            pickle.dump(self.restart_info(), outfile)
 
     def empty_path(self, **kwargs):
         """Return an empty path of same class as the current one.
@@ -564,14 +534,6 @@ def load_ordertxt(dirname):
         return order["data"][:, 1:]
 
 
-def restart_path(restart_file):
-    """Restart path from restart file."""
-    restart_info = read_restart_file(restart_file)
-    new_path = Path()
-    new_path.load_restart_info(restart_info)
-    return new_path
-
-
 def load_path(pdir):
     """Load path."""
     trajtxt = os.path.join(pdir, "traj.txt")
@@ -684,16 +646,12 @@ def load_paths_from_disk(config):
     load_dir = config["simulation"]["load_dir"]
     paths = []
     for pnumber in config["current"]["active"]:
-        restart_file = os.path.join(load_dir, str(pnumber), "path.restart")
-        if os.path.isfile(restart_file):
-            paths.append(restart_path(restart_file))
-        else:
-            # load path
-            new_path = load_path(os.path.join(load_dir, str(pnumber)))
-            new_path.generated = ("ld", None, None, None)
-            new_path.write_restart_file(restart_file)
-            paths.append(new_path)
-
+        new_path = load_path(os.path.join(load_dir, str(pnumber)))
+        status = "re" if "restarted_from" in config["current"] else "ld"
+        ### TODO: important for shooting move if 'ld' is set. need a smart way
+        ### to remember if status is 'sh' or 'wf' etc. maybe in the toml file.
+        new_path.generated = (status, None, None, None)
+        paths.append(new_path)
         # assign pnumber
         paths[-1].path_number = pnumber
     return paths

@@ -7,7 +7,9 @@ import shutil
 import subprocess
 from abc import ABCMeta, abstractmethod
 
-from infretis.classes.formats.formatter import FileIO
+import numpy as np
+
+from infretis.classes.formatter import FileIO
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -795,6 +797,31 @@ class EngineBase(metaclass=ABCMeta):
     def __str__(self):
         """Return the string description of the integrator."""
         return self.description
+
+    def draw_maxwellian_velocities(self, vel, mass, beta, sigma_v=None):
+        """Draw numbers from a Gaussian distribution.
+
+        Parameters
+        ----------
+        system : object like :py:class:`.System`
+            This is used to determine the shape (number of particles
+            and dimensionality) and requires veloctities.
+        engine : object like :py:class:`.Engine`
+            This is used to determine the temperature parameter(s)
+        sigma_v : numpy.array, optional
+            The standard deviation in velocity, one for each particle.
+            If it's not given it will be estimated.
+
+        """
+        if not sigma_v or sigma_v < 0.0:
+            kbt = 1.0 / beta
+            sigma_v = np.sqrt(kbt * (1 / mass))
+
+        npart, dim = vel.shape
+        ### probably need a check that we have rgen.. and move this
+        ### somewhere maybe.
+        vel = self.rgen.normal(loc=0.0, scale=sigma_v, size=(npart, dim))
+        return vel, sigma_v
 
 
 def counter():

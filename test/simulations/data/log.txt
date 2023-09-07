@@ -1,0 +1,10 @@
+===========================================================================orz==
+File Name     : log.txt
+Creation Date : 01.09.23 16:17:42
+Last Modified : 01.09.23 16:18:06
+Author        : Daniel Tianhou Zhang, daniel.t.zhang@ntnu.no
+Organization  : NTNU, Norway
+============================================================================owo=
+
+01.09.23 16:17:42:
+The data are all generated from one long airetis run without restart.
