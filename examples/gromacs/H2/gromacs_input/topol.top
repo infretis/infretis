@@ -19,8 +19,7 @@ H4     4
 
 [ system ]
 ; Name
-SIMPLE TWO STATE TOY MODEL
-
+HYDROGEN DISSOCIATION TOY MODEL
 
 [ molecules ]
 H4     2
