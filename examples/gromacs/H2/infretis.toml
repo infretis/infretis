@@ -1,0 +1,49 @@
+# infretis config
+
+[dask]
+workers = 4
+wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
+	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 1 -pin on',
+	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 2 -pin on',
+	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 3 -pin on',]
+
+[simulation]
+interfaces = [0.345 , 0.355, 0.375, 0.415, 0.495, 0.560, 0.65, 1.200]
+steps = 40000
+seed = 0
+load_dir = 'load'
+shooting_moves = ['sh','sh','sh','sh','sh','sh','sh','sh']
+
+
+[simulation.tis_set]
+maxlength = 2000
+aimless = true
+allowmaxlength = false
+zero_momentum = true # momentum true
+rescale_energy = false
+temperature = 300
+
+
+[engine]
+class = 'gromacs'
+engine = 'gmx'
+timestep = 0.0002
+mdrun = 'gmx'
+gmx_format = 'g96'
+input_path = 'gromacs_input'
+gmx = 'gmx'
+subcycles = 10
+
+[orderparameter]
+class = 'Distance'
+index = [ 0, 1]
+periodic = true
+
+[output]
+backup = 'backup'
+data_dir = "./"
+order-file = 1
+energy-file = 1
+trajectory-file = -1
+screen = 1
+pattern = 1
