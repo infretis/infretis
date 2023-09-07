@@ -1,4 +1,4 @@
-integrator              = md-vv      ; leap-frog integrator
+integrator              = md-vv
 nsteps                  = 10000000
 dt                      = 0.0002
 
@@ -12,20 +12,20 @@ nstvout                  = 10
 nstfout                  = 0
 
 cutoff-scheme           = Verlet
-ns_type                 = grid      ; search neighboring grid cells
-nstlist                 = 1 ; largely irrelevant with Verlet
+ns_type                 = grid
+nstlist                 = 1
 verlet-buffer-tolerance = -1
 rlist                   = 1.45
 vdwtype                 = cutoff
 rvdw                    = 1.20
-coulombtype             = cutoff       ; Particle Mesh Ewald for long-range electrostatics
-rcoulomb                = 1.20       ; short-range electrostatic cutoff (in nm)
+coulombtype             = cutoff
+rcoulomb                = 1.20
 
-tcoupl                  = no                   ; modified Berendsen thermostat
+tcoupl                  = no
 
-pbc                     = xyz       ; 3-D PBC
+pbc                     = xyz
 
-gen_temp                = 300       ; temperature for Maxwell distribution
-gen_seed                = -1        ; generate a random seed
+gen_temp                = 300
+gen_seed                = -1
 gen_vel = no
 nstcalcenergy = 1
