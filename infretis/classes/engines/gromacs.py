@@ -554,7 +554,7 @@ class GromacsEngine(EngineBase):
         elif traj_file[-4:] == ".g96" and out_file[-4:] == ".g96":
             shutil.copyfile(traj_file, out_file)
 
-        elif traj_file[-4:] == ".gro":
+        else:
             cmd = [
                 self.gmx,
                 "editconf",
@@ -564,11 +564,8 @@ class GromacsEngine(EngineBase):
                 out_file,
             ]
             self.execute_command(cmd, cwd=None)
-
-        else:
             print("panda a", traj_file)
             print("panda b", trajexts, out_file)
-            raise NotImplementedError("Unsupported GROMACS format")
 
     def get_energies(self, energy_file, begin=None, end=None):
         """Return energies from a GROMACS run.
