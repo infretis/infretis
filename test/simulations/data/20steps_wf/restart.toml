@@ -1,0 +1,213 @@
+[dask]
+workers = 1
+wmdrun = [
+    "not used",
+    "not used",
+    "not used",
+    "not used",
+    "not used",
+    "not used",
+    "not used",
+    "not used",
+]
+
+[simulation]
+interfaces = [
+    -0.99,
+    -0.8,
+    -0.7,
+    -0.6,
+    -0.5,
+    -0.4,
+    -0.3,
+    1.0,
+]
+steps = 20
+seed = 0
+load_dir = "load"
+shooting_moves = [
+    "sh",
+    "sh",
+    "wf",
+    "wf",
+    "wf",
+    "wf",
+    "wf",
+    "wf",
+]
+
+[simulation.tis_set]
+maxlength = 2000
+aimless = true
+allowmaxlength = false
+zero_momentum = false
+rescale_energy = false
+n_jumps = 6
+high_accept = true
+
+[engine]
+class = "turtlemd"
+engine = "turtlemd"
+timestep = 0.025
+temperature = 0.07
+boltzmann = 1.0
+subcycles = 1
+
+[engine.integrator]
+class = "LangevinInertia"
+
+[engine.integrator.settings]
+gamma = 0.3
+beta = 14.285714285714285
+
+[engine.potential]
+class = "DoubleWell"
+
+[engine.potential.settings]
+a = 1.0
+b = 2.0
+c = 0.0
+
+[engine.particles]
+mass = [
+    1.0,
+]
+name = [
+    "Z",
+]
+pos = [
+    [
+        -1.0,
+    ],
+]
+
+[engine.box]
+periodic = [
+    false,
+]
+
+[orderparameter]
+class = "Position"
+index = [
+    0,
+    0,
+]
+periodic = false
+
+[output]
+backup = "backup"
+data_dir = "./"
+order-file = 1
+energy-file = 1
+trajectory-file = -1
+screen = 1
+pattern = 1
+delete_old = true
+data_file = "./infretis_data.txt"
+pattern_file = "pattern.txt"
+
+[current]
+traj_num = 29
+cstep = 20
+active = [
+    23,
+    24,
+    21,
+    27,
+    26,
+    25,
+    17,
+    28,
+]
+locked = []
+size = 8
+
+[current.frac]
+17 = [
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.030674681835809150768",
+    "0.29660192444555008508",
+    "0.41593325221309944672",
+    "7.0081537262483500576",
+    "4.2486364152571912604",
+    "0.0",
+]
+21 = [
+    "0.0",
+    "0.0",
+    "7.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+23 = [
+    "5.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+24 = [
+    "0.0",
+    "5.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+25 = [
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.16251124210665772029",
+    "1.4707110810147893875",
+    "2.3667776768785528919",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+26 = [
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.08688466036314481842",
+    "0.82092667806758902146",
+    "1.0275599051404280258",
+    "1.0646287564288381343",
+    "0.0",
+    "0.0",
+]
+27 = [
+    "0.0",
+    "0.0",
+    "0.0",
+    "2.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+28 = [
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.043851513662242852822",
+    "0.062559086706080331135",
+    "0.23137485295063576959",
+    "0.6622145466810410463",
+    "0.0",
+]

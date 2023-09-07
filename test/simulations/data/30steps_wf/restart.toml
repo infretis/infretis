@@ -1,0 +1,213 @@
+[dask]
+workers = 1
+wmdrun = [
+    "not used",
+    "not used",
+    "not used",
+    "not used",
+    "not used",
+    "not used",
+    "not used",
+    "not used",
+]
+
+[simulation]
+interfaces = [
+    -0.99,
+    -0.8,
+    -0.7,
+    -0.6,
+    -0.5,
+    -0.4,
+    -0.3,
+    1.0,
+]
+steps = 30
+seed = 0
+load_dir = "load"
+shooting_moves = [
+    "sh",
+    "sh",
+    "wf",
+    "wf",
+    "wf",
+    "wf",
+    "wf",
+    "wf",
+]
+
+[simulation.tis_set]
+maxlength = 2000
+aimless = true
+allowmaxlength = false
+zero_momentum = false
+rescale_energy = false
+n_jumps = 6
+high_accept = true
+
+[engine]
+class = "turtlemd"
+engine = "turtlemd"
+timestep = 0.025
+temperature = 0.07
+boltzmann = 1.0
+subcycles = 1
+
+[engine.integrator]
+class = "LangevinInertia"
+
+[engine.integrator.settings]
+gamma = 0.3
+beta = 14.285714285714285
+
+[engine.potential]
+class = "DoubleWell"
+
+[engine.potential.settings]
+a = 1.0
+b = 2.0
+c = 0.0
+
+[engine.particles]
+mass = [
+    1.0,
+]
+name = [
+    "Z",
+]
+pos = [
+    [
+        -1.0,
+    ],
+]
+
+[engine.box]
+periodic = [
+    false,
+]
+
+[orderparameter]
+class = "Position"
+index = [
+    0,
+    0,
+]
+periodic = false
+
+[output]
+backup = "backup"
+data_dir = "./"
+order-file = 1
+energy-file = 1
+trajectory-file = -1
+screen = 1
+pattern = 1
+delete_old = true
+data_file = "./infretis_data.txt"
+pattern_file = "pattern.txt"
+
+[current]
+traj_num = 40
+cstep = 30
+active = [
+    36,
+    37,
+    39,
+    33,
+    35,
+    32,
+    17,
+    38,
+]
+locked = []
+size = 8
+
+[current.frac]
+17 = [
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.030674681835809150768",
+    "0.38681981144502054204",
+    "0.74072862435019204224",
+    "12.190703303644219778",
+    "8.651073578724758488",
+    "0.0",
+]
+32 = [
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "7.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+33 = [
+    "0.0",
+    "0.0",
+    "0.0",
+    "6.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+35 = [
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "4.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+36 = [
+    "3.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+37 = [
+    "0.0",
+    "3.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+38 = [
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.72968428918363538183",
+    "1.2703157108163646182",
+    "0.0",
+]
+39 = [
+    "0.0",
+    "0.0",
+    "1.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]

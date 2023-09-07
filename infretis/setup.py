@@ -6,8 +6,7 @@ import tomli
 from dask.distributed import Client, as_completed, dask, get_worker
 
 from infretis.classes.engines.factory import create_engines
-from infretis.classes.ensemble import create_ensembles
-from infretis.classes.formats.formatter import get_log_formatter
+from infretis.classes.formatter import get_log_formatter
 from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
@@ -25,7 +24,7 @@ def setup_internal(config):
     state = REPEX_state(config, minus=True)
 
     # setup ensembles
-    state.ensembles = create_ensembles(config)
+    state.initiate_ensembles()
 
     # setup engines
     state.engines = create_engines(config)
@@ -38,7 +37,11 @@ def setup_internal(config):
     state.load_paths(paths)
 
     # create first md_items dict
-    md_items = {"mc_moves": state.mc_moves, "interfaces": state.interfaces}
+    md_items = {
+        "mc_moves": state.mc_moves,
+        "interfaces": state.interfaces,
+        "cap": state.cap,
+    }
 
     # write pattern header
     if state.pattern:

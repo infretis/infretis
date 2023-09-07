@@ -758,6 +758,7 @@ class CP2KEngine(EngineBase):
         """
         super().__init__("CP2K external engine", timestep, subcycles)
         self.ext = "xyz"
+        self.name = "cp2k"
         self.cp2k = shlex.split(cp2k)
         self.sleep = sleep
         logger.info("Command for execution of CP2K: %s", " ".join(self.cp2k))

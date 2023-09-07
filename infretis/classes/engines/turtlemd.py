@@ -13,7 +13,6 @@ import os
 from collections import defaultdict
 
 import numpy as np
-from numpy.random import default_rng
 from turtlemd.integrators import (
     LangevinInertia,
     LangevinOverdamped,
@@ -70,6 +69,7 @@ class TurtleMDEngine(EngineBase):
         self.temperature = temperature
         self.timestep = timestep
         self.subcycles = subcycles
+        self.name = "turtlemd"
 
         super().__init__(
             "TurtleMD internal engine", self.timestep, self.subcycles
@@ -89,9 +89,9 @@ class TurtleMDEngine(EngineBase):
             "langevininertia",
             "langevinoverdamped",
         ]:
-            self.langevin_rgen = default_rng(
-                seed=integrator["settings"].pop("seed")
-            )
+            # TODO:
+            print("do something wrt random gen. so that only")
+            print("langevin integrato needs it")
 
         self.dim = self.potential[0].dim
 
@@ -166,7 +166,7 @@ class TurtleMDEngine(EngineBase):
         tmd_system = System(
             box=self.box, particles=particles, potentials=self.potential
         )
-        seed = self.rgen.random_integers(0, 1e9)
+        seed = self.rgen.integers(0, 1e9)
         tmd_simulation = MDSimulation(
             system=tmd_system,
             integrator=self.integrator(
@@ -277,8 +277,6 @@ class TurtleMDEngine(EngineBase):
     def set_mdrun(self, config, md_items):
         """Remove or rename?"""
         self.exe_dir = md_items["w_folder"]
-        # self.rgen = md_items['picked']['tis_set']['rgen']
-        self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"]
 
     def _reverse_velocities(self, filename, outfile):
         """Reverse velocity in a given snapshot.
@@ -304,7 +302,6 @@ class TurtleMDEngine(EngineBase):
         momentum to zero by default.
 
         """
-        rgen = self.rgen
         mass = self.mass
         beta = self.beta
         rescale = vel_settings.get(
@@ -326,9 +323,9 @@ class TurtleMDEngine(EngineBase):
             kin_old = kinetic_energy(vel, mass)[0]
             do_rescale = False
         if vel_settings.get("aimless", False):
-            vel, _ = rgen.draw_maxwellian_velocities(vel, mass, beta)
+            vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
         else:
-            dvel, _ = rgen.draw_maxwellian_velocities(
+            dvel, _ = self.draw_maxwellian_velocities(
                 vel, mass, beta, sigma_v=vel_settings["sigma_v"]
             )
             vel += dvel
