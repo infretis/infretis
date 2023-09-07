@@ -1,14 +1,9 @@
 # infretis config
 
 [dask]
-workers = 7
-wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 8 -pin on',
-	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 9 -pin on',
-	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 10 -pin on',
-	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 11 -pin on',
-	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 12 -pin on',
-	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 13 -pin on',
-	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 14 -pin on',]
+workers = 2
+wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
+	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 1 -pin on',]
 
 [simulation]
 interfaces = [-1.1, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 1.5]
@@ -40,7 +35,7 @@ subcycles = 10
 [orderparameter]
 class = 'Dihedral'
 index = [ 0, 1, 2, 3]
-periodic = false
+periodic = true
 
 [output]
 backup = 'backup'
