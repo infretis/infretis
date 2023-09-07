@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import errno
 import importlib
 import inspect
@@ -18,7 +20,7 @@ def generic_factory(
     settings: dict[str, Any],
     object_map: dict[str, dict[str, Any]],
     name: str = "generic",
-) -> None | EngineBase | OrderParameter:
+) -> EngineBase | OrderParameter | None:
     """Create instances of classes based on settings.
 
     This method is intended as a semi-generic factory for creating
