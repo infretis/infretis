@@ -316,7 +316,7 @@ def import_from(module_path, function_name):
     raise ValueError(msg)
 
 
-def make_dirs(dirname):
+def make_dirs(dirname: str) -> str:
     """Create directories for path simulations.
 
     This function will create a folder using a specified path.
@@ -336,6 +336,7 @@ def make_dirs(dirname):
         output.
 
     """
+    msg = f'Directory "{dirname}" was not created.'
     try:
         os.makedirs(dirname)
         msg = f'Created directory: "{dirname}"'
