@@ -40,10 +40,9 @@ class REPEX_state:
     def __init__(self, config, minus=False):
         """Initiate REPEX given confic dict from *toml file."""
         self.config = config
-
         # set rng
         if "restarted_from" in config["current"]:
-            self.set_rng()
+            self.set_rgen()
         else:
             self.rgen = default_rng(seed=config.get("seed", 0))
 
@@ -264,7 +263,6 @@ class REPEX_state:
                 md_items["picked"][ens_num]["engine"].rgen = self.rgen.spawn(
                     1
                 )[0]
-
             # clean up
             md_items["picked"][ens_num]["engine"].clean_up()
 
@@ -363,7 +361,7 @@ class REPEX_state:
         ]
         return locks
 
-    def save_rng(self):
+    def save_rgen(self):
         """Save numpy random generator state.."""
         save_loc = self.config["simulation"].get("save_loc", "./")
         save_loc = os.path.join("./", save_loc, "infretis.restart")
@@ -375,7 +373,7 @@ class REPEX_state:
         with open(save_loc, "wb") as outfile:
             pickle.dump(seed_state, outfile)
 
-    def set_rng(self):
+    def set_rgen(self):
         """Set numpy random generator state from restart."""
         save_loc = self.config["simulation"].get("save_loc", "./")
         save_loc = os.path.join("./", save_loc, "infretis.restart")
@@ -392,7 +390,6 @@ class REPEX_state:
                 self.config["current"].get("restarted_from", 0),
             ):
                 logger.info("date: " + datetime.now().strftime(DATE_FORMAT))
-
                 logger.info(
                     f"------- infinity {self.cstep:5.0f} END ------- " + "\n"
                 )
@@ -401,7 +398,7 @@ class REPEX_state:
             # should probably add a check for stopping when all workers
             # are free to close the while loop, but for now when
             # cstep >= tsteps we return false.
-            self.save_rng()
+            self.save_rgen()
             self.print_end()
             self.write_toml()
             logger.info("date: " + datetime.now().strftime(DATE_FORMAT))
@@ -935,7 +932,7 @@ class REPEX_state:
         if self.printing():
             self.print_shooted(md_items, pn_news)
         # save for possible restart
-        self.save_rng()
+        self.save_rgen()
         self.write_toml()
 
         return md_items

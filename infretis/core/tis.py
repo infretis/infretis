@@ -251,7 +251,8 @@ def select_shoot(picked, start_cond=("L",)):
         ens_set, path, engine = (pens[i] for i in ["ens", "traj", "engine"])
         move = ens_set["mc_move"]
         logger.info(
-            f"starting {move} in {ens_set['ens_name']} with path_n {path.path_number}"
+            f"starting {move} in {ens_set['ens_name']}"
+            + f" with path_n {path.path_number}"
         )
         start_cond = ens_set["start_cond"]
         accept, new_path, status = sh_moves[move](
@@ -467,7 +468,8 @@ def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
         )
         start, end, _, _ = trial_seg.check_interfaces(wf_int)
         logger.info(
-            f"Jump {i}, len {trial_seg.length}, status {status}, intf: {start} {end}"
+            f"Jump {i}, len {trial_seg.length}, status"
+            + f"{status}, intf: {start} {end}"
         )
         if not success:
             # This handles R to R (start_cond = L) paths. Counter + 1, no ups.

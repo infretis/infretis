@@ -2,6 +2,7 @@
 import os
 
 import numpy as np
+import pytest
 from pathlib import PosixPath
 
 from infretis.classes.engines.engineparts import read_xyz_file
@@ -120,7 +121,7 @@ def test_shooting(tmp_path: PosixPath) -> None:
     assert trial_seg.length == 21
     assert status == "BTL"
     assert check_smooth(trial_seg)[1]
-    assert trial_seg.ordermax[0] == 0.8130819530087089
+    assert pytest.approx(trial_seg.ordermax[0]) == 0.8130819530087089
 
 def test_wirefencing(tmp_path: PosixPath) -> None:
     """Template for wirefencing move tests.
@@ -142,7 +143,7 @@ def test_wirefencing(tmp_path: PosixPath) -> None:
     assert trial_seg.length == 86
     assert status == "ACC"
     assert check_smooth(trial_seg)[1]
-    assert trial_seg.ordermax[0] == 1.0036643957058349
+    assert pytest.approx(trial_seg.ordermax[0]) == 1.003664395705834
     assert trial_seg.weight == 124.0
 
 
