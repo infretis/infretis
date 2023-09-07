@@ -550,26 +550,25 @@ class GromacsEngine(EngineBase):
                 write_gromacs_gro_file(out_file, self.top, xyz, vel, box)
             elif out_file[-4:] == ".g96":
                 write_gromos96_file(out_file, self.top, xyz, vel, box)
-        elif traj_file[-4:] == ".g96":
-            # if .g96 file
+
+        elif traj_file[-4:] == ".g96" and out_file[-4:] == ".g96":
             shutil.copyfile(traj_file, out_file)
-        else:
-            # if .gro or .trr file.
+
+        elif traj_file[-4:] == ".gro":
             cmd = [
                 self.gmx,
-                "trjconv",
+                "editconf",
                 "-f",
                 traj_file,
-                "-s",
-                self.input_files["tpr"],
                 "-o",
                 out_file,
             ]
+            self.execute_command(cmd, cwd=None)
 
-            print("panda a", traj_file[-4:])
+        else:
+            print("panda a", traj_file)
             print("panda b", trajexts, out_file)
-            # exit('iceman')
-            self.execute_command(cmd, inputs=b"0", cwd=None)
+            raise NotImplementedError("Unsupported GROMACS format")
 
     def get_energies(self, energy_file, begin=None, end=None):
         """Return energies from a GROMACS run.
@@ -660,6 +659,7 @@ class GromacsEngine(EngineBase):
         msg_file.write(
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
+
         # So, here we will just blast off GROMACS and check the .trr
         # output when we can.
         # 1) Create mdp_file with updated number of steps:
