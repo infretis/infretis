@@ -21,17 +21,12 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 _GROMACS_MAGIC = 1993
-_GRO_FMT = "{0:5d}{1:5s}{2:5s}{3:5d}{4:8.3f}{5:8.3f}{6:8.3f}"
-_GRO_VEL_FMT = _GRO_FMT + "{7:8.4f}{8:8.4f}{9:8.4f}"
-_GRO_BOX_FMT = "{:15.9f}"
 _G96_FMT = "{0:}{1:15.9f}{2:15.9f}{3:15.9f}\n"
-_G96_FMT_FULL = "{0:5d} {1:5s} {2:5s}{3:7d}{4:15.9f}{5:15.9f}{6:15.9f}\n"
 _G96_BOX_FMT = "{:15.9f}" * 9 + "\n"
 _G96_BOX_FMT_3 = "{:15.9f}" * 3 + "\n"
 _GROMACS_MAGIC = 1993
 _DIM = 3
 _TRR_VERSION = "GMX_trn_file"
-_TRR_VERSION_B = b"GMX_trn_file"
 _SIZE_FLOAT = struct.calcsize("f")
 _SIZE_DOUBLE = struct.calcsize("d")
 _HEAD_FMT = "{}13i"
@@ -107,7 +102,7 @@ class GromacsEngine(EngineBase):
         subcycles,
         exe_path=os.path.abspath("."),
         maxwarn=0,
-        gmx_format="gro",
+        gmx_format="g96",
         write_vel=True,
         write_force=False,
     ):
@@ -140,10 +135,11 @@ class GromacsEngine(EngineBase):
         super().__init__("GROMACS engine zamn", timestep, subcycles)
         self.ext = gmx_format
         self.name = "gromacs"
-        if self.ext not in ("g96", "gro"):
-            msg = 'Unknown GROMACS format: "%s"'
-            logger.error(msg, self.ext)
-            raise ValueError(msg % self.ext)
+        if self.ext != "g96":
+            msg = f"The GROMACS engines now only supports .g96. \
+                    Current format: {self.ext}"
+            logger.error(msg)
+            raise ValueError(msg)
         # Define the GROMACS GMX command:
         self.gmx = gmx
         # Define GROMACS GMX MDRUN commands:
@@ -166,24 +162,9 @@ class GromacsEngine(EngineBase):
             "index": "index.ndx",
         }
 
-        # An user doesn't need to have problems with g96 and mdtraj.
         file_g = os.path.join(self.input_path, "conf.")
-        if self.ext == "gro":
-            self.top, _, _, _ = read_gromacs_gro_file(file_g + self.ext)
-        elif self.ext == "g96":
-            if not os.path.isfile(file_g + "gro"):
-                cmd = [
-                    self.gmx,
-                    "editconf",
-                    "-f",
-                    file_g + self.ext,
-                    "-o",
-                    file_g + "gro",
-                ]
-                self.execute_command(cmd, cwd=None)
-
-            self.top, _, _, _ = read_gromos96_file(file_g + self.ext)
-            self.top["VELOCITY"] = self.top["POSITION"].copy()
+        self.top, _, _, _ = read_gromos96_file(file_g + self.ext)
+        self.top["VELOCITY"] = self.top["POSITION"].copy()
 
         # Check the presence of the defaults input files or, if absent,
         # try to find them by their expected extension.
@@ -547,26 +528,16 @@ class GromacsEngine(EngineBase):
             xyz = data["x"]
             vel = data.get("v")
             box = box_matrix_to_list(data["box"], full=True)
-            if out_file[-4:] == ".gro":
-                write_gromacs_gro_file(out_file, self.top, xyz, vel, box)
-            elif out_file[-4:] == ".g96":
-                write_gromos96_file(out_file, self.top, xyz, vel, box)
+            write_gromos96_file(out_file, self.top, xyz, vel, box)
 
         elif traj_file[-4:] == ".g96" and out_file[-4:] == ".g96":
             shutil.copyfile(traj_file, out_file)
 
         else:
-            cmd = [
-                self.gmx,
-                "editconf",
-                "-f",
-                traj_file,
-                "-o",
-                out_file,
-            ]
-            self.execute_command(cmd, cwd=None)
-            print("panda a", traj_file)
-            print("panda b", trajexts, out_file)
+            msg = f"Can't extract frame from tajectory \
+                    with format: {traj_file[-4:]}"
+            logger.error(msg)
+            raise ValueError(msg)
 
     def get_energies(self, energy_file, begin=None, end=None):
         """Return energies from a GROMACS run.
@@ -835,7 +806,7 @@ class GromacsEngine(EngineBase):
         self.exe_dir = md_items["w_folder"]
 
     def _read_configuration(self, filename):
-        """Read output from GROMACS .g96/gro files.
+        """Read output from GROMACS .g96 files.
 
         Parameters
         ----------
@@ -855,12 +826,10 @@ class GromacsEngine(EngineBase):
         box = None
         if self.ext == "g96":
             _, xyz, vel, box = read_gromos96_file(filename)
-        elif self.ext == "gro":
-            _, xyz, vel, box = read_gromacs_gro_file(filename)
         else:
-            msg = 'GROMACS engine does not support reading "%s"'
-            logger.error(msg, self.ext)
-            raise ValueError(msg % self.ext)
+            msg = f"GROMACS engine does not support reading {self.ext}"
+            logger.error(msg)
+            raise ValueError(msg)
         return box, xyz, vel
 
     def _reverse_velocities(self, filename, outfile):
@@ -878,13 +847,10 @@ class GromacsEngine(EngineBase):
         if self.ext == "g96":
             txt, xyz, vel, _ = read_gromos96_file(filename)
             write_gromos96_file(outfile, txt, xyz, -1 * vel)
-        elif self.ext == "gro":
-            txt, xyz, vel, _ = read_gromacs_gro_file(filename)
-            write_gromacs_gro_file(outfile, txt, xyz, -1 * vel)
         else:
-            msg = 'GROMACS engine does not support writing "%s"'
-            logger.error(msg, self.ext)
-            raise ValueError(msg % self.ext)
+            msg = f"GROMACS engine does not support writing {self.ext}"
+            logger.error(msg)
+            raise ValueError(msg)
 
     def modify_velocities(self, system, vel_settings):
         """Modify the velocities of the current state.
@@ -1289,7 +1255,7 @@ def gromacs_settings(settings, input_path):
         The GROMACS input path
 
     """
-    ext = settings["engine"].get("gmx_format", "gro")
+    ext = settings["engine"].get("gmx_format", "g96")
     default_files = {
         "conf": f"conf.{ext}",
         "input_o": "grompp.mdp",
@@ -1302,152 +1268,6 @@ def gromacs_settings(settings, input_path):
         settings["engine"]["input_files"][key] = settings["engine"].get(
             key, os.path.join(input_path, default_files[key])
         )
-
-
-def read_gromacs_generic(filename):
-    """Read GROMACS files.
-
-    This method will read a GROMACS file and yield the different
-    snapshots found in the file. This file is intended to be used
-    to just count the n of snapshots stored in a file.
-
-    Parameters
-    ----------
-    filename : string
-        The file to check.
-
-    Yields
-    ------
-    out : None.
-
-    """
-    if filename[-4:] == ".gro":
-        for i in read_gromacs_file(filename):
-            yield None
-    if filename[-4:] == ".g96":
-        yield None
-    if filename[-4:] == ".trr":
-        for _ in read_trr_file(filename):
-            yield None
-
-
-def read_gromacs_file(filename):
-    """Read GROMACS GRO files.
-
-    This method will read a GROMACS file and yield the different
-    snapshots found in the file. This file is intended to be used
-    if we want to read all snapshots present in a file.
-
-    Parameters
-    ----------
-    filename : string
-        The file to open.
-
-    Yields
-    ------
-    out : dict
-        This dict contains the snapshot.
-
-    """
-    with open(filename, encoding="utf-8") as fileh:
-        yield from read_gromacs_lines(fileh)
-
-
-def read_gromacs_gro_file(filename):
-    """Read a single configuration GROMACS GRO file.
-
-    This method will read the first configuration from the GROMACS
-    GRO file and return the data as give by
-    :py:func:`.read_gromacs_lines`. It will also explicitly
-    return the matrices with positions, velocities and box size.
-
-    Parameters
-    ----------
-    filename : string
-        The file to read.
-
-    Returns
-    -------
-    frame : dict
-        This dict contains all the data read from the file.
-    xyz : numpy.array
-        The positions. The array is (N, 3) where N is the
-        number of particles.
-    vel : numpy.array
-        The velocities. The array is (N, 3) where N is the
-        number of particles.
-    box : numpy.array
-        The box dimensions.
-
-    """
-    snapshot = None
-    xyz = None
-    vel = None
-    box = None
-    with open(filename, encoding="utf8") as fileh:
-        snapshot = next(read_gromacs_lines(fileh))
-        box = snapshot.get("box", None)
-        xyz = snapshot.get("xyz", None)
-        vel = snapshot.get("vel", None)
-    return snapshot, xyz, vel, box
-
-
-def write_gromacs_gro_file(outfile, txt, xyz, vel=None, box=None):
-    """Write configuration in GROMACS GRO format.
-
-    Parameters
-    ----------
-    outfile : string
-        The name of the file to create.
-    txt : dict of lists of strings
-        This dict contains the information on residue-numbers, names,
-        etc. required to write the GRO file.
-    xyz : numpy.array
-        The positions to write.
-    vel : numpy.array, optional
-        The velocities to write.
-    box: numpy.array, optional
-        The box matrix.
-
-    """
-    resnum = txt["residunr"]
-    resname = txt["residuname"]
-    atomname = txt["atomname"]
-    atomnr = txt["atomnr"]
-    npart = len(xyz)
-    with open(outfile, "w", encoding="utf-8") as output:
-        output.write(f'{txt["header"]}\n')
-        output.write(f"{npart}\n")
-        for i in range(npart):
-            if vel is None:
-                buff = _GRO_FMT.format(
-                    resnum[i],
-                    resname[i],
-                    atomname[i],
-                    atomnr[i],
-                    xyz[i, 0],
-                    xyz[i, 1],
-                    xyz[i, 2],
-                )
-            else:
-                buff = _GRO_VEL_FMT.format(
-                    resnum[i],
-                    resname[i],
-                    atomname[i],
-                    atomnr[i],
-                    xyz[i, 0],
-                    xyz[i, 1],
-                    xyz[i, 2],
-                    vel[i, 0],
-                    vel[i, 1],
-                    vel[i, 2],
-                )
-            output.write(f"{buff}\n")
-        if box is None:
-            box = " ".join([_GRO_BOX_FMT.format(i) for i in txt["box"]])
-        else:
-            box = " ".join([_GRO_BOX_FMT.format(i) for i in box])
-        output.write(f"{box}\n")
 
 
 def read_gromos96_file(filename):
@@ -1874,76 +1694,6 @@ def read_remaining_trr(filename, fileh, start):
                 # kept for safety
                 stop = True
                 continue
-
-
-def read_gromacs_lines(lines):
-    """Read and parse GROMACS GRO data.
-
-    This method will read a GROMACS file and yield the different
-    snapshots found in the file.
-
-    Parameters
-    ----------
-    lines : iterable
-        Some lines of text data representing a GROMACS GRO file.
-
-    Yields
-    ------
-    out : dict
-        This dict contains the snapshot.
-
-    """
-    lines_to_read = 0
-    snapshot = {}
-    read_natoms = False
-    gro = (5, 5, 5, 5, 8, 8, 8, 8, 8, 8)
-    gro_keys = (
-        "residunr",
-        "residuname",
-        "atomname",
-        "atomnr",
-        "x",
-        "y",
-        "z",
-        "vx",
-        "vy",
-        "vz",
-    )
-    gro_type = (int, str, str, int, float, float, float, float, float, float)
-    for line in lines:
-        if read_natoms:
-            read_natoms = False
-            lines_to_read = int(line.strip()) + 1
-            continue  # just skip to next line
-        if lines_to_read == 0:  # new snapshot
-            if snapshot:
-                _add_matrices_to_snapshot(snapshot)
-                yield snapshot
-            snapshot = {"header": line.strip()}
-            read_natoms = True
-        elif lines_to_read == 1:  # read box
-            snapshot["box"] = np.array(
-                [float(i) for i in line.strip().split()]
-            )
-            lines_to_read -= 1
-        else:  # read atoms
-            lines_to_read -= 1
-            current = 0
-            for i, key, gtype in zip(gro, gro_keys, gro_type):
-                val = line[current : current + i].strip()
-                if not val:
-                    # This typically happens if we try to read velocities
-                    # and they are not present in the file.
-                    break
-                value = gtype(val)
-                current += i
-                try:
-                    snapshot[key].append(value)
-                except KeyError:
-                    snapshot[key] = [value]
-    if snapshot:
-        _add_matrices_to_snapshot(snapshot)
-        yield snapshot
 
 
 def _add_matrices_to_snapshot(snapshot):
