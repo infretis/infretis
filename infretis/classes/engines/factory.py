@@ -25,9 +25,9 @@ def create_engine(settings):
 
     """
     engine_map = {
-        "gromacs": {"cls": GromacsEngine},
-        "cp2k": {"cls": CP2KEngine},
-        "turtlemd": {"cls": TurtleMDEngine},
+        "gromacs": {"class": GromacsEngine},
+        "cp2k": {"class": CP2KEngine},
+        "turtlemd": {"class": TurtleMDEngine},
     }
 
     if settings["engine"]["class"].lower() not in engine_map:

@@ -4,12 +4,17 @@ import inspect
 import logging
 import os
 import sys
+from typing import Any
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-def generic_factory(settings, object_map, name="generic"):
+def generic_factory(
+    settings: dict[str, str],
+    object_map: dict[str, dict[str, Any]],
+    name: str = "generic",
+):
     """Create instances of classes based on settings.
 
     This method is intended as a semi-generic factory for creating
@@ -47,7 +52,7 @@ def generic_factory(settings, object_map, name="generic"):
             name,
         )
         return None
-    cls = object_map[klass]["cls"]
+    cls = object_map[klass]["class"]
     return initiate_instance(cls, settings)
 
 
