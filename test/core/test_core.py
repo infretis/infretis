@@ -18,8 +18,6 @@ from infretis.core.core import (
     initiate_instance,
     inspect_function,
     make_dirs,
-    # read_restart_file,
-    # write_ensemble_restart,
 )
 
 THIS_FILE = pathlib.Path(__file__).resolve()
@@ -339,7 +337,7 @@ def test_import_from_errors(caplog):
             import_from(module, klass)
         assert "Could not import module" in caplog.text
 
-
+### def write_repex_restart(tmp_path):
 # def test_write_ensemble_restart(tmp_path):
 #     ensemble = {"rgen": RandomState(1234)}
 #     config = {"simulation": {"load_dir": "this-is-a-folder"}}

@@ -1,6 +1,5 @@
 """Base engine class."""
 import logging
-import numpy as np
 import os
 import re
 import shlex
@@ -8,7 +7,9 @@ import shutil
 import subprocess
 from abc import ABCMeta, abstractmethod
 
-from infretis.classes.formats.formatter import FileIO
+import numpy as np
+
+from infretis.classes.formatter import FileIO
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

@@ -249,22 +249,16 @@ def select_shoot(picked, start_cond=("L",)):
     if len(picked) == 1:
         pens = next(iter(picked.values()))
         ens_set, path, engine = (pens[i] for i in ["ens", "traj", "engine"])
-        #TODO: just put the rgen here for now for backwards compatib.
-        # ens_set["rgen"] = pens["rgen"]
-        
-        logger.info('bean a: ' + str(ens_set["rgen"].bit_generator.state['state']['state']) + ' ' + str(ens_set["rgen"].bit_generator.seed_seq.n_children_spawned))
-        logger.info('bean b: ' + str(engine.rgen.bit_generator.state['state']['state']) + ' ' + str(engine.rgen.bit_generator.seed_seq.n_children_spawned))
-
         move = ens_set["mc_move"]
-        logger.info(f"starting {move} in {ens_set['ens_name']} with path_n {path.path_number}")
+        logger.info(
+            f"starting {move} in {ens_set['ens_name']} with path_n {path.path_number}"
+        )
         start_cond = ens_set["start_cond"]
         accept, new_path, status = sh_moves[move](
             ens_set, path, engine, start_cond=start_cond
         )
         new_paths = [new_path]
     else:
-        # picked[0]["ens"]["rgen"] = picked[0]["rgen"]
-        # picked[1]["ens"]["rgen"] = picked[1]["rgen"]
         accept, new_paths, status = retis_swap_zero(picked)
 
     logger.info(f"Move was {accept} with status {status}\n")
@@ -272,13 +266,6 @@ def select_shoot(picked, start_cond=("L",)):
 
 
 def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
-    # ensemble = pens['ens']
-    # engine = pens['engine']
-    # path = pens['traj']
-    # ensemble, engine, path = (pens[i] for i in ['ens', 'engine', 'traj'])
-
-    # path_ensemble = ensemble['path_ensemble']
-    # path = path_ensemble.last_path
     interfaces = ens_set["interfaces"]
     trial_path = path.empty_path()  # The trial path we will generate.
     if shooting_point is None:
@@ -305,15 +292,11 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
     # respect the detail balance anyway):
     if path.get_move() == "ld" or ens_set.get("allowmaxlength", False):
         maxlen = ens_set.get("maxlength", 100000)
-        logger.info('cabin a')
     else:
         maxlen = min(
             int((path.length - 2) / ens_set["rgen"].random()) + 2,
             ens_set.get("maxlength", 100000),
         )
-        logger.info('cabin b')
-    # logger.info('cream ' + path.get_move() + ' ' + str(maxlen))
-    logger.info(f"cream {path.get_move()} {maxlen} {ens_set.get('allowmaxlength', False)}")
     # Since the forward path must be at least one step, the maximum
     # length for the backward path is maxlen-1.
     # Generate the backward path:
@@ -327,8 +310,6 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
     ):
         return False, trial_path, trial_path.status
 
-    for idx, i in enumerate(path_back.phasepoints):
-        logger.info(f'gori {idx}\t{i.order[0]}')
     # Everything seems fine, now propagate forward.
     # Note that the length of the forward path is adjusted to
     # account for the fact that it shares a point with the backward
@@ -356,8 +337,6 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
         overlap=True,
         maxlen=ens_set.get("maxlength", 100000),
     )
-    for idx, i in enumerate(trial_path.phasepoints):
-        logger.info(f'bori {idx}\t{i.order[0]}')
 
     # Also update information about the shooting:
     trial_path.generated = (
@@ -739,7 +718,6 @@ def shoot_backwards(
     """
     logger.debug("Propagating backwards for the shooting move.")
     path_back.time_origin = trial_path.time_origin
-    # engine = ensemble['engine']
     success_back, _ = engine.propagate(
         path_back, ens_set, system, reverse=True
     )
@@ -753,18 +731,11 @@ def shoot_backwards(
             trial_path.status = "BTX"
         return False
     # Backward seems OK so far, check if the ending point is correct:
-    # left, _, right = ensemble['interfaces']
     left, _, right = ens_set["interfaces"]
     if path_back.get_end_point(left, right) not in set(start_cond):
         # Nope, backward trajectory end at wrong interface.
         trial_path += path_back  # Store path for analysis.
         trial_path.status = "BWI"
-        # print(
-        #    'boulder a',
-        #    left, right,
-        #    path_back.get_end_point(left, right),
-        #    set(start_cond)
-        # )
         return False
     return True
 
@@ -871,7 +842,7 @@ def check_kick(shooting_point, interfaces, trial_path, rgen, dek):
         return True
     if not left <= shooting_point.order[0] < right:
         # Shooting point was velocity dependent and was kicked outside
-        print("wut", left, shooting_point.order[0], right)
+        # print("wut", left, shooting_point.order[0], right)
         # exit('lel')
         # of boundaries when modifying velocities.
         trial_path.append(shooting_point)
@@ -888,7 +859,6 @@ def check_kick(shooting_point, interfaces, trial_path, rgen, dek):
     return True
 
 
-# def retis_swap_zero(ensembles, settings, cycle):
 def retis_swap_zero(picked):
     """Perform the RETIS swapping for ``[0^-] <-> [0^+]`` swaps.
 

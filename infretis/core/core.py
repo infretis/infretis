@@ -3,7 +3,6 @@ import importlib
 import inspect
 import logging
 import os
-import pickle
 import sys
 
 logger = logging.getLogger(__name__)
@@ -338,53 +337,3 @@ def make_dirs(dirname):
         if os.path.isdir(dirname):
             msg = f'Directory "{dirname}" already exist.'
     return msg
-
-
-# def write_ensemble_restart(ensemble, config, save):
-#     """Write a restart file for a path ensemble.
-# 
-#     Parameters
-#     ----------
-#     ensemble : dict
-#         it contains:
-# 
-#         * `path_ensemble` : object like :py:class:`.PathEnsemble`
-#           The path ensemble we are writing restart info for.
-#         * ` system` : object like :py:class:`.System`
-#           System is used here since we need access to the temperature
-#           and to the particle list.
-#         * `order_function` : object like :py:class:`.OrderParameter`
-#           The class used for calculating the order parameter(s).
-#         * `engine` : object like :py:class:`.EngineBase`
-#           The engine to use for propagating a path.
-# 
-#     settings_ens : dict
-#         A dictionary with the ensemble settings.
-# 
-#     """
-#     info = {}
-#     info["rgen"] = ensemble["rgen"].get_state()
-# 
-#     filename = os.path.join(
-#         os.getcwd(),
-#         config["simulation"]["load_dir"],
-#         save,
-#         "ensemble.restart",
-#     )
-# 
-#     with open(filename, "wb") as outfile:
-#         pickle.dump(info, outfile)
-
-
-# def read_restart_file(filename):
-#     """Read restart info for a simulation.
-# 
-#     Parameters
-#     ----------
-#     filename : string
-#         The file we are going to read from.
-# 
-#     """
-#     with open(filename, "rb") as infile:
-#         info = pickle.load(infile)
-#     return info

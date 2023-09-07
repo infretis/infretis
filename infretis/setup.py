@@ -6,8 +6,7 @@ import tomli
 from dask.distributed import Client, as_completed, dask, get_worker
 
 from infretis.classes.engines.factory import create_engines
-# from infretis.classes.ensemble import create_ensembles
-from infretis.classes.formats.formatter import get_log_formatter
+from infretis.classes.formatter import get_log_formatter
 from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
@@ -21,10 +20,10 @@ def setup_internal(config):
     # setup logger
     setup_logger()
 
-    # setup repex and its ensembles
+    # setup repex
     state = REPEX_state(config, minus=True)
 
-    # # setup ensembles
+    # setup ensembles
     state.initiate_ensembles()
 
     # setup engines
