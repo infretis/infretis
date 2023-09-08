@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 from importlib import util
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:  # pragma: no cover
     from inspect import Parameter
@@ -137,7 +137,7 @@ def _pick_out_arg_kwargs(klass, settings):
     return args, kwargs
 
 
-def inspect_function(function):
+def inspect_function(function: Callable) -> dict[str, list[Any]]:
     """Return arguments/kwargs of a given function.
 
     This method is intended for use where we are checking that we can
@@ -162,7 +162,12 @@ def inspect_function(function):
         * `keywords` : list of keyword arguments
 
     """
-    out = {"args": [], "kwargs": [], "varargs": [], "keywords": []}
+    out = {
+        "args": [],
+        "kwargs": [],
+        "varargs": [],
+        "keywords": [],
+    }  # type: dict[str, list[Any]]
     arguments = inspect.signature(function)  # pylint: disable=no-member
     for arg in arguments.parameters.values():
         kind = _arg_kind(arg)
