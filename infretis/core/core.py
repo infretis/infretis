@@ -6,9 +6,10 @@ import logging
 import os
 import sys
 from importlib import util
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Callable
     from inspect import Parameter
 
     from infretis.classes.engines.enginebase import EngineBase
