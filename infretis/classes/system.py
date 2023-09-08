@@ -1,11 +1,8 @@
 """Defines the snapshot system class."""
 import logging
 from copy import copy
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import numpy as np
-
+import numpy as np
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
