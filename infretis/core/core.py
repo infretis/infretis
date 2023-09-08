@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import errno
-import importlib
 import inspect
 import logging
 import os
 import sys
+from importlib import util
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -300,12 +300,13 @@ def import_from(module_path: str, function_name: str) -> Any:
         The thing we managed to import.
 
     """
+    msg = f"Could not import module: {module_path}"
     try:
         module_name = os.path.basename(module_path)
         module_name = os.path.splitext(module_name)[0]
-        spec = importlib.util.spec_from_file_location(module_name, module_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        spec = util.spec_from_file_location(module_name, module_path)
+        module = util.module_from_spec(spec)  # type: ignore[arg-type]
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
         sys.modules[module_name] = module
         logger.debug("Imported module: %s", module)
         return getattr(module, function_name)
