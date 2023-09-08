@@ -100,7 +100,9 @@ def initiate_instance(
     return klass(*args, **kwargs)
 
 
-def _pick_out_arg_kwargs(klass, settings):
+def _pick_out_arg_kwargs(
+    klass: Any, settings: dict[str, Any]
+) -> tuple[list[Any], dict[str, Any]]:
     """Pick out arguments for a class from settings.
 
     Parameters
