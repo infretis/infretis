@@ -1,16 +1,23 @@
 """Define the OrderParameter class."""
 import logging
 from abc import abstractmethod
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from infretis.core.core import create_external, generic_factory
 
+if TYPE_CHECKING:  # pragma: no cover
+    from infretis.classes.engines.enginebase import EngineBase
+    from infretis.classes.system import System
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-def pbc_dist_coordinate(distance, box_lengths):
+def pbc_dist_coordinate(
+    distance: np.ndarray, box_lengths: np.ndarray
+) -> np.ndarray:
     """Apply periodic boundaries to a distance.
 
     This will apply periodic boundaries to a distance. Note that the
@@ -56,7 +63,11 @@ class OrderParameter:
 
     """
 
-    def __init__(self, description="Generic order parameter", velocity=False):
+    def __init__(
+        self,
+        description: str = "Generic order parameter",
+        velocity: bool = False,
+    ):
         """Initialise the OrderParameter object.
 
         Parameters
@@ -74,7 +85,7 @@ class OrderParameter:
             )
 
     @abstractmethod
-    def calculate(self, system):
+    def calculate(self, system: System) -> list[float]:
         """Calculate the main order parameter and return it.
 
         All order parameters should implement this method as
@@ -95,9 +106,8 @@ class OrderParameter:
             simulations!
 
         """
-        return
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a simple string representation of the order parameter."""
         msg = [
             f'Order parameter: "{self.__class__.__name__}"',
@@ -107,10 +117,12 @@ class OrderParameter:
             msg.append("This order parameter is velocity dependent.")
         return "\n".join(msg)
 
-    def load_restart_info(self, info):
+    @abstractmethod
+    def load_restart_info(self, info: dict[str, str]):
         """Load the orderparameter restart info."""
 
-    def restart_info(self):
+    @abstractmethod
+    def restart_info(self) -> dict[str, str]:
         """Save any mutatable parameters for the restart."""
 
 
@@ -132,7 +144,7 @@ class Distancevel(OrderParameter):
 
     """
 
-    def __init__(self, index, periodic=True):
+    def __init__(self, index: tuple[int, int], periodic: bool = True):
         """Initialise the order parameter.
 
         Parameters
@@ -154,7 +166,7 @@ class Distancevel(OrderParameter):
         self.periodic = periodic
         self.index = index
 
-    def calculate(self, system):
+    def calculate(self, system: System) -> list[float]:
         """Calculate the order parameter.
 
         Here, the order parameter is just the distance between two
@@ -172,13 +184,12 @@ class Distancevel(OrderParameter):
             The rate-of-change of the distance order parameter.
 
         """
-        particles = system.particles
-        delta = particles.pos[self.index[1]] - particles.pos[self.index[0]]
+        delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic:
-            delta = system.box.pbc_dist_coordinate(delta)
+            delta = pbc_dist_coordinate(delta, system.box)
         lamb = np.sqrt(np.dot(delta, delta))
         # Add the velocity as an additional collective variable:
-        delta_v = particles.vel[self.index[1]] - particles.vel[self.index[0]]
+        delta_v = system.vel[self.index[1]] - system.vel[self.index[0]]
         cv1 = np.dot(delta, delta_v) / lamb
         return [cv1]
 
@@ -199,7 +210,7 @@ class Position(OrderParameter):
 
     """
 
-    def __init__(self, index, periodic=True):
+    def __init__(self, index: tuple[int, int], periodic: bool = True):
         """Initialise order parameter.
 
         Parameters
@@ -220,7 +231,7 @@ class Position(OrderParameter):
             raise NotImplementedError("Can't use pbc for distance order yet")
         self.index = index
 
-    def calculate(self, system):
+    def calculate(self, system: System) -> list[float]:
         """Calculate the order parameter.
 
         Here, the order parameter is just the distance between two
@@ -242,74 +253,6 @@ class Position(OrderParameter):
         return [pos]
 
 
-class old_Position(OrderParameter):
-    """A positional order parameter.
-
-    This class defines a very simple order parameter which is just
-    the position of a given particle.
-
-    Attributes
-    ----------
-    index : integer
-        This is the index of the atom which will be used, i.e.
-        ``system.particles.pos[index]`` will be used.
-    dim : integer
-        This is the dimension of the coordinate to use.
-        0, 1 or 2 for 'x', 'y' or 'z'.
-    periodic : boolean
-        This determines if periodic boundaries should be applied to
-        the position or not.
-
-    """
-
-    def __init__(self, index, dim="x", periodic=False, description=None):
-        """Initialise the order parameter.
-
-        Parameters
-        ----------
-        index : int
-            This is the index of the atom we will use the position of.
-        dim : string
-            This select what dimension we should consider,
-            it should equal 'x', 'y' or 'z'.
-        periodic : boolean, optional
-            This determines if periodic boundary conditions should be
-            applied to the position.
-
-        """
-        if description is None:
-            description = f"Position of particle {index} (dim: {dim})"
-        super().__init__(description=description, velocity=False)
-        self.periodic = periodic
-        self.index = index
-        self.dim = {"x": 0, "y": 1, "z": 2}.get(dim, None)
-        if self.dim is None:
-            msg = f"Unknown dimension {dim} requested"
-            logger.critical(msg)
-            raise ValueError(msg)
-
-    def calculate(self, system):
-        """Calculate the position order parameter.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The object containing the positions.
-
-        Returns
-        -------
-        out : list of floats
-            The position order parameter.
-
-        """
-        particles = system.particles
-        pos = particles.pos[self.index]
-        lamb = pos[self.dim]
-        if self.periodic:
-            lamb = system.box.pbc_coordinate_dim(lamb, self.dim)
-        return [lamb]
-
-
 class Distance(OrderParameter):
     """A distance order parameter.
 
@@ -328,7 +271,7 @@ class Distance(OrderParameter):
 
     """
 
-    def __init__(self, index, periodic=True):
+    def __init__(self, index: tuple[int, int], periodic: bool = True):
         """Initialise order parameter.
 
         Parameters
@@ -347,7 +290,7 @@ class Distance(OrderParameter):
         self.periodic = periodic
         self.index = index
 
-    def calculate(self, system):
+    def calculate(self, system: System) -> list[float]:
         """Calculate the order parameter.
 
         Here, the order parameter is just the distance between two
@@ -390,7 +333,7 @@ class Velocity(OrderParameter):
 
     """
 
-    def __init__(self, index, dim="x"):
+    def __init__(self, index: int, dim: str = "x"):
         """Initialise the order parameter.
 
         Parameters
@@ -410,7 +353,7 @@ class Velocity(OrderParameter):
             logger.critical("Unknown dimension %s requested", dim)
             raise ValueError
 
-    def calculate(self, system):
+    def calculate(self, system: System) -> list[float]:
         """Calculate the velocity order parameter.
 
         Parameters
@@ -424,16 +367,18 @@ class Velocity(OrderParameter):
             The velocity order parameter.
 
         """
-        return [system.particles.vel[self.index][self.dim]]
+        return [system.vel[self.index][self.dim]]
 
 
-def create_orderparameters(engines, settings):
+def create_orderparameters(
+    engines: dict[str, EngineBase], settings: dict[str, Any]
+):
     """Create orderparameters."""
     for engine in engines.keys():
         engines[engine].order_function = create_orderparameter(settings)
 
 
-def create_orderparameter(settings):
+def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
     """Create order parameters from settings.
 
     Parameters
@@ -473,34 +418,7 @@ def create_orderparameter(settings):
     return main_order
 
 
-def order_factory(settings):
-    """Create order parameters according to the given settings.
-
-    This function is included as a convenient way of setting up and
-    selecting the order parameter.
-
-    Parameters
-    ----------
-    settings : dict
-        This defines how we set up and select the order parameter.
-
-    Returns
-    -------
-    out : object like :py:class:`.OrderParameter`
-        An object representing the order parameter.
-
-    """
-    factory_map = {
-        "orderparameter": {"cls": OrderParameter},
-        "position": {"cls": Position},
-        "velocity": {"cls": Velocity},
-        "distance": {"cls": Distance},
-        "distancevel": {"cls": Distancevel},
-    }
-    return generic_factory(settings, factory_map, name="orderparameter")
-
-
-def _verify_pair(index):
+def _verify_pair(index: tuple[int, int]):
     """Check that the given index contains a pair."""
     try:
         if len(index) != 2:
@@ -535,7 +453,9 @@ class Dihedral(OrderParameter):
 
     """
 
-    def __init__(self, index, periodic=False):
+    def __init__(
+        self, index: tuple[int, int, int, int], periodic: bool = False
+    ):
         """Initialise the order parameter.
 
         Parameters
@@ -568,7 +488,7 @@ class Dihedral(OrderParameter):
         super().__init__(description=txt)
         self.periodic = periodic
 
-    def calculate(self, system):
+    def calculate(self, system: System) -> list[float]:
         """Calculate the dihedral angle.
 
         Parameters

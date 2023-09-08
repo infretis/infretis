@@ -1,6 +1,11 @@
 """Defines the snapshot system class."""
 import logging
 from copy import copy
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
+
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -9,17 +14,17 @@ logger.addHandler(logging.NullHandler())
 class System:
     """System class."""
 
-    config = None
-    order = None
-    pos = None
+    config: tuple[None, None] = (None, None)
+    order: list[float] | None = None
+    pos: np.ndarray = np.zeros(0)
 
     def __init__(self):
         """Initiate class."""
-        self.vel = None
-        self.vel_rev = None
-        self.ekin = None
-        self.vpot = None
-        self.box = None
+        self.vel: np.ndarray = np.zeros(0)
+        self.vel_rev: bool = False
+        self.ekin: float | None = None
+        self.vpot: float | None = None
+        self.box: np.ndarray = np.zeros((3, 3))
 
     def copy(self):
         """Return a copy of the system.
