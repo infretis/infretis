@@ -279,7 +279,7 @@ def create_external(settings, key, required_methods, key_settings=None):
     return initiate_instance(obj, settings)
 
 
-def import_from(module_path, function_name):
+def import_from(module_path: str, function_name: str) -> Any:
     """Import a method/class from a module.
 
     This method will dynamically import a specified method/object
