@@ -124,9 +124,9 @@ def _pick_out_arg_kwargs(klass, settings):
         try:
             args.append(settings[arg])
             used.add(arg)
-        except KeyError:
+        except KeyError as exc:
             msg = f'Required argument "{arg}" for "{klass}" not found!'
-            raise ValueError(msg)
+            raise ValueError(msg) from exc
     for arg in info["kwargs"]:
         if arg == "self":
             continue
