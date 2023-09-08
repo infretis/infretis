@@ -9,6 +9,8 @@ from importlib import util
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover
+    from inspect import Parameter
+
     from infretis.classes.engines.enginebase import EngineBase
     from infretis.classes.orderparameter import OrderParameter
 
@@ -173,7 +175,7 @@ def inspect_function(function):
     return out
 
 
-def _arg_kind(arg):
+def _arg_kind(arg: Parameter) -> str | None:
     """Determine kind for a given argument.
 
     This method will help :py:func:`.inspect_function` to determine
