@@ -1,4 +1,6 @@
 """Define the OrderParameter class."""
+from __future__ import annotations
+
 import logging
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any
