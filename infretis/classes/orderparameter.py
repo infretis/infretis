@@ -448,12 +448,12 @@ def create_orderparameter(settings):
 
     """
     order_map = {
-        "orderparameter": {"cls": OrderParameter},
-        "position": {"cls": Position},
-        "velocity": {"cls": Velocity},
-        "distance": {"cls": Distance},
-        "dihedral": {"cls": Dihedral},
-        "distancevel": {"cls": Distancevel},
+        "orderparameter": {"class": OrderParameter},
+        "position": {"class": Position},
+        "velocity": {"class": Velocity},
+        "distance": {"class": Distance},
+        "dihedral": {"class": Dihedral},
+        "distancevel": {"class": Distancevel},
     }
 
     if settings["orderparameter"]["class"].lower() not in order_map:
@@ -471,33 +471,6 @@ def create_orderparameter(settings):
         return None
     logger.info("Created main order parameter:\n%s", main_order)
     return main_order
-
-
-def order_factory(settings):
-    """Create order parameters according to the given settings.
-
-    This function is included as a convenient way of setting up and
-    selecting the order parameter.
-
-    Parameters
-    ----------
-    settings : dict
-        This defines how we set up and select the order parameter.
-
-    Returns
-    -------
-    out : object like :py:class:`.OrderParameter`
-        An object representing the order parameter.
-
-    """
-    factory_map = {
-        "orderparameter": {"cls": OrderParameter},
-        "position": {"cls": Position},
-        "velocity": {"cls": Velocity},
-        "distance": {"cls": Distance},
-        "distancevel": {"cls": Distancevel},
-    }
-    return generic_factory(settings, factory_map, name="orderparameter")
 
 
 def _verify_pair(index):
