@@ -138,8 +138,7 @@ class Distancevel(OrderParameter):
     ----------
     index : tuple of integers
         These are the indices used for the two particles.
-        `system.particles.pos[index[0]]` and
-        `system.particles.pos[index[1]]` will be used.
+        `system.pos[index[0]]` and `system.pos[index[1]]` will be used.
     periodic : boolean
         This determines if periodic boundaries should be applied to
         the distance or not.
