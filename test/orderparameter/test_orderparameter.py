@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 
 from infretis.classes.orderparameter import (
+    Dihedral,
     Distance,
     Distancevel,
     OrderParameter,
@@ -140,3 +141,50 @@ def test_velocity():
     )
     result = order.calculate(system)
     assert pytest.approx(result) == [123.0]
+
+
+def test_dihedral_setup():
+    """Test the Dihedral order parameter."""
+    with pytest.raises(TypeError):
+        _ = Dihedral(1, periodic=True)
+    with pytest.raises(ValueError):
+        _ = Dihedral((1, 2))
+    # Check that the calculation is the same if we reverse the
+    # indices:
+    order1 = Dihedral((0, 1, 2, 3), periodic=False)
+    order2 = Dihedral((3, 2, 1, 0), periodic=False)
+    system = System()
+    system.pos = np.random.random_sample(size=(4, 3))
+    result1 = order1.calculate(system)
+    result2 = order2.calculate(system)
+    assert pytest.approx(result1) == result2
+
+
+DIHEDRAL_POS = [
+    np.array(
+        [
+            [0.039, -0.028, 0.000],
+            [1.499, -0.043, 0.000],
+            [1.956, -0.866, -1.217],
+            [1.571, -1.903, -1.181],
+        ]
+    ),
+    np.array(
+        [[0.0, 0.0, -1.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0]]
+    ),
+]
+DIHEDRAL_ANGLE = [
+    [np.radians(-59.365971)],
+    [np.radians(90.0)],
+]
+
+
+@pytest.mark.parametrize("pos, correct", zip(DIHEDRAL_POS, DIHEDRAL_ANGLE))
+def test_dihedral_calculation(pos, correct):
+    """Test calculation of diheral angles."""
+    system = System()
+    system.pos = pos
+    system.box = np.array([10.0, 10.0, 10.0])
+    order = Dihedral((0, 1, 2, 3), periodic=True)
+    angle = order.calculate(system)
+    assert pytest.approx(angle) == correct
