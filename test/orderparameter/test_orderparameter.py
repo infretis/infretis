@@ -7,6 +7,7 @@ from infretis.classes.orderparameter import (
     Distancevel,
     OrderParameter,
     Position,
+    Velocity,
     _verify_pair,
     pbc_dist_coordinate,
 )
@@ -122,3 +123,20 @@ def test_distance():
     lamb = [np.sqrt(np.dot(dist, dist))]
     result = order.calculate(system)
     assert pytest.approx(result) == lamb
+
+
+def test_velocity():
+    """Test the Velocity order parameter."""
+    with pytest.raises(ValueError):
+        order = Velocity(0, dim="w")
+    order = Velocity(1, dim="y")
+    assert order.dim == 1
+    system = System()
+    system.vel = np.array(
+        [
+            [1.0, 1.0, 1.0],
+            [2.0, 123.0, 2.0],
+        ]
+    )
+    result = order.calculate(system)
+    assert pytest.approx(result) == [123.0]
