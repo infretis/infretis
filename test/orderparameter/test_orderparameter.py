@@ -5,6 +5,7 @@ import pytest
 from infretis.classes.orderparameter import (
     Distancevel,
     OrderParameter,
+    Position,
     _verify_pair,
     pbc_dist_coordinate,
 )
@@ -79,6 +80,22 @@ def test_distancevel():
     system.box = np.array([10.0, 10.0, 10.0])
     dist = np.array([-2.0, -3.0, -1.0])
     vel = np.array([1.0, 1.0, 1.0])
-    correct = np.dot(dist, vel) / np.sqrt(np.dot(dist, dist))
+    correct = [np.dot(dist, vel) / np.sqrt(np.dot(dist, dist))]
     result = order.calculate(system)
     assert pytest.approx(correct) == result
+
+
+def test_position():
+    """Test the Position order parameter."""
+    with pytest.raises(NotImplementedError):
+        order = Position((1, 2), periodic=True)
+    order = Position((0, 2), periodic=False)
+    system = System()
+    system.pos = np.array(
+        [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+        ]
+    )
+    orderp = order.calculate(system)
+    assert pytest.approx(orderp) == [3.0]
