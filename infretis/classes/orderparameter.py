@@ -410,10 +410,6 @@ def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
     main_order = generic_factory(
         settings["orderparameter"], order_map, name="engine"
     )
-
-    if main_order is None:
-        logger.info("No order parameter created")
-        return None
     logger.info("Created main order parameter:\n%s", main_order)
     return main_order
 
