@@ -1,4 +1,6 @@
 """Test the different order parameters."""
+import pathlib
+
 import numpy as np
 import pytest
 
@@ -10,9 +12,12 @@ from infretis.classes.orderparameter import (
     Position,
     Velocity,
     _verify_pair,
+    create_orderparameter,
     pbc_dist_coordinate,
 )
 from infretis.classes.system import System
+
+HERE = pathlib.Path(__file__).resolve().parent
 
 DIST = [
     np.array([8.0, 7.0, 9.0]),
@@ -188,3 +193,53 @@ def test_dihedral_calculation(pos, correct):
     order = Dihedral((0, 1, 2, 3), periodic=True)
     angle = order.calculate(system)
     assert pytest.approx(angle) == correct
+
+
+ORDER_SETTINGS = [
+    {"class": "orderparameter", "description": "test"},
+    {"class": "position", "index": (1, 2), "periodic": False},
+    {"class": "velocity", "index": 1},
+    {"class": "distance", "index": (1, 2)},
+    {"class": "dihedral", "index": (0, 1, 2, 3)},
+    {"class": "distancevel", "index": (1, 2)},
+]
+CORRECT_ORDER = [
+    OrderParameter,
+    Position,
+    Velocity,
+    Distance,
+    Dihedral,
+    Distancevel,
+]
+
+
+@pytest.mark.parametrize(
+    "settings, correct", zip(ORDER_SETTINGS, CORRECT_ORDER)
+)
+def test_create_internal_orderparameter(settings, correct):
+    """Test that we can create order parameters from settings."""
+    all_settings = {"orderparameter": settings}
+    order = create_orderparameter(all_settings)
+    assert type(order) is correct
+
+
+def test_create_external_orderparameter():
+    """Test that we can create an external order parameter."""
+    settings = {
+        "orderparameter": {
+            "class": "ConstantOrder",
+            "module": HERE / "foo.py",
+            "constant": 101,
+        }
+    }
+    order = create_orderparameter(settings)
+    assert order.constant == 101
+
+    settings = {
+        "orderparameter": {
+            "class": "OrderMissingCalculate",
+            "module": HERE / "foo.py",
+        }
+    }
+    with pytest.raises(ValueError):
+        _ = create_orderparameter(settings)

@@ -213,7 +213,7 @@ def _arg_kind(arg: Parameter) -> str | None:
     return kind
 
 
-def create_external(settings, key, required_methods, key_settings=None):
+def create_external(settings, key, required_methods):
     """Create external objects from settings.
 
     This method will handle the creation of objects from settings. The
@@ -232,15 +232,6 @@ def create_external(settings, key, required_methods, key_settings=None):
     required_methods : list of strings
         The methods we need to have if creating an object from external
         files.
-    key_settings : dict, optional
-        This dictionary contains the settings for the specific key we
-        are processing. If this is not given, we will try to obtain
-        these settings by `settings[key]`. The reason why we make it
-        possible to pass these as settings is in case we are processing
-        a key which does not give a simple setting, but a list of settings.
-        It that case `settings[key]` will give a list to process. That list
-        is iterated somewhere else and `key_settings` can then be used to
-        process these elements.
 
     Returns
     -------
@@ -250,12 +241,6 @@ def create_external(settings, key, required_methods, key_settings=None):
     """
     klass = settings.get("class", None)
     module = settings.get("module", None)
-    if key_settings is None:
-        try:
-            key_settings = settings[key]
-        except KeyError:
-            logger.debug('No "%s" setting found. Skipping set-up', key)
-            return None
     # Here we assume we are to load from a file. Before we import
     # we need to check that the path is ok or if we should include
     # the 'exe_path' from settings.
