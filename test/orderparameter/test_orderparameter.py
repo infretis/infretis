@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 
 from infretis.classes.orderparameter import (
+    Distance,
     Distancevel,
     OrderParameter,
     Position,
@@ -76,7 +77,6 @@ def test_distancevel():
             [2.0, 2.0, 2.0],
         ]
     )
-
     system.box = np.array([10.0, 10.0, 10.0])
     dist = np.array([-2.0, -3.0, -1.0])
     vel = np.array([1.0, 1.0, 1.0])
@@ -99,3 +99,26 @@ def test_position():
     )
     orderp = order.calculate(system)
     assert pytest.approx(orderp) == [3.0]
+
+
+def test_distance():
+    """Test the Distance order parameter."""
+    order = Distance((0, 1), periodic=True)
+    system = System()
+    system.pos = np.array(
+        [
+            [1.0, 1.0, 1.0],
+            [9.0, 8.0, 10.0],
+        ]
+    )
+    system.vel = np.array(
+        [
+            [1.0, 1.0, 1.0],
+            [2.0, 2.0, 2.0],
+        ]
+    )
+    system.box = np.array([10.0, 10.0, 10.0])
+    dist = np.array([-2.0, -3.0, -1.0])
+    lamb = [np.sqrt(np.dot(dist, dist))]
+    result = order.calculate(system)
+    assert pytest.approx(result) == lamb
