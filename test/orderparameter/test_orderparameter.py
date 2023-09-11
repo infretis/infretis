@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from infretis.classes.orderparameter import pbc_dist_coordinate
+from infretis.classes.orderparameter import _verify_pair, pbc_dist_coordinate
 
 DIST = [
     np.array([8.0, 7.0, 9.0]),
@@ -23,3 +23,14 @@ def test_pbc_dist(dist, box, pbc_dist):
     """Test the method for applying periodic boundaries."""
     test_dist = pbc_dist_coordinate(dist, box)
     assert pytest.approx(test_dist) == pbc_dist
+
+
+def test_verify_pair():
+    """Test that we can check that a list/tuple contains a pair."""
+    index = [(1, 2), [1, 1], ("cat", "dog")]
+    for i in index:
+        _verify_pair(i)
+    with pytest.raises(ValueError):
+        _verify_pair((1, 2, 3))
+    with pytest.raises(TypeError):
+        _verify_pair(1)
