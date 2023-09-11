@@ -229,7 +229,7 @@ class Position(OrderParameter):
         super().__init__(description=txt, velocity=False)
         self.periodic = periodic
         if periodic:
-            raise NotImplementedError("Can't use pbc for distance order yet")
+            raise NotImplementedError("Can't use pbc for position order yet")
         self.index = index
 
     def calculate(self, system: System) -> list[float]:
@@ -413,7 +413,6 @@ def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
 
     if main_order is None:
         logger.info("No order parameter created")
-        print("omg..")
         return None
     logger.info("Created main order parameter:\n%s", main_order)
     return main_order
