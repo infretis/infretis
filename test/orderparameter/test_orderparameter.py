@@ -2,7 +2,11 @@
 import numpy as np
 import pytest
 
-from infretis.classes.orderparameter import _verify_pair, pbc_dist_coordinate
+from infretis.classes.orderparameter import (
+    OrderParameter,
+    _verify_pair,
+    pbc_dist_coordinate,
+)
 
 DIST = [
     np.array([8.0, 7.0, 9.0]),
@@ -34,3 +38,20 @@ def test_verify_pair():
         _verify_pair((1, 2, 3))
     with pytest.raises(TypeError):
         _verify_pair(1)
+
+
+def test_orderparameter(capsys):
+    """Test the OrderParameter class."""
+    order = OrderParameter(
+        description="pytest",
+        velocity=False,
+    )
+    assert not order.velocity_dependent
+    order = OrderParameter(
+        description="pytest",
+        velocity=True,
+    )
+    assert order.velocity_dependent
+    print(order)
+    captured = capsys.readouterr()
+    assert "This order parameter is velocity dependent" in captured.out
