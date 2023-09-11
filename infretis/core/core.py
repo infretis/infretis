@@ -12,18 +12,15 @@ if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable
     from inspect import Parameter
 
-    from infretis.classes.engines.enginebase import EngineBase
-    from infretis.classes.orderparameter import OrderParameter
-
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
 def generic_factory(
     settings: dict[str, Any],
-    object_map: dict[str, dict[str, Any]],
+    object_map: dict[str, Any],
     name: str = "generic",
-) -> EngineBase | OrderParameter | None:
+) -> Any | None:
     """Create instances of classes based on settings.
 
     This method is intended as a semi-generic factory for creating
@@ -65,9 +62,7 @@ def generic_factory(
     return initiate_instance(cls, settings)
 
 
-def initiate_instance(
-    klass: type[Any], settings: dict[str, Any]
-) -> EngineBase | OrderParameter:
+def initiate_instance(klass: type[Any], settings: dict[str, Any]) -> Any:
     """Initialise a class with optional arguments.
 
     Parameters
