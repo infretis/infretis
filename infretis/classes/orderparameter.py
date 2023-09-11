@@ -395,12 +395,12 @@ def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
 
     """
     order_map = {
-        "orderparameter": {"cls": OrderParameter},
-        "position": {"cls": Position},
-        "velocity": {"cls": Velocity},
-        "distance": {"cls": Distance},
-        "dihedral": {"cls": Dihedral},
-        "distancevel": {"cls": Distancevel},
+        "orderparameter": {"class": OrderParameter},
+        "position": {"class": Position},
+        "velocity": {"class": Velocity},
+        "distance": {"class": Distance},
+        "dihedral": {"class": Dihedral},
+        "distancevel": {"class": Distancevel},
     }
 
     if settings["orderparameter"]["class"].lower() not in order_map:
