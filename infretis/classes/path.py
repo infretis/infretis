@@ -18,7 +18,7 @@ logger.addHandler(logging.NullHandler())
 class Path:
     """Define Path class."""
 
-    def __init__(self, maxlen=None, time_origin=0):
+    def __init__(self, maxlen=10000, time_origin=0):
         """Initiate Path class."""
         self.maxlen = maxlen
         self.status = None

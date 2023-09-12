@@ -11,7 +11,7 @@ logger.addHandler(logging.NullHandler())
 class System:
     """System class."""
 
-    config: tuple[None, None] = (None, None)
+    config: tuple[str, int] = ("", -1)
     order: list[float] | None = None
     pos: np.ndarray = np.zeros(0)
 

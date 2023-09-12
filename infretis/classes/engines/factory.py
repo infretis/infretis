@@ -31,9 +31,7 @@ def create_engine(settings):
     }
 
     if settings["engine"]["class"].lower() not in engine_map:
-        return create_external(
-            settings["engine"], "engine", ["integration_step"]
-        )
+        return create_external(settings["engine"], "engine", ["step"])
     engine = generic_factory(settings["engine"], engine_map, name="engine")
     return engine
 
