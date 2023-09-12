@@ -799,7 +799,6 @@ class EngineBase(metaclass=ABCMeta):
 
         """
         info = {"description": self.description}
-
         return info
 
     def load_restart_info(self, info: dict[str, str] | None = None):
