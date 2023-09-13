@@ -1,6 +1,8 @@
 import logging
 import math
 import os
+from collections.abc import Iterator
+from typing import Any
 
 import numpy as np
 
@@ -98,7 +100,7 @@ _XYZ_BIG_FMT = "{:5s}" + 3 * " {:15.9f}"
 _XYZ_BIG_VEL_FMT = _XYZ_BIG_FMT + 3 * " {:15.9f}"
 
 
-def _cos(angle):
+def _cos(angle: float) -> float:
     """Return cosine of an angle.
 
     We also check if the angle is close to 90.0 and if so, we return
@@ -120,7 +122,9 @@ def _cos(angle):
     return math.cos(math.radians(angle))
 
 
-def box_vector_angles(length, alpha, beta, gamma):
+def box_vector_angles(
+    length: np.ndarray, alpha: float, beta: float, gamma: float
+) -> np.ndarray:
     """Obtain the box matrix from given lengths and angles.
 
     Parameters
@@ -157,7 +161,9 @@ def box_vector_angles(length, alpha, beta, gamma):
     return box_matrix
 
 
-def box_matrix_to_list(matrix, full=False):
+def box_matrix_to_list(
+    matrix: np.ndarray, full: bool = False
+) -> list[float] | None:
     """Return a list representation of the box matrix.
 
     This method ensures correct ordering of the elements for PyRETIS:
@@ -195,7 +201,7 @@ def box_matrix_to_list(matrix, full=False):
     ]
 
 
-def get_box_from_header(header):
+def get_box_from_header(header: str) -> np.ndarray | None:
     """Get box lengths from a text header.
 
     Parameters
@@ -216,7 +222,9 @@ def get_box_from_header(header):
     return None
 
 
-def read_txt_snapshots(filename, data_keys=None):
+def read_txt_snapshots(
+    filename: str, data_keys: tuple[str, ...] | None = None
+) -> Iterator[dict]:
     """Read snapshots from a text file.
 
     Parameters
@@ -234,7 +242,7 @@ def read_txt_snapshots(filename, data_keys=None):
 
     """
     lines_to_read = 0
-    snapshot = None
+    snapshot: dict[str, Any] = {}
     if data_keys is None:
         data_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
     read_header = False
@@ -246,7 +254,7 @@ def read_txt_snapshots(filename, data_keys=None):
                 read_header = False
                 continue
             if lines_to_read == 0:  # new snapshot
-                if snapshot is not None:
+                if snapshot:
                     yield snapshot
                 try:
                     lines_to_read = int(lines.strip())
@@ -254,24 +262,21 @@ def read_txt_snapshots(filename, data_keys=None):
                     logger.error("Error in the input file %s", filename)
                     raise
                 read_header = True
-                snapshot = None
+                snapshot = {}
             else:
                 lines_to_read -= 1
                 data = lines.strip().split()
                 for i, (val, key) in enumerate(zip(data, data_keys)):
-                    if i == 0:
-                        value = val.strip()
-                    else:
-                        value = float(val)
+                    value = val.strip() if i == 0 else float(val)
                     try:
                         snapshot[key].append(value)
                     except KeyError:
                         snapshot[key] = [value]
-    if snapshot is not None:
+    if snapshot:
         yield snapshot
 
 
-def read_xyz_file(filename):
+def read_xyz_file(filename: str) -> Iterator[dict]:
     """Read files in XYZ format.
 
     This method will read a XYZ file and yield the different snapshots
@@ -303,7 +308,13 @@ def read_xyz_file(filename):
 
 
 def write_xyz_trajectory(
-    filename, pos, vel, names, box, step=None, append=True
+    filename: str,
+    pos: np.ndarray,
+    vel: np.ndarray,
+    names: list[str],
+    box: np.ndarray,
+    step: int | None = None,
+    append: bool = True,
 ):
     """Write XYZ snapshot to a trajectory.
 
@@ -359,7 +370,9 @@ def write_xyz_trajectory(
             output_file.write(f"{line}\n")
 
 
-def convert_snapshot(snapshot):
+def convert_snapshot(
+    snapshot: dict[str, Any]
+) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
     """Convert a XYZ snapshot to numpy arrays.
 
     Parameters
@@ -392,7 +405,11 @@ def convert_snapshot(snapshot):
     return box, xyz, vel, names
 
 
-def look_for_input_files(input_path, required_files, extra_files=None):
+def look_for_input_files(
+    input_path: str,
+    required_files: dict[str, str],
+    extra_files: list[str] | None = None,
+) -> dict[str, str]:
     """Check that required files for external engines are present.
 
     It will first search for the default files.
@@ -428,7 +445,7 @@ def look_for_input_files(input_path, required_files, extra_files=None):
         i.name for i in os.scandir(input_path) if i.is_file()
     ]
 
-    input_files = {}
+    input_files: dict[str, Any] = {}
     # Check if the required files are present
     for file_type, file_to_check in required_files.items():
         req_ext = os.path.splitext(file_to_check)[1][1:].lower()
