@@ -312,7 +312,7 @@ def write_xyz_trajectory(
     pos: np.ndarray,
     vel: np.ndarray,
     names: list[str],
-    box: np.ndarray,
+    box: np.ndarray | None,
     step: int | None = None,
     append: bool = True,
 ):

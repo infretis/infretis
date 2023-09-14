@@ -126,7 +126,7 @@ class EngineBase(metaclass=ABCMeta):
 
     @abstractmethod
     def modify_velocities(
-        self, ensemble: dict[str, Any], vel_settings: dict[str, Any]
+        self, ensemble: System, vel_settings: dict[str, Any]
     ) -> tuple[float, float]:
         """Modify the velocities of the current state.
 
@@ -495,7 +495,7 @@ class EngineBase(metaclass=ABCMeta):
     @abstractmethod
     def _read_configuration(
         self, filename: str
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
         """Read output configuration from external software.
 
         Parameters
@@ -822,9 +822,9 @@ class EngineBase(metaclass=ABCMeta):
         self,
         vel: np.ndarray,
         mass: np.ndarray,
-        beta: np.ndarray,
+        beta: float,
         sigma_v: np.ndarray | None = None,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         """Draw numbers from a Gaussian distribution.
 
         Parameters
