@@ -372,7 +372,7 @@ def remove_node(
         # TODO: Is the code below actually working?
         # It seems like key has the wrong type?
         for key in visited:
-            _ = node_ref.pop(key, None)
+            _ = node_ref.pop(key, None)  # type: ignore[call-overload]
 
 
 def update_cp2k_input(
