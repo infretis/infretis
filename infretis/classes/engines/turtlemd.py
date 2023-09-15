@@ -3,6 +3,8 @@
 This module defines a class for using the TurtleMD.
 
 """
+from __future__ import annotations
+
 import logging
 import os
 from collections import defaultdict
