@@ -2,15 +2,11 @@
 
 This module defines a class for using the TurtleMD.
 
-Important classes defined here
-------------------------------
-
-CP2KEngine (:py:class:`.CP2KEngine`)
-    A class responsible for interfacing CP2K.
 """
 import logging
 import os
 from collections import defaultdict
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from turtlemd.integrators import (
@@ -22,9 +18,9 @@ from turtlemd.integrators import (
 from turtlemd.potentials.lennardjones import LennardJonesCut
 from turtlemd.potentials.well import DoubleWell
 from turtlemd.simulation import MDSimulation
-from turtlemd.system.box import Box
-from turtlemd.system.particles import Particles
-from turtlemd.system.system import System
+from turtlemd.system.box import Box as TBox
+from turtlemd.system.particles import Particles as TParticles
+from turtlemd.system.system import System as TSystem
 
 from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
@@ -33,6 +29,12 @@ from infretis.classes.engines.engineparts import (
     read_xyz_file,
     write_xyz_trajectory,
 )
+
+if TYPE_CHECKING:  # pragma: no cover
+    from infretis.classes.formatter import FileIO
+    from infretis.classes.path import Path
+    from infretis.classes.system import System
+
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -57,14 +59,14 @@ class TurtleMDEngine(EngineBase):
 
     def __init__(
         self,
-        timestep,
-        subcycles,
-        temperature,
-        boltzmann,
-        integrator,
-        potential,
-        particles,
-        box,
+        timestep: float,
+        subcycles: int,
+        temperature: float,
+        boltzmann: float,
+        integrator: dict[str, Any],
+        potential: dict[str, Any],
+        particles: dict[str, Any],
+        box: dict[str, Any],
     ):
         self.temperature = temperature
         self.timestep = timestep
@@ -82,8 +84,8 @@ class TurtleMDEngine(EngineBase):
 
         self.integrator = INTEGRATOR_MAPS[integrator["class"].lower()]
         self.integrator_settings = integrator["settings"]
-        self.potential = POTENTIAL_MAPS[potential["class"].lower()]
-        self.potential = [self.potential(**potential["settings"])]
+        potential_class = POTENTIAL_MAPS[potential["class"].lower()]
+        self.potential = [potential_class(**potential["settings"])]
 
         if integrator["class"].lower() in [
             "langevininertia",
@@ -98,15 +100,15 @@ class TurtleMDEngine(EngineBase):
         self.mass = np.array(particles["mass"])
         self.names = particles["name"]
 
-        self.particles = Particles(dim=self.dim)
-        self.box = Box(**box)
+        self.particles = TParticles(dim=self.dim)
+        self.box = TBox(**box)
         for i, pos in enumerate(particles["pos"]):
             self.particles.add_particle(
                 pos, mass=self.mass[i], name=self.names[i]
             )
-        self.system = System(self.box, self.particles, self.potential)
+        self.system = TSystem(self.box, self.particles, self.potential)
 
-    def _extract_frame(self, traj_file, idx, out_file):
+    def _extract_frame(self, traj_file: str, idx: int, out_file: str):
         """
         Extract a frame from a trajectory file.
 
@@ -138,7 +140,13 @@ class TurtleMDEngine(EngineBase):
         )
 
     def _propagate_from(
-        self, name, path, system, ens_set, msg_file, reverse=False
+        self,
+        name: str,
+        path: Path,
+        system: System,
+        ens_set: dict[str, Any],
+        msg_file: FileIO,
+        reverse: bool = False,
     ):
         """
         We assume the following:
@@ -155,7 +163,7 @@ class TurtleMDEngine(EngineBase):
         # these variables will be used later
         box, pos, vel, atoms = self._read_configuration(initial_conf)
         # inititalize turtlemd system
-        particles = Particles(dim=self.dim)
+        particles = TParticles(dim=self.dim)
         for i in range(self.particles.npart):
             particles.add_particle(
                 pos[i][: self.dim],
@@ -163,10 +171,13 @@ class TurtleMDEngine(EngineBase):
                 mass=self.particles.mass[i],
                 name=self.particles.name[i],
             )
-        tmd_system = System(
+        tmd_system = TSystem(
             box=self.box, particles=particles, potentials=self.potential
         )
-        seed = self.rgen.integers(0, 1e9)
+        if hasattr(self, "rgen"):
+            seed = self.rgen.integers(0, 1e9)
+        else:
+            seed = 42
         tmd_simulation = MDSimulation(
             system=tmd_system,
             integrator=self.integrator(
@@ -203,7 +214,8 @@ class TurtleMDEngine(EngineBase):
                 # 3 dimensions for coords, vel and the box.
                 pos[:, : self.dim] = tmd_system.particles.pos
                 vel[:, : self.dim] = tmd_system.particles.vel
-                box[: self.dim] = tmd_system.box.length
+                if box is not None:
+                    box[: self.dim] = tmd_system.box.length
                 write_xyz_trajectory(
                     traj_file, pos, vel, atoms, box, step=step_nr
                 )
@@ -241,11 +253,13 @@ class TurtleMDEngine(EngineBase):
         path.update_energies(ekin, vpot)
         return success, status
 
-    def step(self, system, name):
+    def step(self, system: System, name: str):
         raise NotImplementedError("Surprise, step not implemented!")
 
     @staticmethod
-    def _read_configuration(filename):
+    def _read_configuration(
+        filename: str,
+    ) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
         """
         Read TurtleMD output configuration.
 
@@ -268,17 +282,16 @@ class TurtleMDEngine(EngineBase):
             The atom names found in the file.
 
         """
-        xyz, vel, box, names = None, None, None, None
         for snapshot in read_xyz_file(filename):
             box, xyz, vel, names = convert_snapshot(snapshot)
-            break  # Stop after the first snapshot.
-        return box, xyz, vel, names
+            return box, xyz, vel, names
+        raise ValueError("Missing TurtleMD configuration")
 
-    def set_mdrun(self, config, md_items):
+    def set_mdrun(self, config: dict[str, Any], md_items: dict[str, Any]):
         """Remove or rename?"""
         self.exe_dir = md_items["w_folder"]
 
-    def _reverse_velocities(self, filename, outfile):
+    def _reverse_velocities(self, filename: str, outfile: str):
         """Reverse velocity in a given snapshot.
 
         Parameters
@@ -295,7 +308,9 @@ class TurtleMDEngine(EngineBase):
             outfile, xyz, -1.0 * vel, names, box, append=False
         )
 
-    def modify_velocities(self, system, vel_settings=None):
+    def modify_velocities(
+        self, system: System, vel_settings: dict[str, Any]
+    ) -> tuple[float, float]:
         """
         Modfy the velocities of all particles. Note that default
         removes the center of mass motion, thus, we need to rescale the
@@ -343,7 +358,7 @@ class TurtleMDEngine(EngineBase):
         )
         write_xyz_trajectory(conf_out, xyz, vel, atoms, box, append=False)
         kin_new = kinetic_energy(vel, mass)[0]
-        system.config = (conf_out, None)
+        system.config = (conf_out, 0)
         system.ekin = kin_new
         if kin_old == 0.0:
             dek = float("inf")
