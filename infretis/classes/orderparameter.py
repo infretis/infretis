@@ -521,24 +521,90 @@ class Dihedral(OrderParameter):
 
 
 class Puckering(OrderParameter):
-    """Ring puckering coordinates for a 6-ring"""
+    """Calculates puckering coordinates for a 6-ring.
 
-    def __init__(self):
-        super().__init__(
-            description="""
-            Ring puckering order parameter"""
+    The puckering coordinates are described by Cremer and Pople in
+    J. Am. Chem. Soc. 1975, 97, 6, 1354–1358.
+
+    For six-membered rings, there are 3 puckering
+    degrees of freedom. They can be described as a spherical polar
+    set given by (theta, phi, Qampl). The poles of this sphere
+    (given by theta = 0 and theta = 180) are the well-known 1C4 or 4C1
+    chair conformations.
+
+    Attributes
+    ----------
+    index : list/tuple of integers
+        These are the indices for the atoms to use in the
+        definition of the puckering coordinates.
+    periodic : boolean
+        This determines if periodic boundaries should be applied to
+        the position or not.
+
+    """
+
+    def __init__(
+        self,
+        index: tuple[int, int, int, int, int, int],
+        periodic: bool = False,
+    ):
+        """Initialise the order parameter.
+
+        Parameters
+        ----------
+        index : list/tuple of integers
+            This list gives the indices for the atoms to use in the
+            definition of the puckering  coordinates.
+        periodic : boolean, optional
+            This determines if periodic boundary conditions should be
+            applied to the distance vectors.
+
+        """
+        try:
+            if len(index) != 6:
+                msg = (
+                    "Wrong number of atoms for 6-ring puckering definition. "
+                    f"Expected 6 got {len(index)}"
+                )
+                logger.error(msg)
+                raise ValueError(msg)
+        except TypeError as err:
+            msg = "Puckering atoms should be defined as a \
+                    tuple/list of integers!"
+            logger.error(msg)
+            raise TypeError(msg) from err
+        self.index = [int(i) for i in index]
+        txt = (
+            "Puckering coordinates between particles "
+            f"{index[0]}, {index[1]}, {index[2]}, \
+                    {index[3]}, {index[4]} and {index[5]}."
         )
-        # C1 C2 C3 C4 C5 C6 clockwise
-        self.idx = [5, 4, 3, 2, 1, 0]  # cyclohexanol
-        assert len(self.idx) == 6, "Wrong number of atoms in selection."
 
-    def calculate(self, system):
+        super().__init__(description=txt)
+
+    def calculate(self, system: System) -> list[float]:
+        """Calculate the pcukering angle.
+
+        Parameters
+        ----------
+        system : object like :py:class:`.System`
+            The object containing the information we need to calculate
+            the order parameter.
+
+        Returns
+        -------
+        out : list of float
+            The order parameter.
+
+        """
         box = np.array(system.box[:3])
         pos = system.pos[self.idx]
-        # make molecule whole around atom 0
-        for i in range(1, 6):
-            pos[i, :] = pbc_dist_coordinate(pos[i, :] - pos[0, :], box)
-        pos[0, :] *= 0
+        if self.periodic:
+            # make 6-ring whole around atom 0
+            for i in range(1, 6):
+                pos[i, :] = pbc_dist_coordinate(pos[i, :] - pos[0, :], box)
+            # set atom 0 position to the origin
+            pos[0, :] *= 0
         # geometric center of the molecule
         center = np.mean(pos, axis=0)
         # translate origin of molecule to geometric center
@@ -568,8 +634,9 @@ class Puckering(OrderParameter):
             h1 += np.sqrt(2 / 6) * z[i] * np.cos(2 * np.pi * 2 * i / 6)
             h2 += -np.sqrt(2 / 6) * z[i] * np.sin(2 * np.pi * 2 * i / 6)
             q3 += np.sqrt(1 / 6) * (-1) ** (i) * z[i]
-        phi = np.arctan(h2 / h1)
         q2 = np.sqrt(h1**2 + h2**2)
-        Qampl = np.sqrt(np.sum(z**2))
         theta = np.arctan(q3 / q2) + np.pi / 2
-        return [np.rad2deg(theta), np.rad2deg(phi), Qampl]
+        # phi = np.arctan(h2 / h1)
+        # Qampl = np.sqrt(np.sum(z**2))
+        # return [np.rad2deg(theta), np.rad2deg(phi), Qampl]
+        return [np.rad2deg(theta)]
