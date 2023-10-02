@@ -1,15 +1,26 @@
+from __future__ import annotations
+
 import errno
-import importlib
 import inspect
 import logging
 import os
 import sys
+from importlib import util
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Callable
+    from inspect import Parameter
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-def generic_factory(settings, object_map, name="generic"):
+def generic_factory(
+    settings: dict[str, Any],
+    object_map: dict[str, Any],
+    name: str = "generic",
+) -> Any | None:
     """Create instances of classes based on settings.
 
     This method is intended as a semi-generic factory for creating
@@ -47,11 +58,11 @@ def generic_factory(settings, object_map, name="generic"):
             name,
         )
         return None
-    cls = object_map[klass]["cls"]
+    cls = object_map[klass]["class"]
     return initiate_instance(cls, settings)
 
 
-def initiate_instance(klass, settings):
+def initiate_instance(klass: type[Any], settings: dict[str, Any]) -> Any:
     """Initialise a class with optional arguments.
 
     Parameters
@@ -85,7 +96,9 @@ def initiate_instance(klass, settings):
     return klass(*args, **kwargs)
 
 
-def _pick_out_arg_kwargs(klass, settings):
+def _pick_out_arg_kwargs(
+    klass: Any, settings: dict[str, Any]
+) -> tuple[list[Any], dict[str, Any]]:
     """Pick out arguments for a class from settings.
 
     Parameters
@@ -111,9 +124,9 @@ def _pick_out_arg_kwargs(klass, settings):
         try:
             args.append(settings[arg])
             used.add(arg)
-        except KeyError:
+        except KeyError as exc:
             msg = f'Required argument "{arg}" for "{klass}" not found!'
-            raise ValueError(msg)
+            raise ValueError(msg) from exc
     for arg in info["kwargs"]:
         if arg == "self":
             continue
@@ -122,7 +135,7 @@ def _pick_out_arg_kwargs(klass, settings):
     return args, kwargs
 
 
-def inspect_function(function):
+def inspect_function(function: Callable) -> dict[str, list[Any]]:
     """Return arguments/kwargs of a given function.
 
     This method is intended for use where we are checking that we can
@@ -147,7 +160,12 @@ def inspect_function(function):
         * `keywords` : list of keyword arguments
 
     """
-    out = {"args": [], "kwargs": [], "varargs": [], "keywords": []}
+    out = {
+        "args": [],
+        "kwargs": [],
+        "varargs": [],
+        "keywords": [],
+    }  # type: dict[str, list[Any]]
     arguments = inspect.signature(function)  # pylint: disable=no-member
     for arg in arguments.parameters.values():
         kind = _arg_kind(arg)
@@ -160,7 +178,7 @@ def inspect_function(function):
     return out
 
 
-def _arg_kind(arg):
+def _arg_kind(arg: Parameter) -> str | None:
     """Determine kind for a given argument.
 
     This method will help :py:func:`.inspect_function` to determine
@@ -195,7 +213,7 @@ def _arg_kind(arg):
     return kind
 
 
-def create_external(settings, key, required_methods, key_settings=None):
+def create_external(settings, key, required_methods):
     """Create external objects from settings.
 
     This method will handle the creation of objects from settings. The
@@ -214,15 +232,6 @@ def create_external(settings, key, required_methods, key_settings=None):
     required_methods : list of strings
         The methods we need to have if creating an object from external
         files.
-    key_settings : dict, optional
-        This dictionary contains the settings for the specific key we
-        are processing. If this is not given, we will try to obtain
-        these settings by `settings[key]`. The reason why we make it
-        possible to pass these as settings is in case we are processing
-        a key which does not give a simple setting, but a list of settings.
-        It that case `settings[key]` will give a list to process. That list
-        is iterated somewhere else and `key_settings` can then be used to
-        process these elements.
 
     Returns
     -------
@@ -232,12 +241,6 @@ def create_external(settings, key, required_methods, key_settings=None):
     """
     klass = settings.get("class", None)
     module = settings.get("module", None)
-    if key_settings is None:
-        try:
-            key_settings = settings[key]
-        except KeyError:
-            logger.debug('No "%s" setting found. Skipping set-up', key)
-            return None
     # Here we assume we are to load from a file. Before we import
     # we need to check that the path is ok or if we should include
     # the 'exe_path' from settings.
@@ -266,7 +269,7 @@ def create_external(settings, key, required_methods, key_settings=None):
     return initiate_instance(obj, settings)
 
 
-def import_from(module_path, function_name):
+def import_from(module_path: str, function_name: str) -> Any:
     """Import a method/class from a module.
 
     This method will dynamically import a specified method/object
@@ -287,12 +290,13 @@ def import_from(module_path, function_name):
         The thing we managed to import.
 
     """
+    msg = f"Could not import module: {module_path}"
     try:
         module_name = os.path.basename(module_path)
         module_name = os.path.splitext(module_name)[0]
-        spec = importlib.util.spec_from_file_location(module_name, module_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        spec = util.spec_from_file_location(module_name, module_path)
+        module = util.module_from_spec(spec)  # type: ignore[arg-type]
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
         sys.modules[module_name] = module
         logger.debug("Imported module: %s", module)
         return getattr(module, function_name)
@@ -305,7 +309,7 @@ def import_from(module_path, function_name):
     raise ValueError(msg)
 
 
-def make_dirs(dirname):
+def make_dirs(dirname: str) -> str:
     """Create directories for path simulations.
 
     This function will create a folder using a specified path.
@@ -325,6 +329,7 @@ def make_dirs(dirname):
         output.
 
     """
+    msg = f'Directory "{dirname}" was not created.'
     try:
         os.makedirs(dirname)
         msg = f'Created directory: "{dirname}"'

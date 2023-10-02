@@ -7,9 +7,7 @@ import pathlib
 import sys  # Used to make a local import
 from contextlib import contextmanager
 
-import numpy as np
 import pytest
-from numpy.random import RandomState
 
 from infretis.core.core import (
     _pick_out_arg_kwargs,
@@ -85,7 +83,7 @@ class ClassForTesting:
 
 def test_generic_factory(caplog):
     """Test that we can create classes with the generic factory."""
-    factory_map = {"my_new_class": {"cls": ClassForTesting}}
+    factory_map = {"my_new_class": {"class": ClassForTesting}}
 
     # Check that we can create the class:
     settings = {"class": "my_new_class"}
