@@ -574,6 +574,7 @@ class Puckering(OrderParameter):
             logger.error(msg)
             raise TypeError(msg) from err
         self.index = [int(i) for i in index]
+        self.periodic = periodic
         txt = (
             "Puckering coordinates between particles "
             f"{index[0]}, {index[1]}, {index[2]}, \
@@ -598,7 +599,7 @@ class Puckering(OrderParameter):
 
         """
         box = np.array(system.box[:3])
-        pos = system.pos[self.idx]
+        pos = system.pos[self.index]
         if self.periodic:
             # make 6-ring whole around atom 0
             for i in range(1, 6):
