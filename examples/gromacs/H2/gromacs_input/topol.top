@@ -1,0 +1,25 @@
+[ defaults ]
+; nbfunc        comb-rule       gen-pairs       fudgeLJ fudgeQQ
+1       2       yes     1.0     1.0
+
+
+[ atomtypes ]
+H       1       1.008000        0.00    A       0.300    25.000
+
+[ moleculetype ]
+; Name            nrexcl
+H4     4
+
+[ atoms ]
+;   nr       type  resnr residue  atom   cgnr     charge       mass  typeB    chargeB      massB
+; residue   1 TYR rtp TYR  q +1.0
+     1         H      1    H1     H1      1       0.00      1.008
+
+[ pairs ]
+
+[ system ]
+; Name
+HYDROGEN DISSOCIATION TOY MODEL
+
+[ molecules ]
+H4     2
