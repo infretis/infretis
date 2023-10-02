@@ -454,6 +454,7 @@ def create_orderparameter(settings):
         "distance": {"cls": Distance},
         "dihedral": {"cls": Dihedral},
         "distancevel": {"cls": Distancevel},
+        "puckering": {"cls": Puckering},
     }
 
     if settings["orderparameter"]["class"].lower() not in order_map:
@@ -601,3 +602,58 @@ class Dihedral(OrderParameter):
         numer = np.dot(np.cross(vector1, vector2), vector3)
         angle = np.arctan2(numer, denom)
         return [angle]
+
+
+class Puckering(OrderParameter):
+    """Ring puckering coordinates for a 6-ring"""
+
+    def __init__(self):
+        super().__init__(
+            description="""
+            Ring puckering order parameter"""
+        )
+        # C1 C2 C3 C4 C5 C6 clockwise
+        self.idx = [5, 4, 3, 2, 1, 0]  # cyclohexanol
+        assert len(self.idx) == 6, "Wrong number of atoms in selection."
+
+    def calculate(self, system):
+        box = np.array(system.box[:3])
+        pos = system.pos[self.idx]
+        # make molecule whole around atom 0
+        for i in range(1, 6):
+            pos[i, :] = pbc_dist_coordinate(pos[i, :] - pos[0, :], box)
+        pos[0, :] *= 0
+        # geometric center of the molecule
+        center = np.mean(pos, axis=0)
+        # translate origin of molecule to geometric center
+        for i in range(6):
+            pos[i, :] -= center
+        # get the R1 = R' and R2 = R'' vectors
+        R1 = np.zeros(3)
+        R2 = np.zeros(3)
+        for i in range(6):
+            R1 += pos[i, :] * np.sin(2 * np.pi * (i - 6) / 6)
+            R2 += pos[i, :] * np.cos(2 * np.pi * (i - 6) / 6)
+        # get the molecular z-axis defined by the vector n perpendicular
+        # to the mean plane of the ring
+        n = np.cross(R1, R2)
+        n = n / np.linalg.norm(n)
+        # displacements from the mean plane of the ring
+        z = np.zeros(6)
+        for i in range(6):
+            z[i] = np.dot(pos[i, :], n)
+        # get the generalized ring puckering coordinates (q2, phi2, q3)
+        # (from eq. 12, 13 and 14 in the article) which will be used to
+        # get the sphetical (theta, phi, Q) ring puckering coordinates
+        h1 = 0.0
+        h2 = 0.0
+        q3 = 0.0
+        for i in range(6):
+            h1 += np.sqrt(2 / 6) * z[i] * np.cos(2 * np.pi * 2 * i / 6)
+            h2 += -np.sqrt(2 / 6) * z[i] * np.sin(2 * np.pi * 2 * i / 6)
+            q3 += np.sqrt(1 / 6) * (-1) ** (i) * z[i]
+        phi = np.arctan(h2 / h1)
+        q2 = np.sqrt(h1**2 + h2**2)
+        Qampl = np.sqrt(np.sum(z**2))
+        theta = np.arctan(q3 / q2) + np.pi / 2
+        return [np.rad2deg(theta), np.rad2deg(phi), Qampl]
