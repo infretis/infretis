@@ -12,7 +12,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-numpy = "^1.25.2"
+numpy = "^1.26.0"
 matplotlib = "^3.7.2"
 tomli = "^2.0.1"
 tomli-w = "^1.0.0"
@@ -41,7 +41,7 @@ convention = "google"
 
 [tool.black]
 line-length = 79
-target-version = ["py310", "py311"]
+target-version = ["py310", "py311", "py312"]
 
 [tool.mypy]
 warn_unused_ignores = true
