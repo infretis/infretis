@@ -536,9 +536,7 @@ class FileIO(OutputBase):
         """Open a file for reading."""
         if not self.file_mode.startswith("r"):
             raise ValueError(
-                ('Inconsistent file mode "{}" ' "for reading").format(
-                    self.file_mode
-                )
+                f'Inconsistent file mode "{self.file_mode}" ' "for reading"
             )
         try:
             self.fileh = open(self.filename, self.file_mode)
@@ -559,9 +557,7 @@ class FileIO(OutputBase):
         """
         if self.file_mode[0] not in ("a", "w"):
             raise ValueError(
-                ('Inconsistent file mode "{}" ' "for writing").format(
-                    self.file_mode
-                )
+                f'Inconsistent file mode "{self.file_mode}" ' "for writing"
             )
         try:
             if os.path.isfile(self.filename):
