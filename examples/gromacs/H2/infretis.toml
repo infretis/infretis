@@ -1,20 +1,22 @@
 # infretis config
 
 [dask]
-workers = 2
+workers = 4
 wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
-	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 1 -pin on',]
+	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 1 -pin on',
+	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 2 -pin on',
+	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 3 -pin on',]
 
 [simulation]
-interfaces = [-1.1, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 1.5]
+interfaces = [0.345 , 0.355, 0.375, 0.415, 0.495, 0.560, 0.65, 1.200]
 steps = 40000
 seed = 0
 load_dir = 'load'
-shooting_moves = ['sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh']
+shooting_moves = ['sh','sh','sh','sh','sh','sh','sh','sh']
 
 
 [simulation.tis_set]
-maxlength = 20000
+maxlength = 2000
 aimless = true
 allowmaxlength = false
 zero_momentum = true # momentum true
@@ -25,16 +27,16 @@ temperature = 300
 [engine]
 class = 'gromacs'
 engine = 'gmx'
+timestep = 0.0002
 mdrun = 'gmx'
 gmx_format = 'g96'
-timestep = 0.0005
 input_path = 'gromacs_input'
 gmx = 'gmx'
 subcycles = 10
 
 [orderparameter]
-class = 'Dihedral'
-index = [ 0, 1, 2, 3]
+class = 'Distance'
+index = [ 0, 1]
 periodic = true
 
 [output]

@@ -1,6 +1,6 @@
 # Cycle: 2075, status: ACC
 #     Step              Filename       index    vel
-         0       second_last.gro           0      1
+         0       second_last.g96           0      1
          1     001_566_trajF.trr           0      1
          2     001_566_trajF.trr           1      1
          3     001_566_trajF.trr           2      1
