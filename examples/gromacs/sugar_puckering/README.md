@@ -1,3 +1,5 @@
+# This is a work-in-progress exercise/tutorial for a molecular modeling class.
+
 # 		TOPOLOGY GENERATION
 # if you don't have conda or miniconda
 # you can install it on the computers in the computer room by using
