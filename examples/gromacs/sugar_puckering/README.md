@@ -20,18 +20,21 @@ python -m pip install -e .
 ### Topolgy generation 
 
 build molecule in avogadro and export it with filename 'mol.pdb'. Remember to optimize the geometry before saving the molecule. If you feel daring, you can modify the substituents of the 6-ring, but do not change the indices of the ring atoms. Due to the order parameter defenition they should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions. Be careful with placing bulky substituents into equitorial positions, as the ring may flip spontaneously during equilibration due to a preference for equitorial positions.
+
+Copy files and solvate the system
 ```bash
 acpype -i mol.pdb -o gmx
 cd gromacs_input
 cp ../mol.acpype/mol_GMX.itp mol.itp
 cp ../mol.acpype/mol_GMX.gro mol.gro
-```
-### Equilibration
-solvate the system, minimize and equilibrate the system
-```bash
 gmx editconf -f mol.gro -box 2.0 -c -bt cubic -o newbox.gro
 gmx solvate -cs spc216.gro -cp newbox.gro -p topol.top -o solv.gro
-cd ../equil
+cd ..
+```
+### Equilibration
+Energy minimization and equilibration
+```bash
+cd equil
 
 # energy minimization
 cd em
@@ -49,14 +52,12 @@ cd -
 cd npt
 gmx grompp -f ../../mdps/npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
 gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v
-cd -
+cd ../..
 ```
 Run a production run
 ```bash
 
 # Production run
-cd ../..
-
 cd md-run
 gmx grompp -f ../mdps/md.mdp -p ../gromacs_input/topol.top -c ../equil/npt/npt.gro -t ../equil/npt/npt.cpt -o md.tpr
 gmx mdrun -deffnm md -ntomp 2 -ntmpi 1 -pin on -v
