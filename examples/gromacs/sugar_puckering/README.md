@@ -17,6 +17,18 @@ git clone https://github.com/infretis/infretis.git
 cd infretis
 python -m pip install -e .
 ```
+
+### OpenFF
+```bash
+curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+bash Miniforge3-$(uname)-$(uname -m).sh
+```
+```bash
+mamba create -n openff-toolkit -c conda-forge openff-toolkit
+git clone https://github.com/infretis/infretis.git
+cd infretis
+```
+
 ### Topolgy generation 
 
 build molecule in avogadro and export it with filename 'mol.pdb'. Remember to optimize the geometry before saving the molecule. If you feel daring, you can modify the substituents of the 6-ring, but do not change the indices of the ring atoms. Due to the order parameter defenition they should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions. Be careful with placing bulky substituents into equitorial positions, as the ring may flip spontaneously during equilibration due to a preference for equitorial positions.
