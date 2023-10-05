@@ -27,6 +27,7 @@ bash Miniforge3-$(uname)-$(uname -m).sh
 mamba create -n openff-toolkit -c conda-forge openff-toolkit
 git clone https://github.com/infretis/infretis.git
 cd infretis
+python -m pip install -e .
 ```
 
 ### Topolgy generation 
