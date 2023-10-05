@@ -77,7 +77,7 @@ gmx mdrun -deffnm md -ntomp 2 -ntmpi 1 -pin on -v
 
 
 # visualization
-gmx trjconf -f md.trr -pbc whole -center -o md-whole.xtc
+gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc
 printf '1\natomnr 1 to 6\n' | gmx select -on -s md.tpr
 printf '1\n0\n' | gmx trjconv -f md-traj.gro -fit rot+trans -s md.tpr -n index.ndx -o md-traj.gro
 
