@@ -400,9 +400,9 @@ def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
         "distance": {"class": Distance},
         "dihedral": {"class": Dihedral},
         "distancevel": {"class": Distancevel},
-        "puckering": {"cls": Puckering},
+        "puckering": {"class": Puckering},
     }
-
+    print(settings["orderparameter"]["class"].lower())
     if settings["orderparameter"]["class"].lower() not in order_map:
         return create_external(
             settings["orderparameter"], "orderparameter", ["calculate"]
