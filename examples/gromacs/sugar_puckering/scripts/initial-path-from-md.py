@@ -25,6 +25,10 @@ parser.add_argument(
 args = parser.parse_args()
 
 predir = "load"
+if os.path.exists(predir):
+    exit(f"\nDirectory {predir} exists")
+else:
+    os.mkdir(predir)
 
 traj = args.trr  # trajectory  file
 order = np.loadtxt(args.order)  # order file
@@ -100,12 +104,12 @@ for i in range(len(interfaces)):
             exit("Invalid path for wf!!")
     print(iterator)
 
-    with open("frames.ndx", "w") as index_file:
+    with open(".frames.ndx", "w") as index_file:
         index_file.write("[ frames ]\n")
         for idxi in iterator:
             index_file.write(f"{idxi+1}\n")
 
-    cmd = f"gmx trjconv -f {traj} -o {trajfile} -fr frames.ndx"
+    cmd = f"gmx trjconv -f {traj} -o {trajfile} -fr .frames.ndx"
     print(cmd)
     subprocess.run(cmd, shell=True)
 
