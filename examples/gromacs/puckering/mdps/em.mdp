@@ -1,0 +1,9 @@
+; Run parameters
+integrator		= steep		; steepest-descent
+nsteps			= 500
+
+; Nonbonded parameters
+rcoulomb		= 0.9		; short-range electrostatic cutoff (in nm)
+coulombtype		= PME		; Particle Mesh Ewald for long-range electrostatics
+rvdw			= 0.9		; short-range van der Waals cutoff (in nm)
+vdwtype			= cut-off	; Straight cut off for vdw interactions
