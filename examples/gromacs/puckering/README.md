@@ -1,29 +1,12 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
 
 ### Installing required packages
-if you don't have conda or miniconda you can install it on the computers in the computer room by using
-```bash
-mkdir -p ~/miniconda3
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
-bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
-rm -rf ~/miniconda3/miniconda.sh
-~/miniconda3/bin/conda init bash
-```
-The, create a new virtual environment and install acpype and infretis
-```bash
-conda create --name iretis
-conda install -c conda-forge acpype
-git clone https://github.com/infretis/infretis.git
-cd infretis
-python -m pip install -e .
-```
-
-### OpenFF
+Install mamba if you do not allready have conda
 ```bash
 curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
 bash Miniforge3-$(uname)-$(uname -m).sh
 ```
-Install required packags
+Close and reopen the terminal. Then install the required packages to run this exercise
 ```bash
 mamba create --name molmod python==3.11 openff-toolkit-base ambertools rdkit pydantic
 mkdir software
@@ -44,16 +27,14 @@ cd -
 
 ### Topolgy generation
 
-build molecule in avogadro and export it with filename 'mol.pdb'. Remember to optimize the geometry before saving the molecule. If you feel daring, you can modify the substituents of the 6-ring, but do not change the indices of the ring atoms. Due to the order parameter defenition they should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions. Be careful with placing bulky substituents into equitorial positions, as the ring may flip spontaneously during equilibration due to a preference for equitorial positions.
+build molecule in avogadro and export it with filename 'mol.sdf'. Remember to optimize the geometry before saving the molecule. If you feel daring, you can modify the substituents of the 6-ring, but do not change the indices of the ring atoms. Due to the order parameter defenition they should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions. Be careful with placing bulky substituents into equitorial positions, as the ring may flip spontaneously during equilibration due to a preference for equitorial positions.
 
 Copy files and solvate the system
 ```bash
-acpype -i mol.pdb -o gmx
-cd gromacs_input
-cp ../mol.acpype/mol_GMX.itp mol.itp
-cp ../mol.acpype/mol_GMX.gro mol.gro
-gmx editconf -f mol.gro -box 2.0 -c -bt cubic -o newbox.gro
-gmx solvate -cs spc216.gro -cp newbox.gro -p topol.top -o solv.gro
+cd script
+python generate-openff-topology.py
+cd ../gromacs_input
+gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o gromacs_input/solv.gro
 cd ..
 ```
 ### Equilibration

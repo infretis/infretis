@@ -9,8 +9,8 @@ topology.box_vectors = unit.Quantity([2.1, 2.1, 2.1], unit.nanometer)
 # Load the OpenFF 2.1.0 forcefield called "Sage"
 sage = ForceField("openff-2.1.0.offxml")
 out = Interchange.from_smirnoff(force_field=sage, topology=topology)
-out.to_gro("../mol.gro")
-out.to_top("../mol.top")
+out.to_gro("../gromacs_input/mol.gro")
+out.to_top("../gromacs_input/mol.top")
 
 with open("../gromacs_input/topol.top", "w") as writefile:
     with open("mol.top") as readfile:
