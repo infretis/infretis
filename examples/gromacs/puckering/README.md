@@ -9,6 +9,7 @@ bash Miniforge3-$(uname)-$(uname -m).sh
 Close and reopen the terminal. Then install the required packages to run this exercise
 ```bash
 mamba create --name molmod python==3.11 openff-toolkit-base ambertools rdkit pydantic
+mamba activate molmod
 mkdir software
 cd software
 git clone https://github.com/openforcefield/openff-interchange.git
