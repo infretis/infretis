@@ -1,5 +1,5 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
-In this exercise, we will study the ring flip in a system of your choice.
+In this exercise, we will study the first barrier of the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) transition in a system of your choosing.
 
 ![](https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/puckering.gif)
 
