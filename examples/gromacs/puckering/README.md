@@ -1,4 +1,7 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
+In this exercise, we will study the ring flip in a system of your choice.
+
+![](https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/puckering.gif)
 
 ### Installing required packages
 Install mamba if you do not allready have conda
