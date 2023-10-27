@@ -9,7 +9,7 @@ Install mamba if you do not allready have conda
 curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
 bash Miniforge3-$(uname)-$(uname -m).sh
 ```
-Close and reopen the terminal. Then install the required packages to run this exercise
+Now close and reopen the terminal, and you should see "(base)" in the lower left of your terminal. Then install the required packages to run this exercise
 ```bash
 mamba create --name molmod python==3.11 openff-toolkit-base ambertools rdkit pydantic
 mamba activate molmod
