@@ -1,15 +1,28 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
-In this exercise, we will study the first barrier of the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) transition in a 6-ring based system of your choosing.
+TO DO
+* plot 2d order parameter space
+
+# Motivation
+See previous exercises. Something something rare events, path sampling simulations, ∞RETIS soft-ware, ...,
+
+# Goals
+The main goal of this exercise is to give you hands-on experience in performing a path simulation of a rare event and analyzing the results. We will study the first barrier of the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) transition in a 6-ring-based system of your choosing. A side quest is that you should be able to define your own system and learn how to generate the necessary force field files. During exercises 1 and 4 you learned to use Avogadro and GROMACS, and this will come in handy during this exercise.
 
 ![](https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/puckering.gif)
 
-### Installing required packages
-Install mamba if you do not allready have conda
+# Step 0: Installing the required packages
+We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule , and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
+
+Install mamba (if you don't already have conda installed). Click the copy button on the command below and paste it into a terminal, and then do what is asked in the output on your screen.
 ```bash
 curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
 bash Miniforge3-$(uname)-$(uname -m).sh
 ```
-Now close and reopen the terminal, and you should see "(base)" in the lower left of your terminal. Then install the required packages to run this exercise
+Now close the terminal. 
+
+You should see "(base)" in the lower left of your terminal window after reopening if everything went successfully. 
+
+Then install the required packages to run this exercise. Again, do what is asked of you in the output.
 ```bash
 mamba create --name molmod python==3.11 openff-toolkit-base ambertools rdkit pydantic
 mamba activate molmod
@@ -29,7 +42,7 @@ python -m pip install -e .
 cd -
 ```
 
-### Topolgy generation
+# Step 1: System definition and topology generation
 
 build molecule in avogadro and export it with filename 'mol.sdf'. Remember to optimize the geometry before saving the molecule. If you feel daring, you can modify the substituents of the 6-ring, but do not change the indices of the ring atoms. Due to the order parameter defenition they should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions. Be careful with placing bulky substituents into axial positions, as the ring may flip spontaneously during equilibration due to a preference for equitorial positions.
 
