@@ -35,11 +35,11 @@ cd -
 git clone https://github.com/openforcefield/openff-models.git
 cd openff-models
 python -m pip install -e .
-cd -
+cd ~
 git clone https://github.com/infretis/infretis.git
 cd infretis
 python -m pip install -e .
-cd -
+cd examples/gromacs/puckering/ # we will perform the exercise within this folder
 ```
 
 # Step 1: System definition and topology generation
