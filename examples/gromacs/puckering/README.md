@@ -31,7 +31,7 @@ cd -
 
 ### Topolgy generation
 
-build molecule in avogadro and export it with filename 'mol.sdf'. Remember to optimize the geometry before saving the molecule. If you feel daring, you can modify the substituents of the 6-ring, but do not change the indices of the ring atoms. Due to the order parameter defenition they should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions. Be careful with placing bulky substituents into equitorial positions, as the ring may flip spontaneously during equilibration due to a preference for equitorial positions.
+build molecule in avogadro and export it with filename 'mol.sdf'. Remember to optimize the geometry before saving the molecule. If you feel daring, you can modify the substituents of the 6-ring, but do not change the indices of the ring atoms. Due to the order parameter defenition they should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions. Be careful with placing bulky substituents into axial positions, as the ring may flip spontaneously during equilibration due to a preference for equitorial positions.
 
 Copy files and solvate the system
 ```bash
