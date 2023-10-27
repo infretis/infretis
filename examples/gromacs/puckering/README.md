@@ -48,10 +48,10 @@ build molecule in avogadro and export it with filename 'mol.sdf'. Remember to op
 
 Copy files and solvate the system
 ```bash
-cd script
+cd scripts
 python generate-openff-topology.py
 cd ../gromacs_input
-gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o gromacs_input/solv.gro
+gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o solv.gro
 cd ..
 ```
 ### Equilibration
