@@ -26,9 +26,9 @@ There is a high energy barrier between the north pole and the equator, and again
 ## Questions
 **1:** Given that the 6-ring from the animation above starts out as $^4\text{C}_1$, what is the name of the ending structure? Hint: The super- and subscripts refer to which atoms are above and below the mean plane of the ring, respectively.
 
-**2:** What are the initial values of the angle $\theta$? 
+**2:** What are the initial values of the angle $\theta$, and what are the final values of the angles $\phi$ and $\theta$?
 
-**3*** What are the final values of the angles $\phi$ and $\theta$?
+**3** Can you suggest an order parameter that captures the transition? 
 
 # Step 0: Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
