@@ -6,10 +6,26 @@ TO DO
 See previous exercises. Something something rare events, path sampling simulations, ∞RETIS soft-ware, ...,
 
 # Goals
-The main goal of this exercise is to give you hands-on experience in performing a path simulation of a rare event and analyzing the results. We will study the first barrier of the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) transition in a 6-ring-based system of your choosing. A side quest is that you should be able to define your own system and learn how to generate the necessary force field files. During exercises 1 and 4 you learned to use Avogadro and GROMACS, and this will come in handy during this exercise.
+The main goal of this exercise is to give you hands-on experience in performing a path simulation of a rare event and analyzing the results in a realistic system. A side quest is that you should be able to define your own molecular systems and learn how to generate the necessary force field files. During exercises 1 and 4 you learned to use Avogadro and GROMACS, and this will come in handy during this exercise.
 
-![](https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/puckering.gif)
-<img src="http://enzyme13.bt.a.u-tokyo.ac.jp/CP/sugarconf.png" width="60%" height="60%">
+# The system
+The system we will study is the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) transition in some 6-ring-based system of your choosing.
+
+<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/puckering.gif" width="30%" height="30%">
+
+This transition occurs very rarely at the molecular time scale, making it extremely tedious to study with standard molecular dynamics simulations. However, we would like to know how often this transition occurs and the mechanism behind the transition. We can obtain this information by performing a path-sampling simulation, and in this exercise, you will carry out the whole modeling and analysis process from scratch.
+
+This conformational is important in systems where 6-ring-based compounds interact with some other species in their environment. Examples include carbohydrates (6-rings) being broken down by enzymes at this very moment in your body. The essential thing you need to know about this system is that the conformational landscape of 6-rings can be classified into **C**hair, **H**alf-chair, **B**oat, **S**kew-boat, and **E**nvelope conformations. All these conformations are determined by the two angles $\theta$ and $\phi$, as illustrated in the figure below.
+
+<img src="http://enzyme13.bt.a.u-tokyo.ac.jp/CP/sugarconf.png" width="90%" height="90%">
+
+
+## Questions
+**1:** Given that the 6-ring from the animation above starts out as $^4\text{C}_1$, what is the name of the ending structure on the sphere?
+
+**2:** What are the initial values of the angle $\phi$? 
+
+**3*** What are the final values of the angle $\phi$ and $\theta$?
 
 # Step 0: Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule , and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
