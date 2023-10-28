@@ -1,6 +1,6 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
 TO DO
-* plot 2d order parameter space. Use atan2 of phi and psi angle, and map to (0,360) degree range. Check if we reproduce the convention with atom numbering.
+* plot 2d order parameter space
 * question about preferred mechanism from 2d order parameter plot
 # Motivation
 See previous exercises. Something something rare events, path sampling simulations, ∞RETIS soft-ware, ...,
