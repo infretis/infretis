@@ -9,6 +9,7 @@ See previous exercises. Something something rare events, path sampling simulatio
 The main goal of this exercise is to give you hands-on experience in performing a path simulation of a rare event and analyzing the results. We will study the first barrier of the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) transition in a 6-ring-based system of your choosing. A side quest is that you should be able to define your own system and learn how to generate the necessary force field files. During exercises 1 and 4 you learned to use Avogadro and GROMACS, and this will come in handy during this exercise.
 
 ![](https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/puckering.gif)
+<img src="http://enzyme13.bt.a.u-tokyo.ac.jp/CP/sugarconf.png" width="60%" height="60%">
 
 # Step 0: Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule , and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
