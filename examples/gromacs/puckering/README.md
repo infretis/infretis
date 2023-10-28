@@ -21,7 +21,7 @@ This conformational is important in systems where 6-ring-based compounds interac
 
 
 ## Questions
-**1:** Given that the 6-ring from the animation above starts out as $^4\text{C}_1$, what is the name of the ending structure?
+**1:** Given that the 6-ring from the animation above starts out as $^4\text{C}_1$, what is the name of the ending structure? Hint: The super- and subscripts refer to which atoms are above and below the mean plane of the ring, respectively.
 
 **2:** What are the initial values of the angle $\theta$? 
 
