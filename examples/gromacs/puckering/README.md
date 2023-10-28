@@ -6,7 +6,7 @@ TO DO
 See previous exercises. Something something rare events, path sampling simulations, ∞RETIS soft-ware, ...,
 
 # Goals
-The main goal of this exercise is to give you hands-on experience in performing a path simulation of a rare event and analyzing the results in a realistic system. A side quest is that you should be able to define your own molecular systems and learn how to generate the necessary force field files. During exercises 1 and 4 you learned to use Avogadro and GROMACS, and this will come in handy during this exercise.
+The main goal of this exercise is to give you hands-on experience in performing a path simulation of a realistic system. A side quest is that you should be able to define your own molecular systems and learn how to generate the necessary force field files. During exercises 1 and 4 you learned to use Avogadro and GROMACS, and this will come in handy during this exercise.
 
 # The system
 The system we will study is the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) transition in some 6-ring-based system of your choosing (often referred to as puckering).
