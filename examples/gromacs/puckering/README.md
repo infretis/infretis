@@ -3,7 +3,7 @@ TO DO
 * plot 2d order parameter space
 * question about preferred mechanism from 2d order parameter plot
 # Motivation
-See previous exercises. Something something rare events, path sampling simulations, ∞RETIS soft-ware, ...,
+See previous exercises. Something something rare events, path sampling simulations, ∞RETIS software, ...,
 
 # Goals
 The main goal of this exercise is to give you hands-on experience in performing a path simulation of a realistic system. A side quest is that you should be able to define your own molecular systems and learn how to generate the necessary force field files. During exercises 1 and 4 you learned to use Avogadro and GROMACS, and this will come in handy during this exercise.
@@ -21,10 +21,10 @@ The essential thing you need to know is that the conformational landscape of 6-r
 
 <img src="http://enzyme13.bt.a.u-tokyo.ac.jp/CP/sugarconf.png" width="90%" height="90%">
 
-There is a high energy barrier between the north pole and the equator, and again between the equator and the south pole. We will study the transition over the first barrier; stating at the north pole and ending at the equator.
+There is a high energy barrier between the north pole and the equator, and again between the equator and the south pole. We will study the transition over the first barrier; starting at the north pole and ending at the equator.
 
 ## Questions
-**1:** Given that the 6-ring from the animation above starts out as $^4\text{C}_1$, what is the name of the ending structure? Hint: The super- and subscripts refer to which atoms are above and below the mean plane of the ring, respectively.
+**1:** Given that the 6-ring in the animation above starts as $^4\text{C}_1$, what is the name of the ending structure? Hint: The super- and subscripts refer to which atoms are above and below the mean plane of the ring, respectively.
 
 **2:** What is the initial value of the angle $\theta$, and what are the final values of the angles $\phi$ and $\theta$?
 
