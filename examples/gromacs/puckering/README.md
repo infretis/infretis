@@ -61,6 +61,10 @@ cd infretis
 python -m pip install -e .
 cd examples/gromacs/puckering/ # we will perform the exercise within this folder
 ```
+
+## Questions
+There are no questions in this section.
+
 # Step 1: System definition and topology generation
 
 Draw your favorite 6-ringed molecule in Avogadro in an $^4\text{C}_1$ conformation. Be sure to complete the valence of each atom.
