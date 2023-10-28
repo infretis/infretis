@@ -33,7 +33,7 @@ There is a high energy barrier between the north pole and the equator, and again
 # Step 0: Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
 
-Install mamba (if you don't already have conda installed). Click the copy button on the command below and paste it into a terminal, and then do what is asked in the output on your screen.
+Download and install mamba with the following commands (if you don't already have conda installed). Click the copy button on the box below and paste it into a terminal, and then do what is asked in the output on your screen. 
 ```bash
 curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
 bash Miniforge3-$(uname)-$(uname -m).sh
@@ -42,7 +42,7 @@ Now close the terminal.
 
 You should see "(base)" in the lower left of your terminal window after reopening if everything went successfully. 
 
-Then install the required packages to run this exercise. Again, do what is asked of you in the output.
+Then download and install the required python packages to run this exercise. Again copy-paste the code and do what is asked of you in the output.
 ```bash
 mamba create --name molmod python==3.11 openff-toolkit-base ambertools rdkit pydantic
 mamba activate molmod
