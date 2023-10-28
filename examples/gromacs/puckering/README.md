@@ -21,14 +21,14 @@ This conformational is important in systems where 6-ring-based compounds interac
 
 
 ## Questions
-**1:** Given that the 6-ring from the animation above starts out as $^4\text{C}_1$, what is the name of the ending structure on the sphere?
+**1:** Given that the 6-ring from the animation above starts out as $^4\text{C}_1$, what is the name of the ending structure?
 
-**2:** What are the initial values of the angle $\phi$? 
+**2:** What are the initial values of the angle $\theta$? 
 
-**3*** What are the final values of the angle $\phi$ and $\theta$?
+**3*** What are the final values of the angles $\phi$ and $\theta$?
 
 # Step 0: Installing the required packages
-We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule , and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
+We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
 
 Install mamba (if you don't already have conda installed). Click the copy button on the command below and paste it into a terminal, and then do what is asked in the output on your screen.
 ```bash
