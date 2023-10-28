@@ -21,7 +21,7 @@ The essential thing you need to know is that the conformational landscape of 6-r
 
 <img src="http://enzyme13.bt.a.u-tokyo.ac.jp/CP/sugarconf.png" width="90%" height="90%">
 
-There is a high energy barrier between the north pole and the equator, and again between the equator and the south pole. We will study the transition over the first barrier, which starts at the north pole and ends at the equator.
+There is a high energy barrier between the north pole and the equator, and again between the equator and the south pole. We will study the transition over the first barrier; stating at the north pole and ending at the equator.
 
 ## Questions
 **1:** Given that the 6-ring from the animation above starts out as $^4\text{C}_1$, what is the name of the ending structure? Hint: The super- and subscripts refer to which atoms are above and below the mean plane of the ring, respectively.
