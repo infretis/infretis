@@ -28,7 +28,7 @@ There is a high energy barrier between the north pole and the equator, and again
 
 **2:** What is the initial value of the angle $\theta$, and what are the final values of the angles $\phi$ and $\theta$?
 
-**3** Can you suggest an order parameter that captures the transition? 
+**3** Can you suggest an order parameter for this transition? 
 
 # Step 0: Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
