@@ -11,11 +11,11 @@ The main goal of this exercise is to give you hands-on experience in performing 
 # The system
 We will study the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) (often referred to as puckering) in some 6-ring-based system of your choosing.
 
-<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/puckering.gif" width="30%" height="30%">
+<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="30%" height="30%">
 
 This transition occurs very rarely at the molecular time scale, making it extremely tedious to study with standard molecular dynamics simulations. However, we would like to know how often this transition occurs and the mechanism behind it. We can obtain this information by performing a path-sampling simulation, and in this exercise, you will carry out the whole modeling and analysis process from scratch.
 
-The conformations of 6-rings are important in systems where they interact with other compounds in their environment. Examples include carbohydrates (6-ringed polymers) being broken down by enzymes at this very moment in your body. 
+The conformations of 6-rings are important in systems where they interact with other compounds in their environment. Examples include carbohydrates (6-ringed polymers) being broken down by enzymes at this very moment in your body.
 
 The essential thing you need to know is that the conformational landscape of 6-rings can be classified into **C**hair, **H**alf-chair, **B**oat, **S**kew-boat, and **E**nvelope conformations. All these conformations are determined by the two angles $\theta$ and $\phi$, as illustrated in the figure below. There is a high energy barrier between the north pole and the equator, and again between the equator and the south pole. We will study the transition over the first barrier; starting at the north pole and ending at the equator.
 
@@ -31,14 +31,14 @@ The essential thing you need to know is that the conformational landscape of 6-r
 # Step 0: Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
 
-Download and install mamba with the following commands (if you don't already have conda installed). Click the copy button on the box below and paste it into a terminal, and then do what is asked in the output on your screen. 
+Download and install mamba with the following commands (if you don't already have conda installed). Click the copy button on the box below and paste it into a terminal, and then do what is asked in the output on your screen.
 ```bash
 curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
 bash Miniforge3-$(uname)-$(uname -m).sh
 ```
-Now close the terminal. 
+Now close the terminal.
 
-You should see "(base)" in the lower left of your terminal window after reopening if everything went successfully. 
+You should see "(base)" in the lower left of your terminal window after reopening if everything went successfully.
 
 Then download and install the required python packages to run this exercise. Again copy-paste the code and do what is asked of you in the output.
 ```bash
@@ -73,7 +73,7 @@ Draw your favorite 6-ringed molecule in Avogadro in an $^4\text{C}_1$ conformati
 
 Optimize the structure and export it as "mol.sdf".
 
-Due to the order parameter definition, the atoms should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. Be careful with placing bulky substituents in axial positions, as the ring may flip spontaneously during equilibration due to a preference for equatorial positions. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions. 
+Due to the order parameter definition, the atoms should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. Be careful with placing bulky substituents in axial positions, as the ring may flip spontaneously during equilibration due to a preference for equatorial positions. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions.
 
 Copy files and solvate the system
 ```bash
