@@ -89,7 +89,7 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 Optimize the structure and export it as "mol.sdf" in the "~/infretis/examples/gromacs/puckering/" folder.
 
-Run the following command to generate the force field files and to add solvent around your molecule:
+Then run the following commands:
 
 ```bash
 cd scripts
@@ -98,7 +98,11 @@ cd ../gromacs_input
 gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o solv.gro
 cd ..
 ```
-### Equilibration
+## Questions
+* **5:** Why do we care about the ring atom indices?
+* **6:** What do you think the commands above do?
+
+# Step 1: Equilibration and MD runs
 Energy minimization and equilibration
 ```bash
 cd equil
