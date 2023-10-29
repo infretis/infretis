@@ -149,9 +149,8 @@ gmx mdrun -deffnm md -ntomp 2 -ntmpi 1 -pin on -v
 You can visualize your system (without solvent) in Avogadro. Run the following commands to remove
 ```bash
 # visualization
-gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc
-printf '1\natomnr 1 to 6\n' | gmx select -on -s md.tpr
-printf '1\n0\n' | gmx trjconv -f md-traj.gro -fit rot+trans -s md.tpr -n index.ndx -o md-traj.gro
+printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md.tpr
+printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-traj.gro
 ```
 ## Questions
 * **X:** What is the maximum order parameter value you observe during the MD simulation?
