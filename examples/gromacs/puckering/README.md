@@ -112,6 +112,7 @@ cd em
 gmx grompp -f em.mdp -p ../../gromacs_input/topol.top -c ../../gromacs_input/solv.gro -o em.tpr
 gmx mdrun -deffnm em -ntomp 2 -ntmpi 1 -pin on -v
 cd -
+#
 ```
 ```bash
 # NVT equilibration
@@ -119,6 +120,7 @@ cd nvt
 gmx grompp -f nvt.mdp -p ../../gromacs_input/topol.top -c ../em/em.gro -o nvt.tpr
 gmx mdrun -deffnm nvt -ntomp 2 -ntmpi 1 -pin on -v
 cd -
+#
 ```
 ```bash
 # NPT equlibration
@@ -126,6 +128,7 @@ cd npt
 gmx grompp -f npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
 gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v
 cd ../..
+#
 ```
 ## Questions
 * **7:** Has the temperature and pressure reached the desired values in the NPT simulation? (Note that the pressure fluctuates a lot for small systems).
