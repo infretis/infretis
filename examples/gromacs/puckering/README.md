@@ -35,6 +35,7 @@ Download and install mamba with the following commands (if you don't already hav
 ```bash
 curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
 bash Miniforge3-$(uname)-$(uname -m).sh
+#
 ```
 Now close the terminal.
 
@@ -97,16 +98,15 @@ python generate-openff-topology.py ../mol.sdf
 cd ../gromacs_input
 gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o solv.gro
 cd ..
+#
 ```
 ## Questions
 * **5:** Why do we care about the ring atom indices?
 * **6:** What do you think the commands above do?
 
 # Step 1: Equilibration
-The following commands perform an energy minimization and NVT and NPT equilibration runs
+The following commands perform an energy minimization and NVT and NPT equilibration runs. Navigate to the _step1_equilibration_ and run the commands.
 ```bash
-cd step1_equilibration
-
 # energy minimization
 cd em
 gmx grompp -f em.mdp -p ../../gromacs_input/topol.top -c ../../gromacs_input/solv.gro -o em.tpr
@@ -127,7 +127,6 @@ cd -
 cd npt
 gmx grompp -f npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
 gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v
-cd ../..
 #
 ```
 ## Questions
