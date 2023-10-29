@@ -43,6 +43,8 @@ You should see "(base)" in the lower left of your terminal window after reopenin
 Then download and install the required python packages to run this exercise. Again copy-paste the code and do what is asked of you in the output.
 ```bash
 mamba create --name molmod python==3.11 openff-toolkit-base ambertools rdkit pydantic
+```
+```bash
 mamba activate molmod
 mkdir software
 cd software
@@ -57,7 +59,9 @@ cd ~
 git clone https://github.com/infretis/infretis.git
 cd infretis
 python -m pip install -e .
-cd examples/gromacs/puckering/ # we will perform the exercise within this folder
+git checkout molmod_exercise5
+cd examples/gromacs/puckering/
+echo "All done!"
 ```
 
 ## Questions
@@ -69,7 +73,7 @@ Draw your favorite 6-ringed molecule in Avogadro in an $^4\text{C}_1$ conformati
 
 Optimize the structure and export it as "mol.sdf".
 
-Due to the order parameter definition, the atoms should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions. Be careful with placing bulky substituents into axial positions, as the ring may flip spontaneously during equilibration due to a preference for equitorial positions.
+Due to the order parameter definition, the atoms should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. Be careful with placing bulky substituents in axial positions, as the ring may flip spontaneously during equilibration due to a preference for equatorial positions. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions. 
 
 Copy files and solvate the system
 ```bash
