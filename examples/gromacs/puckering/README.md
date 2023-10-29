@@ -71,9 +71,19 @@ There are no questions in this section.
 
 Draw your favorite 6-ringed molecule in Avogadro in an $^4\text{C}_1$ conformation. Be sure to complete the valence of each atom.
 
-Optimize the structure and export it as "mol.sdf".
+The order parameter we will be using depends on the ring indices, and also the order of these indices. The atom indices can be accessed by checking the "Labels" box and then clicking "Atom Labels: Indices", as shown below:
 
-Due to the order parameter definition, the atoms should be numbered 0 1 2 3 4 5 6, as in the skeleton.pdb file. Be careful with placing bulky substituents in axial positions, as the ring may flip spontaneously during equilibration due to a preference for equatorial positions. If you want to simulate a charged system you need to neutralize the system. Help for this is found during the exercise sessions.
+<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/labels.jpg" width="99%" height="99%">
+
+Write down the atom indices in the following order:
+
+* _idx0 idx1 idx2 idx3 idx4 idx5_
+  
+where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockwise from _idx0_ to _idx5_. In my case, the ordering is 
+
+* 2 5 11 8 1 0
+
+Optimize the structure and export it as "mol.sdf".
 
 Copy files and solvate the system
 ```bash
