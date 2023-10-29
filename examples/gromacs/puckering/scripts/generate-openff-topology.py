@@ -1,9 +1,11 @@
+import sys
+
 from openff.interchange import Interchange
 from openff.toolkit import ForceField, Molecule
 from openff.units import unit
 
 # load the molecule
-mol = Molecule.from_file("../mol.sdf")
+mol = Molecule.from_file(sys.argv[1])
 topology = mol.to_topology()
 topology.box_vectors = unit.Quantity([2.1, 2.1, 2.1], unit.nanometer)
 # Load the OpenFF 2.1.0 forcefield called "Sage"
