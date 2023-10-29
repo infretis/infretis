@@ -35,7 +35,7 @@ Download and install mamba with the following commands (if you don't already hav
 ```bash
 curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
 bash Miniforge3-$(uname)-$(uname -m).sh
-#
+
 ```
 Now close the terminal.
 
@@ -63,6 +63,7 @@ python -m pip install -e .
 git checkout molmod_exercise5
 cd examples/gromacs/puckering/
 echo "All done! We will perform the exercise from this folder."
+
 ```
 
 ## Questions
@@ -70,6 +71,7 @@ echo "All done! We will perform the exercise from this folder."
 ```bash
 cd ~/infretis/examples/gromacs/puckering/
 tree .
+
 ```
 
 # Step 0: System definition and topology generation
@@ -98,7 +100,7 @@ python generate-openff-topology.py ../mol.sdf
 cd ../gromacs_input
 gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o solv.gro
 cd ..
-#
+
 ```
 ## Questions
 * **5:** Why do we care about the ring atom indices?
@@ -114,7 +116,7 @@ cd em
 gmx grompp -f em.mdp -p ../../gromacs_input/topol.top -c ../../gromacs_input/solv.gro -o em.tpr
 gmx mdrun -deffnm em -ntomp 2 -ntmpi 1 -pin on -v
 cd -
-#
+
 ```
 ```bash
 # NVT equilibration
@@ -122,14 +124,14 @@ cd nvt
 gmx grompp -f nvt.mdp -p ../../gromacs_input/topol.top -c ../em/em.gro -o nvt.tpr
 gmx mdrun -deffnm nvt -ntomp 2 -ntmpi 1 -pin on -v
 cd -
-#
+
 ```
 ```bash
 # NPT equlibration
 cd npt
 gmx grompp -f npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
 gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v
-#
+
 ```
 ## Questions
 * **7:** Has the temperature and pressure reached the desired values during equilibration? (Note that the pressure fluctuates a lot for small systems).
@@ -142,6 +144,7 @@ Run a production run
 cd step2_md_run
 gmx grompp -f md.mdp -p ../gromacs_input/topol.top -c ../equil/npt/npt.gro -t ../equil/npt/npt.cpt -o md.tpr
 gmx mdrun -deffnm md -ntomp 2 -ntmpi 1 -pin on -v
+
 ```
 You can visualize your system (without solvent) in Avogadro. Run the following commands to remove
 ```bash
