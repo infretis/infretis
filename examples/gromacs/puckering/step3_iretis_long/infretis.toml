@@ -39,7 +39,7 @@ subcycles = 5
 
 [orderparameter]
 class = 'puckering'
-index = [5, 11, 8, 1, 0, 2]
+index = [2, 5, 11, 8, 1, 0]
 periodic = true
 
 [output]
