@@ -93,7 +93,7 @@ Then run the following commands:
 
 ```bash
 cd scripts
-python generate-openff-topology.py
+python generate-openff-topology.py ../mol.sdf
 cd ../gromacs_input
 gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o solv.gro
 cd ..
