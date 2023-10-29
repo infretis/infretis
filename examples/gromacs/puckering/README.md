@@ -15,7 +15,7 @@ We will study the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) (often re
 
 This transition occurs very rarely at the molecular time scale, making it extremely tedious to study with standard molecular dynamics simulations. However, we would like to know how often this transition occurs and the mechanism behind it. We can obtain this information by performing a path-sampling simulation, and in this exercise, you will carry out the whole modeling and analysis process from scratch.
 
-The conformations of 6-rings are important in systems where they interact with some other compounds in their environment. Examples include carbohydrates (6-ringed polymers) being broken down by enzymes at this very moment in your body. 
+The conformations of 6-rings are important in systems where they interact with other compounds in their environment. Examples include carbohydrates (6-ringed polymers) being broken down by enzymes at this very moment in your body. 
 
 The essential thing you need to know is that the conformational landscape of 6-rings can be classified into **C**hair, **H**alf-chair, **B**oat, **S**kew-boat, and **E**nvelope conformations. All these conformations are determined by the two angles $\theta$ and $\phi$, as illustrated in the figure below. There is a high energy barrier between the north pole and the equator, and again between the equator and the south pole. We will study the transition over the first barrier; starting at the north pole and ending at the equator.
 
