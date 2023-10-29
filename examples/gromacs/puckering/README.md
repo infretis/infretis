@@ -142,7 +142,7 @@ Run a production run
 
 # Production run
 cd step2_md_run
-gmx grompp -f md.mdp -p ../gromacs_input/topol.top -c ../equil/npt/npt.gro -t ../equil/npt/npt.cpt -o md.tpr
+gmx grompp -f md.mdp -p ../gromacs_input/topol.top -c ../step1_equilibration/npt/npt.gro -t ../step1_equilibration/npt/npt.cpt -o md.tpr
 gmx mdrun -deffnm md -ntomp 2 -ntmpi 1 -pin on -v
 
 ```
