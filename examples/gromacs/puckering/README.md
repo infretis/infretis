@@ -24,8 +24,6 @@ The essential thing you need to know is that the conformational landscape of 6-r
 ## Questions
 **1:** Given that the 6-ring in the animation above starts as $^4\text{C}_1$, what is the name of the ending structure? Hint: The super- and subscripts refer to which atoms are above and below the mean plane of the ring, respectively.
 
-**2:** Why is it tedious to study this transition with standard molecular dynamics?
-
 **3:** What is the initial value of the angle $\theta$, and what are the final values of the angles $\phi$ and $\theta$?
 
 **4:** Can you suggest an order parameter for this transition?
