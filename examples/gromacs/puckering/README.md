@@ -139,18 +139,18 @@ Run a production run
 ```bash
 
 # Production run
-cd md-run
-gmx grompp -f ../mdps/md.mdp -p ../gromacs_input/topol.top -c ../equil/npt/npt.gro -t ../equil/npt/npt.cpt -o md.tpr
+cd step2_md_run
+gmx grompp -f md.mdp -p ../gromacs_input/topol.top -c ../equil/npt/npt.gro -t ../equil/npt/npt.cpt -o md.tpr
 gmx mdrun -deffnm md -ntomp 2 -ntmpi 1 -pin on -v
-
-
+```
+You can visualize your system (without solvent) in Avogadro. Run the following commands to remove
+```bash
 # visualization
 gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc
 printf '1\natomnr 1 to 6\n' | gmx select -on -s md.tpr
 printf '1\n0\n' | gmx trjconv -f md-traj.gro -fit rot+trans -s md.tpr -n index.ndx -o md-traj.gro
-
-# setting up the order parameter
-# puckering coordinates, oxygen index 0, anomeric carbon nr. 1, ..., clockwise
-# what is the maximum order parameter value you observe
 ```
+## Questions
+* **X:** What is the maximum order parameter value you observe during the MD simulation?
+
 ### PATH SIMULATION
