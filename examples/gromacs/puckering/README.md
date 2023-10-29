@@ -65,7 +65,11 @@ echo "All done! We will perform the exercise from this folder."
 ```
 
 ## Questions
-* **4** We will perform the exercise from the directory "~/infretis/examples/gromacs/puckering/". List all files and folders contained within this directory by using the terminal.
+* **4:** We will perform the exercise from the directory
+```bash
+~/infretis/examples/gromacs/puckering/
+```
+List all files and folders contained within this directory by using the terminal.
 
 # Step 1: System definition and topology generation
 
