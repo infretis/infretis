@@ -98,7 +98,10 @@ cd ../gromacs_input
 gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o solv.gro
 cd ..
 ```
-### Equilibration
+## Questions
+* **5:** Why do we 
+
+# Step 1: Equilibration and MD runs
 Energy minimization and equilibration
 ```bash
 cd equil
