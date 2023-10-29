@@ -89,7 +89,7 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 Optimize the structure and export it as "mol.sdf" in the "~/infretis/examples/gromacs/puckering/" folder.
 
-Run the following command to generate the force field files and also to solvate the system:
+Run the following command to generate the force field files and to add solvent around your molecule:
 
 ```bash
 cd scripts
