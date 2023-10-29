@@ -102,29 +102,33 @@ cd ..
 * **5:** Why do we care about the ring atom indices?
 * **6:** What do you think the commands above do?
 
-# Step 1: Equilibration and MD runs
-Energy minimization and equilibration
+# Step 1: Equilibration
+The following commands perform an energy minimization and NVT and NPT equilibration runs
 ```bash
-cd equil
+cd step1_equilibration
 
 # energy minimization
 cd em
-gmx grompp -f ../../mdps/em.mdp -p ../../gromacs_input/topol.top -c ../../gromacs_input/solv.gro -o em.tpr
+gmx grompp -f em.mdp -p ../../gromacs_input/topol.top -c ../../gromacs_input/solv.gro -o em.tpr
 gmx mdrun -deffnm em -ntomp 2 -ntmpi 1 -pin on -v
 cd -
 
 # NVT equilibration
 cd nvt
-gmx grompp -f ../../mdps/nvt.mdp -p ../../gromacs_input/topol.top -c ../em/em.gro -o nvt.tpr
+gmx grompp -f nvt.mdp -p ../../gromacs_input/topol.top -c ../em/em.gro -o nvt.tpr
 gmx mdrun -deffnm nvt -ntomp 2 -ntmpi 1 -pin on -v
 cd -
 
 # NPT equlibration
 cd npt
-gmx grompp -f ../../mdps/npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
+gmx grompp -f npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
 gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v
 cd ../..
 ```
+## Questions
+* **7:** Has the temperature and pressure reached the desired values in the NPT simulation? (Note that the pressure fluctuates a lot for small systems).
+
+# Step 2: MD run
 Run a production run
 ```bash
 
