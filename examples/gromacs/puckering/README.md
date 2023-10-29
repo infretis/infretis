@@ -28,7 +28,7 @@ The essential thing you need to know is that the conformational landscape of 6-r
 
 **3:** Can you suggest an order parameter for this transition?
 
-# Step 0: Installing the required packages
+# Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
 
 Download and install mamba with the following commands (if you don't already have conda installed). Click the copy button on the box below and paste it into a terminal, and then do what is asked in the output on your screen.
@@ -71,7 +71,7 @@ cd ~/infretis/examples/gromacs/puckering/
 tree .
 ```
 
-# Step 1: System definition and topology generation
+# Step 0: System definition and topology generation
 
 Draw your favorite 6-ringed molecule in Avogadro in an $^4\text{C}_1$ conformation. Be sure to complete the valence of each atom.
 
