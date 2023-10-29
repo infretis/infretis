@@ -1,7 +1,13 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
 TO DO
-* plot 2d order parameter space
-* question about preferred mechanism from 2d order parameter plot
+* step3 infretis
+* step4 infretis
+* step5 analysis
+  * Trajectory visualization
+  * plot 2d order parameter space
+  * question about preferred mechanism from 2d order parameter plot
+  * Visualize reactive trajectories?
+  
 # Motivation
 See previous exercises. Something something rare events, path sampling simulations, ∞RETIS software, ...,
 
