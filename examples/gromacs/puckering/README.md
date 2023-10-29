@@ -89,9 +89,8 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 Optimize the structure and export it as "mol.sdf" in the "~/infretis/examples/gromacs/puckering/" folder.
 
-Then, navigate to the 
+Run the following command to generate the force field files and also to solvate the system:
 
-Copy files and solvate the system
 ```bash
 cd scripts
 python generate-openff-topology.py
