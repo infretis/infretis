@@ -24,9 +24,9 @@ The essential thing you need to know is that the conformational landscape of 6-r
 ## Questions
 **1:** Given that the 6-ring in the animation above starts as $^4\text{C}_1$, what is the name of the ending structure? Hint: The super- and subscripts refer to which atoms are above and below the mean plane of the ring, respectively.
 
-**3:** What is the initial value of the angle $\theta$, and what are the final values of the angles $\phi$ and $\theta$?
+**2:** What is the initial value of the angle $\theta$, and what are the final values of the angles $\phi$ and $\theta$?
 
-**4:** Can you suggest an order parameter for this transition?
+**3:** Can you suggest an order parameter for this transition?
 
 # Step 0: Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
@@ -61,17 +61,17 @@ cd infretis
 python -m pip install -e .
 git checkout molmod_exercise5
 cd examples/gromacs/puckering/
-echo "All done!"
+echo "All done! We will perform the exercise from this folder."
 ```
 
 ## Questions
-There are no questions in this section.
+* **4** We will perform the exercise from the directory "~/infretis/examples/gromacs/puckering/". List all files and folders contained within this directory by using the terminal.
 
 # Step 1: System definition and topology generation
 
 Draw your favorite 6-ringed molecule in Avogadro in an $^4\text{C}_1$ conformation. Be sure to complete the valence of each atom.
 
-The order parameter we will be using depends on the ring indices, and also the order of these indices. The atom indices can be accessed by checking the "Labels" box and then clicking "Atom Labels: Indices", as shown below:
+The order parameter we will be using depends on the ring atoms, and we therefore need to identify the ring-atom indices. The atom indices can be accessed by checking the "Labels" box and then clicking "Atom Labels: Indices", as shown below:
 
 <img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/labels.jpg" width="99%" height="99%">
 
@@ -83,7 +83,9 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 * 2 5 11 8 1 0
 
-Optimize the structure and export it as "mol.sdf".
+Optimize the structure and export it as "mol.sdf" in the "~/infretis/examples/gromacs/puckering/" folder.
+
+Then, navigate to the 
 
 Copy files and solvate the system
 ```bash
