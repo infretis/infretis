@@ -87,7 +87,7 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 * 2 5 11 8 1 0
 
-Optimize the structure and export it as "mol.sdf" in the "~/infretis/examples/gromacs/puckering/" folder.
+Optimize the structure and export it as "mol.sdf" in the "~/infretis/examples/gromacs/puckering/" folder (the .sdf format contains  coordinate, element, and bond order information).
 
 Then run the following commands:
 
