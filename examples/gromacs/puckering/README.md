@@ -159,6 +159,8 @@ printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md
 printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-traj.gro
 obabel -igro md-traj.gro -oxyz -O md-traj.xyz
 ```
+
+As you may have guessed by now, a good order parameter for the transition we want to study is the $\theta$ angle. We can calculate the values of this orderparameter 
 ## Questions
 * **8:** When visualizing the trajectory, do you see any spontaneous transitions? 
 * **9:** What is the maximum order parameter value observed during the MD run?
