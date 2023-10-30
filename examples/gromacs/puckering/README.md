@@ -140,7 +140,7 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v
 
 ```
 ## Questions
-* **7:** Has the temperature and pressure reached the desired values during the NPT equilibration? (Note that the pressure fluctuates a lot for small systems).
+* **7:** Has the temperature and density reached the expected values during the NPT equilibration?
 
 # Step 2: MD run
 Run a production run
