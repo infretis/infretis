@@ -163,7 +163,7 @@ obabel -igro md-traj.gro -oxyz -O md-traj.xyz
 As you may have guessed by now, a good order parameter for the transition we want to study is the $\theta$ angle. We can calculate the values of this orderparameter. Open `infretis.toml` and replace the indices with the ones you wrote down earlier. You can then recalculate the orderparameter for any trajectory by using the `recalculate-order.py` script:
 
 ```bash
-python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out order.txt
+python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out order-rec.txt
 
 ```
 
