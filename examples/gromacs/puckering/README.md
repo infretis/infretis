@@ -1,5 +1,7 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
 TO DO
+* remove commands for equilibration, students should be able to do this themselves by now.
+* Remove the `cd` in commands, else its just copy-paste all the way
 * step3 infretis
 * step4 infretis
 * step5 analysis
