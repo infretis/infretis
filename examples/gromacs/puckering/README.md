@@ -172,4 +172,28 @@ python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-o
 * **9:** What is the maximum order parameter value observed during the MD run?
 * **10:** Given that the final state of your molecule is defined by $\theta=90^{\circ}$, are you optimistic that you could observe a spontaneous transition during a plain MD simulation?
 
-### PATH SIMULATION
+# Step 3: Initial paths and interface optimization
+
+Before we can start our main path simulation, we need to provide the ∞RETIS program with some initial paths. Also, an efficient path simulation is one where the crossing probabilites between adjacent interfaces is $\approx 0.3$, so we also need to optimize the interface positions to get a reasonable number of crossings. You will do this in an iterative fashion by performing a couple of short ∞RETIS simulations. After each each simulation, more and more interfaces are placed at increasing orderparameter values. This effectively pushes the system up the energy barrier.
+
+INSER GIF
+
+
+Navigate to the `step3_initial_paths` directory and modify the `infretis.toml` as follows:
+* add your ring atom indices to the `[orderparameter]` section
+* add two interfaces at 10.0 and 90.0 in the `interface = []` list. Remember a comma
+
+We can cut out some low orderparameter paths from the MD simulation by running:
+```bash
+python ../scripts/initial-path-from-md.py -trr ../step2_md_run/md.trr -toml infretis.toml -order ../step2_md_run/md-order.txt
+
+```
+
+
+* in the `[simulation]` section, add a third interface between $\theta=10^{\circ}$ and $\theta=90^{\circ}$ with a value slightly below
+
+
+intf=[
+[10, 90],
+[10.0, 15, 20, 25, 90.0],
+
