@@ -32,7 +32,7 @@ The essential thing you need to know is that the conformational landscape of 6-r
 
 **2:** What is the initial value of the angle $\theta$, and what are the final values of the angles $\phi$ and $\theta$?
 
-**3:** Can you suggest an order parameter for the transition starting at the pole and ending at any strcuture at the equator?
+**3:** Can you suggest an order parameter for the transition starting at the pole and ending at any of the strcutures at the equator?
 
 # Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/force-fields/force-fields/)) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
