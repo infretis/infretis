@@ -23,10 +23,12 @@ This transition occurs very rarely at the molecular time scale, making it extrem
 
 The conformations of 6-rings are important in systems where they interact with other compounds in their environment. Examples include carbohydrates (6-ringed polymers) being broken down by enzymes at this very moment in your body.
 
-The essential thing you need to know is that the conformational landscape of 6-rings can be classified into **C**hair, **H**alf-chair, **B**oat, **S**kew-boat, and **E**nvelope conformations. All these conformations are determined by the two angles $\theta$ and $\phi$, as illustrated in the figure below. There is a high energy barrier between the north pole and the equator, and again between the equator and the south pole. We will study the transition over the first barrier; starting at the north pole and ending at the equator. By the end of this exercise, you will be able to say exactly how often this transition happens, and how likely each of the structures at the equator are for your specific system.
+The essential thing you need to know is that the conformational landscape of 6-rings can be classified into **C**hair, **H**alf-chair, **B**oat, **S**kew-boat, and **E**nvelope conformations. All these conformations are determined by the two angles $\theta$ and $\phi$, as illustrated in the figure below. There is a high energy barrier between the north pole and the equator, and again between the equator and the south pole.
 
 <img src="http://enzyme13.bt.a.u-tokyo.ac.jp/CP/sugarconf.png" width="90%" height="90%">
 
+ We will study the transition over the first barrier; _starting at the north pole and ending at any of the structures on the equator_. By the end of this exercise, you will be able to say exactly how often this transition happens, and which of the conformations at the equator your specific system prefers.
+ 
 ## Questions
 **1:** Given that the 6-ring in the animation above starts as $^4\text{C}_1$, can you see that the ending structure is $^{3,O}B$? Hint: The super- and subscripts refer to which atoms are above and below the mean plane of the ring, respectively.
 
