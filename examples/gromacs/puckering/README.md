@@ -104,7 +104,7 @@ Then run the following commands:
 cd scripts
 python generate-openff-topology.py ../mol.sdf
 cd ../gromacs_input
-gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o solv.gro
+gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o conf.g96
 cd ..
 
 ```
@@ -119,7 +119,7 @@ cd step1_equilibration
 
 # energy minimization
 cd em
-gmx grompp -f em.mdp -p ../../gromacs_input/topol.top -c ../../gromacs_input/solv.gro -o em.tpr
+gmx grompp -f em.mdp -p ../../gromacs_input/topol.top -c ../../gromacs_input/conf.g96 -o em.tpr
 gmx mdrun -deffnm em -ntomp 2 -ntmpi 1 -pin on -v
 cd -
 
@@ -136,7 +136,7 @@ cd -
 # NPT equlibration
 cd npt
 gmx grompp -f npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
-gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v
+gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 
 ```
 ## Questions
