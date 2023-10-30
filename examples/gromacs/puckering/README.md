@@ -28,11 +28,11 @@ The essential thing you need to know is that the conformational landscape of 6-r
 <img src="http://enzyme13.bt.a.u-tokyo.ac.jp/CP/sugarconf.png" width="90%" height="90%">
 
 ## Questions
-**1:** Given that the 6-ring in the animation above starts as $^4\text{C}_1$, what is the name of the ending structure? Hint: The super- and subscripts refer to which atoms are above and below the mean plane of the ring, respectively.
+**1:** Given that the 6-ring in the animation above starts as $^4\text{C}_1$, can you see that the ending structure is $^{3,O}B$? Hint: The super- and subscripts refer to which atoms are above and below the mean plane of the ring, respectively.
 
 **2:** What is the initial value of the angle $\theta$, and what are the final values of the angles $\phi$ and $\theta$?
 
-**3:** Can you suggest an order parameter for this transition?
+**3:** Can you suggest an order parameter for the transition starting at the pole and ending at any strcuture at the equator?
 
 # Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/force-fields/force-fields/)) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
