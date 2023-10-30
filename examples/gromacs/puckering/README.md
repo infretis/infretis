@@ -109,7 +109,7 @@ cd ..
 
 ```
 ## Questions
-* **5:** Why do we care about the ring atom indices?
+* **5:** What are the ordered ring atom indices for your system? Why do we care about these indices? 
 * **6:** What do you think the commands above do?
 
 # Step 1: Equilibration
