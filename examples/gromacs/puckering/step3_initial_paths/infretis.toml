@@ -8,7 +8,7 @@ wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 3 -pin on',]
 
 [simulation]
-interfaces = [10.0, 90.0]
+interfaces = []
 
 steps = 100
 seed = 0
