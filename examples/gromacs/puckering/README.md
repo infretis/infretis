@@ -9,6 +9,8 @@ TO DO
   * plot 2d order parameter space
   * question about preferred mechanism from 2d order parameter plot
   * Visualize reactive trajectories?
+* Update goals
+* Fix motivation
   
 # Motivation
 See previous exercises. Something something rare events, path sampling simulations, ∞RETIS software, ...,
