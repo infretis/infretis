@@ -1,6 +1,6 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
 TO DO
-* remove commands for equilibration, students should be able to do this themselves by now.
+* remove gromacs commands, students should be able to do this themselves after ex. 4
 * Remove the `cd` in commands, else its just copy-paste all the way
 * step3 infretis
 * step4 infretis
