@@ -168,8 +168,8 @@ python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-o
 ```
 
 ## Questions
-* **8:** When visualizing the trajectory, do you see any spontaneous transitions? 
+* **8:** Do you see any interesting conformational changes when visualizing the trajectory? 
 * **9:** What is the maximum order parameter value observed during the MD run?
-* **10:** Given that the final state of your molecule is defined by $\theta=90^{\circ}$, are you optimistic that you observe a spontaneous transition to this final state using plain MD?
+* **10:** Given that the final state of your molecule is defined by $\theta=90^{\circ}$, are you optimistic that you could observe a spontaneous transition during a plain MD simulation?
 
 ### PATH SIMULATION
