@@ -1,7 +1,7 @@
 # infretis config
 
 [dask]
-workers = 4
+workers = 1
 wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 1 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 2 -pin on',
@@ -12,7 +12,7 @@ interfaces = [10.0, 90.0]
 
 steps = 100
 seed = 0
-load_dir = 'load'
+load_dir = 'trajs'
 shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
 
 [simulation.tis_set]
