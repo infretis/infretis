@@ -152,13 +152,15 @@ gmx grompp -f md.mdp -p ../gromacs_input/topol.top -c ../step1_equilibration/npt
 gmx mdrun -deffnm md -ntomp 2 -ntmpi 1 -pin on -v
 
 ```
-You can visualize your system (without solvent) in Avogadro. Run the following commands to remove
+We can process our trajectory files for visualization purposes. The following commands create a file "md-traj.xyz" that you can animate in Avogadro.
 ```bash
 # visualization
 printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md.tpr
 printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-traj.gro
+obabel -igro md-traj.gro -oxyz -O md-traj.xyz
 ```
 ## Questions
-* **X:** What is the maximum order parameter value you observe during the MD simulation?
+* **8:** When visualizing the trajectory, do you see any spontaneous transitions? 
+* **9:** What is the maximum order parameter value observed during the MD run?
 
 ### PATH SIMULATION
