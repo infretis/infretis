@@ -45,7 +45,7 @@ bash Miniforge3-$(uname)-$(uname -m).sh
 ```
 Now close the terminal.
 
-You should see "(base)" in the lower left of your terminal window after reopening if everything went successfully.
+You should see `(base)` in the lower left of your terminal window after reopening if everything went successfully.
 
 Then download and install the required python packages to run this exercise. Again copy-paste the code and do what is asked of you in the output.
 ```bash
@@ -73,7 +73,7 @@ echo "All done! We will perform the exercise from this folder."
 ```
 
 ## Questions
-* **4:** We will perform the exercise from the directory "~/infretis/examples/gromacs/puckering/". Get an overview of the folder structure and all the files we will be using by running
+* **4:** We will perform the exercise from the directory `~/infretis/examples/gromacs/puckering/`. Get an overview of the folder structure and all the files we will be using by running
 ```bash
 cd ~/infretis/examples/gromacs/puckering/
 tree .
@@ -96,7 +96,7 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 * 2 5 11 8 1 0
 
-Optimize the structure and export it as "mol.sdf" in the "~/infretis/examples/gromacs/puckering/" folder (the .sdf format contains  coordinate, element, and bond order information).
+Optimize the structure and export it as `mol.sdf` in the `~/infretis/examples/gromacs/puckering/` folder (the .sdf format contains  coordinate, element, and bond order information).
 
 Then run the following commands:
 
@@ -152,7 +152,7 @@ gmx grompp -f md.mdp -p ../gromacs_input/topol.top -c ../step1_equilibration/npt
 gmx mdrun -deffnm md -ntomp 2 -ntmpi 1 -pin on -v
 
 ```
-We can process our trajectory files for visualization purposes. The following commands create a file "md-traj.xyz" that you can animate in Avogadro.
+We can process our trajectory files for visualization purposes. The following commands create a file `md-traj.xyz` that you can animate in Avogadro.
 ```bash
 # visualization
 printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md.tpr
@@ -160,7 +160,13 @@ printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-tra
 obabel -igro md-traj.gro -oxyz -O md-traj.xyz
 ```
 
-As you may have guessed by now, a good order parameter for the transition we want to study is the $\theta$ angle. We can calculate the values of this orderparameter 
+As you may have guessed by now, a good order parameter for the transition we want to study is the $\theta$ angle. We can calculate the values of this orderparameter. Open `infretis.toml` in the `step2_md_run` folder and replace the indices with the ones you wrote down earlier. You can then recalculate the orderparameter for any trajectory by using the `recalculate-order.py` script:
+
+```bash
+python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out order.txt
+
+```
+
 ## Questions
 * **8:** When visualizing the trajectory, do you see any spontaneous transitions? 
 * **9:** What is the maximum order parameter value observed during the MD run?
