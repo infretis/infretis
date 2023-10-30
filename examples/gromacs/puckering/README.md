@@ -143,7 +143,7 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 * **7:** Has the temperature and density reached the expected values during the NPT equilibration?
 
 # Step 2: MD run
-Run a production run
+Navigate to the `step2_md_run` folder and perform a production MD run.
 ```bash
 
 # Production run
