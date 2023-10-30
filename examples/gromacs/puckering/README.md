@@ -35,7 +35,7 @@ The essential thing you need to know is that the conformational landscape of 6-r
 **3:** Can you suggest an order parameter for this transition?
 
 # Installing the required packages
-We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/](https://openforcefield.org/force-fields/force-fields/))) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
+We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/force-fields/force-fields/)) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
 
 Download and install mamba with the following commands (if you don't already have conda installed). Click the copy button on the box below and paste it into a terminal, and then do what is asked in the output on your screen.
 ```bash
