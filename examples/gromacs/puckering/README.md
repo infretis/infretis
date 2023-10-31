@@ -1,8 +1,8 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
 TO DO
-* remove gromacs commands, students should be able to do this themselves after ex. 4
 * Remove the `cd` in commands, else its just copy-paste all the way
 * step3 infretis
+ * Change initial-path-from-md.py to cut instead of sorting
 * step4 infretis
 * step5 analysis/error analysis
   * Trajectory visualization
@@ -194,13 +194,16 @@ We can cut out some low order parameter paths from the MD simulation by running:
 python ../scripts/initial-path-from-md.py -trr ../step2_md_run/md.trr -toml infretis.toml -order ../step2_md_run/md-order.txt
 
 ```
-You should now have created a `load` folder containing paths for the two ensembles $[0^-]$ and $[0^+]$.
+You should now have created a `load` folder containing the paths and order parameter values for the two ensembles $[0^-]$ and $[0^+]$.
 
 If everything is in order, you should be able to run your first ∞RETIS simulation using:
 ```bash
 infretisrun -i infretis.toml
 
 ```
+
+This will now perform a path simulation using GROMACS under the hood. You can open another terminal and monitor the progress of the path simulation by inspecting the `sim.log` file, and also by navigating to the `load` folder. Each new accepted path gets its own directory here. You can visualize the values.  
+
 
 * in the `[simulation]` section, add a third interface between $\theta=10^{\circ}$ and $\theta=90^{\circ}$ with a value slightly below
 
