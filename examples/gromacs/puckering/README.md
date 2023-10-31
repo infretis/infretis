@@ -198,7 +198,7 @@ You should now have created a `load` folder containing paths for the two ensembl
 
 If everything is in order, you should be able to run your first ∞RETIS simulation using:
 ```bash
-infretisrun -i infretis.toml`
+infretisrun -i infretis.toml
 
 ```
 
