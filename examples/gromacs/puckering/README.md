@@ -79,7 +79,7 @@ echo "All done! We will perform the exercise from this folder."
 ```
 
 ## Questions
-* **4:** We will perform the exercise from the directory `~/infretis/examples/gromacs/puckering/`. Get an overview of the folder structure and all the files we will be using by running by navigating to this directory and running
+* **4:** We will perform the exercise from the directory `~/infretis/examples/gromacs/puckering/`. Get an overview of the folder structure and all the files we will be using by navigating to that directory and running
 ```bash
 ls *
 
