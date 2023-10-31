@@ -79,9 +79,8 @@ echo "All done! We will perform the exercise from this folder."
 ```
 
 ## Questions
-* **4:** We will perform the exercise from the directory `~/infretis/examples/gromacs/puckering/`. Get an overview of the folder structure and all the files we will be using by running
+* **4:** We will perform the exercise from the directory `~/infretis/examples/gromacs/puckering/`. Get an overview of the folder structure and all the files we will be using by running by navigating to this directory and running
 ```bash
-cd ~/infretis/examples/gromacs/puckering/
 ls *
 
 ```
@@ -106,10 +105,9 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 Optimize the structure and export it as `mol.sdf` in the `~/infretis/examples/gromacs/puckering/` folder (the .sdf format contains  coordinate, element, and bond order information).
 
-Then run the following commands:
+Navigate to the `scripts` directory and run the following commands:
 
 ```bash
-cd scripts
 python generate-openff-topology.py ../mol.sdf
 cd ../gromacs_input
 gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o conf.g96
