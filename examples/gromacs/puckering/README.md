@@ -189,12 +189,18 @@ Navigate to the `step3_initial_paths` directory and modify the `infretis.toml` a
 * add your ring atom indices to the `[orderparameter]` section
 * add two interfaces at 10.0 and 90.0 in the `interface = []` list. Remember a comma
 
-We can cut out some low orderparameter paths from the MD simulation by running:
+We can cut out some low order parameter paths from the MD simulation by running:
 ```bash
 python ../scripts/initial-path-from-md.py -trr ../step2_md_run/md.trr -toml infretis.toml -order ../step2_md_run/md-order.txt
 
 ```
+You should now have created a `load` folder containing paths for the two ensembles $[0^-]$ and $[0^+]$.
 
+If everything is in order, you should be able to run your first ∞RETIS simulation using:
+```bash
+infretisrun -i infretis.toml`
+
+```
 
 * in the `[simulation]` section, add a third interface between $\theta=10^{\circ}$ and $\theta=90^{\circ}$ with a value slightly below
 
