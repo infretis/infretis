@@ -4,7 +4,7 @@ TO DO
 * Remove the `cd` in commands, else its just copy-paste all the way
 * step3 infretis
 * step4 infretis
-* step5 analysis
+* step5 analysis/error analysis
   * Trajectory visualization
   * plot 2d order parameter space
   * question about preferred mechanism from 2d order parameter plot
