@@ -194,3 +194,5 @@ python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml
 Then run another simulation, plot the order parameter, identify new interface positions or move the old ones further up the barrier (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces), rename the `load/` folder to e.g. `run1/`, and generate another set of initial paths.
 Continue with this until you observe a reactive path.
 
+You will now start optimizing the relative positions of the interfaces by performing a slightly longer simulation.
+Open the `restart.toml` file, set the number of `workers` to 4 and the number of `steps` to 1000. Then restart the simulation by invoking `infretis` with the restart file.
