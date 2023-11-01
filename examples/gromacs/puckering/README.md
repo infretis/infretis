@@ -2,7 +2,6 @@
 TO DO
 * Remove the `cd` in commands, else its just copy-paste all the way
 * step3 infretis
- * Change initial-path-from-md.py to cut instead of sorting
 * step4 infretis
 * step5 analysis/error analysis
   * Trajectory visualization
