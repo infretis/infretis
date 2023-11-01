@@ -187,7 +187,7 @@ After completion, plot . Identify suitable positions for new interfaces between 
 
 We will now do the following iteratively:
 
-* Plot the order parameter of all accepted paths (use the `plot-order.py` script on the `load/` folder)
+* Plot the order parameter of all accepted paths (use the `plot-order.py` script on the `load/` folder). Stop if you observe a reactive path (one that crosses $\lambda_N=90^{\circ}$). Write down the printed path number.
 * Identify the maximum value of the *third* highest path. Add this as your next interface (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces)
 * Increase the number of `steps` in `infretis.toml` by 10.
 * Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`
@@ -198,7 +198,7 @@ python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml
 
 ```
 * Run a new ∞RETIS simulation
-* Stop if you observe a reactive path (one that crosses $\lambda_N=90^{\circ}$). Write down the printed path number.
+
 
 After observing a reactive path, we are in a position to start the main simulation. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This will take some time. While you wait, you can work with the following question.
 ## Questions
