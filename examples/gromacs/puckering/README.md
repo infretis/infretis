@@ -187,11 +187,11 @@ After completion, plot . Identify suitable positions for new interfaces between 
 
 We will now do the following iteratively:
 
-* Plot the order parameter of all paths (they are generated in the `load/` folder
+* Plot the order parameter of all accepted paths (use the `plot-order.py` script on the `load/` folder)
 * Identify the maximum value of the *third* highest path. Add this as your next interface (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces)
 * Increase the number of `steps` in `infretis.toml` by 10.
 * Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`
-* Pick out new initial paths for the second simulation from the first by using:
+* Pick out new initial paths for the new simulation from the previous by using:
 
 ```bash
 python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml
