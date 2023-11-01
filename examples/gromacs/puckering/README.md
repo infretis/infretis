@@ -117,28 +117,17 @@ cd ..
 * **6:** What do you think the commands above do?
 
 # Step 1: Equilibration
-The following commands perform an energy minimization and NVT and NPT equilibration runs.
+Navigate to the `step1_equilibration` folder and get an overview of the directory structure. Perform an energy minimization and an NVT and NPT equilibration. Here are some commands to speed up the process. 
 ```bash
-cd step1_equilibration
-
-# energy minimization
-cd em
 gmx grompp -f em.mdp -p ../../gromacs_input/topol.top -c ../../gromacs_input/conf.g96 -o em.tpr
 gmx mdrun -deffnm em -ntomp 2 -ntmpi 1 -pin on -v
-cd -
-
 ```
 ```bash
-# NVT equilibration
-cd nvt
 gmx grompp -f nvt.mdp -p ../../gromacs_input/topol.top -c ../em/em.gro -o nvt.tpr
 gmx mdrun -deffnm nvt -ntomp 2 -ntmpi 1 -pin on -v
-cd -
 
 ```
 ```bash
-# NPT equlibration
-cd npt
 gmx grompp -f npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
 gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 
@@ -147,16 +136,9 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 * **7:** Has the temperature and density reached the expected values during the NPT equilibration? (Hint: Your system is mostly water)
 
 # Step 2: MD run
-Navigate to the `step2_md_run` folder and perform a production MD run.
-```bash
+Navigate to the `step2_md_run` folder and perform a production MD run. Remember to invoke `grompp` with the `-t` flag and give it the final state from the NPT simulation (see the NPT command for help).
 
-# Production run
-cd step2_md_run
-gmx grompp -f md.mdp -p ../gromacs_input/topol.top -c ../step1_equilibration/npt/npt.gro -t ../step1_equilibration/npt/npt.cpt -o md.tpr
-gmx mdrun -deffnm md -ntomp 2 -ntmpi 1 -pin on -v
-
-```
-We can process our trajectory files for visualization purposes. The following commands create a file `md-traj.xyz` that you can animate in Avogadro.
+We can process our trajectory files for visualization purposes. The following commands create a file `md-traj.xyz` that you can animate in Avogadro using the "Animation tool". 
 ```bash
 # visualization
 printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md.tpr
@@ -180,8 +162,7 @@ python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-o
 
 Before we can start our main path simulation, we need to provide the ∞RETIS program with some initial paths. Also, an efficient path simulation is one where the crossing probabilities between adjacent interfaces is $\approx 0.3$, so we also need to optimize the interface positions to get a reasonable number of crossings. You will do this in an iterative fashion by performing a couple of short ∞RETIS simulations. After each simulation, more and more interfaces are placed at increasing orderparameter values. This effectively pushes the system up the energy barrier.
 
-INSER GIF
-
+<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/initial-paths.gif" width="45%" height="45%">
 
 Navigate to the `step3_initial_paths` directory and modify the `infretis.toml` as follows:
 * add your ring atom indices to the `[orderparameter]` section
