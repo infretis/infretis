@@ -42,7 +42,7 @@ f, a = plt.subplots()
 for interface in interfaces:
     a.axhline(interface, c="k", lw=0.5)
 
-# plot all paths, modify by yuor needs
+# plot all paths, modify by your needs
 for path in sorted_paths:
     x = np.loadtxt(path)
     # if x[-1,1] > interfaces[-1]:
