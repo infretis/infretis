@@ -138,7 +138,7 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 # Step 2: MD run
 Navigate to the `step2_md_run` folder and perform a production MD run. Remember to invoke `grompp` with the `-t` flag and give it the final state from the NPT simulation (see the NPT command for help).
 
-We can process our trajectory files for visualization purposes. The following commands create a file `md-traj.xyz` that you can animate in Avogadro.
+We can process our trajectory files for visualization purposes. The following commands create a file `md-traj.xyz` that you can animate in Avogadro using the "Animation tool". 
 ```bash
 # visualization
 printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md.tpr
