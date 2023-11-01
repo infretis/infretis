@@ -11,9 +11,14 @@ parser = argparse.ArgumentParser(
             .sdf file given a set of indices"
 )
 
-parser.add_argument("-sdf", help="The .sdf file of your molecule")
 parser.add_argument(
-    "-idx", help="The ordered indices of your molecule", type=list, nargs="+"
+    "-sdf", help="The .sdf file of your molecule (e.g. ../mol.sdf)"
+)
+parser.add_argument(
+    "-idx",
+    help="The ordered indices of your molecule (e.g. 2 5 11 8 1 0)",
+    type=list,
+    nargs="+",
 )
 
 args = parser.parse_args()
