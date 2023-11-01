@@ -197,7 +197,7 @@ We will now do the following iteratively:
 python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml
 
 ```
-* Run an ∞RETIS simulation
+* Run a new ∞RETIS simulation
 * Stop if you observe a reactive path (one that crosses $\lambda_N=90^{\circ}$)
 
 After observing a reactive path, we are in a position to start the main simulation. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This will take some time. While you wait, you can work with the following question.
