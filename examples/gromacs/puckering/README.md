@@ -202,7 +202,7 @@ infretisrun -i infretis.toml
 
 ```
 
-After completion, plot the order parameter of all paths. Identify suitable positions for new interfaces between $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ and add these to the `infretis.toml` file.
+After completion, plot the order parameter of all paths. Identify suitable positions for new interfaces between $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ and add these to the `infretis.toml` file. Rember that the paths have to be valid, so we can't add an interface if none of the generated paths cross it.
 
 Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`, and pick out new initial paths for the second simulation from the first by using:
 
@@ -210,7 +210,6 @@ Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`, and pick ou
 python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml
 
 ```
-
-
-* in the `[simulation]` section, add a third interface between $\theta=10^{\circ}$ and $\theta=90^{\circ}$ with a value slightly below
+Then run another simulation, plot the order parameter, identify new interface positions or move the old ones further up the barrier, rename the `load/` folder to e.g. `run1/`, and generate another set of initial paths.
+Continue with this until you observe a reactive path.
 
