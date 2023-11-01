@@ -160,7 +160,7 @@ python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-o
 * **9:** What is the maximum order parameter value observed during the MD run?
 * **10:** Given that the product state of your molecule is defined by $\theta=90^{\circ}$, are you optimistic that you could observe a spontaneous transition during a plain MD simulation?
 
-# Step 3.0: ∞RETIS
+# Step 3: ∞RETIS
 
 Before we can start our main path simulation, we need to provide the ∞RETIS program with some initial paths. Also, an efficient path simulation is one where the crossing probabilities between adjacent interfaces is $\approx 0.3$, so we also need to optimize the interface positions to get a reasonable number of crossings. You will do this in an iterative fashion by performing a couple of short ∞RETIS simulations. After each simulation, more and more interfaces are placed at increasing order parameter values. This effectively pushes the system up the energy barrier.
 
