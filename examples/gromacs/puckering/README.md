@@ -136,15 +136,8 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 * **7:** Has the temperature and density reached the expected values during the NPT equilibration? (Hint: Your system is mostly water)
 
 # Step 2: MD run
-Navigate to the `step2_md_run` folder and perform a production MD run.
-```bash
+Navigate to the `step2_md_run` folder and perform a production MD run. Remember to invoke `grompp` with the `-t` flag and give it the final state from the NPT simulation (see the NPT command for help).
 
-# Production run
-cd step2_md_run
-gmx grompp -f md.mdp -p ../gromacs_input/topol.top -c ../step1_equilibration/npt/npt.gro -t ../step1_equilibration/npt/npt.cpt -o md.tpr
-gmx mdrun -deffnm md -ntomp 2 -ntmpi 1 -pin on -v
-
-```
 We can process our trajectory files for visualization purposes. The following commands create a file `md-traj.xyz` that you can animate in Avogadro.
 ```bash
 # visualization
