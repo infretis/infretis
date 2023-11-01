@@ -201,13 +201,10 @@ infretisrun -i infretis.toml
 
 ```
 
-This command runs a path simulation that uses GROMACS under the hood.
+This command runs a path simulation that uses GROMACS under the hood. After it is finished, plot the
+
+
 
 
 * in the `[simulation]` section, add a third interface between $\theta=10^{\circ}$ and $\theta=90^{\circ}$ with a value slightly below
-
-
-intf=[
-[10, 90],
-[10.0, 15, 20, 25, 90.0],
 
