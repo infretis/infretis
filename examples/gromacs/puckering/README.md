@@ -117,28 +117,20 @@ cd ..
 * **6:** What do you think the commands above do?
 
 # Step 1: Equilibration
-The following commands perform an energy minimization and NVT and NPT equilibration runs.
+Navigate to the `step1_equilibration` folder and equilibrate the system in each folder. Here are some commands to speed up the process. 
 ```bash
-cd step1_equilibration
-
 # energy minimization
-cd em
 gmx grompp -f em.mdp -p ../../gromacs_input/topol.top -c ../../gromacs_input/conf.g96 -o em.tpr
 gmx mdrun -deffnm em -ntomp 2 -ntmpi 1 -pin on -v
-cd -
-
 ```
 ```bash
 # NVT equilibration
-cd nvt
 gmx grompp -f nvt.mdp -p ../../gromacs_input/topol.top -c ../em/em.gro -o nvt.tpr
 gmx mdrun -deffnm nvt -ntomp 2 -ntmpi 1 -pin on -v
-cd -
 
 ```
 ```bash
 # NPT equlibration
-cd npt
 gmx grompp -f npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
 gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 
