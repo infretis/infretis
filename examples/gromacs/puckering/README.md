@@ -146,7 +146,7 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 
 ```
 ## Questions
-* **7:** Has the temperature and density reached the expected values during the NPT equilibration?
+* **7:** Has the temperature and density reached the expected values during the NPT equilibration? (Hint: Your system is mostly water)
 
 # Step 2: MD run
 Navigate to the `step2_md_run` folder and perform a production MD run.
@@ -180,7 +180,7 @@ python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-o
 
 # Step 3: Initial paths and interface optimization
 
-Before we can start our main path simulation, we need to provide the ∞RETIS program with some initial paths. Also, an efficient path simulation is one where the crossing probabilites between adjacent interfaces is $\approx 0.3$, so we also need to optimize the interface positions to get a reasonable number of crossings. You will do this in an iterative fashion by performing a couple of short ∞RETIS simulations. After each each simulation, more and more interfaces are placed at increasing orderparameter values. This effectively pushes the system up the energy barrier.
+Before we can start our main path simulation, we need to provide the ∞RETIS program with some initial paths. Also, an efficient path simulation is one where the crossing probabilities between adjacent interfaces is $\approx 0.3$, so we also need to optimize the interface positions to get a reasonable number of crossings. You will do this in an iterative fashion by performing a couple of short ∞RETIS simulations. After each simulation, more and more interfaces are placed at increasing orderparameter values. This effectively pushes the system up the energy barrier.
 
 INSER GIF
 
