@@ -1,4 +1,6 @@
 """The main infretis loop."""
+import tqdm
+
 from infretis.core.tis import run_md
 from infretis.setup import setup_dask, setup_internal
 
@@ -19,6 +21,7 @@ def scheduler(config):
         futures.add(fut)
 
     # main loop
+    pbar = tqdm.tqdm(total=state.tsteps, initial=state.cstep, smoothing=0)
     while state.loop():
         # get and treat worker output
         md_items = state.treat_output(next(futures)[1])
@@ -31,6 +34,8 @@ def scheduler(config):
             # submit job to scheduler
             fut = client.submit(run_md, md_items, pure=False)
             futures.add(fut)
+        pbar.update(1)
 
     # end client
+    pbar.close()
     client.close()

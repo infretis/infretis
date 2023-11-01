@@ -53,18 +53,6 @@ for traj in trajs[::-1]:
         if valid_in and valid_in not in out.keys():
             out[valid_in] = traj
 
-loaddir = "load"
-if os.path.exists(loaddir):
-    exit(
-        f"\nDirectory {loaddir}/ exists. Will not overwrite.\
-\nRename or delete it manually. Aborting."
-    )
-else:
-    os.mkdir(loaddir)
-
-for i, traj in zip(out.keys(), out.values()):
-    shutil.copytree(traj, f"{loaddir}/{i}")
-
 # if we miss some lower ensembles, add to
 # them the paths from the higher ensembles
 for i in range(len(interfaces) + 1):
@@ -81,5 +69,17 @@ for i in range(len(interfaces) + 1):
         i in out.keys()
     ), f"Did not find any paths in ensemble {i}\
 that cross the corresponding interface"
+
+loaddir = "load"
+if os.path.exists(loaddir):
+    exit(
+        f"\nDirectory {loaddir}/ exists. Will not overwrite.\
+\nRename or delete it manually. Aborting."
+    )
+else:
+    os.mkdir(loaddir)
+
+for i, traj in zip(out.keys(), out.values()):
+    shutil.copytree(traj, f"{loaddir}/{i}")
 
 print("\nAll done!")
