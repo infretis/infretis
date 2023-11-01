@@ -1,6 +1,7 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
 TO DO
 * Remove the `cd` in commands, else its just copy-paste all the way
+* Remove output to console from wf move
 * step3 infretis
 * step4 infretis
 * step5 analysis/error analysis
@@ -201,7 +202,7 @@ infretisrun -i infretis.toml
 
 ```
 
-After completion, plot the order parameter of all paths. Identify suitable positions for new interfaces between $\lambda_0=10^{circ}$ and $\lambda_N=90^{\circ}$ and add these to the `infretis.toml` file.
+After completion, plot the order parameter of all paths. Identify suitable positions for new interfaces between $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ and add these to the `infretis.toml` file.
 
 Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`, and pick out new initial paths for the second simulation from the first by using:
 
