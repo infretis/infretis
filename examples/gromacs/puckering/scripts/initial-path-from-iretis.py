@@ -65,6 +65,16 @@ else:
 for i, traj in zip(out.keys(), out.values()):
     shutil.copytree(traj, f"{loaddir}/{i}")
 
+# if we miss some lower ensembles, add to
+# them the paths from the higher ensembles
+for i in range(len(interfaces) + 1):
+    if i not in out.keys():
+        for j in range(i + 1, len(interfaces) + 1):
+            if j in out.keys():
+                out[i] = out[j]
+                print(f"[INFO] Added path from ens{j} to ens{i}")
+
+
 # Check if we have paths in all ensembles
 for i in range(len(interfaces) + 1):
     assert (
