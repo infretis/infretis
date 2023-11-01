@@ -173,9 +173,9 @@ python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-o
 ```
 
 ## Questions
-* **8:** Do you see any interesting conformational changes when visualizing the trajectory? 
+* **8:** Do you see any interesting conformational changes when visualizing the trajectory?
 * **9:** What is the maximum order parameter value observed during the MD run?
-* **10:** Given that the final state of your molecule is defined by $\theta=90^{\circ}$, are you optimistic that you could observe a spontaneous transition during a plain MD simulation?
+* **10:** Given that the product state of your molecule is defined by $\theta=90^{\circ}$, are you optimistic that you could observe a spontaneous transition during a plain MD simulation?
 
 # Step 3: Initial paths and interface optimization
 
@@ -188,7 +188,7 @@ Navigate to the `step3_initial_paths` directory and modify the `infretis.toml` a
 * add your ring atom indices to the `[orderparameter]` section
 * add two interfaces at 10.0 and 90.0 in the `interface = []` list. Remember a comma
 
-We can cut out some low order parameter paths from the MD simulation by running:
+We can cut out some paths with low order parameter values from the MD simulation by running:
 ```bash
 python ../scripts/initial-path-from-md.py -trr ../step2_md_run/md.trr -toml infretis.toml -order ../step2_md_run/md-order.txt
 
@@ -201,7 +201,7 @@ infretisrun -i infretis.toml
 
 ```
 
-This will now perform a path simulation using GROMACS under the hood. You can open another terminal and monitor the progress of the path simulation by inspecting the `sim.log` file, and also by navigating to the `load` folder. Each new accepted path gets its own directory here. You can visualize the values.  
+This command runs a path simulation that uses GROMACS under the hood.
 
 
 * in the `[simulation]` section, add a third interface between $\theta=10^{\circ}$ and $\theta=90^{\circ}$ with a value slightly below
