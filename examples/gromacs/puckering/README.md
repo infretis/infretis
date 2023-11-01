@@ -1,8 +1,6 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
 TO DO
 * Remove the `cd` in commands, else its just copy-paste all the way
-* Remove output to console from wf move
-* step3 infretis
 * step4 infretis
 * step5 analysis/error analysis
   * Trajectory visualization
