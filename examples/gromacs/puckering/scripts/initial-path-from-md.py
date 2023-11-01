@@ -15,12 +15,6 @@ parser.add_argument(
     "-order", help="The order file corresponding to the trajectory"
 )
 parser.add_argument("-toml", help="The .toml input for reading the interfaces")
-parser.add_argument(
-    "-n",
-    help="The maximum number of shooting points for each ensemble \
-        (default is 50)",
-    default="50",
-)
 
 args = parser.parse_args()
 
@@ -37,9 +31,6 @@ order = np.loadtxt(args.order)  # order file
 with open(args.toml, "rb") as toml_file:
     toml_dict = tomli.load(toml_file)
 interfaces = toml_dict["simulation"]["interfaces"]
-
-n_sht_pts = int(args.n)
-sorted_idx = np.argsort(order[:, 1])
 
 for i in range(len(interfaces)):
     dirname = os.path.join(predir, str(i))
@@ -59,36 +50,39 @@ for i in range(len(interfaces)):
 
     # minus ensemble
     if i == 0:
-        # first point crossing i+
-        start = np.where(order[sorted_idx, 1] < interfaces[0])[0][-1] + 1
-        # second point crossing i+
-        end = np.where(order[sorted_idx, 1] < interfaces[0])[0][-1] + 2
-        middle = sorted_idx[: end - 1]
-        # trajectory indices giving the path
-        iterator = np.hstack(
-            (
-                sorted_idx[start],
-                middle[:: max(len(middle) // n_sht_pts, 1)],
-                sorted_idx[end],
-            )
-        )
+        idx = (order > interfaces[0]).astype(int)
+        grad = idx[1:] - idx[:-1]
+        # hopping above interface0 grad = 1
+        above = np.where(grad == 1)[0]
+        # select an ending point where the path hops
+        # above interface0
+        end = above[-2] + 1  # we want the ending point
+        # select a starting point where the path hops
+        # below interface0, and has to precede the end point
+        # only look at the array up til end point
+        below = np.where(grad[:end] == -1)[0]
+        start = below[-1]
+        iterator = [i for i in range(start, end + 1)]
 
     # plus ensembles
     else:
-        # starting point of the path
-        start = np.where(order[sorted_idx, 1] > interfaces[0])[0][0] - 1
-        # ending point of the path
-        end = np.where(order[sorted_idx, 1] > interfaces[0])[0][0] - 2
-        # points above interface i
-        over_i = np.where(order[sorted_idx, 1] > interfaces[i - 1])[0]
-        middle = sorted_idx[over_i[0] : over_i[-1]]
-        iterator = np.hstack(
-            (
-                sorted_idx[start],
-                middle[:: max(len(middle) // n_sht_pts, 1)],
-                sorted_idx[end],
-            )
-        )
+        idx = (order > interfaces[0]).astype(int)
+        grad = idx[1:] - idx[:-1]
+        # hopping above interface0 grad = 1
+        above = np.where(grad == 1)[0]
+        # select a starting point where the path hops
+        # above interface0. Dont select last point
+        # as we may not jump below again after that
+        start = above[-2]
+        # select an ending point where the path hops
+        # below interface0
+        # truncate where wee look for this point
+        below = np.where(grad[: above[-1]] == -1)[0]
+        end = below[-1] + 1  # only look at the array up til end point
+        iterator = [i for i in range(start, end + 1)]
+        print("=" * 10)
+        print(iterator)
+        print(order[iterator, 1])
 
         # check if valid path for wire-fencing
         idx = np.where(
