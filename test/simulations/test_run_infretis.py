@@ -34,7 +34,7 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     folder.mkdir()
     basepath = os.path.dirname(__file__)
     load_dir = os.path.join(basepath,
-                            "../../examples/turtlemd/double_well/load")
+                            "../../examples/turtlemd/double_well/load_copy")
     toml_dir = os.path.join(basepath,
                             "data/wf.toml")
     # copy files from template folder
