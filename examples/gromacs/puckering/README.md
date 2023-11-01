@@ -180,8 +180,7 @@ python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-o
 
 Before we can start our main path simulation, we need to provide the ∞RETIS program with some initial paths. Also, an efficient path simulation is one where the crossing probabilities between adjacent interfaces is $\approx 0.3$, so we also need to optimize the interface positions to get a reasonable number of crossings. You will do this in an iterative fashion by performing a couple of short ∞RETIS simulations. After each simulation, more and more interfaces are placed at increasing orderparameter values. This effectively pushes the system up the energy barrier.
 
-INSER GIF
-
+<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/initial-paths.gif" width="45%" height="45%">
 
 Navigate to the `step3_initial_paths` directory and modify the `infretis.toml` as follows:
 * add your ring atom indices to the `[orderparameter]` section
