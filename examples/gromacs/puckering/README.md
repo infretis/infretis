@@ -210,6 +210,6 @@ Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`, and pick ou
 python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml
 
 ```
-Then run another simulation, plot the order parameter, identify new interface positions or move the old ones further up the barrier (don't change the \lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaceS) , rename the `load/` folder to e.g. `run1/`, and generate another set of initial paths.
+Then run another simulation, plot the order parameter, identify new interface positions or move the old ones further up the barrier (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaceS), rename the `load/` folder to e.g. `run1/`, and generate another set of initial paths.
 Continue with this until you observe a reactive path.
 
