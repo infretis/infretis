@@ -41,3 +41,5 @@ with open(args.out, "w") as writefile:
         op = orderparameter.calculate(system)
         line = f"{i} " + " ".join([f"{opi}" for opi in op]) + "\n"
         writefile.write(line)
+
+print(f"\nAll done!\nOrderparameter values written to {args.out}")
