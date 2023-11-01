@@ -8,8 +8,8 @@ import tomli
 
 # Command line argument parser stuff
 parser = argparse.ArgumentParser(
-    description="Plot the order parameter and interfaces from an \
-                infretis simulation"
+    description="Plot the order parameter of all paths from an \
+                infretis simulation."
 )
 
 parser.add_argument(
