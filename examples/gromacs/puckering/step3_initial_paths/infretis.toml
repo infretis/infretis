@@ -10,7 +10,7 @@ wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 [simulation]
 interfaces = []
 
-steps = 40
+steps = 20
 seed = 0
 load_dir = 'load'
 shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
