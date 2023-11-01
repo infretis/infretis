@@ -12,7 +12,7 @@ interfaces = []
 
 steps = 100
 seed = 0
-load_dir = 'trajs'
+load_dir = 'load'
 shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
 
 [simulation.tis_set]
