@@ -22,12 +22,13 @@ parser.add_argument(
     help="The .toml input file for reading the interfaces\
             (e.g. ../iretis0/infretis.toml)",
 )
+
 args = parser.parse_args()
 
 # read interfaces from the .toml file
 with open(args.toml, "rb") as toml_file:
     toml_dict = tomli.load(toml_file)
-interfaces = toml_dict["simulation"]["interfaces"][:-1]
+interfaces = toml_dict["simulation"]["interfaces"]
 
 # get the filenames of all created paths
 paths = glob.glob(f"{args.traj}/*/order.txt")
@@ -45,8 +46,8 @@ for interface in interfaces:
 # plot all paths, modify by your needs
 for path in sorted_paths:
     x = np.loadtxt(path)
-    # if x[-1,1] > interfaces[-1]:
-    # ...
+    # if x[-1,1]<interfaces[-1]: # plots only reactive paths
+    #    continue # continues to next iteration in loop
     a.plot(x[:, 0], x[:, 1], c="C0", marker="o", markersize=5)
 
 plt.show()
