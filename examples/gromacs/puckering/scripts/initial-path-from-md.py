@@ -20,7 +20,11 @@ args = parser.parse_args()
 
 predir = "load"
 if os.path.exists(predir):
-    exit(f"\nDirectory {predir} exists")
+    exit(
+        f"\nDirectory {predir}/ exists."
+        + " Will not overwrite."
+        + " Rename or remove it and try again."
+    )
 else:
     os.mkdir(predir)
 
