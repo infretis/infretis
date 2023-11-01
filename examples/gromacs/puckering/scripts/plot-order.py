@@ -46,7 +46,11 @@ for interface in interfaces:
 # plot all paths, modify by your needs
 for path in sorted_paths:
     x = np.loadtxt(path)
-    # if x[-1,1]<interfaces[-1]: # plots only reactive paths
+    if x[-1, 1] > interfaces[-1]:
+        print()
+        print(
+            f"The path in {path} is reactive! \U0001F389 \U0001F938 \U0001F483"
+        )
     #    continue # continues to next iteration in loop
     a.plot(x[:, 0], x[:, 1], c="C0", marker="o", markersize=5)
 
