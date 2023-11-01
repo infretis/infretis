@@ -103,12 +103,7 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 Optimize the structure and export it as `mol.sdf` in the `~/infretis/examples/gromacs/puckering/` folder (the .sdf format contains  coordinate, element, and bond order information). If you have problems here, you can use the `template.sdf` molecule. 
 
-Check that you indeed are in the chair conformation with the given indices by using the `check-indices.py` script. Run `python check-indices.py -h` to on usage information.
-
-```bash
- python check-indices.py -sdf ../template.sdf  -idx 2 5 11 8 1 0
-
-```
+Check that you indeed are in the chair conformation with the given indices by using the `check-indices.py` script. Run `python check-indices.py -h` for usage information. You should obtain $\theta \approx =0$. 
 
 Navigate to the `scripts` directory and run the following commands:
 
