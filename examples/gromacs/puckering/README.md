@@ -160,9 +160,9 @@ python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-o
 * **9:** What is the maximum order parameter value observed during the MD run?
 * **10:** Given that the product state of your molecule is defined by $\theta=90^{\circ}$, are you optimistic that you could observe a spontaneous transition during a plain MD simulation?
 
-# Step 3: Initial paths and interface optimization
+# Step 3.0: ∞RETIS
 
-Before we can start our main path simulation, we need to provide the ∞RETIS program with some initial paths. Also, an efficient path simulation is one where the crossing probabilities between adjacent interfaces is $\approx 0.3$, so we also need to optimize the interface positions to get a reasonable number of crossings. You will do this in an iterative fashion by performing a couple of short ∞RETIS simulations. After each simulation, more and more interfaces are placed at increasing orderparameter values. This effectively pushes the system up the energy barrier.
+Before we can start our main path simulation, we need to provide the ∞RETIS program with some initial paths. Also, an efficient path simulation is one where the crossing probabilities between adjacent interfaces is $\approx 0.3$, so we also need to optimize the interface positions to get a reasonable number of crossings. You will do this in an iterative fashion by performing a couple of short ∞RETIS simulations. After each simulation, more and more interfaces are placed at increasing order parameter values. This effectively pushes the system up the energy barrier.
 
 <img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/initial-paths.gif" width="45%" height="45%">
 
@@ -194,6 +194,4 @@ python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml
 Then run another simulation, plot the order parameter, identify new interface positions or move the old ones further up the barrier (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces), rename the `load/` folder to e.g. `run1/`, and generate another set of initial paths.
 Continue with this until you observe a reactive path.
 
-
-You will now start optimizing the relative positions of the interfaces by performing a slightly longer simulation.
-Open the `restart.toml` file, set the number of `workers` to 4 and the number of `steps` to 1000. Then restart the simulation by invoking `infretis` with the restart file.
+After observing a reactive path, we are in a position to start the main simulation. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file.
