@@ -200,6 +200,7 @@ python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml # g
 * Run a new ∞RETIS simulation
 
 
-After observing a reactive path, we are in a position to start the main simulation. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This will take some time. While you wait, you can work with the following question.
+After observing a reactive path, we assume that we have a reasonable set of interfaces and initial paths. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This will take some time (30-60 mins). While you wait, you can open another terminal and work with the following question.
+
 ## Questions
-* **11:** Why can we assume that the interface positions we found are a descent starting point for a path simulation? (Hint: Read the starting sentence in this section again)
+* **11:**
