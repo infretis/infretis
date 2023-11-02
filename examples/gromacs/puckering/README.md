@@ -191,7 +191,7 @@ We will now do the following iteratively:
 * In this plot, identify the maximum order parameter of the *second* or *third* highest path. Add this value between $\lambda_0$ and $\lambda_N$ in your list of interfaces in `infretis.toml` (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces). 
 * Increase the number of `steps` in `infretis.toml` by 10.
 * Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`, or `run1`,`run2`, etc. if it exists
-* Pick out new initial paths for the new simulation from the previous simulation by using:
+* Pick out some new initial paths for the next simulation from the previous simulation by using:
 
 ```bash
 python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml # generates a new load/ folder
