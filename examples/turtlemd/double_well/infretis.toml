@@ -13,10 +13,10 @@ wmdrun = ['not used',
 
 [simulation]
 interfaces = [-0.99, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, 1.0]
-steps = 10000
+steps = 50
 seed = 0
 load_dir = 'load'
-shooting_moves = ['sh','sh','sh','sh','sh','sh','sh','sh']
+shooting_moves = ['sh','sh','wf','wf','wf','wf','wf','wf']
 
 
 [simulation.tis_set]
@@ -25,6 +25,8 @@ aimless = true
 allowmaxlength = false
 zero_momentum = false # momentum true
 rescale_energy = false
+high_accept = true
+n_jumps = 4
 
 
 [engine]
@@ -40,7 +42,6 @@ class = 'LangevinInertia'
 [engine.integrator.settings]
 gamma = 0.3
 beta = 14.285714285714285 # 1/(boltzmann*T)
-seed = 69 # not used atm
 
 [engine.potential]
 class = 'DoubleWell'
@@ -65,9 +66,9 @@ periodic = false
 [output]
 backup = 'backup'
 data_dir = "./"
-order-file = 1
-energy-file = 1
+order-file = -1
+energy-file = -1
 trajectory-file = -1
 screen = 1
-pattern = 1
+pattern = false
 delete_old = true
