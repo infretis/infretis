@@ -43,4 +43,4 @@ jobs:
         run: poetry install
 
       - name: "Run pytest"
-        run: poetry run pytest test- m "heavy"
+        run: poetry run pytest test -m "heavy"
