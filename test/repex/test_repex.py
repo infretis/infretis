@@ -3,6 +3,7 @@ from pathlib import PosixPath
 from infretis.classes.repex import REPEX_state
 
 def test_rgen_io(tmp_path: PosixPath) -> None:
+    """Test repex rgen and rgen spawn reproducability."""
     state = REPEX_state(
         {"current": {"size": 1},
          "dask": {"workers": 1},
