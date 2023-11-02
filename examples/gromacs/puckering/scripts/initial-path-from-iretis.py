@@ -82,4 +82,4 @@ else:
 for i, traj in zip(out.keys(), out.values()):
     shutil.copytree(traj, f"{loaddir}/{i}")
 
-print("\nAll done!")
+print("\nAll done! Created folder load/ with new initial paths.")
