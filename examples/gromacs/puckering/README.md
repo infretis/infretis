@@ -188,7 +188,7 @@ infretisrun -i infretis.toml
 We will now do the following iteratively:
 
 * Plot the order parameter of all accepted paths (use the `plot-order.py` script on the `load/` folder). Stop if you observe a reactive path (one that crosses $\lambda_N=90^{\circ}$) and write down the printed path number(s).
-* In this plot, identify the order parameter of the *second* or *third* highest path. Add this value as your next interface (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces)
+* In this plot, identify the maximum order parameter of the *second* or *third* highest path. Add this value in your interface list in `infretis.toml` (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces)
 * Increase the number of `steps` in `infretis.toml` by 10.
 * Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`, or `run1`
 * Pick out new initial paths for the new simulation from the previous simulation by using:
