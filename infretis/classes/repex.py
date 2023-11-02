@@ -282,6 +282,11 @@ class REPEX_state:
         for key in ["moves", "trial_len", "trial_op", "generated"]:
             md_items[key] = []
 
+        ## SR
+        stoml = get_stoml(md_items)
+        with open(f"./worker{stoml['header']['pin']}/instructions.toml", "wb") as f:
+            tomli_w.dump(stoml, f)
+
         return md_items
 
     def add_traj(self, ens, traj, valid, count=True, n=0):
@@ -1076,3 +1081,49 @@ def write_to_pathens(state, pn_archive):
                 string + "\t".join(frac) + "\t" + "\t".join(weight) + "\t\n"
             )
             traj_data.pop(pn)
+
+
+def get_stoml(md_items):
+    mcmove = len(md_items['picked'])
+    ens = md_items['picked'][md_items["ens_nums"][0]]
+    mc_move = "re" if mcmove == 2 else ens['ens']['mc_move']
+    # print('frogi', md_items['picked'][md_items["ens_nums"][0]])
+    stoml = {}
+    header = {
+        "pin": md_items["pin"],
+        "ens_nums": [int(i) for i in md_items["ens_nums"]],
+        "mc_move": mc_move,
+    }
+
+    # when dealing with MC move using involving only one ensemble and one path
+    if mc_move in ('sh', 'wf'):
+        header["path_num"] = int(ens["pn_old"])
+        header["engine"] = ens["ens"]["eng_name"]
+        header["interfaces"] = [float(i) for i in ens["ens"]["interfaces"]]
+        if mc_move == 'wf':
+            header["n_jumps"] = int(ens["ens"]["tis_set"]["n_jumps"])
+            header["high_accept"] = ens["ens"]["tis_set"]["high_accept"]
+
+    stoml['header'] = header
+
+    # fill header:
+    inst = []
+    inst.append("# todo list:")
+    inst.append(f"# WORKER {md_items['pin']}")
+    inst.append(f"# MC {mc_move}")
+    inst.append(f"# ENSEMBLE {md_items['ens_nums'][0]}")
+    ###########
+    ########### ADD RANDOM SEED TO HEADER IN SOME WAY
+    ###########
+    ###########
+    if mc_move == 'wf':
+        inst.append(f"# n_jumps {header['n_jumps']}")
+        inst.append(f"# high_accept {header['high_accept']}")
+    inst.append(f"# ----------------")
+
+    stoml["inst"] = inst
+    return stoml
+
+
+def print_stoml(stoml):
+    print('qwer')

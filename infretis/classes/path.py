@@ -10,6 +10,7 @@ from infretis.classes.formatter import (
     PathExtFile,
 )
 from infretis.classes.system import System
+import time
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -646,7 +647,9 @@ def load_paths_from_disk(config):
     load_dir = config["simulation"]["load_dir"]
     paths = []
     for pnumber in config["current"]["active"]:
+        now = time.time()
         new_path = load_path(os.path.join(load_dir, str(pnumber)))
+        print('time:', time.time() - now)
         status = "re" if "restarted_from" in config["current"] else "ld"
         ### TODO: important for shooting move if 'ld' is set. need a smart way
         ### to remember if status is 'sh' or 'wf' etc. maybe in the toml file.

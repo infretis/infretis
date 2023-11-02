@@ -1,6 +1,8 @@
 import logging
 import os
 import time
+import tomli
+import tomli_w
 
 import numpy as np
 
@@ -28,7 +30,7 @@ def run_md(md_items):
 
     # perform the hw move:
     picked = md_items["picked"]
-    accept, trials, status = select_shoot(picked)
+    accept, trials, status = select_shoot(picked, md_items["pin"])
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -188,7 +190,7 @@ def wirefence_weight_and_pick(
     return n_frames, segment
 
 
-def select_shoot(picked, start_cond=("L",)):
+def select_shoot(picked, pin, start_cond=("L",)):
     """Select the shooting move to generate a new path.
 
     The new path will be generated from the input path, either by
@@ -254,7 +256,9 @@ def select_shoot(picked, start_cond=("L",)):
             f"starting {move} in {ens_set['ens_name']}"
             + f" with path_n {path.path_number}"
         )
+        # redundant code wrt sending in start_cond
         start_cond = ens_set["start_cond"]
+        ens_set["pin"] = pin
         accept, new_path, status = sh_moves[move](
             ens_set, path, engine, start_cond=start_cond
         )
@@ -267,6 +271,11 @@ def select_shoot(picked, start_cond=("L",)):
 
 
 def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
+    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="rb") as read:
+        stoml =  tomli.load(read)
+    stoml["inst"].append('# START SH')
+    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="wb") as read:
+        tomli_w.dump(stoml, read)
     interfaces = ens_set["interfaces"]
     trial_path = path.empty_path()  # The trial path we will generate.
     if shooting_point is None:
@@ -382,6 +391,9 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
 
     trial_path.status = "ACC"
 
+    stoml["inst"].append('# END SH')
+    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="wb") as read:
+        tomli_w.dump(stoml, read)
     return True, trial_path, trial_path.status
 
 
@@ -435,6 +447,12 @@ def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
         :py:const:`.path._STATUS`.
 
     """
+    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="rb") as read:
+        stoml =  tomli.load(read)
+    stoml["inst"].append('# START WF')
+    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="wb") as read:
+        tomli_w.dump(stoml, read)
+
     old_path = trial_path.copy()
     intf_cap = ens_set["tis_set"].get(
         "interface_cap",
@@ -458,6 +476,7 @@ def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
         "maxlength": 100000,
         "ens_name": ens_set["ens_name"],
         "start_cond": ens_set["start_cond"],
+        "pin": ens_set["pin"],
     }
 
     succ_seg = 0
@@ -499,12 +518,17 @@ def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
 
     # This might get triggered when accepting 0-L paths.
     left, _, right = ens_set["interfaces"]
-    print(start_cond, tuple(trial_path.get_start_point(left, right)))
+    # print(start_cond, tuple(trial_path.get_start_point(left, right)))
     assert set(start_cond) == set(
         trial_path.get_start_point(left, right)
     ), "WF: Path has an implausible start."
 
     trial_path.status = "ACC"
+    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="rb") as read:
+        stoml =  tomli.load(read)
+    stoml["inst"].append('# END WF')
+    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="wb") as read:
+        tomli_w.dump(stoml, read)
     return True, trial_path, trial_path.status
 
 
