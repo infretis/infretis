@@ -160,8 +160,11 @@ python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-o
 * **10:** Given that the product state of your molecule is defined by $\theta=90^{\circ}$, are you optimistic that you could observe a spontaneous transition during a plain MD simulation?
 
 # Step 3: ∞RETIS
+In this section, we will finally perform the path simulation. However, before we can do that, we need to provide the ∞RETIS program with a set of interfaces and an initial path in each of the path ensembles defined by the interfaces. 
 
-Before we can start our main path simulation, we need to provide the ∞RETIS program with some initial paths. Also, in our case, an efficient path simulation is one where the crossing probabilities between adjacent interfaces is $\approx 0.3$, so we also need to optimize the interface positions to get a reasonable number of crossings. You will do this in an iterative fashion by performing a couple of short ∞RETIS simulations. After each simulation, more and more interfaces are placed at increasing order parameter values. This effectively pushes the system up the energy barrier.
+We can cut out some paths for the lowest ensembles from the MD simulation, as these didn't reach high order parameter values. However, for an efficient simulation, we need to position interfaces far up the energy barrier, but these would be tedious to generate from plain MD simulations.
+
+We can solve this problem in an iterative fashion by performing a couple of short ∞RETIS simulations. We start with the low-lying paths from the MD simulation and use these to start a short ∞RETIS simulation with low-lying interfaces. It is likely that we observe paths with higher order parameter values during this simulation. We can then use these paths as starting points in a second simulation with slightly higher interfaces. Continuing in this fashion effectively pushes the system up the energy barrier.
 
 <img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/initial-paths.gif" width="45%" height="45%">
 
@@ -182,18 +185,16 @@ infretisrun -i infretis.toml
 
 ```
 
-After completion, plot . Identify suitable positions for new interfaces between $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ and add these to the `infretis.toml` file. Rember that the paths have to be valid, so we can't add an interface if none of the generated paths crossed it.
-
 We will now do the following iteratively:
 
 * Plot the order parameter of all accepted paths (use the `plot-order.py` script on the `load/` folder). Stop if you observe a reactive path (one that crosses $\lambda_N=90^{\circ}$) and write down the printed path number(s).
-* Identify the maximum value of the *third* highest path. Add this as your next interface (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces)
+* In this plot, identify the order parameter of the *second* or *third* highest path. Add this value as your next interface (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces)
 * Increase the number of `steps` in `infretis.toml` by 10.
-* Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`
-* Pick out new initial paths for the new simulation from the previous by using:
+* Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`, or `run1`
+* Pick out new initial paths for the new simulation from the previous simulation by using:
 
 ```bash
-python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml
+python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml # generates a new load/ folder
 
 ```
 * Run a new ∞RETIS simulation
