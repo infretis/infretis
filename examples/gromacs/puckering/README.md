@@ -52,7 +52,7 @@ You should see `(base)` in the lower left of your terminal window after reopenin
 
 Then download and install the required python packages to run this exercise. Again copy-paste the code and do what is asked of you in the output.
 ```bash
-mamba create --name molmod python==3.11 openff-toolkit-base ambertools rdkit pydantic MDAnalysis
+mamba create --name molmod python==3.11 openff-toolkit-base ambertools rdkit pydantic MDAnalysis tqdm
 ```
 ```bash
 mamba activate molmod
