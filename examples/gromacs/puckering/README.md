@@ -179,7 +179,7 @@ We can cut out some paths with low order parameter values from the MD simulation
 python ../scripts/initial-path-from-md.py -trr ../step2_md_run/md.trr -toml infretis.toml -order ../step2_md_run/md-order.txt
 
 ```
-You should now have created a `load` folder containing the paths and order parameter values for the two ensembles $[0^-]$ and $[0^+]$. Plot the order parameters for these two paths. You can use the `plot-order.py` script for this purpose. Run it with `-h` for help on usage.
+You should now have created a `load` folder containing the paths and order parameter values for the two ensembles $[0^-]$ and $[0^+]$. Plot the order parameters for these two paths. You can use the `plot-order.py` script in the `scripts` folder for this purpose. Run it as `python ../scripts/plot-order.py -h` for help on usage.
 
 If everything is in order, you should be able to run your first ∞RETIS simulation using:
 ```bash
