@@ -190,7 +190,7 @@ infretisrun -i infretis.toml
 We will now do the following iteratively (similar to the procedure in GIF above):
 
 * Plot the order parameter of all accepted paths (use the `plot-order.py` script on the `load/` folder). 
-* In this plot, identify the maximum order parameter of the *second* highest path. This is the position of the next interface.
+* In this plot, identify the maximum order parameter of the highest path. The position of the next interface should be slightly below this value (e.g. 0.5$^{\circ}$ below)
 * Add this value to your list of interfaces in `infretis.toml` such that the values are sorted (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces).
 * Increase the number of `steps` in `infretis.toml` by 10.
 * Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`, or `run1`,`run2`, etc. if it exists
