@@ -46,7 +46,7 @@ U = {}
 ref = mda.Universe(args.tpr, traj_file_arr[0]).select_atoms(args.selection)
 make_whole(ref.atoms)
 for traj_file in np.unique(traj_file_arr):
-    print(traj_file, args.tpr)
+    print(f"Reading {traj_file} ...")
     if not os.path.exists(traj_file):
         exit(f"Could not find file {traj_file}.?")
 
@@ -63,4 +63,4 @@ with mda.Writer(
         alignto(ag, ref)
         wfile.write(ag.atoms)
 
-print("All done!")
+print("\nAll done!")
