@@ -153,6 +153,7 @@ As you may have guessed by now, a good order parameter for the transition we wan
 python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-order.txt
 
 ```
+Plot the $\theta$ values (column 1) vs time (column 0) from the `md-order.txt` file. 
 
 ## Questions
 * **8:** Do you see any interesting conformational changes when visualizing the trajectory?
@@ -168,7 +169,7 @@ We can solve this problem in an iterative fashion by performing a couple of shor
 
 <img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/initial-paths.gif" width="45%" height="45%">
 
-Navigate to the `step3_initial_paths` directory and modify the `infretis.toml` as follows:
+Navigate to the `step3_infretis` directory and modify the `infretis.toml` as follows:
 * add your ring atom indices to the `[orderparameter]` section
 * add two interfaces at 10.0 and 90.0 in the `interface = []` list. Remember a comma
 
