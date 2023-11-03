@@ -208,5 +208,8 @@ After observing a reactive path, we assume that we have a reasonable set of inte
 
 While you wait, you can open another terminal and go on to the next step.
 
-## Questions
-* **11:** 
+# Step 4: Analysis
+
+Plot the $\theta$ and $\phi$ values of the reactive trajectory. Which conformation on the equator does the final state correspond to?
+
+
