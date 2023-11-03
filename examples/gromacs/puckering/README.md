@@ -212,4 +212,12 @@ While you wait, you can open another terminal and go on to the next step.
 
 Plot the $\theta$ and $\phi$ values of the reactive trajectory. Which conformation on the equator does the final state correspond to?
 
+Visualize the reactive trajectory using the command ... 
+
+The following script calculates the rate, along with some other properties such as the crossing probability and error estimates.
+
+```bash
+python ../wham/Wham_Pcross.py -toml infretis.toml -data infretis_data.txt
+```
+
 
