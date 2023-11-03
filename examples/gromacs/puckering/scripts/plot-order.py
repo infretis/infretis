@@ -15,12 +15,21 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "-traj",
     help="The path to the folder containing the trajectories\
-            (e.g. '../iretis0/load/')",
+            (e.g. 'run1/load/')",
 )
 parser.add_argument(
     "-toml",
     help="The .toml input file for reading the interfaces\
-            (e.g. ../iretis0/infretis.toml)",
+            (e.g. 'infretis.toml')",
+)
+
+parser.add_argument(
+    "-xy",
+    help="The indices of the columns to plot (default 0 1)",
+    default=[0, 1],
+    metavar=("x", "y"),
+    type=int,
+    nargs=2,
 )
 
 args = parser.parse_args()
@@ -52,6 +61,8 @@ for path in sorted_paths:
             f"The path in {path} is reactive! \U0001F389 \U0001F938 \U0001F483"
         )
     #    continue # continues to next iteration in loop
-    a.plot(x[:, 0], x[:, 1], c="C0", marker="o", markersize=5)
+    a.plot(
+        x[:, args.xy[0]], x[:, args.xy[1]], c="C0", marker="o", markersize=5
+    )
 
 plt.show()
