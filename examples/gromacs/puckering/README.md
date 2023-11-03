@@ -140,9 +140,9 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 # Step 2: MD run
 Navigate to the `step2_md_run` folder and perform a production MD run. Remember to invoke `grompp` with the `-t` flag and give it the final state from the NPT simulation (see the NPT command for help).
 
-We can process our trajectory files for visualization purposes. The following commands create a file `md-traj.xyz` that you can animate in Avogadro using the "Animation tool". 
+We can process our trajectory files for visualization purposes. The following commands remove the solvent and create a file `md-traj.xyz` that you can animate in Avogadro using the "Animation tool". 
 ```bash
-# visualization
+# visualization without solvent
 printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md.tpr
 printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-traj.gro
 obabel -igro md-traj.gro -oxyz -O md-traj.xyz
@@ -212,7 +212,7 @@ While you wait, you can open another terminal and go on to the next step.
 
 Plot the $\theta$ and $\phi$ values of the reactive trajectory. Which conformation on the equator does the final state correspond to?
 
-Visualize the reactive trajectory using the command ... 
+We will now visualize the reactive trajectory to confirm this, but first, we need to fix the order of the frames in the trajectory. 
 
 When you approach a reasonable number of paths in your simulation you can start analysing the output. The following script calculates the rate, along with some other properties such as the crossing probability and error estimates. 
 
