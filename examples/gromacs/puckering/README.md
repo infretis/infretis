@@ -214,10 +214,11 @@ Plot the $\theta$ and $\phi$ values of the reactive trajectory. Which conformat
 
 Visualize the reactive trajectory using the command ... 
 
-The following script calculates the rate, along with some other properties such as the crossing probability and error estimates.
+When you approach a reasonable number of paths in your simulation you can start analysing the output. The following script calculates the rate, along with some other properties such as the crossing probability and error estimates. 
 
 ```bash
 python ../wham/Wham_Pcross.py -toml infretis.toml -data infretis_data.txt
 ```
+The running average of the rate is given in the `runav_rate.txt` file. The last line in this file is the estimated transition rate using all paths. The value in the fourth column gives the best estimate.
 
 
