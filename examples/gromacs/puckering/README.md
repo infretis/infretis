@@ -75,6 +75,7 @@ echo "All done! We will perform the exercise from this folder."
 
 ```
 
+You should now see `(molmod)` in the lower left of your terminal. Whenever you open a new terminal, write `mamba activate molmod` to activate the required Python packages.
 ## Questions
 * **4:** We will perform the exercise from the directory `~/infretis/examples/gromacs/puckering/`. Get an overview of the folder structure and all the files we will be using by navigating to that directory and running
 ```bash
