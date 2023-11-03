@@ -197,8 +197,8 @@ We will now do the following iteratively (similar to the procedure in GIF above)
 * Pick out some new initial paths for the next simulation from the previous simulation by using:
 
 ```bash
-# NOTE: Replace run0 by the name of the previous run
-python ../scripts/initial-path-from-iretis.py -traj run0 -toml infretis.toml # generates a new load/ folder
+# NOTE: Replace runx with the name of the most recent run folder (run0 if this is your first run) 
+python ../scripts/initial-path-from-iretis.py -traj runx -toml infretis.toml # generates a new load/ folder
 
 ```
 * Run a new ∞RETIS simulation
