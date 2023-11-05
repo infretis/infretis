@@ -266,7 +266,8 @@ Other files you may want to plot are the `Pcross.txt` for the crossing probabili
 
 ## Questions
 * **11:** What is/are the preferred transition structures of your molecule on the equator?
-* **12:** What is the interpretation of the inverse of the rate (1/rate)? (Hint: noitisnart rep emit ni era stinu ehT).
-* **13:** Inspect the last part of the `md.log` file from `step2_md_run` and write down the Performance in `ns/day`. This number says how many nanoseconds of simulation you generate in one day on your machine. From the value of the inverse rate, how many days would you have to wait to observe a single transition in a standard MD simulation?
+* **12:** What is the rate in units of $\text{ns}^{-1}$?
+* **13:** What is the interpretation of the inverse of the rate (1/rate)? (Hint: noitisnart rep emit ni era stinu ehT).
+* **14:** Inspect the last part of the `md.log` file from `step2_md_run` and write down the Performance in `ns/day`. This number says how many nanoseconds of simulation you generate in one day on your machine. From the value of the inverse rate, how many days would you have to wait to observe a single transition in a standard MD simulation?
 
 
