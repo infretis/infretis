@@ -109,7 +109,7 @@ Check that you indeed are in the chair conformation with the given indices by us
 ```bash
 python check-indices.py -sdf ../mol.sdf -idx 2 5 11 8 1 0
 ```
-but replace the indices with the ones you found. You should obtain a  $\theta$ value close to $0^{\circ}$. 
+but replace the indices with the ones you found. You should obtain a  $\theta$ value between $0-15^{\circ}$. 
 
 Finally, run the following commands:
 
