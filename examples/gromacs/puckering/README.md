@@ -221,6 +221,7 @@ python ../scripts/initial-path-from-iretis.py -traj runx -toml infretis.toml # g
 After observing a reactive path, we assume that we have a reasonable set of interfaces and initial paths. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This may take some time, depending on your hardware.
 
 # Step 4: Analysis
+The following analysis is performed iwthin the `step3_infretis` folder.
 ## The transition mechanism 
 We can say something about the mechanism of the complete $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition of your molecule if we assume that the barrier is symmetric from the equator to the south-pole (this might be a crude approximation for molecules with low symmetry such as sugars). The final configuration of your reactive paths would then be the transition state of the whole $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition.
 
