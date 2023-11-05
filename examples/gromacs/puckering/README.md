@@ -230,7 +230,7 @@ After observing a reactive path, we assume that we have a reasonable set of inte
 
 Plot the $\theta$ and $\phi$ values of the trajectories using the `-xy 2 1` option in `plot-order.py`. Looking at the reactive trajectories, which of the end state(s) on the equator does your system prefer?
 
-If you want, you can confirm this by visualizing some of the reactive trajectories. The following command removes the solvent, centers your molecule, and reorders the frames output from ∞RETIS
+If you want, you can confirm this by visualizing some of the reactive trajectories. The following command removes the solvent, centers your molecule, and reorders the trajectories output from ∞RETIS:
 
 ```bash
 # replace 'nr' with the path number of some trajectory you want to visualize
