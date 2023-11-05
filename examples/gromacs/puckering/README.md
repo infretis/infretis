@@ -235,7 +235,7 @@ If you want, you can confirm this by visualizing some of the reactive trajectori
 ```bash
 # replace 'nr' with the path number of some trajectory you want to visualize
 nr=46
-python ../scripts/concatenate.py -path load/${nr}/ -tpr ../gromacs_input/topol.tpr -out path${nr}.xyz
+python ../scripts/concatenate.py -path load/${nr} -tpr ../gromacs_input/topol.tpr -out path${nr}.xyz
 ```
 
 When you approach a reasonable number of paths in your simulation you can start analysing the output. The following script calculates the rate, along with some other properties such as the crossing probability and error estimates. 
