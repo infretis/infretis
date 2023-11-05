@@ -122,7 +122,7 @@ cd ..
 ```
 ## Questions
 * **5:** What are the ordered ring atom indices for your system? Why do we care about these indices? 
-* **6:** What do you think the commands above do?
+* **6:** What do you think the commands in the last command block above do?
 
 # Step 1: Equilibration
 Navigate to the `step1_equilibration` folder and get an overview of the directory structure. Perform an energy minimization and an NVT and NPT equilibration. Here are some commands to speed up the process. 
