@@ -141,7 +141,7 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 
 ```
 ## Questions
-* **7:** Has the temperature and density reached the expected values during the NPT equilibration? (Hint: Your system is mostly water)
+* **7:** Has the temperature and density reached the expected values during the NPT equilibration? (Hint: retaw yltsom si metsys ruoY. Hint2: The letters of the previous hint are reversed to avoid spoilers.)
 
 # Step 2: MD run
 Navigate to the `step2_md_run` folder and perform a production MD run. Remember to invoke `grompp` with the `-t` flag and give it the final state from the NPT simulation (see the command from the NPT simulation for help).
@@ -247,9 +247,15 @@ When you approach a reasonable number of paths in your simulation you can start 
 ```bash
 python ../wham/Wham_Pcross.py -toml infretis.toml -data infretis_data.txt
 ```
-The running average of the rate is written to the `runav_rate.txt` file, with the value in the fourth column giving the best estimate for the rate. The last line/point in this file is the estimated transition rate using all paths. To get this into units of $\text{ps}^{-1}$, divide the rate by $c=(\text{subcycles}\cdot\Delta t)$
+The running average of the rate is written to the `runav_rate.txt` file, with the value in the fourth column giving the best estimate for the rate. The last line/point in this file is the estimated transition rate using all paths. To get this into units of $\text{ps}^{-1}$, divide the rate by $c$ where $$c=\text{subcycles}\cdot \text{timetep}$$.
+
+which is found in the `infretis.toml` file.
 
 Other files you may want to inspect are the `Pcross.txt` for the crossing probability as a function of $\theta$, the `runav_flux` and `runav_Pcross.txt` for the running average of the flux and the crossing probability, and the `err*.txt` files for estimates of the relative error in the corresponding properties.
 
+## Questions
+* **11:** What is/are the preferred transition structures of your molecule on the equator?
+* **12:** What is the interpretation of the inverse of the rate (1/rate)? (Hint: emit tinu rep noitisnart fo rebmun era stinu ehT).
+* **13:** Inspect the last part of the `md.log` file from `step2_md_run` and write down the Performance in `ns/day`. This number says how many nanoseconds of simulation you generate in one day on your machine. From the value of the inverse rate, how many days would you have to wait to observe a single transition in a standard MD simulation?
 
 
