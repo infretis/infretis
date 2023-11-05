@@ -243,6 +243,6 @@ When you approach a reasonable number of paths in your simulation you can start 
 ```bash
 python ../wham/Wham_Pcross.py -toml infretis.toml -data infretis_data.txt
 ```
-The running average of the rate is given in the `runav_rate.txt` file. The last line in this file is the estimated transition rate using all paths. The value in the fourth column gives the best estimate.
+The running average of the rate is given in the `runav_rate.txt` file, with the value in the fourth column giving the best estimate for the rate. The last line/point in this file is the estimated transition rate using all paths.
 
 
