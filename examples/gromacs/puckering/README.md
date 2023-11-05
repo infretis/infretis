@@ -10,7 +10,7 @@ See previous exercises. Something something rare events, path sampling simulatio
 The main goal of this exercise is to give you hands-on experience in performing a path simulation of a realistic system. A side quest is that you should be able to define your own molecular systems and learn how to generate the necessary force field files. During exercises 1 and 4 you learned to use Avogadro and GROMACS, and this will come in handy during this exercise.
 
 # The system
-We will study the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) (often referred to as puckering) of some 6-ring-based molecule of your choosing in an explicit solvent environment.
+We will study the [ring flip](https://en.wikipedia.org/wiki/Ring_flip), which is often referred to as puckering. The system is composed of some 6-ring-based molecule of your choosing immersed in an explicit solvent environment.
 
 <img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="30%" height="30%">
 
@@ -79,7 +79,7 @@ ls *
 
 # Step 0: System definition and topology generation
 
-Draw your favorite 6-ringed molecule in Avogadro in the $^4\text{C}_1$ conformation. Be sure to complete the valence of each atom. You can also add substituents to the ring, and if you feel daring, you can use a sugar. 
+Draw your favorite 6-ringed molecule in Avogadro in the $^4\text{C}_1$ conformation. Be sure to complete the valence of each atom. You can also add substituents to the ring, and if you feel daring, you can use a sugar.
 
 The order parameter we will be using depends on the ring atoms, and we therefore need to identify the ring-atom indices. The atom indices can be accessed by checking the "Labels" box and then clicking "Atom Labels: Indices", as shown below:
 
