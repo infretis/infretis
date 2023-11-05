@@ -16,7 +16,7 @@ See previous exercises. Something something rare events, path sampling simulatio
 The main goal of this exercise is to give you hands-on experience in performing a path simulation of a realistic system. A side quest is that you should be able to define your own molecular systems and learn how to generate the necessary force field files. During exercises 1 and 4 you learned to use Avogadro and GROMACS, and this will come in handy during this exercise.
 
 # The system
-We will study the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) (often referred to as puckering) in some 6-ring-based system of your choosing.
+We will study the [ring flip](https://en.wikipedia.org/wiki/Ring_flip) (often referred to as puckering) of some 6-ring-based molecule of your choosing.
 
 <img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="30%" height="30%">
 
