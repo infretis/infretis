@@ -224,7 +224,7 @@ python ../scripts/initial-path-from-iretis.py -traj runx -toml infretis.toml # g
 * Run a new ∞RETIS simulation
 * Go to the first step above and start over until you observe a reactive path (one that crosses $\theta=90^{\circ}$.
 
-After observing a reactive path, we assume that we have a reasonable set of interfaces and initial paths. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This will take some time (30-60 mins). 
+After observing a reactive path, we assume that we have a reasonable set of interfaces and initial paths. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This may take some time, depending on your hardware.
 
 While you wait, you can open another terminal and go on to the next step.
 
@@ -232,7 +232,7 @@ While you wait, you can open another terminal and go on to the next step.
 
 Plot the $\theta$ and $\phi$ values of the trajectories using the `-xy 2 1` option in `plot-order.py`. Looking at the reactive trajectories, which of the end state(s) on the equator does your system prefer?
 
-If you want, you can confirm this by visualizing some of the reactive trajectories. 
+If you want, you can confirm this by visualizing some of the reactive trajectories.
 
 When you approach a reasonable number of paths in your simulation you can start analysing the output. The following script calculates the rate, along with some other properties such as the crossing probability and error estimates. 
 
