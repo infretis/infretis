@@ -247,7 +247,9 @@ When you approach a reasonable number of paths in your simulation you can start 
 ```bash
 python ../wham/Wham_Pcross.py -toml infretis.toml -data infretis_data.txt
 ```
-The running average of the rate is written to the `runav_rate.txt` file, with the value in the fourth column giving the best estimate for the rate. The last line/point in this file is the estimated transition rate using all paths. Other files you may want to inspect are the `Pcross.txt` for the crossing probability as a function of $\theta$, the `runav_flux` and `runav_Pcross.txt` for the running average of the flux and the crossing probability, and the `err*.txt` files for estimates of the relative error in the corresponding properties.
+The running average of the rate is written to the `runav_rate.txt` file, with the value in the fourth column giving the best estimate for the rate. The last line/point in this file is the estimated transition rate using all paths. To get this into units of $\text{ps}^{-1}$, divide the rate by $c=(\text{subcycles}\cdot\Delta t)$
+
+Other files you may want to inspect are the `Pcross.txt` for the crossing probability as a function of $\theta$, the `runav_flux` and `runav_Pcross.txt` for the running average of the flux and the crossing probability, and the `err*.txt` files for estimates of the relative error in the corresponding properties.
 
 
 
