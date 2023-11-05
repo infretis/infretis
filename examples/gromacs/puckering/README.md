@@ -251,8 +251,9 @@ The running average of the rate is written to the `runav_rate.txt` file, with th
 You can plot it in `gnuplot`
 
 ```bash
+gnuplot
 set logscale y
-plot for [i=2:4] 'runav_rate.txt' using 1:i with linespoints title 'col '.i
+plot 'runav_rate.txt' using 1:4 with linespoints title 'rate'
 ```
 
 The last line/point in this file is the estimated transition rate using all paths. To get this into units of $\text{ps}^{-1}$, divide the rate by $c$ where 
