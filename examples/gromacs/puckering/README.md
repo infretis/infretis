@@ -144,15 +144,7 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 * **7:** Has the temperature and density reached the expected values during the NPT equilibration? (Hint: Your system is mostly water)
 
 # Step 2: MD run
-Navigate to the `step2_md_run` folder and perform a production MD run. Remember to invoke `grompp` with the `-t` flag and give it the final state from the NPT simulation (see the NPT command for help).
-
-We can process our trajectory files for visualization purposes. The following commands remove the solvent and create a file `md-traj.xyz` that you can animate in Avogadro using the "Animation tool". 
-```bash
-# visualization without solvent
-printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md.tpr
-printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-traj.gro
-obabel -igro md-traj.gro -oxyz -O md-traj.xyz
-```
+Navigate to the `step2_md_run` folder and perform a production MD run. Remember to invoke `grompp` with the `-t` flag and give it the final state from the NPT simulation (see the command from the NPT simulation for help).
 
 As you may have guessed by now, a good order parameter for the transition we want to study is the $\theta$ angle. To calculate the angle during the MD run, open `infretis.toml` and replace the indices with the ones you wrote down earlier. You can then recalculate the orderparameter using:
 
@@ -161,6 +153,23 @@ python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-o
 
 ```
 Plot the $\theta$ values (column 1) vs time (column 0) from the MD run. 
+
+
+
+If you want, you can also visualize the trajectories, which in many cases can be very insightful. The following commands remove the solvent molecules and create a file `md-traj.xyz` that you can animate in Avogadro using the "Animation tool".
+
+```bash
+# visualization without solvent
+printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md.tpr
+printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-traj.gro
+obabel -igro md-traj.gro -oxyz -O md-traj.xyz
+```
+If you don't already have Avogadro, you can download it using
+```bash
+wget https://github.com/OpenChemistry/avogadrolibs/releases/download/1.98.1/Avogadro2-x86_64.AppImage -P ~
+chmod +x ~/Avogadro2-x86_64.AppImage
+~/Avogadro2-x86_64.AppImage
+```
 
 ## Questions
 * **8:** Do you see any interesting conformational changes when visualizing the trajectory?
