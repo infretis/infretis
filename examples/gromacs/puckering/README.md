@@ -262,7 +262,7 @@ $$c=\text{subcycles}\cdot \text{timetep}$$
 
 which is found in the `infretis.toml` file.
 
-Other files you may want to inspect are the `Pcross.txt` for the crossing probability as a function of $\theta$, the `runav_flux` and `runav_Pcross.txt` for the running average of the flux and the crossing probability, and the `err*.txt` files for estimates of the relative error in the corresponding properties.
+Other files you may want to inspect are the `Pcross.txt` for the crossing probability as a function of $\theta$, the `runav_flux` and `runav_Pcross.txt` for the running average of the flux and the crossing probability, and the `errRATE.txt`, `errFLUX.txt`, and `errPtot.txt` files for estimates of the relative error in the corresponding properties.
 
 ## Questions
 * **11:** What is/are the preferred transition structures of your molecule on the equator?
