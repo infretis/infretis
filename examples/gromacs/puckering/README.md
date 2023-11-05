@@ -85,7 +85,7 @@ ls *
 
 # Step 0: System definition and topology generation
 
-Draw your favorite 6-ringed molecule in Avogadro in an $^4\text{C}_1$ conformation. Be sure to complete the valence of each atom. You can also add substituents to the ring, and if you feel daring, you can use a sugar. 
+Draw your favorite 6-ringed molecule in Avogadro in the $^4\text{C}_1$ conformation. Be sure to complete the valence of each atom. You can also add substituents to the ring, and if you feel daring, you can use a sugar. 
 
 The order parameter we will be using depends on the ring atoms, and we therefore need to identify the ring-atom indices. The atom indices can be accessed by checking the "Labels" box and then clicking "Atom Labels: Indices", as shown below:
 
