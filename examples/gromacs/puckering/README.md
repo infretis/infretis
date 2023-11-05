@@ -227,10 +227,12 @@ python ../scripts/initial-path-from-iretis.py -traj runx -toml infretis.toml # g
 After observing a reactive path, we assume that we have a reasonable set of interfaces and initial paths. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This may take some time, depending on your hardware.
 
 # Step 4: Analysis
+## The transition mechanism 
+We can say something about the mechanism of the complete $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition of your molecule if we assume that the barrier is symmetric from the equator to the south-pole (this might be a crude approximation for molecules with low symmetry such as sugars).
 
 Plot the $\theta$ and $\phi$ values of the trajectories using the `-xy 2 1` option in `plot-order.py`. Looking at the reactive trajectories, which of the end state(s) on the equator does your system prefer?
 
-If you want, you can confirm this by visualizing some of the reactive trajectories. The following command removes the solvent, centers your molecule, and reorders the trajectories output from ∞RETIS:
+You can confirm this by visualizing some of the reactive trajectories. The following command removes the solvent, centers your molecule, and reorders the trajectories output from ∞RETIS:
 
 ```bash
 # replace 'nr' with the path number of some trajectory you want to visualize
@@ -238,11 +240,14 @@ nr=46
 python ../scripts/concatenate.py -path load/${nr} -tpr ../gromacs_input/topol.tpr -out path${nr}.xyz
 ```
 
-When you approach a reasonable number of paths in your simulation you can start analysing the output. The following script calculates the rate, along with some other properties such as the crossing probability and error estimates. 
+## The transition rate
+
+When you approach a reasonable number of paths in your simulation you can start analyzing the output. The following script calculates the rate, along with some other properties such as the crossing probability and error estimates. 
 
 ```bash
 python ../wham/Wham_Pcross.py -toml infretis.toml -data infretis_data.txt
 ```
-The running average of the rate is given in the `runav_rate.txt` file, with the value in the fourth column giving the best estimate for the rate. The last line/point in this file is the estimated transition rate using all paths.
+The running average of the rate is written to the `runav_rate.txt` file, with the value in the fourth column giving the best estimate for the rate. The last line/point in this file is the estimated transition rate using all paths. Other files you may want to inspect are the `Pcross.txt` for the crossing probability as a function of $\theta$, the `runav_flux` and `runav_Pcross.txt` for the running average of the flux and the crossing probability, and the `err*.txt` files for estimates of the relative error in the corresponding properties.
+
 
 
