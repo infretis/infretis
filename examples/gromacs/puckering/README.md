@@ -1,11 +1,5 @@
 ## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
 TO DO
-* Remove the `cd` in commands, else its just copy-paste all the way
-* step4 analysis/error analysis/mechanism
-  * Trajectory visualization
-  * plot 2d order parameter space
-  * question about preferred mechanism from 2d order parameter plot
-  * Visualize reactive trajectories?
 * Update goals
 * Fix motivation
   
