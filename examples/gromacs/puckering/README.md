@@ -164,7 +164,7 @@ printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md
 printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-traj.gro
 obabel -igro md-traj.gro -oxyz -O md-traj.xyz
 ```
-If you don't already have Avogadro, you can download it using
+If you don't already have Avogadro, you can download it for Linux using
 ```bash
 wget https://github.com/OpenChemistry/avogadrolibs/releases/download/1.98.1/Avogadro2-x86_64.AppImage -P ~
 chmod +x ~/Avogadro2-x86_64.AppImage
