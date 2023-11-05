@@ -222,7 +222,7 @@ After observing a reactive path, we assume that we have a reasonable set of inte
 
 # Step 4: Analysis
 ## The transition mechanism 
-We can say something about the mechanism of the complete $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition of your molecule if we assume that the barrier is symmetric from the equator to the south-pole (this might be a crude approximation for molecules with low symmetry such as sugars).
+We can say something about the mechanism of the complete $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition of your molecule if we assume that the barrier is symmetric from the equator to the south-pole (this might be a crude approximation for molecules with low symmetry such as sugars). The final configuration of your reactive paths would then be the transition state of the whole $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition.
 
 Plot the $\theta$ and $\phi$ values of the trajectories using the `-xy 2 1` option in `plot-order.py`. Looking at the reactive trajectories, which of the end state(s) on the equator does your system prefer?
 
