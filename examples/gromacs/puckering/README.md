@@ -225,9 +225,9 @@ While you wait, you can open another terminal and go on to the next step.
 
 # Step 4: Analysis
 
-Plot the $\theta$ and $\phi$ values of the reactive trajectory. Which conformation on the equator does the final state correspond to?
+Plot the $\theta$ and $\phi$ values of the trajectories using the `-xy 1 2` option in `plot-order.py`. Looking at the reactive trajectories, which of the end state(s) on the equator does your system prefer?
 
-We will now visualize the reactive trajectory to confirm this, but first, we need to fix the order of the frames in the trajectory. 
+If you want, you can confirm this by visualizing some of the reactive trajectories. 
 
 When you approach a reasonable number of paths in your simulation you can start analysing the output. The following script calculates the rate, along with some other properties such as the crossing probability and error estimates. 
 
