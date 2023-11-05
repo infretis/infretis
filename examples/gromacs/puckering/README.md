@@ -140,7 +140,7 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 # Step 2: MD run
 Navigate to the `step2_md_run` folder and perform a production MD run. Remember to invoke `grompp` with the `-t` flag and give it the final state from the NPT simulation (see the command from the NPT simulation for help).
 
-As you may have guessed by now, a good order parameter for the transition we want to study is the $\theta$ angle. To calculate the angle during the MD run, open `infretis.toml` and replace the indices with the ones you wrote down earlier. You can then recalculate the orderparameter using:
+As you may have guessed by now, a good order parameter for the transition we want to study is the $\theta$ angle. To calculate the angle during the MD run, open `infretis.toml` and replace the indices with the ones you wrote down earlier. You can then recalculate the order parameter using:
 
 ```bash
 python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-order.txt
@@ -175,7 +175,7 @@ In this section, we will finally perform the path simulation. However, before we
 
 We can cut out some paths for the lowest ensembles from the MD simulation, as these didn't reach high order parameter values. However, for an efficient simulation, we need to position interfaces far up the energy barrier, but these would be tedious to generate from plain MD simulations.
 
-We can solve this problem in an iterative fashion by performing a couple of short ∞RETIS simulations. We start with the low-lying paths from the MD simulation and use these to start a short ∞RETIS simulation with low-lying interfaces. It is likely that we observe paths with higher order parameter values during this simulation. We can then use these paths as starting points in a second simulation with slightly higher interfaces. Continuing in this fashion effectively pushes the system up the energy barrier.
+We can iteratively solve this problem by performing a couple of short ∞RETIS simulations. We start with the low-lying paths from the MD simulation and use these to start a short ∞RETIS simulation with low-lying interfaces. We likely observe paths with higher order parameter values during this simulation. We can then use these paths as starting points in a second simulation with slightly higher interfaces. Continuing in this fashion effectively pushes the system up the energy barrier.
 
 <img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/initial-paths.gif" width="45%" height="45%">
 
@@ -218,10 +218,10 @@ python ../scripts/initial-path-from-iretis.py -traj runx -toml infretis.toml # g
 * Run a new ∞RETIS simulation
 * Go to the first step above and start over until you observe a reactive path (one that crosses $\theta=90^{\circ}$.
 
-After observing a reactive path, we assume that we have a reasonable set of interfaces and initial paths. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This may take some time, depending on your hardware.
+After observing a reactive path, we assume we have a reasonable set of interfaces and initial paths. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This may take some time, depending on your hardware.
 
 # Step 4: Analysis
-The following analysis is performed iwthin the `step3_infretis` folder.
+The following analysis is performed within the `step3_infretis` folder.
 ## The transition mechanism 
 We can say something about the mechanism of the complete $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition of your molecule if we assume that the barrier is symmetric from the equator to the south-pole (this might be a crude approximation for molecules with low symmetry such as sugars). The final configuration of your reactive paths would then be the transition state of the whole $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition.
 
