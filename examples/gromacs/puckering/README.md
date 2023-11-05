@@ -194,9 +194,14 @@ We can cut out some paths with low order parameter values from the MD simulation
 python ../scripts/initial-path-from-md.py -trr ../step2_md_run/md.trr -toml infretis.toml -order ../step2_md_run/md-order.txt
 
 ```
-You should now have created a `load` folder containing the paths and order parameter values for the two ensembles $[0^-]$ and $[0^+]$. Plot the order parameters for these two paths. You can use the `plot-order.py` script in the `scripts` folder for this purpose. Run it as `python ../scripts/plot-order.py -h` for help on usage.
+You should now have created a `load` folder containing the paths and order parameter values for the two ensembles $[0^-]$ and $[0^+]$. Plot the order parameters for these two paths. The script `plot-order.py` does this for you, and we will use it repeatedly in the following steps.
 
-If everything is in order, you should be able to run your first ∞RETIS simulation using:
+```bash
+python ../scripts/plot-order.py -toml infretis.toml -traj load/
+
+```
+
+Now, if everything is in order, you should be able to run your first ∞RETIS simulation using:
 ```bash
 infretisrun -i infretis.toml
 
@@ -204,7 +209,7 @@ infretisrun -i infretis.toml
 
 We will now do the following iteratively (similar to the procedure in GIF above):
 
-* Plot the order parameter of all accepted paths (use the `plot-order.py` script on the `load/` folder). 
+* Plot the order parameter of all accepted paths (use the `plot-order.py` script on the `load/` folder). Do you see a reactive path?
 * In this plot, identify the maximum order parameter of the highest path. The position of the next interface should be slightly below this value (e.g. $0.5^{\circ}$ below this maximum)
 * Add this value to your list of interfaces in `infretis.toml` such that the values are sorted (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces).
 * Increase the number of `steps` in `infretis.toml` by 10.
@@ -217,7 +222,7 @@ python ../scripts/initial-path-from-iretis.py -traj runx -toml infretis.toml # g
 
 ```
 * Run a new ∞RETIS simulation
-* Go to the first step above and start over.
+* Go to the first step above and start over until you observe a reactive path (one that crosses $\theta=90^{\circ}$.
 
 After observing a reactive path, we assume that we have a reasonable set of interfaces and initial paths. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This will take some time (30-60 mins). 
 
@@ -225,7 +230,7 @@ While you wait, you can open another terminal and go on to the next step.
 
 # Step 4: Analysis
 
-Plot the $\theta$ and $\phi$ values of the trajectories using the `-xy 1 2` option in `plot-order.py`. Looking at the reactive trajectories, which of the end state(s) on the equator does your system prefer?
+Plot the $\theta$ and $\phi$ values of the trajectories using the `-xy 2 1` option in `plot-order.py`. Looking at the reactive trajectories, which of the end state(s) on the equator does your system prefer?
 
 If you want, you can confirm this by visualizing some of the reactive trajectories. 
 
