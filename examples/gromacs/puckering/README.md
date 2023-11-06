@@ -1,7 +1,4 @@
-## This is a work-in-progress exercise/ tutorial for a molecular modeling class.
-TO DO
-* Update goals
-* Fix motivation
+# The Ring Flip Enigma: Unveiling Molecular Secrets with Path Sampling
   
 # Motivation
 See previous exercises. Something something rare events, path sampling simulations, ∞RETIS software, ...,
@@ -70,8 +67,8 @@ echo "All done! We will perform the exercise from this folder."
 ```
 
 You should now see `(molmod)` in the lower left of your terminal. Whenever you open a new terminal, write `mamba activate molmod` to activate the required Python packages.
-## Questions
-* **4:** We will perform the exercise from the directory `~/infretis/examples/gromacs/puckering/`. Get an overview of the folder structure and all the files we will be using by navigating to that directory and running
+
+We will perform the exercise from the directory `~/infretis/examples/gromacs/puckering/`. Get an overview of the folder structure and all the files we will be using by navigating to that directory and running
 ```bash
 ls *
 
@@ -115,8 +112,8 @@ cd ..
 
 ```
 ## Questions
-* **5:** What are the ordered ring atom indices for your system? Why do we care about these indices? 
-* **6:** What do you think the commands in the last command block above do?
+* **4:** What are the ordered ring atom indices for your system? Why do we care about these indices? 
+* **5:** What do you think the commands in the last command block above do?
 
 # Step 1: Equilibration
 Navigate to the `step1_equilibration` folder and get an overview of the directory structure. Perform an energy minimization and an NVT and NPT equilibration. Here are some commands to speed up the process. 
@@ -135,7 +132,7 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
 
 ```
 ## Questions
-* **7:** Has the temperature and density reached the expected values during the NPT equilibration? (Hint: retaw yltsom si metsys ruoY. Hint2: The letters of the previous hint are reversed to avoid spoilers.)
+* **6:** Has the temperature and density reached the expected values during the NPT equilibration? (Hint: retaw yltsom si metsys ruoY. Hint2: The letters of the previous hint are reversed to avoid spoilers.)
 
 # Step 2: MD run
 Navigate to the `step2_md_run` folder and perform a production MD run. Remember to invoke `grompp` with the `-t` flag and give it the final state from the NPT simulation (see the command from the NPT simulation for help).
@@ -166,9 +163,9 @@ chmod +x ~/Avogadro2-x86_64.AppImage
 ```
 
 ## Questions
-* **8:** Do you see any interesting conformational changes when visualizing the trajectory?
-* **9:** What is the maximum order parameter value observed during the MD run?
-* **10:** Given that the product state of your molecule is defined by $\theta=90^{\circ}$, are you optimistic that you could observe a spontaneous transition during a plain MD simulation?
+* **7:** Do you see any interesting conformational changes when visualizing the trajectory?
+* **8:** What is the maximum order parameter value observed during the MD run?
+* **9:** Given that the product state of your molecule is defined by $\theta=90^{\circ}$, are you optimistic that you could observe a spontaneous transition during a plain MD simulation?
 
 # Step 3: ∞RETIS
 In this section, we will finally perform the path simulation. However, before we can do that, we need to provide the ∞RETIS program with a set of interfaces and an initial path in each of the path ensembles defined by the interfaces. 
@@ -260,9 +257,9 @@ which is found in the `infretis.toml` file.
 Other files you may want to plot are the `Pcross.txt` for the crossing probability as a function of $\theta$, the `runav_flux` and `runav_Pcross.txt` for the running average of the flux and the crossing probability, and the `errRATE.txt`, `errFLUX.txt`, and `errPtot.txt` files for estimates of the relative error in the corresponding properties.
 
 ## Questions
-* **11:** What is/are the preferred transition structures of your molecule on the equator?
-* **12:** What is the rate in units of $\text{ns}^{-1}$?
-* **13:** What is the interpretation of the inverse of the rate (1/rate)? (Hint: noitisnart rep emit ni era stinu ehT).
-* **14:** Inspect the last part of the `md.log` file from `step2_md_run` and write down the Performance in ns/day. This number says how many nanoseconds of simulation you generate in one day on your machine. From the value of the inverse rate, how many days would you have to wait to observe a single transition in a standard MD simulation?
+* **10:** What is/are the preferred transition structures of your molecule on the equator?
+* **11:** What is the rate in units of $\text{ns}^{-1}$?
+* **12:** What is the interpretation of the inverse of the rate (1/rate)? (Hint: noitisnart rep emit ni era stinu ehT).
+* **13:** Inspect the last part of the `md.log` file from `step2_md_run` and write down the Performance in ns/day. This number says how many nanoseconds of simulation you generate in one day on your machine. From the value of the inverse rate, how many days would you have to wait to observe a single transition in a standard MD simulation?
 
 
