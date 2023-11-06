@@ -65,7 +65,7 @@ for path in sorted_paths:
         print()
         print(
             f"The path in {path} is reactive with \
-phi={x[-1,1]:.2f}! \U0001F389 \U0001F938 \U0001F483"
+phi={x[-1,2]:.2f}! \U0001F389 \U0001F938 \U0001F483"
         )
     #    continue # continues to next iteration in loop
     a.plot(
