@@ -1,9 +1,9 @@
 ; Run parameters
 integrator		= md-vv		; velocity-verlet integrator
-nsteps			= 100000
+nsteps			= 500000
 dt			= 0.002		; 2 fs
-nstxout			= 200
-nstvout			= 200
+nstxout			= 500
+nstvout			= 500
 nstfout			= 0
 
 ; Bond parameters
