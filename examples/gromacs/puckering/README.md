@@ -224,7 +224,7 @@ python ../scripts/initial-path-from-iretis.py -traj runx -toml infretis.toml # g
 * Run a new ∞RETIS simulation
 * Go to the first step above and start over until you observe a reactive path (one that crosses $\theta=90^{\circ}$.
 
-After observing a reactive path, we assume we have a reasonable set of interfaces and initial paths. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to 1000. Fire off the simulation by invoking `infretis` with the `restart.toml` file. This may take some time, depending on your hardware.
+After observing a reactive path, we assume we have a reasonable set of interfaces and initial paths. Open the `restart.toml` file and change the number of `workers` to 4 and the number of `steps` to around 1000 to 3000. The following step may take some time (10-30 mins), depending on your hardware. Fire off the simulation by invoking `infretis` with the `restart.toml` file.
 
 # Step 4: Analysis
 The following analysis is performed within the `step3_infretis` folder.
