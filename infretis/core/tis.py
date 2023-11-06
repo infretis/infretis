@@ -6,10 +6,21 @@ import tomli_w
 
 import numpy as np
 
-from infretis.classes.path import paste_paths
+from infretis.classes.path import paste_paths, load_path
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
+
+
+def output_toml(dic_pat, dic, line):
+    dic["inst"].append(line)
+    with open(dic_pat, mode="wb") as read:
+        tomli_w.dump(dic, read)
+
+def load_toml(dic_pat):
+    with open(dic_pat, mode="rb") as read:
+        stoml = tomli.load(read)
+    return stoml
 
 
 def log_mdlogs(inp):
@@ -30,7 +41,12 @@ def run_md(md_items):
 
     # perform the hw move:
     picked = md_items["picked"]
-    accept, trials, status = select_shoot(picked, md_items["pin"])
+    extra = {
+        "pin": md_items["pin"],
+        "dic_dir": f"./worker{md_items['pin']}/instructions.toml",
+    }
+    # print('plum', picked)
+    accept, trials, status = select_shoot(picked, extra)
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -48,7 +64,9 @@ def run_md(md_items):
                 cap=md_items["cap"],
                 minus=minus,
             )
+            ####
             picked[ens_num]["traj"] = trial
+        # picked[ens_num]["traj"] = trial
 
     md_items.update({"status": status, "wmd_end": time.time()})
 
@@ -190,7 +208,7 @@ def wirefence_weight_and_pick(
     return n_frames, segment
 
 
-def select_shoot(picked, pin, start_cond=("L",)):
+def select_shoot(picked, extra, start_cond=("L",)):
     """Select the shooting move to generate a new path.
 
     The new path will be generated from the input path, either by
@@ -250,44 +268,75 @@ def select_shoot(picked, pin, start_cond=("L",)):
 
     if len(picked) == 1:
         pens = next(iter(picked.values()))
-        ens_set, path, engine = (pens[i] for i in ["ens", "traj", "engine"])
+        # ens_set, path00, engine = (pens[i] for i in ["ens", "traj", "engine"])
+        ens_set, engine = (pens[i] for i in ["ens", "engine"])
         move = ens_set["mc_move"]
+        #### redundant code wrt sending in start_cond
+        ens_set["pin"] = extra["pin"]
+        ens_set["dic_dir"] = extra["dic_dir"]
+        ens_set["stoml"] = load_toml(extra["dic_dir"])
+        output_toml(ens_set["dic_dir"], ens_set["stoml"], f'# START {move}')
+        startt = time.time()
+        path = load_path(f"./load/{ens_set['stoml']['header']['path_num']}")
+        path.path_number = ens_set['stoml']['header']['path_num']
+        path.weights = ens_set['stoml']['header']['path_wei']
+        print('ink a', path.weights)
+        # print('ink b', path00.weights)
+        # print('ink c', all(i == j for i, j in zip(path.weights, path00.weights)))
         logger.info(
             f"starting {move} in {ens_set['ens_name']}"
             + f" with path_n {path.path_number}"
         )
-        # redundant code wrt sending in start_cond
-        start_cond = ens_set["start_cond"]
-        ens_set["pin"] = pin
         accept, new_path, status = sh_moves[move](
-            ens_set, path, engine, start_cond=start_cond
+            ens_set, path, engine,
         )
+        output_toml(ens_set["dic_dir"], ens_set["stoml"], f'# END {move} {accept}')
         new_paths = [new_path]
     else:
+        picked["stoml"] = load_toml(extra["dic_dir"])
         accept, new_paths, status = retis_swap_zero(picked)
 
     logger.info(f"Move was {accept} with status {status}\n")
     return accept, new_paths, status
 
 
-def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
-    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="rb") as read:
-        stoml =  tomli.load(read)
-    stoml["inst"].append('# START SH')
-    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="wb") as read:
-        tomli_w.dump(stoml, read)
+def shoot(ens_set, path, engine, shooting_point=None):
+
+    ## restart philosophy by d.t.z
+    # 1. load path
+    # 2. read instructions, restart or not
+    # 3. start backwards
+    # 3. start forwards
+
+    # check if restart 
+    # print('prom', ens_set["stoml"])
+    if ens_set["stoml"]["header"]["mc_move"] == "sh":
+        inst_lines = len(ens_set["stoml"]['inst'])
+        restart = True if inst_lines > 6 else False
+    else:
+        # for now..
+        restart = False
+
+    start_cond = ens_set["start_cond"]
+    stoml = ens_set["stoml"]
     interfaces = ens_set["interfaces"]
     trial_path = path.empty_path()  # The trial path we will generate.
-    if shooting_point is None:
-        shooting_point, idx, dek = prepare_shooting_point(
-            path, ens_set["rgen"], engine
-        )
-        kick = check_kick(
-            shooting_point, interfaces, trial_path, ens_set["rgen"], dek
-        )
+
+    if not restart:
+        if shooting_point is None:
+            shooting_point, idx, dek = prepare_shooting_point(
+                path, ens_set["rgen"], engine
+            )
+            kick = check_kick(
+                shooting_point, interfaces, trial_path, ens_set["rgen"], dek
+            )
+        else:
+            kick = True
+            idx = getattr(shooting_point, "idx", 0)
     else:
-        kick = True
-        idx = getattr(shooting_point, "idx", 0)
+        # do one rgen roll to compensate
+        engine.rgen.random()
+
 
     # Store info about this point, just in case we have to return
     # before completing a full new path:
@@ -314,11 +363,17 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
     # todo this inputs are a mess
     # Set ensemble state to the selected shooting point:
     # ensemble['system'] = shooting_point.copy()
-    shpt_copy = shooting_point.copy()
-    if not shoot_backwards(
-        path_back, trial_path, shpt_copy, ens_set, engine, start_cond
-    ):
-        return False, trial_path, trial_path.status
+    output_toml(ens_set["dic_dir"], ens_set["stoml"], f'# START sh BACKWARDS')
+    if not restart:
+        shpt_copy = shooting_point.copy()
+        if not shoot_backwards(
+            path_back, trial_path, shpt_copy, ens_set, engine, start_cond
+        ):
+            return False, trial_path, trial_path.status
+    elif inst_lines == 7:
+        path_back = restart_md(some, variables)
+    output_toml(ens_set["dic_dir"], ens_set["stoml"], f'# END sh BACKWARDS')
+
 
     # Everything seems fine, now propagate forward.
     # Note that the length of the forward path is adjusted to
@@ -332,11 +387,13 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
     # Set ensemble state to the selected shooting point:
     # change the system state.
     # ensemble['system'] = shooting_point.copy()
+    output_toml(ens_set["dic_dir"], ens_set["stoml"], f'# START sh FORWARDS')
     shpt_copy = shooting_point.copy()
     success_forw, _ = engine.propagate(
         path_forw, ens_set, shpt_copy, reverse=False
     )
     path_forw.time_origin = trial_path.time_origin
+    output_toml(ens_set["dic_dir"], ens_set["stoml"], f'# END sh FORWARDS')
     # Now, the forward propagation could have failed by exceeding the
     # maximum length for the forward path. However, it could also fail
     # when we paste together so that the length is larger than the
@@ -381,7 +438,9 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
 
     # Last check - Did we cross the middle interface?
     # Don't do this for paths that can start everywhere
-    start_cond = ens_set.get("start_cond", start_cond)
+    ##### NB, for wf start_cond and ens_set["start_cond"] are different
+    ##### but i just set them equal for SR -> temp fixed
+    start_cond = ens_set.get("start_cond0", start_cond)
     if set(("R", "L")) == set(start_cond):
         pass
     elif not trial_path.check_interfaces(interfaces)[-1][1]:
@@ -391,13 +450,10 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
 
     trial_path.status = "ACC"
 
-    stoml["inst"].append('# END SH')
-    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="wb") as read:
-        tomli_w.dump(stoml, read)
     return True, trial_path, trial_path.status
 
 
-def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
+def wire_fencing(ens_set, trial_path, engine):
     """Perform a wire_fencing move.
 
     This function will perform the non famous wire fencing move
@@ -447,11 +503,9 @@ def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
         :py:const:`.path._STATUS`.
 
     """
-    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="rb") as read:
-        stoml =  tomli.load(read)
-    stoml["inst"].append('# START WF')
-    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="wb") as read:
-        tomli_w.dump(stoml, read)
+    start_cond = ens_set["start_cond"]
+    stoml = ens_set["stoml"]
+    # output_toml(ens_set["dic_dir"], stoml, '# START WF')
 
     old_path = trial_path.copy()
     intf_cap = ens_set["tis_set"].get(
@@ -475,17 +529,21 @@ def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
         "allowmaxlength": True,
         "maxlength": 100000,
         "ens_name": ens_set["ens_name"],
-        "start_cond": ens_set["start_cond"],
+        "start_cond": ("L", "R"),
+        "start_cond0": ens_set["start_cond"],
         "pin": ens_set["pin"],
+        "stoml": stoml,
+        "dic_dir": ens_set["dic_dir"],
     }
 
     succ_seg = 0
     for i in range(ens_set["tis_set"].get("n_jumps", 2)):
         logger.debug("Trying a new web with Wire Fencing, jump %i", i)
         success, trial_seg, status = shoot(
-            sub_ens, new_segment, engine, start_cond=("L", "R")
+            sub_ens, new_segment, engine,
         )
         start, end, _, _ = trial_seg.check_interfaces(wf_int)
+        output_toml(ens_set["dic_dir"], stoml, f'# Jump {i} END')
         logger.info(
             f"Jump {i}, len {trial_seg.length}, status"
             + f"{status}, intf: {start} {end}"
@@ -524,11 +582,6 @@ def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
     ), "WF: Path has an implausible start."
 
     trial_path.status = "ACC"
-    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="rb") as read:
-        stoml =  tomli.load(read)
-    stoml["inst"].append('# END WF')
-    with open(f"./worker{ens_set['pin']}/instructions.toml", mode="wb") as read:
-        tomli_w.dump(stoml, read)
     return True, trial_path, trial_path.status
 
 
@@ -949,8 +1002,24 @@ def retis_swap_zero(picked):
     ens_set1 = picked[0]["ens"]
     engine0 = picked[-1]["engine"]
     engine1 = picked[0]["engine"]
-    path_old0 = picked[-1]["traj"]
-    path_old1 = picked[0]["traj"]
+
+    # huuuh = load_path(f"./load/{ens_set['stoml']['header']
+    # huuuh = f"./load/{ens_set0['stoml']['header']}"
+    # huuuh2 = f"./load/{ens_set0['stoml']['header']}"
+    print(picked["stoml"], 'boomi')
+    print('blower', f"./load/{picked['stoml']['header']['path_nums'][0]}")
+    # print(huuuh2, 'boomi')
+    # path_old00 = picked[-1]["traj"]
+    # path_old10 = picked[0]["traj"]
+    path_old0 = load_path(f"./load/{picked['stoml']['header']['path_nums'][0]}")
+    path_old1 = load_path(f"./load/{picked['stoml']['header']['path_nums'][1]}")
+    path_old0.path_number = picked['stoml']['header']['path_nums'][0]
+    path_old1.path_number = picked['stoml']['header']['path_nums'][1]
+    path_old0.weights = picked['stoml']['header']['path_wei'][0]
+    path_old1.weights = picked['stoml']['header']['path_wei'][1]
+    # print('ink d', all(i == j for i, j in zip(path_old0.weights, path_old00.weights)))
+    # print('ink e', all(i == j for i, j in zip(path_old1.weights, path_old10.weights)))
+    picked.pop("stoml")
     maxlen0 = ens_set0.get("maxlength", 100000)
     maxlen1 = ens_set1.get("maxlength", 100000)
 

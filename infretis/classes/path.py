@@ -312,11 +312,13 @@ class Path:
         if not len(self.phasepoints) == len(other.phasepoints):
             print("crab 3")
             return False
-        for i, j in zip(self.phasepoints, other.phasepoints):
-            if not i == j:
-                print("toto", i, j)
-                print("crab 4")
-                return False
+        # for now disable this, if we load, we load i.e. energy
+        # with lower precision making the object different. 
+        # for i, j in zip(self.phasepoints, other.phasepoints):
+        #     if not i == j:
+        #         print("toto", i, j)
+        #         print("crab 4")
+        #         return False
         if self.phasepoints:
             # Compare other attributes:
             for i in (
@@ -344,6 +346,7 @@ class Path:
                     )
                     continue
                 if getattr(self, i) != getattr(other, i):
+                    print(f'human {i}', getattr(self, i), getattr(other, i))
                     print("crab 6")
                     return False
         return True
@@ -647,9 +650,7 @@ def load_paths_from_disk(config):
     load_dir = config["simulation"]["load_dir"]
     paths = []
     for pnumber in config["current"]["active"]:
-        now = time.time()
         new_path = load_path(os.path.join(load_dir, str(pnumber)))
-        print('time:', time.time() - now)
         status = "re" if "restarted_from" in config["current"] else "ld"
         ### TODO: important for shooting move if 'ld' is set. need a smart way
         ### to remember if status is 'sh' or 'wf' etc. maybe in the toml file.

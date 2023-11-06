@@ -277,6 +277,11 @@ class REPEX_state:
         for key in md_items["picked"].keys():
             pnum_old = md_items["picked"][key]["traj"].path_number
             md_items["pnum_old"].append(pnum_old)
+            # md_items["picked"][key]["traj"].
+            # print('uhuh', md_items["picked"][key]["traj"].weights)
+            # md_items["picked"][key]["valid"] = md_items["picked"][key]["traj"].weights
+            #md_items["picked"][key].pop("traj")
+
 
         # empty / update md_items:
         for key in ["moves", "trial_len", "trial_op", "generated"]:
@@ -287,6 +292,7 @@ class REPEX_state:
         with open(f"./worker{stoml['header']['pin']}/instructions.toml", "wb") as f:
             tomli_w.dump(stoml, f)
 
+        print('whoru', md_items)
         return md_items
 
     def add_traj(self, ens, traj, valid, count=True, n=0):
@@ -299,6 +305,7 @@ class REPEX_state:
             )
         ens += self._offset
         # print('dog a', ens, valid, traj.path_number, traj.length)
+        print('dogg', valid, ens, valid[ens] != 0)
         assert valid[ens] != 0
         # invalidate last prob
         self._last_prob = None
@@ -1098,11 +1105,27 @@ def get_stoml(md_items):
     # when dealing with MC move using involving only one ensemble and one path
     if mc_move in ('sh', 'wf'):
         header["path_num"] = int(ens["pn_old"])
+        header["path_wei"] = md_items['picked'][md_items["ens_nums"][0]]["traj"].weights
+        md_items['picked'][md_items["ens_nums"][0]].pop("traj")
         header["engine"] = ens["ens"]["eng_name"]
         header["interfaces"] = [float(i) for i in ens["ens"]["interfaces"]]
         if mc_move == 'wf':
             header["n_jumps"] = int(ens["ens"]["tis_set"]["n_jumps"])
             header["high_accept"] = ens["ens"]["tis_set"]["high_accept"]
+    else:
+        ens0, ens1 = md_items['picked'][-1], md_items['picked'][0]
+        header["path_nums"] = [int(ens0["pn_old"]), int(ens1["pn_old"])]
+        header["ens"] = [ens0["ens"]["eng_name"], ens1["ens"]["eng_name"]]
+        header["interfaces"] = [
+            [float(i) for i in ens0["ens"]["interfaces"]],
+            [float(i) for i in ens1["ens"]["interfaces"]],
+        ]
+        header["path_wei"] = [
+            md_items['picked'][-1]["traj"].weights,
+            md_items['picked'][0]["traj"].weights,
+        ]
+        md_items['picked'][-1].pop("traj")
+        md_items['picked'][0].pop("traj")
 
     stoml['header'] = header
 
