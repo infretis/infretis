@@ -266,5 +266,5 @@ Other files you may want to plot are the `Pcross.txt` for the crossing probabili
 
 
 # How to pass this exercise
-Answer all of the 13 questions and show them to the teaching assistants.
+Answer all of the 13 questions and show/discuss them with the teaching assistants.
 
