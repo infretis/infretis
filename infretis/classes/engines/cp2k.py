@@ -1171,7 +1171,6 @@ class CP2KEngine(EngineBase):
         momentum to zero by default.
 
         """
-        rgen = self.rgen
         mass = self.mass
         beta = self.beta
         rescale = vel_settings.get(
