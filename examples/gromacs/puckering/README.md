@@ -233,7 +233,7 @@ We can say something about the mechanism of the complete $^4\text{C}_1 \rightarr
 
 Plot the $\phi$ vs. $\theta$ values of the trajectories using the `-xy 2 1` option in `plot-order.py`. Looking at the reactive trajectories, what is/are the preferred route(s) from $^4\text{C}_1$ to $^1\text{C}_4$?
 
-You can confirm this by visualizing some of the reactive trajectories. The following command removes the solvent, centers your molecule, and reorders the trajectories output from ∞RETIS:
+If you want, you can confirm this by visualizing some of the reactive trajectories. The following command removes the solvent, centers your molecule, and reorders the trajectories output from ∞RETIS:
 
 ```bash
 # replace 'nr' with the path number of some trajectory you want to visualize
