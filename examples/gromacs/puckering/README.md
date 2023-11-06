@@ -1,6 +1,6 @@
 <h1 align="center">
 The Ring Flip Enigma:
-  
+
 Unveiling Molecular Secrets with Path Sampling
 </h1>
 
@@ -11,8 +11,9 @@ See previous exercises. Rare events, path sampling simulations, ∞RETIS softwar
 In this exercise, you'll journey into the heart of molecular mysteries. Your primary goal is to gain hands-on experience by simulating the [ring flip](https://en.wikipedia.org/wiki/Ring_flip), an intriguing phenomenon often referred to as puckering. This transition, a rare occurrence at the molecular timescale, has puzzled scientists for ages. With your newfound knowledge in path sampling, you now hold the key to understanding its enigmatic mechanisms. Your quest? To reveal the secrets hidden within the molecular world.
 
 # The system
+<p align="center">
 <img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="30%" height="30%">
-
+</p>
 You will be tasked with modeling a 6-ring-based molecule of your choice, fully immersed in an explicit solvent environment. A solvated system adds complexity and a multitude of challenging behaviors, making your modeling task all the more interesting. Armed with your skills in Avogadro and GROMACS from previous exercises, you're well-prepared for this quest.
 
 This transition occurs very rarely at the molecular time scale, making it extremely challenging to study with standard molecular dynamics simulations. On the macroscale, these systems are awfully small and the transition happens exceedingly fast, making it almost impossible to study experimentally. Truly, this process remains hidden within the world of molecules! However, we would like to know exactly how often this transition occurs and the mechanism behind it. We can obtain this information by performing a path-sampling simulation, and in this exercise, you will carry out the whole modeling and analysis process from scratch.
@@ -157,8 +158,9 @@ printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md
 printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-traj.gro
 obabel -igro md-traj.gro -oxyz -O md-traj.xyz
 ```
-If you don't already have Avogadro, you can download it for Linux using
+If you don't already have Avogadro or you want to update, you can download the newest version for Linux using
 ```bash
+# Remove your old Avogadro2-x86_64.AppImage file first if it exists
 wget https://github.com/OpenChemistry/avogadrolibs/releases/download/1.98.1/Avogadro2-x86_64.AppImage -P ~
 chmod +x ~/Avogadro2-x86_64.AppImage
 ~/Avogadro2-x86_64.AppImage
