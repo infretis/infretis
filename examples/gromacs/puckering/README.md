@@ -8,13 +8,11 @@ Unveiling Molecular Secrets with Path Sampling
 See previous exercises. Something something rare events, path sampling simulations, ∞RETIS software, ...,
 
 # Goals
-In this exercise, you'll journey into the heart of molecular mysteries. Your primary goal is to gain hands-on experience by simulating the [ring flip](https://en.wikipedia.org/wiki/Ring_flip), an intriguing phenomenon often referred to as puckering.
-
-<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="30%" height="30%">
-
-This transition, a rare occurrence at the molecular timescale, has puzzled scientists for ages. Having learned about path sampling, you now hold the key to understanding its enigmatic mechanisms. Your quest? To reveal the secrets hidden within the molecular world.
+In this exercise, you'll journey into the heart of molecular mysteries. Your primary goal is to gain hands-on experience by simulating the [ring flip](https://en.wikipedia.org/wiki/Ring_flip), an intriguing phenomenon often referred to as puckering. This transition, a rare occurrence at the molecular timescale, has puzzled scientists for ages. Having learned about path sampling, you now hold the key to understanding its enigmatic mechanisms. Your quest? To reveal the secrets hidden within the molecular world.
 
 # The system
+<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="30%" height="30%">
+
 You will be tasked with modeling a 6-ring-based molecule of your choice, fully immersed in an explicit solvent environment. A solvated system adds complexity and a multitude of challenging behaviors, making your modeling task all the more interesting. Armed with your newfound skills in Avogadro and GROMACS from previous exercises, you're well-prepared for this quest.
 
 This transition occurs very rarely at the molecular time scale, making it extremely challenging to study with standard molecular dynamics simulations. On the macroscale, these systems are awfully small and the transition happens exceedingly fast, making it almost impossible to study experimentally. However, we would like to know exactly how often this transition occurs and the mechanism behind it. We can obtain this information by performing a path-sampling simulation, and in this exercise, you will carry out the whole modeling and analysis process from scratch.
