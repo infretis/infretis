@@ -52,7 +52,7 @@ f, a = plt.subplots()
 for interface in interfaces:
     a.axhline(interface, c="k", lw=0.5)
 
-if args.xy[0] == 2:
+if 2 in args.xy[0]:
     lw = 0
 
 else:
