@@ -5,7 +5,9 @@ Unveiling Molecular Secrets with Path Sampling
 </h1>
 
 # Motivation
-See previous exercises. Rare events, path sampling simulations, ∞RETIS software, ..., 
+The motivation for this assignment is to introduce students to software designed for conducting path sampling. The software employed here is an in-house-developed Python code for running &infin;RETIS that interfaces with Gromacs to perform essential molecular dynamics (MD) steps. Through this assignment, we aim to demonstrate the capability of studying a transition process that is nearly impossible to investigate using conventional brute-force MD methods due to its rare event nature. The algorithms and software utilized in this assignment are the result of very recent active developments within the research group of Theoretical Chemistry.
+
+If path sampling and software development sound interesting to you, to the extent that you would like to study them in more detail, please don't hesitate to get in touch with Titus and Anders to explore potential master projects. You can contact them at titus.van.erp@ntnu.no and anders.lervik@ntnu.no.
 
 # Goals
 In this exercise, you'll journey into the heart of molecular mysteries. Your primary goal is to gain hands-on experience by simulating the [ring flip](https://en.wikipedia.org/wiki/Ring_flip), an intriguing phenomenon often referred to as puckering. This transition, a rare occurrence at the molecular timescale, has puzzled scientists for ages. With your newfound knowledge in path sampling, you now hold the key to understanding its enigmatic mechanisms. Your quest? To reveal the secrets hidden within the molecular world.
