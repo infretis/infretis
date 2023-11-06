@@ -158,7 +158,7 @@ As you may have guessed by now, a good order parameter for the transition we wan
 python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-order.txt
 
 ```
-Plot the $\theta$ values (column 1) vs time (column 0) from the MD run. 
+Plot the $\theta$ values (column 1) vs time (column 0) from the MD run using e.g. gnuplot.
 
 
 
