@@ -222,7 +222,7 @@ After observing a reactive path, we assume we have a reasonable set of interface
 # Step 4: Analysis
 The following analysis is performed within the `step3_infretis` folder.
 ## The transition mechanism 
-We can say something about the mechanism of the complete $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition of your molecule if we assume that the second barrier is symmetric from the equator to the south pole. The final configuration of your reactive paths would then be the transition state of the whole $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition. This might be a crude approximation for molecules with low symmetry such as sugars, and in that case, we could perform a second path sampling simulation from the equator to the south pole.
+We can say something about the mechanism of the complete $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition of your molecule if we assume that the second barrier from the equator to the south pole is negligible. The final configuration of your reactive paths would then be the transition state of the whole $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition. This can be a crude approximation, and we could test it by running a plain MD simulation from the final states and see if they continue to the south pole, or run another path simulation, depending on the height of the second barrier.
 
 Plot the $\phi$ vs. $\theta$ values of the trajectories using the `-xy 2 1` option in `plot-order.py`. Looking at the reactive trajectories, what is/are the preferred route(s) from $^4\text{C}_1$ to $^1\text{C}_4$?
 
