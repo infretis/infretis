@@ -52,6 +52,12 @@ f, a = plt.subplots()
 for interface in interfaces:
     a.axhline(interface, c="k", lw=0.5)
 
+if args.xy[0] == 2:
+    lw = 0
+
+else:
+    lw = 1
+
 # plot all paths, modify by your needs
 for path in sorted_paths:
     x = np.loadtxt(path)
@@ -62,7 +68,11 @@ for path in sorted_paths:
         )
     #    continue # continues to next iteration in loop
     a.plot(
-        x[:, args.xy[0]], x[:, args.xy[1]], c="C0", marker="o", markersize=5
+        x[:, args.xy[0]],
+        x[:, args.xy[1]],
+        c="C0",
+        marker="o",
+        markersize=2.5,
     )
 
 plt.show()
