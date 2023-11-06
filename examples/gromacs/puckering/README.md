@@ -240,6 +240,7 @@ You can confirm this by visualizing some of the reactive trajectories. The follo
 nr=46
 python ../scripts/concatenate.py -path load/${nr} -tpr ../gromacs_input/topol.tpr -out path${nr}.xyz
 ```
+Now you get a file `path${nr}.xyz`that you can visualize in Avogadro.
 
 ## The transition rate
 
