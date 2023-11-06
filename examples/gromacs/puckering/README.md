@@ -79,6 +79,15 @@ ls *
 
 # Step 0: System definition and topology generation
 
+If you don't already have Avogadro or you want to update, you can download the newest version for Linux using the command below, but remove your old Avogadro2-x86_64.AppImage file first if it exists.
+
+```bash
+
+wget https://github.com/OpenChemistry/avogadrolibs/releases/download/1.98.1/Avogadro2-x86_64.AppImage -P ~
+chmod +x ~/Avogadro2-x86_64.AppImage
+~/Avogadro2-x86_64.AppImage
+```
+
 Draw your favorite 6-ringed molecule in Avogadro in the $^4\text{C}_1$ conformation. Be sure to complete the valence of each atom. You can also add substituents to the ring, and if you feel daring, you can use a sugar.
 
 The order parameter we will be using depends on the ring atoms, and we therefore need to identify the ring-atom indices. The atom indices can be accessed by checking the "Labels" box and then clicking "Atom Labels: Indices", as shown below:
@@ -157,13 +166,6 @@ If you want, you can also visualize the trajectories, which in many cases can be
 printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md.tpr
 printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-traj.gro
 obabel -igro md-traj.gro -oxyz -O md-traj.xyz
-```
-If you don't already have Avogadro or you want to update, you can download the newest version for Linux using
-```bash
-# Remove your old Avogadro2-x86_64.AppImage file first if it exists
-wget https://github.com/OpenChemistry/avogadrolibs/releases/download/1.98.1/Avogadro2-x86_64.AppImage -P ~
-chmod +x ~/Avogadro2-x86_64.AppImage
-~/Avogadro2-x86_64.AppImage
 ```
 
 ## Questions
