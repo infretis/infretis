@@ -32,7 +32,7 @@ These angles should not be viewed as regular angles between atoms, but rather as
 
 **2:** What is the initial value of the angle $\theta$, and what are the final values of the angles $\phi$ and $\theta$?
 
-**3:** Can you suggest an order parameter for our transition?
+**3:** Can you suggest an order parameter for this transition?
 
 # Installing the required packages
 We first need to install the required programs to run this exercise. This includes a program that generates the parameters of a modern force field ([OpenFF 2.1](https://openforcefield.org/force-fields/force-fields/)) for your molecule and the ∞RETIS software developed at the theoretical chemistry group at NTNU.
