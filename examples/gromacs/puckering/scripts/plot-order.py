@@ -73,6 +73,7 @@ for path in sorted_paths:
         c="C0",
         marker="o",
         markersize=2.5,
+        lw=lw,
     )
 
 plt.show()
