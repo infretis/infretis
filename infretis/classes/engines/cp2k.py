@@ -1171,7 +1171,6 @@ class CP2KEngine(EngineBase):
         momentum to zero by default.
 
         """
-        rgen = self.rgen
         mass = self.mass
         beta = self.beta
         rescale = vel_settings.get(
@@ -1196,9 +1195,9 @@ class CP2KEngine(EngineBase):
             kin_old = kinetic_energy(vel, mass)[0]
             do_rescale = False
         if vel_settings.get("aimless", False):
-            vel, _ = rgen.draw_maxwellian_velocities(vel, mass, beta)
+            vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
         else:
-            dvel, _ = rgen.draw_maxwellian_velocities(
+            dvel, _ = self.draw_maxwellian_velocities(
                 vel, mass, beta, sigma_v=vel_settings["sigma_v"]
             )
             vel += dvel
