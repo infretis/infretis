@@ -5,7 +5,7 @@ Unveiling Molecular Secrets with Path Sampling
 </h1>
 
 # Motivation
-See previous exercises. Something something rare events, path sampling simulations, ∞RETIS software, ...,. At the end of most sea
+See previous exercises. Rare events, path sampling simulations, ∞RETIS software, ..., 
 
 # Goals
 In this exercise, you'll journey into the heart of molecular mysteries. Your primary goal is to gain hands-on experience by simulating the [ring flip](https://en.wikipedia.org/wiki/Ring_flip), an intriguing phenomenon often referred to as puckering. This transition, a rare occurrence at the molecular timescale, has puzzled scientists for ages. With your newfound knowledge in path sampling, you now hold the key to understanding its enigmatic mechanisms. Your quest? To reveal the secrets hidden within the molecular world.
