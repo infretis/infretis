@@ -252,7 +252,7 @@ plot 'runav_rate.txt' using 1:4 with linespoints title 'rate'
 
 The last line/point in this file is the estimated transition rate using all paths. To get this into units of $\text{ps}^{-1}$, divide the rate by $c$ where 
 
-$$c=\text{subcycles}\cdot \text{timetep}$$
+$$c=\text{subcycles}\cdot \text{timestep}$$
 
 which is found in the `infretis.toml` file.
 
