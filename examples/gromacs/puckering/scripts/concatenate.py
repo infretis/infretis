@@ -1,5 +1,6 @@
 import argparse
 import os
+import subprocess
 
 import MDAnalysis as mda
 import numpy as np
@@ -63,4 +64,7 @@ with mda.Writer(
         alignto(ag, ref)
         wfile.write(ag.atoms)
 
+subprocess.run(f"perl -pi -e 'chomp if eof' {args.out}", shell=True)
+
 print("\nAll done!")
+print(f"Trajectory written to {args.out}.")

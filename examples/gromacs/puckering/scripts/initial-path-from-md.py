@@ -67,6 +67,9 @@ for i in range(len(interfaces)):
         below = np.where(grad[:end] == -1)[0]
         start = below[-1]
         iterator = [i for i in range(start, end + 1)]
+        print("=" * 10)
+        print(iterator)
+        print(order[iterator, 1])
 
     # plus ensembles
     else:
@@ -100,7 +103,6 @@ for i in range(len(interfaces)):
                 & (order[iterator, 1] <= interfaces[i + 1])
             )[0]
             exit("Invalid path for wf!!")
-    print(iterator)
 
     with open(".frames.ndx", "w") as index_file:
         index_file.write("[ frames ]\n")
@@ -130,3 +132,5 @@ for i in range(len(interfaces)):
         header=f"{'time':>10} {'trajfile':>15} {'index':>10} {'vel':>5}",
         fmt=["%10s", "%15s", "%10s", "%5s"],
     )
+
+print("\nAll done! Created folder load/ containing the initial paths.")
