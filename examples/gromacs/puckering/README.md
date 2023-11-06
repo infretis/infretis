@@ -252,7 +252,7 @@ The running average of the rate is written to the `runav_rate.txt` file, with th
 You can plot it in `gnuplot`
 
 ```bash
-gnuplot
+# in gnuplot
 set logscale y
 plot 'runav_rate.txt' using 1:4 with linespoints title 'rate'
 ```
