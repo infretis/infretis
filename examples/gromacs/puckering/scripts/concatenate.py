@@ -48,10 +48,16 @@ ref = mda.Universe(args.tpr, traj_file_arr[0]).select_atoms(args.selection)
 make_whole(ref.atoms)
 for traj_file in np.unique(traj_file_arr):
     print(f"Reading {traj_file} ...")
+    subprocess.run(
+        f"printf '1\n0\n' | gmx trjconv \
+        -f {traj_file} -o tmp.{traj_file.split('/')[-1]} \
+        -pbc whole -center -s {args.tpr}",
+        shell=True,
+    )
     if not os.path.exists(traj_file):
         exit(f"Could not find file {traj_file}.?")
 
-    U[traj_file] = mda.Universe(args.tpr, traj_file)
+    U[traj_file] = mda.Universe(args.tpr, f"tmp.{traj_file.split('/')[-1]}")
 
 with mda.Writer(
     args.out, U[traj_file].select_atoms(args.selection).n_atoms
@@ -63,6 +69,9 @@ with mda.Writer(
         u.trajectory[index]
         alignto(ag, ref)
         wfile.write(ag.atoms)
+
+for traj_file in np.unique(traj_file_arr):
+    subprocess.run(f"rm tmp.{traj_file.split('/')[-1]}", shell=True)
 
 subprocess.run(f"perl -pi -e 'chomp if eof' {args.out}", shell=True)
 
