@@ -14,7 +14,8 @@ LAMMPSEngine (:py:class:`.LAMMPSEngine`)
     * read timestep from .toml instead of lammps data
     * make order parameter calculation internal (or provide a .py file)
     * (Done) modify_velocities    
-        * Should zero_momentum option (in .toml) be available in velocity generation?
+        * Should zero_momentum option (in .toml) be 
+        available in velocity generation?
     * run_lammps
         * create_lammps_md_input
             * system_to_lammps
