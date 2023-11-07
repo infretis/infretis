@@ -16,6 +16,9 @@ LAMMPSEngine (:py:class:`.LAMMPSEngine`)
     * (Done) modify_velocities    
         * Should zero_momentum option (in .toml) be available in velocity generation?
     * run_lammps
+        * create_lammps_md_input
+            * system_to_lammps
+            * add_to_lammps_input
 """
 import logging
 import os
@@ -742,7 +745,7 @@ class LAMMPSEngine(ExternalMDEngine):
         # Name the input script for LAMMPS:
         input_file = f'{name}.in'
         script_file = os.path.join(self.exe_dir, input_file)
-        # Create the input file we will use or running LAMMPS:
+        # Create the input file we will use for running LAMMPS:
         create_lammps_md_input(
             system,
             self.input_files['template'],
@@ -763,9 +766,9 @@ class LAMMPSEngine(ExternalMDEngine):
         energy = self.read_energies(name)
         # Set the state of the system to the last point:
         system.order = order[-1]
-        system.particles.ekin = energy['KinEng'][-1]
-        system.particles.vpot = energy['PotEng'][-1]
-        system.particles.set_pos(
+        system.ekin = energy['KinEng'][-1]
+        system.vpot = energy['PotEng'][-1]
+        system.set_pos(
             (settings['traj'], settings['steps_subcycles'])
         )
         return order, energy, settings['traj']
