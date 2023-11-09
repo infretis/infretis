@@ -1079,9 +1079,6 @@ class CP2KEngine(EngineBase):
         self._removefile(wave_file)
         return success, status
 
-    def step(self, system, name):
-        raise NotImplementedError("Surprise, step not implemented!")
-
     def add_input_files(self, dirname):
         """Add required input files to a given directory.
 
