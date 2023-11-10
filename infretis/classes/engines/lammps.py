@@ -1,9 +1,9 @@
 import logging
 import os
 import subprocess
+from time import sleep
 
 import MDAnalysis as mda
-import sleep
 
 from infretis.classes.engines.enginebase import EngineBase
 
