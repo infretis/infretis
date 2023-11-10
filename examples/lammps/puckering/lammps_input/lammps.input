@@ -1,0 +1,28 @@
+# config
+variable 	subcycles index 3
+units real
+atom_style full
+
+dimension 3
+boundary p p p
+
+bond_style hybrid harmonic
+angle_style hybrid harmonic
+dihedral_style hybrid fourier
+improper_style cvff
+special_bonds lj 0.0 0.0 0.5 coul 0.0 0.0 0.8333333333
+pair_style lj/cut/coul/long 10.0 10.0
+pair_modify mix arithmetic tail yes
+
+read_data lammps_input/lammps.data
+
+fix 1 all nve
+fix 2 all langevin 300.0 300.0 200.0 48279
+
+thermo 10
+thermo_style custom ke pe etotal temp
+
+dump 1 all custom ${subcycles} traj.lammpstrj id x y z vx vy vz
+
+kspace_style pppm 1e-4
+run 1000
