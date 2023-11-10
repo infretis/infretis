@@ -17,13 +17,13 @@ parser.add_argument(
 parser.add_argument(
     "-idx",
     help="The ordered indices of your molecule (e.g. 2 5 11 8 1 0)",
-    type=list,
+    type=int,
     nargs="+",
 )
 
 args = parser.parse_args()
 
-orderparameter = Puckering(index=[int(i[0]) for i in args.idx])
+orderparameter = Puckering(index=[i for i in args.idx])
 
 subprocess.run(f"obabel -isdf {args.sdf} -oxyz -O .temp.xyz", shell=True)
 x = np.loadtxt(".temp.xyz", skiprows=2, usecols=[1, 2, 3])
