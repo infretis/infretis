@@ -45,7 +45,7 @@ bash Miniforge3-$(uname)-$(uname -m).sh
 ```
 Now close the terminal.
 
-You should see `(base)` in the lower left of your terminal window after reopening if everything went successfully.
+You should see `(base)` in the left of your terminal window after reopening if everything went successfully.
 
 Then download and install the required python packages to run this exercise. Again copy-paste the code and do what is asked of you in the output.
 ```bash
@@ -72,7 +72,7 @@ echo "All done! We will perform the exercise from this folder."
 
 ```
 
-You should now see `(molmod)` in the lower left of your terminal. Whenever you open a new terminal, write `mamba activate molmod` to activate the required Python packages. Try it by opening a new terminal and running `python -c 'import infretis'` without activating the `molmod` environment. This should throw an error.
+You should now see `(molmod)` in the left of your terminal. Whenever you open a new terminal, write `mamba activate molmod` to activate the required Python packages. Try it by opening a new terminal and running `python -c 'import infretis'` without activating the `molmod` environment. This should throw an error.
 
 We will perform the exercise from the directory `~/infretis/examples/gromacs/puckering/`. Get an overview of the folder structure and all the files we will be using by navigating to that directory and running
 ```bash
