@@ -143,7 +143,7 @@ gmx mdrun -deffnm nvt -ntomp 2 -ntmpi 1 -pin on -v
 ```
 ```bash
 gmx grompp -f npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
-gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
+gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v
 
 ```
 ## Questions
