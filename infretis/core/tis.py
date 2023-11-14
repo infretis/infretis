@@ -499,7 +499,8 @@ def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
 
     # This might get triggered when accepting 0-L paths.
     left, _, right = ens_set["interfaces"]
-    print(start_cond, tuple(trial_path.get_start_point(left, right)))
+    # TODO: check this
+    # print(start_cond, tuple(trial_path.get_start_point(left, right)))
     assert set(start_cond) == set(
         trial_path.get_start_point(left, right)
     ), "WF: Path has an implausible start."
