@@ -54,7 +54,7 @@ for i in range(len(interfaces)):
 
     # minus ensemble
     if i == 0:
-        idx = (order > interfaces[0]).astype(int)
+        idx = (order[:, 1] > interfaces[0]).astype(int)
         grad = idx[1:] - idx[:-1]
         # hopping above interface0 grad = 1
         above = np.where(grad == 1)[0]
@@ -73,7 +73,7 @@ for i in range(len(interfaces)):
 
     # plus ensembles
     else:
-        idx = (order > interfaces[0]).astype(int)
+        idx = (order[:, 1] > interfaces[0]).astype(int)
         grad = idx[1:] - idx[:-1]
         # hopping above interface0 grad = 1
         above = np.where(grad == 1)[0]
