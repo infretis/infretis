@@ -143,7 +143,7 @@ gmx mdrun -deffnm nvt -ntomp 2 -ntmpi 1 -pin on -v
 ```
 ```bash
 gmx grompp -f npt.mdp -p ../../gromacs_input/topol.top -c ../nvt/nvt.gro -t ../nvt/nvt.cpt -o npt.tpr
-gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v -o
+gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v
 
 ```
 ## Questions
@@ -166,8 +166,8 @@ If you want, you can also visualize the trajectories, which in many cases can be
 
 ```bash
 # visualization without solvent
-printf '1\n1\n' | gmx trjconv -f md.trr -pbc whole -center -o md-whole.xtc -s md.tpr
-printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s md.tpr -o md-traj.gro
+printf '1\n1\n' | gmx trjconv -f *.trr -pbc whole -center -o md-whole.xtc -s *.tpr
+printf '1\n1\n' | gmx trjconv -f md-whole.xtc -fit rot+trans -s *.tpr -o md-traj.gro
 obabel -igro md-traj.gro -oxyz -O md-traj.xyz
 ```
 
