@@ -471,3 +471,137 @@ def look_for_input_files(input_path, required_files, extra_files=None):
                 logger.info(msg)
 
     return input_files
+
+
+class ReadAndProcessOnTheFly:
+    """Read from an open fileobject on the fly and do some processing on
+    new data that is written to it. Files should be opened using a 'with open'
+    statement to be sure that they are closed.
+
+    To do
+    use with open in here. Point at current pos and read N finished blocks. Put
+    pointer at that position and return traj. If only some frames ready, point
+    at last whole ready block read and return [] or the ready frames.
+    """
+
+    def __init__(self, file_path, processing_function, read_mode="r"):
+        self.file_path = file_path
+        self.processing_function = processing_function
+        self.current_position = 0
+        self.file_object = None
+        self.read_mode = read_mode
+
+    def read_and_process_content(self):
+        # we may open at a time where the file
+        # is currently not open for reading
+        try:
+            with open(self.file_path, self.read_mode) as self.file_object:
+                self.file_object.seek(self.current_position)
+                self.previous_position = self.current_position
+                trajectory = self.processing_function(self)
+                return trajectory
+        except FileNotFoundError:
+            return []
+
+
+def xyz_processer(reader_class):
+    # trajectory of ready frames to be returned
+    trajectory = []
+    # holder for storing frame coordinates
+    frame_coordinates = []
+    for i, line in enumerate(reader_class.file_object.readlines()):
+        spl = line.split()
+        if i == 0 and spl:
+            N_atoms = int(spl[0])
+            block_size = N_atoms + 2  # 2 header lines
+        # if we are not in the atom nr or header block
+        if i % block_size > 1:
+            # if there arent enough values to iterate through
+            # return the (posibly empty) ready trajectory frames
+            if len(spl) != 4:
+                reader_class.current_position = reader_class.previous_position
+                return trajectory
+            else:
+                frame_coordinates.append([float(spl[i]) for i in range(1, 4)])
+        # if we are done with one block
+        # update the file object pointer to the new position
+        if i % block_size == N_atoms + 1 and i > 0:
+            trajectory.append(np.array(frame_coordinates))
+            reader_class.current_position = reader_class.file_object.tell()
+            frame_coordinates = []
+
+    return trajectory
+
+
+def lammpstrj_processer(reader_class):
+    """
+    Return the coordinates, velocities and box bounds from a trajectory.
+
+    For large trajectories, the whole thing is returned as one list
+    and might shred through your ram.
+
+    Note that the precision defaults to the numpy array precision.
+
+    lammps format should be `dump custom id type x y z vx vy vz`
+    which gives
+    ITEM: TIMESTEP
+    t
+    ITEM: NUMBER OF ATOMS
+    n
+    ITEM: BOX BOUNDS xy xz yz pp pp pp
+    xlo xhi (?)
+    ylo yhi (?)
+    zlo zhi (?)
+    ITEM: ATOMS id type x y z vx vy vz
+    n_atoms
+    """
+    # the ready frames to be returned
+    # which will be a list of np.arrays
+    trajectory = []
+    # the corresponding box dimensions to be returned
+    box = []
+    # the number of lines each snapshot takes in the trajectory
+    # It is a placeholder for now
+    block_size = 4
+    for i, line in enumerate(reader_class.file_object.readlines()):
+        print(i, i % block_size, block_size)
+        spl = line.split()
+        if i == 3 and spl:
+            N_atoms = int(spl[0])
+            coordinate_snapshot = np.zeros((N_atoms, 6))
+            box_snapshot = np.zeros((3, 3))
+            # Natoms + timestep_block
+            # + N_atoms_block + box_block + atoms_header
+            block_size = N_atoms + 2 + 2 + 4 + 1
+        # the line number if a single frame was extracted
+        line_nr = i % block_size
+        # if we are in the box bound block
+        if line_nr >= 5 and line_nr <= 7:
+            # frame is not ready
+            if len(spl) != 3:
+                reader_class.current_position = reader_class.previous_position
+                return trajectory, box
+            else:
+                box_snapshot[line_nr - 5] = spl
+        # we are in the atoms block
+        elif line_nr >= 9:
+            # frame is not ready
+            if len(spl) != 8:
+                reader_class.current_position = reader_class.previous_position
+                return trajectory, box
+            else:
+                # the atom number, which are not sorted by default in lammps
+                atom = int(spl[0]) - 1
+                coordinate_snapshot[atom, :] = spl[2:8]
+                print("done")
+        # if we are done with one block
+        # update the file object pointer to the new position
+        # and append the box and trajectory
+        if i % block_size == block_size - 1 and i > 0:
+            trajectory.append(coordinate_snapshot)
+            box.append(np.array(box_snapshot))
+            reader_class.current_position = reader_class.file_object.tell()
+            # allocate memory for next frame
+            coordinate_snapshot = np.zeros((N_atoms, 6))
+            box_snapshot = np.zeros((3, 3))
+    return trajectory, box
