@@ -179,6 +179,10 @@ class LAMMPSEngine(EngineBase):
     constraints (e.g. between bonds) are fulfilled.
     external_orderparameter : boolean
 
+    * Make lammps remove and replace commands in input
+    instead of making variables. Much easier to run md with
+    the same input file
+
     * external_orderparemeter
         If this is set to true, we read in the orderparameter from
         and external file. May be usefull when the orderparameter
