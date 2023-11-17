@@ -147,7 +147,7 @@ gmx mdrun -deffnm npt -ntomp 2 -ntmpi 1 -pin on -v
 
 ```
 ## Questions
-* **6:** Has the temperature and density reached the expected values during the NPT equilibration? (Hint: retaw yltsom si metsys ruoY. Hint2: The letters of the previous hint are reversed to avoid spoilers.)
+* **6:** Has the temperature and density reached the expected values during the NPT equilibration? The properties are accessible using `gmx energy -f npt.edr`. (Hint: retaw yltsom si metsys ruoY. Hint2: The letters of the previous hint are reversed to avoid spoilers.)
 
 # Step 2: MD run
 Navigate to the `step2_md_run` folder and perform a production MD run. Remember to invoke `grompp` with the `-t` flag and give it the final state from the NPT simulation (see the command from the NPT simulation for help).
