@@ -1,11 +1,16 @@
 import logging
 import os
 import subprocess
-from time import sleep
 
 import MDAnalysis as mda
+import sleep
 
+from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
+from infretis.classes.engines.engineparts import (
+    ReadAndProcessOnTheFly,
+    lammpstrj_processer,
+)
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -53,6 +58,11 @@ class LAMMPSEngine(EngineBase):
         print(f"Executional file path: {self.exe_path}")
         print("Using MDAnalysis")
         self.u = mda.Universe(default_files["data"])
+        self.mass = self.u.atoms.masses
+        self.kb = 1.987204259e-3  # kcal/(mol*K)
+        print("Assuming a temperature of 300K!")
+        self.temperature = 300
+        self.beta = 1 / (self.kb * self.temperature)
 
     def _extract_frame(self, traj_file, idx, out_file):
         print(f"_extract_frame from {traj_file} at idx {idx}")
@@ -66,8 +76,7 @@ class LAMMPSEngine(EngineBase):
         self, name, path, system, ens_set, msg_file, reverse=False
     ):
         out_files = {
-            "pos": "test.dcd",
-            "vel": "test.dcd",
+            "traj": "test.lammpsdump",
             "energy": "log.lammps",
         }
         print("Assuming out_files are ", out_files)
@@ -99,19 +108,26 @@ class LAMMPSEngine(EngineBase):
             )
             # wait for trajectories to appear
             while not os.path.exists(out_files["pos"]) or not os.path.exists(
-                out_files["vel"]
+                out_files["traj"]
             ):
                 sleep(self.sleep)
                 if exe.poll() is not None:
                     logger.debug("LAMMPS execution stopped")
                     break
+            traj_reader = ReadAndProcessOnTheFly(
+                out_files["traj"], lammpstrj_processer
+            )
+            for frame, box in traj_reader.read_and_process_content():
+                pos = frame[:, :3]
+                vel = frame[:, 3:]
+                print(pos, vel, box)
 
     def _read_configuration(self, filename):
         print(f"read_configuration {filename}")
         self.u.load_new(filename)
         box = self.u.dimensions
         xyz = self.u.atoms.positions
-        vel = xyz * 0  # self.u.atoms.velocities
+        vel = self.u.atoms.velocities
         return box, xyz, vel
 
     def _reverse_velocities(self, filename, outfile):
@@ -119,9 +135,52 @@ class LAMMPSEngine(EngineBase):
         self.u.atoms.velocities *= -1.0
         self.u.atoms.write(outfile)
 
-    def modify_velocities(self, system, vel_settings):
-        # dont do anything
-        return 0.0, system.ekin
+    def modify_velocities(self, system, vel_settings=None):
+        """
+        Modfy the velocities of all particles. Note that cp2k by default
+        removes the center of mass motion, thus, we need to rescale the
+        momentum to zero by default.
+
+        """
+        mass = self.mass
+        beta = self.beta
+        pos = self.dump_frame(system)
+        box, xyz, vel, atoms = self._read_configuration(pos)
+
+        kin_old = kinetic_energy(vel, mass)[0]
+
+        if vel_settings.get("aimless", False):
+            vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
+        else:
+            dvel, _ = self.draw_maxwellian_velocities(
+                vel, mass, beta, sigma_v=vel_settings["sigma_v"]
+            )
+            vel += dvel
+        # make reset momentum the default
+        if vel_settings.get("zero_momentum", True):
+            vel = reset_momentum(vel, mass)
+
+        conf_out = os.path.join(
+            self.exe_dir, "{}.{}".format("genvel", self.ext)
+        )
+        self.u.atoms.positions = xyz
+        self.u.atoms.velocities = vel
+        self.u.dimensions = box
+        self.u.atoms.write(conf_out)
+
+        kin_new = kinetic_energy(vel, mass)[0]
+        system.config = (conf_out, None)
+        system.ekin = kin_new
+        if kin_old == 0.0:
+            dek = float("inf")
+            logger.debug(
+                "Kinetic energy not found for previous point."
+                "\n(This happens when the initial configuration "
+                "does not contain energies.)"
+            )
+        else:
+            dek = kin_new - kin_old
+        return dek, kin_new
 
     def set_mdrun(self, config, md_items):
         print("set_mdrun setting exe_dir to {md_items['w_folder']}")
