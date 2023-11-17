@@ -1,10 +1,10 @@
 import logging
 import os
 import subprocess
+from time import sleep
 
 import MDAnalysis as mda
 import numpy as np
-import sleep
 
 from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
@@ -35,6 +35,7 @@ def write_lammpstrj(outfile, id_type, pos, vel, box):
 ITEM: BOX BOUNDS xy xz yz pp pp pp\n"
             ""
         )
+
         for box_vector in box:
             to_write += " ".join(box_vector.astype(str)) + "\n"
         to_write += "ITEM: ATOMS id type x y z vx vy z\n"
@@ -80,6 +81,7 @@ class LAMMPSEngine(EngineBase):
         self.sleep = sleep
         self.input_path = input_path
         self.exe_path = exe_path
+        self.ext = "lammpstrj"
 
         default_files = {
             "data": f"{input_path}/lammps.data",
@@ -92,19 +94,12 @@ class LAMMPSEngine(EngineBase):
         print(f"Executional file path: {self.exe_path}")
         print("Using MDAnalysis")
         self.u = mda.Universe(default_files["data"])
-        self.mass = self.u.atoms.masses
+        self.mass = self.u.atoms.masses.reshape(-1, 1)
+        self.n_atoms = len(self.mass)
         self.kb = 1.987204259e-3  # kcal/(mol*K)
         print("Assuming a temperature of 300K!")
         self.temperature = 300
         self.beta = 1 / (self.kb * self.temperature)
-
-    def _extract_frame(self, traj_file, idx, out_file):
-        print(f"_extract_frame from {traj_file} at idx {idx}")
-        self.u.load_new(traj_file)
-        self.u.trajectory[idx]
-        print(f"_extraxct_frame writing out file {out_file}")
-        self.u.atoms.write(out_file)
-        return
 
     def _propagate_from(
         self, name, path, system, ens_set, msg_file, reverse=False
@@ -157,18 +152,23 @@ class LAMMPSEngine(EngineBase):
                 vel = frame[:, 3:]
                 print(pos, vel, box)
 
+    def _extract_frame(self, traj_file, idx, out_file):
+        print(f"_extract_frame from {traj_file} at idx {idx}")
+        id_type, pos, vel, box = read_lammpstrj(traj_file, idx, self.n_atoms)
+        print(f"_extraxct_frame writing out file {out_file}")
+        write_lammpstrj(out_file, id_type, pos, vel, box)
+        return
+
     def _read_configuration(self, filename):
         print(f"read_configuration {filename}")
-        self.u.load_new(filename)
-        box = self.u.dimensions
-        xyz = self.u.atoms.positions
-        vel = self.u.atoms.velocities
-        return box, xyz, vel
+        id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
+        return id_type, box, pos, vel
 
     def _reverse_velocities(self, filename, outfile):
-        self._read_configuration(filename)
-        self.u.atoms.velocities *= -1.0
-        self.u.atoms.write(outfile)
+        print("Reversing velocities")
+        id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
+        vel *= -1.0
+        write_lammpstrj(outfile, id_type, pos, vel, box)
 
     def modify_velocities(self, system, vel_settings=None):
         """
@@ -180,7 +180,7 @@ class LAMMPSEngine(EngineBase):
         mass = self.mass
         beta = self.beta
         pos = self.dump_frame(system)
-        box, xyz, vel, atoms = self._read_configuration(pos)
+        id_type, box, xyz, vel = self._read_configuration(pos)
 
         kin_old = kinetic_energy(vel, mass)[0]
 
@@ -198,10 +198,8 @@ class LAMMPSEngine(EngineBase):
         conf_out = os.path.join(
             self.exe_dir, "{}.{}".format("genvel", self.ext)
         )
-        self.u.atoms.positions = xyz
-        self.u.atoms.velocities = vel
-        self.u.dimensions = box
-        self.u.atoms.write(conf_out)
+
+        write_lammpstrj(conf_out, id_type, xyz, vel, box)
 
         kin_new = kinetic_energy(vel, mass)[0]
         system.config = (conf_out, None)
@@ -218,5 +216,7 @@ class LAMMPSEngine(EngineBase):
         return dek, kin_new
 
     def set_mdrun(self, config, md_items):
-        print("set_mdrun setting exe_dir to {md_items['w_folder']}")
+        """Remove or rename?"""
         self.exe_dir = md_items["w_folder"]
+        # self.rgen = md_items['picked']['tis_set']['rgen']
+        self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"]
