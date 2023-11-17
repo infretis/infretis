@@ -27,6 +27,67 @@ def read_lammpstrj(infile, frame, n_atoms):
     return posvel[:, :2], posvel[:, 2:5], posvel[:, 5:], box
 
 
+def read_energies(exe_dir, filename):
+    """
+    From pyretis
+    Read some info from a LAMMPS log file.
+
+    In particular, this method is used to read the thermodynamic
+    output from a simulation (e.g. potential and kinetic energies).
+
+    Parameters
+    ----------
+    filename : string
+        The path to the LAMMPS log file.
+
+    Returns
+    -------
+    out : dict
+        A dict containing the data we found in the file.
+
+    """
+    filename = exe_dir + filename
+    energy_keys = []
+    energy_data = {}
+    read_energy = False
+    with open(filename, encoding="utf-8") as logfile:
+        for lines in logfile:
+            if lines.startswith("Step"):
+                # Assume that this is the start of the thermo output.
+                energy_keys = [i.strip() for i in lines.strip().split()]
+                for key in energy_keys:
+                    # Note: This will discard the previously read
+                    # thermodynamic data. This is because we only want
+                    # to read the final section of thermodynamic data,
+                    # which, by construction of the LAMMPS input file,
+                    # correspond to the output of the MD run.
+                    energy_data[key] = []
+                read_energy = True
+                continue
+            if lines.startswith("Loop time"):
+                # Assume this marks the end of the thermo output.
+                read_energy = False
+                energy_keys = []
+                continue
+            if read_energy and energy_keys:
+                # Assume that we are reading energies.
+                try:
+                    data = [float(i) for i in lines.strip().split()]
+                except ValueError:
+                    # Some text has snuck into the thermo output,
+                    # ignore it:
+                    continue
+                for key, value in zip(energy_keys, data):
+                    if key == "Step":
+                        energy_data[key].append(int(value))
+                    else:
+                        energy_data[key].append(value)
+    for key, val in energy_data.items():
+        energy_data[key] = np.array(val)
+
+    return energy_data
+
+
 def write_lammpstrj(outfile, id_type, pos, vel, box):
     # Write a lammps trajectory frame
     with open(outfile, "w") as writefile:
@@ -38,7 +99,7 @@ ITEM: BOX BOUNDS xy xz yz pp pp pp\n"
 
         for box_vector in box:
             to_write += " ".join(box_vector.astype(str)) + "\n"
-        to_write += "ITEM: ATOMS id type x y z vx vy z\n"
+        to_write += "ITEM: ATOMS id type x y z vx vy vz\n"
         for t, x, v in zip(id_type, pos, vel):
             to_write += (
                 " ".join(t.astype(int).astype(str))
@@ -51,18 +112,79 @@ ITEM: BOX BOUNDS xy xz yz pp pp pp\n"
         writefile.write(to_write)
 
 
+def write_for_run(
+    infile,
+    outfile,
+    timestep,
+    nsteps,
+    subcycles,
+    initconf,
+    lammpsdata,
+    name="md-run",
+):
+    """Create input file to perform n steps with lammps.
+
+    Note, a single step actually consists of a number of subcycles.
+    But from infretis' point of view, this is a single step.
+    Further, we here assume that we start from a given lammpstrj file.
+
+    Parameters
+    ----------
+    infile : string
+        The input template to use.
+    outfile : string
+        The file to create.
+    timestep : float
+        The time-step to use for the simulation.
+    nsteps : integer
+        The number of infretis steps to perform.
+    subcycles : integer
+        The number of sub-cycles to perform.
+    initconf : string
+        The name for the input file to read positions
+        and velocities from
+    name : string, optional
+        A name for the lammps trajectories and energies.
+    """
+    replace = {
+        "infretis_timestep": timestep,
+        "infretis_nsteps": nsteps * subcycles,
+        "infretis_subcycles": subcycles,
+        "infretis_initconf": initconf,
+        "infretis_name": name,
+        "infretis_lammpsdata": lammpsdata,
+    }
+    not_found = {key: 0 for key in replace.keys()}
+    with open(infile) as readfile:
+        with open(outfile, "w") as writefile:
+            for line in readfile:
+                spl = line.split()
+                for var in replace.keys():
+                    if var in spl:
+                        line = line.replace(var, str(replace[var]))
+                        # remove found item from dict
+                        not_found.pop(var)
+
+                writefile.write(line)
+    # check if we found all keys
+    if len(not_found.keys()) != 0:
+        for key in not_found.keys():
+            print(f"Did not find {key} variable in {infile}!")
+
+
 class LAMMPSEngine(EngineBase):
     """
+    TO DO:
+    * Use lammps internally to modify the velocities such that all
+    constraints (e.g. between bonds) are fulfilled.
     external_orderparameter : boolean
+
+    * external_orderparemeter
         If this is set to true, we read in the orderparameter from
         and external file. May be usefull when the orderparameter
-        is calculated internally in lammps.
+        is calculated internally in lammps for expensive calculations
+        such as in nucleation, or any other fancy stuff.
 
-    Trajectory format:
-        nestcdf and h5md need external libs
-        use lammpstrj for now so it works out of the box
-        h5md (+) easy for us because we can read and write easily.
-        pyinotify (+) for checking when something changed?
     """
 
     external_orderparameter = False
@@ -172,10 +294,10 @@ class LAMMPSEngine(EngineBase):
 
     def modify_velocities(self, system, vel_settings=None):
         """
-        Modfy the velocities of all particles. Note that cp2k by default
-        removes the center of mass motion, thus, we need to rescale the
-        momentum to zero by default.
+        Basically a shortened copy from cp2k.py. Does not
+        take care of constraints.
 
+        Draw random velocities from a boltzmann distribution.
         """
         mass = self.mass
         beta = self.beta
