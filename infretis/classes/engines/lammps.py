@@ -183,6 +183,8 @@ class LAMMPSEngine(EngineBase):
     instead of making variables. Much easier to run md with
     the same input file
 
+    * Periodicity in lammps has to take into accound hi and lo box bounds
+
     * external_orderparemeter
         If this is set to true, we read in the orderparameter from
         and external file. May be usefull when the orderparameter
