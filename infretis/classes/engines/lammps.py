@@ -3,6 +3,7 @@ import os
 import subprocess
 
 import MDAnalysis as mda
+import numpy as np
 import sleep
 
 from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
@@ -14,6 +15,39 @@ from infretis.classes.engines.engineparts import (
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
+
+
+def read_lammpstrj(infile, frame, n_atoms):
+    # Read a single frame from a lammps trajectory
+    block_size = n_atoms + 9
+    box = np.genfromtxt(infile, skip_header=block_size * frame + 5, max_rows=3)
+    posvel = np.genfromtxt(
+        infile, skip_header=block_size * frame + 9, max_rows=n_atoms
+    )
+    return posvel[:, :2], posvel[:, 2:5], posvel[:, 5:], box
+
+
+def write_lammpstrj(outfile, id_type, pos, vel, box):
+    # Write a lammps trajectory frame
+    with open(outfile, "w") as writefile:
+        to_write = (
+            f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n \
+ITEM: BOX BOUNDS xy xz yz pp pp pp\n"
+            ""
+        )
+        for box_vector in box:
+            to_write += " ".join(box_vector.astype(str)) + "\n"
+        to_write += "ITEM: ATOMS id type x y z vx vy z\n"
+        for t, x, v in zip(id_type, pos, vel):
+            to_write += (
+                " ".join(t.astype(int).astype(str))
+                + " "
+                + " ".join(x.astype(str))
+                + " "
+                + " ".join(v.astype(str))
+                + "\n"
+            )
+        writefile.write(to_write)
 
 
 class LAMMPSEngine(EngineBase):
@@ -79,6 +113,7 @@ class LAMMPSEngine(EngineBase):
             "traj": "test.lammpsdump",
             "energy": "log.lammps",
         }
+
         print("Assuming out_files are ", out_files)
         interfaces = ens_set["interfaces"]
         left, _, right = interfaces
