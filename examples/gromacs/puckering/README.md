@@ -131,7 +131,7 @@ cd ..
 * **5:** What do you think the commands in the last command block above do?
 
 # Step 1: Equilibration
-Navigate to the `step1_equilibration` folder and get an overview of the directory structure. Perform an energy minimization and an NVT and NPT equilibration. Here are some commands to speed up the process. 
+Navigate to the `step1_equilibration` folder and get an overview of the directory structure. Perform an energy minimization (EM) and an NVT and NPT equilibration in the provided directories. Here are some commands to speed up the process. 
 ```bash
 gmx grompp -f em.mdp -p ../../gromacs_input/topol.top -c ../../gromacs_input/conf.g96 -o em.tpr
 gmx mdrun -deffnm em -ntomp 2 -ntmpi 1 -pin on -v
