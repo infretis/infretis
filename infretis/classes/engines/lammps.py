@@ -1,5 +1,7 @@
 import logging
 import os
+import shlex
+import signal
 import subprocess
 from time import sleep
 
@@ -17,17 +19,49 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
 
+def write_lammpstrj(outfile, id_type, pos, vel, box, append=False):
+    # Write a lammps trajectory frame
+    filemode = "a" if append else "w"
+    with open(outfile, filemode) as writefile:
+        to_write = (
+            f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n \
+ITEM: BOX BOUNDS xy xz yz pp pp pp\n"
+            ""
+        )
+
+        for box_vector in box:
+            to_write += " ".join(box_vector.astype(str)) + "\n"
+        to_write += "ITEM: ATOMS id type x y z vx vy vz\n"
+        for t, x, v in zip(id_type, pos, vel):
+            to_write += (
+                " ".join(t.astype(int).astype(str))
+                + " "
+                + " ".join(x.astype(str))
+                + " "
+                + " ".join(v.astype(str))
+                + "\n"
+            )
+        writefile.write(to_write)
+
+
 def read_lammpstrj(infile, frame, n_atoms):
-    # Read a single frame from a lammps trajectory
+    """Read a single frame from a lammps trajectory
+    Note that the atoms are sorted according to their index, such that
+    order calculations are correct.
+    """
     block_size = n_atoms + 9
     box = np.genfromtxt(infile, skip_header=block_size * frame + 5, max_rows=3)
     posvel = np.genfromtxt(
         infile, skip_header=block_size * frame + 9, max_rows=n_atoms
     )
-    return posvel[:, :2], posvel[:, 2:5], posvel[:, 5:], box
+    id_sorted = np.argsort(posvel[:, 0])
+    pos = posvel[id_sorted, 2:5]
+    vel = posvel[id_sorted, 5:]
+    id_type = posvel[id_sorted, :2]
+    return id_type, pos, vel, box
 
 
-def read_energies(exe_dir, filename):
+def read_energies(filename):
     """
     From pyretis
     Read some info from a LAMMPS log file.
@@ -46,15 +80,15 @@ def read_energies(exe_dir, filename):
         A dict containing the data we found in the file.
 
     """
-    filename = exe_dir + filename
     energy_keys = []
     energy_data = {}
     read_energy = False
     with open(filename, encoding="utf-8") as logfile:
         for lines in logfile:
-            if lines.startswith("Step"):
+            if "Step" in lines.split():
                 # Assume that this is the start of the thermo output.
                 energy_keys = [i.strip() for i in lines.strip().split()]
+                print(energy_keys)
                 for key in energy_keys:
                     # Note: This will discard the previously read
                     # thermodynamic data. This is because we only want
@@ -88,45 +122,20 @@ def read_energies(exe_dir, filename):
     return energy_data
 
 
-def write_lammpstrj(outfile, id_type, pos, vel, box):
-    # Write a lammps trajectory frame
-    with open(outfile, "w") as writefile:
-        to_write = (
-            f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n \
-ITEM: BOX BOUNDS xy xz yz pp pp pp\n"
-            ""
-        )
-
-        for box_vector in box:
-            to_write += " ".join(box_vector.astype(str)) + "\n"
-        to_write += "ITEM: ATOMS id type x y z vx vy vz\n"
-        for t, x, v in zip(id_type, pos, vel):
-            to_write += (
-                " ".join(t.astype(int).astype(str))
-                + " "
-                + " ".join(x.astype(str))
-                + " "
-                + " ".join(v.astype(str))
-                + "\n"
-            )
-        writefile.write(to_write)
-
-
-def write_for_run(
-    infile,
-    outfile,
-    timestep,
-    nsteps,
-    subcycles,
-    initconf,
-    lammpsdata,
-    name="md-run",
-):
+def write_for_run(infile, outfile, input_settings={}):
     """Create input file to perform n steps with lammps.
 
-    Note, a single step actually consists of a number of subcycles.
-    But from infretis' point of view, this is a single step.
-    Further, we here assume that we start from a given lammpstrj file.
+    Currently, we define a set of variables starting with `infretis_`
+    at the beginning of the lammps.input template file, which are
+    simply replaced in this function.
+
+    "infretis_timestep": the timestep,
+    "infretis_nsteps": number of infretis steps
+        = path.maxlen * self.subcycles,
+    "infretis_subcycles": self.subcycles,
+    "infretis_initconf": path to initial configuration to start run
+    "infretis_name": name of the current project
+    "infretis_lammpsdata": self.input_files["data"],
 
     Parameters
     ----------
@@ -134,26 +143,9 @@ def write_for_run(
         The input template to use.
     outfile : string
         The file to create.
-    timestep : float
-        The time-step to use for the simulation.
-    nsteps : integer
-        The number of infretis steps to perform.
-    subcycles : integer
-        The number of sub-cycles to perform.
-    initconf : string
-        The name for the input file to read positions
-        and velocities from
-    name : string, optional
-        A name for the lammps trajectories and energies.
+    input_settings: dict
     """
-    replace = {
-        "infretis_timestep": timestep,
-        "infretis_nsteps": nsteps * subcycles,
-        "infretis_subcycles": subcycles,
-        "infretis_initconf": initconf,
-        "infretis_name": name,
-        "infretis_lammpsdata": lammpsdata,
-    }
+    replace = input_settings
     not_found = {key: 0 for key in replace.keys()}
     with open(infile) as readfile:
         with open(outfile, "w") as writefile:
@@ -172,6 +164,12 @@ def write_for_run(
             print(f"Did not find {key} variable in {infile}!")
 
 
+def shift_boxbounds(xyz, box):
+    xyz -= box[:, 0]
+    box[:, 1] -= box[:, 0]
+    return xyz, box[:, 1].flatten()
+
+
 class LAMMPSEngine(EngineBase):
     """
     TO DO:
@@ -183,7 +181,10 @@ class LAMMPSEngine(EngineBase):
     instead of making variables. Much easier to run md with
     the same input file
 
-    * Periodicity in lammps has to take into accound hi and lo box bounds
+    * Periodicity in lammps has to take into accound hi and lo box bounds:
+    As of now, we subtract the lower bounds from the positions and the box
+    vectors to create a regular box with 0 lower bounds. This is hard coded
+    in _propagate_from() when calculating the orderparameter.
 
     * external_orderparemeter
         If this is set to true, we read in the orderparameter from
@@ -205,15 +206,16 @@ class LAMMPSEngine(EngineBase):
         sleep=0.1,
     ):
         super().__init__("LAMMPS external engine", timestep, subcycles)
-        self.lmp = lmp
+        self.lmp = shlex.split(lmp)
+        self.name = "lammps"
         self.sleep = sleep
-        self.input_path = input_path
+        self.input_path = os.path.join(exe_path, input_path)
         self.exe_path = exe_path
         self.ext = "lammpstrj"
 
-        default_files = {
-            "data": f"{input_path}/lammps.data",
-            "input": f"{input_path}/lammps.input",
+        self.input_files = {
+            "data": f"{self.input_path}/lammps.data",
+            "input": f"{self.input_path}/lammps.input",
         }
         print("=" * 40)
         print("Initializing LAMMPS engine")
@@ -221,7 +223,7 @@ class LAMMPSEngine(EngineBase):
         print(f"Input file path: {self.input_path}")
         print(f"Executional file path: {self.exe_path}")
         print("Using MDAnalysis")
-        self.u = mda.Universe(default_files["data"])
+        self.u = mda.Universe(self.input_files["data"])
         self.mass = self.u.atoms.masses.reshape(-1, 1)
         self.n_atoms = len(self.mass)
         self.kb = 1.987204259e-3  # kcal/(mol*K)
@@ -232,29 +234,41 @@ class LAMMPSEngine(EngineBase):
     def _propagate_from(
         self, name, path, system, ens_set, msg_file, reverse=False
     ):
-        out_files = {
-            "traj": "test.lammpsdump",
-            "energy": "log.lammps",
-        }
-
-        print("Assuming out_files are ", out_files)
         interfaces = ens_set["interfaces"]
         left, _, right = interfaces
         initial_conf = system.config[0]
+
         box, xyz, vel = self._read_configuration(initial_conf)
+        # shift box such that lower bounds are zero
         order = self.calculate_order(system, xyz=xyz, vel=vel, box=box)
-        traj_file = os.path.join(self.exe_dir, f"{name}.{self.ext}")
         msg_file.write(
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
+
+        traj_file = os.path.join(self.exe_dir, f"{name}.{self.ext}")
         msg_file.write(f"# Trajectory file is: {traj_file}")
-        # fire off lammps
-        cmd = self.lmp + ["-i", "lammps.input"]
+        # the settings we need to write in the lammps input
+        input_settings = {
+            "infretis_timestep": self.timestep,
+            "infretis_nsteps": path.maxlen * self.subcycles,
+            "infretis_subcycles": self.subcycles,
+            "infretis_initconf": initial_conf,
+            "infretis_name": name,
+            "infretis_lammpsdata": self.input_files["data"],
+        }
+        # write the file run.input from lammps input template
+        run_input = os.path.join(self.exe_dir, "run.inp")
+        write_for_run(self.input_files["input"], run_input, input_settings)
+        # command to run lammps
+        cmd = self.lmp + ["-i", run_input]
         print(f"Running lammps with {' '.join(cmd)}")
-        out_name = "stdout.txt"
-        err_name = "stderr.txt"
+        out_name = os.path.join(self.exe_dir, "stdout.txt")
+        err_name = os.path.join(self.exe_dir, "stderr.txt")
         cwd = self.exe_dir
-        input("continue?")
+        cmd2 = " ".join(cmd)
+        # fire off lammps
+        return_code = None
+        lammps_was_terminated = False
         with open(out_name, "wb") as fout, open(err_name, "wb") as ferr:
             exe = subprocess.Popen(
                 cmd,
@@ -265,20 +279,116 @@ class LAMMPSEngine(EngineBase):
                 cwd=cwd,
             )
             # wait for trajectories to appear
-            while not os.path.exists(out_files["pos"]) or not os.path.exists(
-                out_files["traj"]
-            ):
+            while not os.path.exists(traj_file):
                 sleep(self.sleep)
                 if exe.poll() is not None:
                     logger.debug("LAMMPS execution stopped")
                     break
-            traj_reader = ReadAndProcessOnTheFly(
-                out_files["traj"], lammpstrj_processer
-            )
-            for frame, box in traj_reader.read_and_process_content():
-                pos = frame[:, :3]
-                vel = frame[:, 3:]
-                print(pos, vel, box)
+
+            # lammps may have finished after last processing the files
+            # or it may have crashed without writing to the files
+            if exe.poll() is None or exe.returncode == 0:
+                traj_reader = ReadAndProcessOnTheFly(
+                    traj_file, lammpstrj_processer
+                )
+                # start reading on the fly as lammps is still running
+                # if it stops, perform one more iteration to read
+                # the remaning contnent in the files.
+                iterations_after_stop = 0
+                step_nr = 0
+                trajectory = []
+                box_trajectory = []
+                while exe.poll() is None or iterations_after_stop <= 1:
+                    # we may still have some data in the trajectory
+                    # so use += here
+                    frames = traj_reader.read_and_process_content()
+                    trajectory += frames[0]
+                    box_trajectory += frames[1]
+                    # loop over the frames that are ready
+                    for frame in range(len(trajectory)):
+                        posvel = trajectory.pop(0)
+                        box = box_trajectory.pop()
+                        pos = posvel[:, :3]
+                        vel = posvel[:, 3:]
+                        # shift the box bounds
+                        pos, box = shift_boxbounds(pos, box)
+                        # calculate order, check for crossings, etc
+                        order = self.calculate_order(
+                            system, xyz=pos, vel=vel, box=box
+                        )
+                        print(order)
+                        msg_file.write(
+                            f'{step_nr} {" ".join([str(j) for j in order])}'
+                        )
+                        snapshot = {
+                            "order": order,
+                            "config": (traj_file, step_nr),
+                            "vel_rev": reverse,
+                        }
+                        phase_point = self.snapshot_to_system(system, snapshot)
+                        status, success, stop, add = self.add_to_path(
+                            path, phase_point, left, right
+                        )
+                        if stop:
+                            # process may have terminated since we last checked
+                            if exe.poll() is None:
+                                logger.debug("Terminating LAMMPS execution")
+                                os.kill(exe.pid, signal.SIGTERM)
+                            logger.debug(
+                                "LAMMPS propagation ended at %i. Reason: %s",
+                                step_nr,
+                                status,
+                            )
+                            # exit while loop without reading additional data
+                            iterations_after_stop = 2
+                            lammps_was_terminated = True
+                            break
+
+                        step_nr += 1
+                    sleep(self.sleep)
+                    # if cp2k finished, we run one more loop
+                    if exe.poll() is not None and iterations_after_stop <= 1:
+                        iterations_after_stop += 1
+
+            return_code = exe.returncode
+            if return_code != 0 and not lammps_was_terminated:
+                logger.error(
+                    "Execution of external program (%s) failed!",
+                    self.description,
+                )
+                logger.error("Attempted command: %s", cmd2)
+                logger.error("Execution directory: %s", cwd)
+                logger.error(
+                    "Return code from external program: %i", return_code
+                )
+                logger.error("STDOUT, see file: %s", out_name)
+                logger.error("STDERR, see file: %s", err_name)
+                msg = (
+                    f"Execution of external program ({self.description}) "
+                    f"failed with command:\n {cmd2}.\n"
+                    f"Return code: {return_code}"
+                )
+                raise RuntimeError(msg)
+        if (return_code is not None) and (
+            return_code == 0 or lammps_was_terminated
+        ):
+            self._removefile(out_name)
+            self._removefile(err_name)
+
+        msg_file.write("# Propagation done.")
+        energy_file = os.path.join(self.exe_dir, "log.lammps")
+        msg_file.write(f"# Reading energies from: {energy_file}")
+        energy = read_energies(energy_file)
+        end = (step_nr + 1) * self.subcycles
+        ekin = energy.get("KinEng", [])
+        vpot = energy.get("PotEng", [])
+        path.update_energies(
+            ekin[: end : self.subcycles], vpot[: end : self.subcycles]
+        )
+        # for _, files in out_files.items():
+        #    self._removefile(files)
+        self._removefile(run_input)
+        return success, status
 
     def _extract_frame(self, traj_file, idx, out_file):
         print(f"_extract_frame from {traj_file} at idx {idx}")
@@ -290,7 +400,8 @@ class LAMMPSEngine(EngineBase):
     def _read_configuration(self, filename):
         print(f"read_configuration {filename}")
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
-        return id_type, box, pos, vel
+        pos, box = shift_boxbounds(pos, box)
+        return box, pos, vel
 
     def _reverse_velocities(self, filename, outfile):
         print("Reversing velocities")
@@ -308,8 +419,7 @@ class LAMMPSEngine(EngineBase):
         mass = self.mass
         beta = self.beta
         pos = self.dump_frame(system)
-        id_type, box, xyz, vel = self._read_configuration(pos)
-
+        id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
         kin_old = kinetic_energy(vel, mass)[0]
 
         if vel_settings.get("aimless", False):

@@ -564,7 +564,6 @@ def lammpstrj_processer(reader_class):
     # It is a placeholder for now
     block_size = 4
     for i, line in enumerate(reader_class.file_object.readlines()):
-        print(i, i % block_size, block_size)
         spl = line.split()
         if i == 3 and spl:
             N_atoms = int(spl[0])
@@ -578,11 +577,13 @@ def lammpstrj_processer(reader_class):
         # if we are in the box bound block
         if line_nr >= 5 and line_nr <= 7:
             # frame is not ready
-            if len(spl) != 3:
+            n_box_cols = len(spl)
+            if n_box_cols not in [2, 3]:
                 reader_class.current_position = reader_class.previous_position
                 return trajectory, box
             else:
-                box_snapshot[line_nr - 5] = spl
+                # we may have either 2 or 3 colums in box output
+                box_snapshot[line_nr - 5] = spl + [0] * (3 - n_box_cols)
         # we are in the atoms block
         elif line_nr >= 9:
             # frame is not ready
@@ -593,7 +594,6 @@ def lammpstrj_processer(reader_class):
                 # the atom number, which are not sorted by default in lammps
                 atom = int(spl[0]) - 1
                 coordinate_snapshot[atom, :] = spl[2:8]
-                print("done")
         # if we are done with one block
         # update the file object pointer to the new position
         # and append the box and trajectory
