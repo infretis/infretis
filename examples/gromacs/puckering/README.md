@@ -155,6 +155,7 @@ We have now equilibrated our system, and are now going to perform a slightly lon
 gmx grompp -f md.mdp -p ../gromacs_input/topol.top -c ../step1_equilibration/npt/npt.gro -t ../step1_equilibration/npt/npt.cpt -o md.tpr
 ```
 Fire off `mdrun`. This should take a couple of minutes.
+
 As you may have guessed by now, a good order parameter for the transition we want to study is the $\theta$ angle. To calculate the angle during the MD run, open `infretis.toml` and replace the indices with the ones you wrote down earlier. You can then recalculate the order parameter using:
 
 ```bash
