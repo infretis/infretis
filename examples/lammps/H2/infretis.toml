@@ -1,0 +1,47 @@
+# infretis config
+
+[dask]
+workers = 1
+wmdrun = ['0',
+	  '0',
+	  '0',
+	  '0',]
+
+[simulation]
+interfaces = [3.45, 12.00]
+steps = 40000
+seed = 0
+load_dir = 'load'
+shooting_moves = ['sh','sh','sh','sh','sh','sh','sh','sh']
+
+
+[simulation.tis_set]
+maxlength = 2000
+aimless = true
+allowmaxlength = false
+zero_momentum = true # momentum true
+rescale_energy = false
+temperature = 300
+
+
+[engine]
+class = 'lammps'
+engine = 'lmp'
+timestep = 0.2
+input_path = 'lammps_input'
+lmp = 'lmp_mpi'
+subcycles = 10
+
+[orderparameter]
+class = 'Distance'
+index = [ 0, 1]
+periodic = true
+
+[output]
+backup = 'backup'
+data_dir = "./"
+order-file = 1
+energy-file = 1
+trajectory-file = -1
+screen = 1
+pattern = 1
