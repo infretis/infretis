@@ -10,7 +10,11 @@ from infretis.classes.repex import REPEX_state
 from infretis.classes.system import System
 from infretis.setup import setup_config
 
-# infrtis parameters
+# Generate paths in [0-] and [0+] from which
+# we can progressively increase and add interfaces
+initial_configuration = "conf.lammpstrj"
+
+# infretis parameters
 config = setup_config("infretis.toml")
 state = REPEX_state(config, minus=True)
 
@@ -23,7 +27,7 @@ create_orderparameters(state.engines, config)
 system0 = System()
 engine = state.engines["lmp"]
 engine.exe_dir = engine.exe_path
-system0.set_pos((os.path.join(engine.input_path, "conf.lammpstrj"), 0))
+system0.set_pos((os.path.join(engine.input_path, initial_configuration), 0))
 # empty path we will fill forwards in time
 path0 = Path(maxlen=1000)
 path1 = Path(maxlen=1000)
