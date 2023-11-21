@@ -32,19 +32,23 @@ system0.set_pos((os.path.join(engine.input_path, initial_configuration), 0))
 path0 = Path(maxlen=1000)
 path1 = Path(maxlen=1000)
 status0, message0 = engine.propagate(path0, state.ensembles[0], system0)
+print(status0, message0, state.ensembles[0])
 status1, message1 = engine.propagate(path1, state.ensembles[1], system0)
+print(status1, message1, state.ensembles[1])
 
 # we did not integrate in ensemble0 because
 # we started above interface0
 if path0.length == 1:
     path0.phasepoints[0].set_pos(path1.phasepoints[-1].config)
     status0, message0 = engine.propagate(path0, state.ensembles[0], system0)
+    print(status0, message0)
 
 # or we did not integrate in ensemble1 because
 # we started below interface0
 elif path1.length == 1:
     path1.phasepoints[0].set_pos(path0.phasepoints[-1].config)
     status1, message1 = engine.propagate(path1, state.ensembles[1], system0)
+    print(status1, message1)
 
 elif path1.length != 1 and path0.length != 1:
     print("Something fishy")
@@ -59,9 +63,11 @@ path1r = Path(maxlen=1000)
 status0, message0 = engine.propagate(
     path0r, state.ensembles[0], path0.phasepoints[0], reverse=True
 )
+print(status0, message0)
 status1, message1 = engine.propagate(
     path1r, state.ensembles[1], path1.phasepoints[0], reverse=True
 )
+print(status1, message1)
 
 dirname = "load"
 pathsf = [path0, path1]
