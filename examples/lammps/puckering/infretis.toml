@@ -8,9 +8,9 @@ wmdrun = ['1',
 	  '1',]
 
 [simulation]
-interfaces = [10,90]
+interfaces = [10, 90]
 
-steps = 20
+steps = 10
 seed = 0
 load_dir = 'load'
 shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
@@ -29,9 +29,9 @@ interface_cap = 70.0
 [engine]
 class = 'lammps'
 engine = 'lmp'
-timestep = 0.02
+timestep = 2.0
 input_path = 'lammps_input'
-lmp = 'lmp_mpi'
+lmp = 'mpirun -np 2 lmp_mpi'
 subcycles = 3
 
 [orderparameter]
