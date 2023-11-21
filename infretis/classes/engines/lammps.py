@@ -177,6 +177,8 @@ class LAMMPSEngine(EngineBase):
     constraints (e.g. between bonds) are fulfilled.
     external_orderparameter : boolean
 
+    * Fix exe_path and exe_dir
+
     * Make lammps remove and replace commands in input
     instead of making variables. Much easier to run md with
     the same input file
@@ -209,8 +211,8 @@ class LAMMPSEngine(EngineBase):
         self.lmp = shlex.split(lmp)
         self.name = "lammps"
         self.sleep = sleep
-        self.input_path = os.path.join(exe_path, input_path)
         self.exe_path = exe_path
+        self.input_path = os.path.join(exe_path, input_path)
         self.ext = "lammpstrj"
 
         self.input_files = {
@@ -391,7 +393,7 @@ class LAMMPSEngine(EngineBase):
         return success, status
 
     def _extract_frame(self, traj_file, idx, out_file):
-        print(f"_extract_frame from {traj_file} at idx {idx}")
+        print(f"_extract_frame from {os.path.abspath(traj_file)} at idx {idx}")
         id_type, pos, vel, box = read_lammpstrj(traj_file, idx, self.n_atoms)
         print(f"_extraxct_frame writing out file {out_file}")
         write_lammpstrj(out_file, id_type, pos, vel, box)
@@ -418,6 +420,13 @@ class LAMMPSEngine(EngineBase):
         """
         mass = self.mass
         beta = self.beta
+        # energy is in units kcal/mol which we want to convert
+        # to units (g/mol)*Å^2/fs (units of m*v^2), the velocity
+        # units of lammps.
+        # using Unitful:
+        #   uconvert((u"kcal/g")^0.5, 1u"Å/fs") = 48.88821290839617
+        # so we need to scale the velocities by this factor
+        scale = 1 / 48.88821290839617
         pos = self.dump_frame(system)
         id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
         kin_old = kinetic_energy(vel, mass)[0]
@@ -429,8 +438,9 @@ class LAMMPSEngine(EngineBase):
                 vel, mass, beta, sigma_v=vel_settings["sigma_v"]
             )
             vel += dvel
-        # make reset momentum the default
-        if vel_settings.get("zero_momentum", True):
+        vel *= scale
+        # reset momentum is not the default
+        if vel_settings.get("zero_momentum", False):
             vel = reset_momentum(vel, mass)
 
         conf_out = os.path.join(
