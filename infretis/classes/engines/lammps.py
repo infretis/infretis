@@ -320,6 +320,7 @@ class LAMMPSEngine(EngineBase):
                 stderr=ferr,
                 shell=False,
                 cwd=cwd,
+                preexec_fn=os.setsid,
             )
             # wait for trajectories to appear
             while not os.path.exists(traj_file):
@@ -359,7 +360,6 @@ class LAMMPSEngine(EngineBase):
                         order = self.calculate_order(
                             system, xyz=pos, vel=vel, box=box
                         )
-                        print(order)
                         msg_file.write(
                             f'{step_nr} {" ".join([str(j) for j in order])}'
                         )
@@ -372,11 +372,17 @@ class LAMMPSEngine(EngineBase):
                         status, success, stop, add = self.add_to_path(
                             path, phase_point, left, right
                         )
+                        print(
+                            f"order: {order} status {status}"
+                            + f"success {success} stop {stop}"
+                        )
                         if stop:
                             # process may have terminated since we last checked
                             if exe.poll() is None:
                                 logger.debug("Terminating LAMMPS execution")
-                                os.kill(exe.pid, signal.SIGTERM)
+                                os.killpg(os.getpgid(exe.pid), signal.SIGTERM)
+                                # wait for process to die, neccessary for mpi
+                                exe.wait(timeout=360)
                             logger.debug(
                                 "LAMMPS propagation ended at %i. Reason: %s",
                                 step_nr,
@@ -389,7 +395,7 @@ class LAMMPSEngine(EngineBase):
 
                         step_nr += 1
                     sleep(self.sleep)
-                    # if cp2k finished, we run one more loop
+                    # if lammps finished, we run one more loop
                     if exe.poll() is not None and iterations_after_stop <= 1:
                         iterations_after_stop += 1
 
@@ -428,8 +434,6 @@ class LAMMPSEngine(EngineBase):
         path.update_energies(
             ekin[: end : self.subcycles], vpot[: end : self.subcycles]
         )
-        # for _, files in out_files.items():
-        #    self._removefile(files)
         self._removefile(run_input)
         return success, status
 
