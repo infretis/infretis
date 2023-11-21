@@ -21,7 +21,7 @@ read_dump ${initconf} 0 x y z vx vy vz box yes # add
 fix 1 all nve
 fix 2 all langevin 300.0 300.0 100.0 48279
 
-thermo 10
+thermo ${subcycles}
 thermo_style custom step ke pe etotal temp
 
 dump 1 all custom ${subcycles} ${name}.lammpstrj id type x y z vx vy vz # add
