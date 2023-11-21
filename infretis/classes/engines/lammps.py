@@ -5,7 +5,6 @@ import signal
 import subprocess
 from time import sleep
 
-import MDAnalysis as mda
 import numpy as np
 
 from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
@@ -20,7 +19,9 @@ logger.addHandler(logging.NullHandler())
 
 
 def write_lammpstrj(outfile, id_type, pos, vel, box, append=False):
-    # Write a lammps trajectory frame
+    """Write a lammps trajectory frame in .lammpstrj format
+    correspondds to dump id name x y z vx vy vz
+    """
     filemode = "a" if append else "w"
     with open(outfile, filemode) as writefile:
         to_write = (
@@ -62,8 +63,7 @@ def read_lammpstrj(infile, frame, n_atoms):
 
 
 def read_energies(filename):
-    """
-    From pyretis
+    """From pyretis
     Read some info from a LAMMPS log file.
 
     In particular, this method is used to read the thermodynamic
@@ -127,8 +127,10 @@ def write_for_run(infile, outfile, input_settings={}):
 
     Currently, we define a set of variables starting with `infretis_`
     at the beginning of the lammps.input template file, which are
-    simply replaced in this function.
+    simply replaced in this function. See the examples for the
+    lammps.input file structures.
 
+    The required variables are:
     "infretis_timestep": the timestep,
     "infretis_nsteps": number of infretis steps
         = path.maxlen * self.subcycles,
@@ -145,15 +147,14 @@ def write_for_run(infile, outfile, input_settings={}):
         The file to create.
     input_settings: dict
     """
-    replace = input_settings
-    not_found = {key: 0 for key in replace.keys()}
+    not_found = {key: 0 for key in input_settings.keys()}
     with open(infile) as readfile:
         with open(outfile, "w") as writefile:
             for line in readfile:
                 spl = line.split()
-                for var in replace.keys():
+                for var in input_settings.keys():
                     if var in spl:
-                        line = line.replace(var, str(replace[var]))
+                        line = line.replace(var, str(input_settings[var]))
                         # remove found item from dict
                         not_found.pop(var)
 
@@ -164,7 +165,49 @@ def write_for_run(infile, outfile, input_settings={}):
             print(f"Did not find {key} variable in {infile}!")
 
 
+def get_atom_masses(lammps_data):
+    """Read a lammps.data file and get the masses of the atoms"""
+    n_atoms = 0
+    n_atom_types = 0
+    atom_type_masses = 0
+    atoms = 0
+    with open(lammps_data) as readfile:
+        for i, line in enumerate(readfile):
+            spl = line.split()
+            # skip empty lines
+            if not spl:
+                continue
+            # get number of atoms
+            if len(spl) == 2 and "atoms" == spl[1]:
+                n_atoms = int(spl[0])
+            elif len(spl) == 3 and spl[1] == "atom" and spl[2] == "types":
+                n_atom_types = int(spl[0])
+            elif spl and spl[0] == "Masses":
+                atom_type_masses = np.genfromtxt(
+                    lammps_data, skip_header=i + 1, max_rows=n_atom_types
+                ).reshape(-1, 2)
+            elif spl[0] == "Atoms":
+                atoms = np.genfromtxt(
+                    lammps_data, skip_header=i + 1, max_rows=n_atoms
+                )
+    # if we didnt find all of the information
+    if n_atoms == 0 or n_atom_types == 0:
+        raise ValueError(
+            f"Could not read atom masses from {lammps_data}. \
+                         Found {n_atoms} atoms and {n_atom_types} atom_types."
+        )
+    masses = np.zeros((n_atoms, 1))
+    for atom_type in range(1, n_atom_types + 1):
+        idx = np.where(atoms[:, 2] == atom_type)[0]
+        masses[idx] = atom_type_masses[atom_type - 1, 1]
+    print(f"Found atom masses in {lammps_data}.")
+    return masses
+
+
 def shift_boxbounds(xyz, box):
+    """Shift positions such that the lower box bounds are 0, and
+    return the modified positions and the new upper box bounds
+    """
     xyz -= box[:, 0]
     box[:, 1] -= box[:, 0]
     return xyz, box[:, 1].flatten()
@@ -173,11 +216,13 @@ def shift_boxbounds(xyz, box):
 class LAMMPSEngine(EngineBase):
     """
     TO DO:
-    * Use lammps internally to modify the velocities such that all
-    constraints (e.g. between bonds) are fulfilled.
+    * Add possibility to use lammps internally to modify the velocities
+    such that all constraints (e.g. between bonds) are fulfilled.
     external_orderparameter : boolean
 
-    * Fix exe_path and exe_dir
+    * Remove mdanalysis, used atm to read masses
+
+    * Fix "exe_path" and "exe_dir", use one but not both...
 
     * Make lammps remove and replace commands in input
     instead of making variables. Much easier to run md with
@@ -186,17 +231,13 @@ class LAMMPSEngine(EngineBase):
     * Periodicity in lammps has to take into accound hi and lo box bounds:
     As of now, we subtract the lower bounds from the positions and the box
     vectors to create a regular box with 0 lower bounds. This is hard coded
-    in _propagate_from() when calculating the orderparameter.
+    in _propagate_from() when calculating, and also in _read_configuration().
 
-    * external_orderparemeter
-        If this is set to true, we read in the orderparameter from
-        and external file. May be usefull when the orderparameter
-        is calculated internally in lammps for expensive calculations
-        such as in nucleation, or any other fancy stuff.
-
+    * external_orderparameter. If this is set to true, we read
+    in the orderparameter from and external file. May be usefull when the
+    orderparameter is calculated internally in lammps for expensive
+    calculations such as in nucleation, or any other fancy stuff.
     """
-
-    external_orderparameter = False
 
     def __init__(
         self,
@@ -212,22 +253,22 @@ class LAMMPSEngine(EngineBase):
         self.name = "lammps"
         self.sleep = sleep
         self.exe_path = exe_path
-        self.input_path = os.path.join(exe_path, input_path)
+        self.input_path = os.path.abspath(os.path.join(exe_path, input_path))
         self.ext = "lammpstrj"
 
         self.input_files = {
-            "data": f"{self.input_path}/lammps.data",
-            "input": f"{self.input_path}/lammps.input",
+            "data": os.path.join(self.input_path, "lammps.data"),
+            "input": os.path.join(self.input_path, "lammps.input"),
         }
         print("=" * 40)
         print("Initializing LAMMPS engine")
         print(f"Lammps executable: {self.lmp}")
         print(f"Input file path: {self.input_path}")
+        print("Input files:", self.input_files)
         print(f"Executional file path: {self.exe_path}")
         print("Using MDAnalysis")
-        self.u = mda.Universe(self.input_files["data"])
-        self.mass = self.u.atoms.masses.reshape(-1, 1)
-        self.n_atoms = len(self.mass)
+        self.mass = get_atom_masses(self.input_files["data"])
+        self.n_atoms = self.mass.shape[0]
         self.kb = 1.987204259e-3  # kcal/(mol*K)
         print("Assuming a temperature of 300K!")
         self.temperature = 300
@@ -393,6 +434,8 @@ class LAMMPSEngine(EngineBase):
         return success, status
 
     def _extract_frame(self, traj_file, idx, out_file):
+        """Extract a frame from a trajectory and write a new configuration,
+        which is a single frame trajectory"""
         print(f"_extract_frame from {os.path.abspath(traj_file)} at idx {idx}")
         id_type, pos, vel, box = read_lammpstrj(traj_file, idx, self.n_atoms)
         print(f"_extraxct_frame writing out file {out_file}")
@@ -400,23 +443,25 @@ class LAMMPSEngine(EngineBase):
         return
 
     def _read_configuration(self, filename):
+        """Read a configuration (a single frame trajectory)"""
         print(f"read_configuration {filename}")
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         pos, box = shift_boxbounds(pos, box)
         return box, pos, vel
 
     def _reverse_velocities(self, filename, outfile):
+        """Reverse the velocities of a configuration"""
         print("Reversing velocities")
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         vel *= -1.0
         write_lammpstrj(outfile, id_type, pos, vel, box)
 
     def modify_velocities(self, system, vel_settings=None):
-        """
+        """Draw random velocities from a boltzmann distribution, and
+        write a new configuration to genvel.lammpstrj.
+
         Basically a shortened copy from cp2k.py. Does not
         take care of constraints.
-
-        Draw random velocities from a boltzmann distribution.
         """
         mass = self.mass
         beta = self.beta
@@ -426,7 +471,7 @@ class LAMMPSEngine(EngineBase):
         # using Unitful:
         #   uconvert((u"kcal/g")^0.5, 1u"Å/fs") = 48.88821290839617
         # so we need to scale the velocities by this factor
-        scale = 1 / 48.88821290839617
+        scale = 48.88821290839617
         pos = self.dump_frame(system)
         id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
         kin_old = kinetic_energy(vel, mass)[0]
@@ -438,8 +483,8 @@ class LAMMPSEngine(EngineBase):
                 vel, mass, beta, sigma_v=vel_settings["sigma_v"]
             )
             vel += dvel
-        vel *= scale
-        # reset momentum is not the default
+        vel /= scale
+        # reset momentum is not the default in lammps
         if vel_settings.get("zero_momentum", False):
             vel = reset_momentum(vel, mass)
 
@@ -464,7 +509,8 @@ class LAMMPSEngine(EngineBase):
         return dek, kin_new
 
     def set_mdrun(self, config, md_items):
-        """Remove or rename?"""
+        """Give worker the correct random generator and executional directory,
+        and eventual alternative run stuff"""
         self.exe_dir = md_items["w_folder"]
         # self.rgen = md_items['picked']['tis_set']['rgen']
         self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"]
