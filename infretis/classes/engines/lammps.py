@@ -224,6 +224,12 @@ class LAMMPSEngine(EngineBase):
 
     * Fix "exe_path" and "exe_dir", use one but not both...
 
+    * Fix mpi in cp2k?
+
+    * For small systems the engine is so fast that whole trajectory
+    finishes before we managed to check for a crossing, leading to
+    large files.
+
     * Make lammps remove and replace commands in input
     instead of making variables. Much easier to run md with
     the same input file
@@ -284,6 +290,7 @@ class LAMMPSEngine(EngineBase):
         box, xyz, vel = self._read_configuration(initial_conf)
         # shift box such that lower bounds are zero
         order = self.calculate_order(system, xyz=xyz, vel=vel, box=box)
+        print(f"initial order {order}")
         msg_file.write(
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
