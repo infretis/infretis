@@ -28,7 +28,7 @@ create_orderparameters(state.engines, config)
 
 # initial configuration to start from
 system0 = System()
-engine = state.engines["lmp"]
+engine = state.engines[config["engine"]["engine"]]
 engine.exe_dir = engine.exe_path
 system0.set_pos((os.path.join(engine.input_path, initial_configuration), 0))
 
