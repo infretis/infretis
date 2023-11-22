@@ -716,7 +716,7 @@ class GromacsEngine(EngineBase):
         Create the initial configuration for a shooting move.
 
         This creates a new initial configuration with random velocities.
-        Here, the random velocisties are obtained by running a zero-step
+        Here, the random velocities are obtained by running a zero-step
         GROMACS simulation.
 
         Parameters
