@@ -14,7 +14,7 @@ from infretis.setup import setup_config
 # infretis and progressively increase/add interfaces
 # we only need an initial configuration to start from
 initial_configuration = "conf.lammpstrj"
-# maximal length of initial paths
+# maximal length of initial paths. Check if long enough
 maxlen = 30
 
 # infretis parameters

@@ -8,9 +8,9 @@ wmdrun = ['1',
 	  '1',]
 
 [simulation]
-interfaces = [10, 90]
+interfaces = [10, 15, 20, 25, 30, 31, 90]
 
-steps = 10
+steps = 60
 seed = 0
 load_dir = 'load'
 shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
@@ -21,7 +21,6 @@ aimless = true
 allowmaxlength = false
 zero_momentum = true # momentum true
 rescale_energy = false
-temperature = 300
 high_accept = true
 n_jumps = 2
 interface_cap = 70.0
@@ -31,8 +30,9 @@ class = 'lammps'
 engine = 'lmp'
 timestep = 2.0
 input_path = 'lammps_input'
-lmp = 'mpirun -np 2 lmp_mpi'
+lmp = 'lmp_mpi'
 subcycles = 3
+temperature = 123
 
 [orderparameter]
 class = 'puckering'

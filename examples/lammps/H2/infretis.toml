@@ -29,7 +29,7 @@ class = 'lammps'
 engine = 'lmp'
 timestep = 0.2
 input_path = 'lammps_input'
-lmp = 'mpirun -np 1 lmp_mpi'
+lmp = 'lmp_mpi'
 subcycles = 10
 
 [orderparameter]

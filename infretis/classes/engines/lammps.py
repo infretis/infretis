@@ -136,6 +136,7 @@ def write_for_run(infile, outfile, input_settings={}):
     "infretis_initconf": path to initial configuration to start run
     "infretis_name": name of the current project
     "infretis_lammpsdata": self.input_files["data"],
+    "infretis_temperature": self.temperature,
 
     Parameters
     ----------
@@ -161,7 +162,7 @@ def write_for_run(infile, outfile, input_settings={}):
     if len(not_found.keys()) != 0:
         raise ValueError(
             "Did not find the following keys"
-            + f"{not_found.keys()} in {infile}"
+            + f"{not_found.keys()} in {os.path.abspath(infile)}"
         )
 
 
