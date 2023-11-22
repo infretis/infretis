@@ -843,6 +843,9 @@ class REPEX_state:
                         marker = "- "
                     else:
                         marker = f"{int(round(prob*10,1))} "
+                        # change if marker == 10
+                        if len(marker) == 3:
+                            marker = "9 "
                     to_print += marker
                 to_print += f"|\t{self.traj_data[live]['max_op'][0]:5.3f} \t"
                 to_print += f"{self.traj_data[live]['min_op'][0]:5.3f} \t"
