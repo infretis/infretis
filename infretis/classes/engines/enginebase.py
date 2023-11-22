@@ -465,26 +465,6 @@ class EngineBase(metaclass=ABCMeta):
         return system_copy
 
     @abstractmethod
-    def step(self, system, name):
-        """Perform a single step with the external engine.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we are integrating.
-        name : string
-            To name the output files from the external engine.
-
-        Returns
-        -------
-        out : string
-            The name of the output configuration, obtained after
-            completing the step.
-
-        """
-        return
-
-    @abstractmethod
     def _read_configuration(self, filename):
         """Read output configuration from external software.
 

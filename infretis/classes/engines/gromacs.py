@@ -711,44 +711,6 @@ class GromacsEngine(EngineBase):
         msg_file.flush()
         return success, status
 
-    def step(self, system, name):
-        """Perform a single step with GROMACS.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we are integrating.
-        name : string
-            To name the output files from the GROMACS step.
-
-        Returns
-        -------
-        out : string
-            The name of the output configuration, obtained after
-            completing the step.
-
-        """
-        initial_conf = self.dump_frame(system)
-        # Save as a single snapshot file:
-        system.particles.set_pos((initial_conf, None))
-        system.particles.set_vel(False)
-        out_grompp = self._execute_grompp(
-            self.input_files["input"], initial_conf, name
-        )
-        out_mdrun = self._execute_mdrun(out_grompp["tpr"], name)
-        conf_abs = os.path.join(self.exe_dir, out_mdrun["conf"])
-        logger.debug("Obtaining GROMACS energies after single step.")
-        energy = self.get_energies(out_mdrun["edr"])
-        system.particles.set_pos((conf_abs, None))
-        system.particles.set_vel(False)
-        system.particles.vpot = energy["potential"][-1]
-        system.particles.ekin = energy["kinetic en."][-1]
-        logger.debug("Removing GROMACS output after single step.")
-        remove = [val for _, val in out_grompp.items()]
-        remove += [val for key, val in out_mdrun.items() if key != "conf"]
-        self._remove_files(self.exe_dir, remove)
-        return out_mdrun["conf"]
-
     def _prepare_shooting_point(self, input_file):
         """
         Create the initial configuration for a shooting move.
