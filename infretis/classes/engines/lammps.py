@@ -118,7 +118,6 @@ def read_energies(filename):
                         energy_data[key].append(value)
     for key, val in energy_data.items():
         energy_data[key] = np.array(val)
-
     return energy_data
 
 
@@ -438,9 +437,7 @@ class LAMMPSEngine(EngineBase):
         end = (step_nr + 1) * self.subcycles
         ekin = energy.get("KinEng", [])
         vpot = energy.get("PotEng", [])
-        path.update_energies(
-            ekin[: end : self.subcycles], vpot[: end : self.subcycles]
-        )
+        path.update_energies(ekin[:end], vpot[:end])
         self._removefile(run_input)
         return success, status
 
