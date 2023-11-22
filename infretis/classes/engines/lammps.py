@@ -11,7 +11,7 @@ from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     ReadAndProcessOnTheFly,
-    lammpstrj_processer,
+    lammpstrj_reader,
 )
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -332,7 +332,7 @@ class LAMMPSEngine(EngineBase):
             # or it may have crashed without writing to the files
             if exe.poll() is None or exe.returncode == 0:
                 traj_reader = ReadAndProcessOnTheFly(
-                    traj_file, lammpstrj_processer
+                    traj_file, lammpstrj_reader
                 )
                 # start reading on the fly as lammps is still running
                 # if it stops, perform one more iteration to read

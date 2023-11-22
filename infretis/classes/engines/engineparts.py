@@ -504,7 +504,7 @@ class ReadAndProcessOnTheFly:
             return []
 
 
-def xyz_processer(reader_class):
+def xyz_reader(reader_class):
     # trajectory of ready frames to be returned
     trajectory = []
     # holder for storing frame coordinates
@@ -533,7 +533,7 @@ def xyz_processer(reader_class):
     return trajectory
 
 
-def lammpstrj_processer(reader_class):
+def lammpstrj_reader(reader_class):
     """
     Return the coordinates, velocities and box bounds from a trajectory.
 

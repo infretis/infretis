@@ -28,7 +28,7 @@ from infretis.classes.engines.engineparts import (
     look_for_input_files,
     read_xyz_file,
     write_xyz_trajectory,
-    xyz_processer,
+    xyz_reader,
 )
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -974,10 +974,10 @@ class CP2KEngine(EngineBase):
             # or it may have crashed without writing the files
             if exe.poll() is None or exe.returncode == 0:
                 pos_reader = ReadAndProcessOnTheFly(
-                    out_files["pos"], xyz_processer
+                    out_files["pos"], xyz_reader
                 )
                 vel_reader = ReadAndProcessOnTheFly(
-                    out_files["vel"], xyz_processer
+                    out_files["vel"], xyz_reader
                 )
                 # start reading on the fly as cp2k is still running
                 # if it stops, perform one more iteration to read
