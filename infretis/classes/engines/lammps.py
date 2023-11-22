@@ -88,7 +88,6 @@ def read_energies(filename):
             if "Step" in lines.split():
                 # Assume that this is the start of the thermo output.
                 energy_keys = [i.strip() for i in lines.strip().split()]
-                print(energy_keys)
                 for key in energy_keys:
                     # Note: This will discard the previously read
                     # thermodynamic data. This is because we only want
@@ -129,7 +128,7 @@ def write_for_run(infile, outfile, input_settings={}):
     simply replaced in this function. See the examples for the
     lammps.input file structures.
 
-    The required variables are:
+    The variables to be replaced are:
     "infretis_timestep": the timestep,
     "infretis_nsteps": number of infretis steps
         = path.maxlen * self.subcycles,
@@ -160,8 +159,10 @@ def write_for_run(infile, outfile, input_settings={}):
                 writefile.write(line)
     # check if we found all keys
     if len(not_found.keys()) != 0:
-        for key in not_found.keys():
-            print(f"Did not find {key} variable in {infile}!")
+        raise ValueError(
+            "Did not find the following keys"
+            + f"{not_found.keys()} in {infile}"
+        )
 
 
 def get_atom_masses(lammps_data):
@@ -199,7 +200,6 @@ def get_atom_masses(lammps_data):
     for atom_type in range(1, n_atom_types + 1):
         idx = np.where(atoms[:, 2] == atom_type)[0]
         masses[idx] = atom_type_masses[atom_type - 1, 1]
-    print(f"Found atom masses in {lammps_data}.")
     return masses
 
 
@@ -219,7 +219,7 @@ class LAMMPSEngine(EngineBase):
     such that all constraints (e.g. between bonds) are fulfilled.
     external_orderparameter : boolean
 
-    * Remove mdanalysis, used atm to read masses
+    * Velocity generation depends on units... only 'real' atm
 
     * Fix "exe_path" and "exe_dir", use one but not both...
 
@@ -250,6 +250,7 @@ class LAMMPSEngine(EngineBase):
         input_path,
         timestep,
         subcycles,
+        temperature,
         exe_path=os.path.abspath("."),
         sleep=0.1,
     ):
@@ -265,18 +266,10 @@ class LAMMPSEngine(EngineBase):
             "data": os.path.join(self.input_path, "lammps.data"),
             "input": os.path.join(self.input_path, "lammps.input"),
         }
-        print("=" * 40)
-        print("Initializing LAMMPS engine")
-        print(f"Lammps executable: {self.lmp}")
-        print(f"Input file path: {self.input_path}")
-        print("Input files:", self.input_files)
-        print(f"Executional file path: {self.exe_path}")
-        print("Using MDAnalysis")
         self.mass = get_atom_masses(self.input_files["data"])
         self.n_atoms = self.mass.shape[0]
         self.kb = 1.987204259e-3  # kcal/(mol*K)
-        print("Assuming a temperature of 300K!")
-        self.temperature = 300
+        self.temperature = temperature
         self.beta = 1 / (self.kb * self.temperature)
 
     def _propagate_from(
@@ -289,7 +282,6 @@ class LAMMPSEngine(EngineBase):
         box, xyz, vel = self._read_configuration(initial_conf)
         # shift box such that lower bounds are zero
         order = self.calculate_order(system, xyz=xyz, vel=vel, box=box)
-        print(f"initial order {order}")
         msg_file.write(
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
@@ -304,13 +296,13 @@ class LAMMPSEngine(EngineBase):
             "infretis_initconf": initial_conf,
             "infretis_name": name,
             "infretis_lammpsdata": self.input_files["data"],
+            "infretis_temperature": self.temperature,
         }
         # write the file run.input from lammps input template
         run_input = os.path.join(self.exe_dir, "run.inp")
         write_for_run(self.input_files["input"], run_input, input_settings)
         # command to run lammps
         cmd = self.lmp + ["-i", run_input]
-        print(f"Running lammps with {' '.join(cmd)}")
         out_name = os.path.join(self.exe_dir, "stdout.txt")
         err_name = os.path.join(self.exe_dir, "stderr.txt")
         cwd = self.exe_dir
@@ -378,10 +370,6 @@ class LAMMPSEngine(EngineBase):
                         status, success, stop, add = self.add_to_path(
                             path, phase_point, left, right
                         )
-                        print(
-                            f"order: {order} status {status}"
-                            + f"success {success} stop {stop}"
-                        )
                         if stop:
                             # process may have terminated since we last checked
                             if exe.poll() is None:
@@ -444,22 +432,18 @@ class LAMMPSEngine(EngineBase):
     def _extract_frame(self, traj_file, idx, out_file):
         """Extract a frame from a trajectory and write a new configuration,
         which is a single frame trajectory"""
-        print(f"_extract_frame from {os.path.abspath(traj_file)} at idx {idx}")
         id_type, pos, vel, box = read_lammpstrj(traj_file, idx, self.n_atoms)
-        print(f"_extraxct_frame writing out file {out_file}")
         write_lammpstrj(out_file, id_type, pos, vel, box)
         return
 
     def _read_configuration(self, filename):
         """Read a configuration (a single frame trajectory)"""
-        print(f"read_configuration {filename}")
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         pos, box = shift_boxbounds(pos, box)
         return box, pos, vel
 
     def _reverse_velocities(self, filename, outfile):
         """Reverse the velocities of a configuration"""
-        print("Reversing velocities")
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         vel *= -1.0
         write_lammpstrj(outfile, id_type, pos, vel, box)
