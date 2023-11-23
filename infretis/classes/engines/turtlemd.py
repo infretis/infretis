@@ -255,9 +255,6 @@ class TurtleMDEngine(EngineBase):
         path.update_energies(ekin, vpot)
         return success, status
 
-    def step(self, system: System, name: str):
-        raise NotImplementedError("Surprise, step not implemented!")
-
     @staticmethod
     def _read_configuration(
         filename: str,

@@ -474,25 +474,6 @@ class EngineBase(metaclass=ABCMeta):
         return system_copy
 
     @abstractmethod
-    def step(self, system: System, name: str) -> str:
-        """Perform a single step with the external engine.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we are integrating.
-        name : string
-            To name the output files from the external engine.
-
-        Returns
-        -------
-        out : string
-            The name of the output configuration, obtained after
-            completing the step.
-
-        """
-
-    @abstractmethod
     def _read_configuration(
         self, filename: str
     ) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
@@ -575,9 +556,7 @@ class EngineBase(metaclass=ABCMeta):
                     outfile.write(f"{key} {delim} {value}\n")
 
     @staticmethod
-    def _read_input_settings(
-        sourcefile: str, delim: str = "="
-    ) -> dict[str, str]:
+    def _read_input_settings(sourcefile, delim="="):
         """
         Read input settings for simulation input files.
 

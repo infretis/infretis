@@ -400,7 +400,7 @@ def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
         "distance": {"class": Distance},
         "dihedral": {"class": Dihedral},
         "distancevel": {"class": Distancevel},
-        "puckering": {"cls": Puckering},
+        "puckering": {"class": Puckering},
     }
 
     if settings["orderparameter"]["class"].lower() not in order_map:
@@ -532,6 +532,9 @@ class Puckering(OrderParameter):
     (given by theta = 0 and theta = 180) are the well-known 1C4 or 4C1
     chair conformations.
 
+    For carbohydrates, the indice convention is
+        O5:0, C1:1, C2:2,..., C5:5
+
     Attributes
     ----------
     index : list/tuple of integers
@@ -636,8 +639,10 @@ class Puckering(OrderParameter):
             h2 += -np.sqrt(2 / 6) * z[i] * np.sin(2 * np.pi * 2 * i / 6)
             q3 += np.sqrt(1 / 6) * (-1) ** (i) * z[i]
         q2 = np.sqrt(h1**2 + h2**2)
-        theta = np.arctan(q3 / q2) + np.pi / 2
-        # phi = np.arctan(h2 / h1)
-        # Qampl = np.sqrt(np.sum(z**2))
-        # return [np.rad2deg(theta), np.rad2deg(phi), Qampl]
-        return [np.rad2deg(theta)]
+        theta = np.arctan2(q2, q3)
+        phi = np.arctan2(h2, h1)
+        # map to -180,+180 to 0,360 deg
+        if phi < 0:
+            phi += np.pi * 2
+        Qampl = np.sqrt(np.sum(z**2))
+        return [np.rad2deg(theta), np.rad2deg(phi), Qampl]

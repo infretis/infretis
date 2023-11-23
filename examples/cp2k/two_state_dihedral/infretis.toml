@@ -13,7 +13,7 @@ wmdrun = [1.0,
 
 [simulation]
 interfaces = [-1.1, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 1.5]
-steps = 40000
+steps = 100
 seed = 1
 load_dir = 'load'
 shooting_moves = ['sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh']
@@ -24,7 +24,8 @@ aimless = true
 allowmaxlength = false
 zero_momentum = true # momentum true
 rescale_energy = false
-temperature = 300
+high_accept = true
+n_jumps = 4
 
 
 [engine]
@@ -48,4 +49,4 @@ order-file = 1
 energy-file = 1
 trajectory-file = -1
 screen = 1
-pattern = 1
+pattern = false

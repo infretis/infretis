@@ -24,17 +24,17 @@ import numpy as np
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     PERIODIC_TABLE,
+    ReadAndProcessOnTheFly,
     box_matrix_to_list,
     box_vector_angles,
     convert_snapshot,
     look_for_input_files,
     read_xyz_file,
     write_xyz_trajectory,
+    xyz_reader,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import Callable
-
     from infretis.classes.formatter import FileIO
     from infretis.classes.path import Path
     from infretis.classes.system import System
@@ -100,7 +100,7 @@ class SectionNode:
             The parent if this section is a sub-section.
         settings : list of strings
             The settings defined in this section.
-        data : dict of strings, optional
+        data : list of strings, optional
             A section of settings.
 
         """
@@ -1030,10 +1030,10 @@ class CP2KEngine(EngineBase):
             # or it may have crashed without writing the files
             if exe.poll() is None or exe.returncode == 0:
                 pos_reader = ReadAndProcessOnTheFly(
-                    out_files["pos"], xyz_processer
+                    out_files["pos"], xyz_reader
                 )
                 vel_reader = ReadAndProcessOnTheFly(
-                    out_files["vel"], xyz_processer
+                    out_files["vel"], xyz_reader
                 )
                 # start reading on the fly as cp2k is still running
                 # if it stops, perform one more iteration to read
@@ -1137,9 +1137,6 @@ class CP2KEngine(EngineBase):
         self._removefile(wave_file)
         return success, status
 
-    def step(self, system, name):
-        raise NotImplementedError("Surprise, step not implemented!")
-
     def add_input_files(self, dirname: str):
         """Add required input files to a given directory.
 
@@ -1170,9 +1167,7 @@ class CP2KEngine(EngineBase):
         return out
 
     @staticmethod
-    def _read_configuration(
-        filename: str,
-    ) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str],]:
+    def _read_configuration(filename):
         """
         Read CP2K output configuration.
 
@@ -1197,8 +1192,8 @@ class CP2KEngine(EngineBase):
         """
         for snapshot in read_xyz_file(filename):
             box, xyz, vel, names = convert_snapshot(snapshot)
-            return box, xyz, vel, names
-        raise ValueError("Missing CP2K configuration")
+            break  # Stop after the first snapshot.
+        return box, xyz, vel, names
 
     def set_mdrun(self, config: dict[str, Any], md_items: dict[str, Any]):
         """Remove or rename?"""
@@ -1287,70 +1282,3 @@ class CP2KEngine(EngineBase):
         else:
             dek = kin_new - kin_old
         return dek, kin_new
-
-
-class ReadAndProcessOnTheFly:
-    """Read from an open fileobject on the fly and do some processing on
-    new data that is written to it. Files should be opened using a 'with open'
-    statement to be sure that they are closed.
-
-    To do
-    use with open in here. Point at current pos and read N finished blocks. Put
-    pointer at that position and return traj. If only some frames ready, point
-    at last whole ready block read and return [] or the ready frames.
-    """
-
-    def __init__(
-        self,
-        file_path: str,
-        processing_function: Callable,
-        read_mode: str = "r",
-    ):
-        self.file_path = file_path
-        self.processing_function = processing_function
-        self.current_position = 0
-        self.file_object = None
-        self.read_mode = read_mode
-
-    def read_and_process_content(self):
-        # we may open at a time where the file
-        # is currently not open for reading
-        try:
-            with open(self.file_path, self.read_mode) as self.file_object:
-                self.file_object.seek(self.current_position)
-                self.previous_position = self.current_position
-                trajectory = self.processing_function(self)
-                return trajectory
-        except FileNotFoundError:
-            return []
-
-
-def xyz_processer(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
-    # trajectory of ready frames to be returned
-    trajectory: list[np.ndarray] = []
-    # holder for storing frame coordinates
-    frame_coordinates: list[list[float]] = []
-    if reader_class.file_object is None:
-        raise FileNotFoundError
-    for i, line in enumerate(reader_class.file_object.readlines()):
-        spl = line.split()
-        if i == 0 and spl:
-            N_atoms = int(spl[0])
-            block_size = N_atoms + 2  # 2 header lines
-        # if we are not in the atom nr or header block
-        if i % block_size > 1:
-            # if there arent enough values to iterate through
-            # return the (posibly empty) ready trajectory frames
-            if len(spl) != 4:
-                reader_class.current_position = reader_class.previous_position
-                return trajectory
-            else:
-                frame_coordinates.append([float(spl[i]) for i in range(1, 4)])
-        # if we are done with one block
-        # update the file object pointer to the new position
-        if i % block_size == N_atoms + 1 and i > 0:
-            trajectory.append(np.array(frame_coordinates))
-            reader_class.current_position = reader_class.file_object.tell()
-            frame_coordinates = []
-
-    return trajectory
