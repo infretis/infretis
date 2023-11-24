@@ -1305,7 +1305,7 @@ def read_gromos96_file(
     else:
         # TODO: IS IT BETTER TO JUST FAIL IF THE BOX IS NOT THERE?
         box = None
-        logger.info("Input g96 did not contain box vectors.")
+        logger.warning("Input g96 did not contain box vectors.")
     return rawdata, xyz, vel, box
 
 

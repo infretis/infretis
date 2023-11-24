@@ -163,7 +163,7 @@ class TurtleMDEngine(EngineBase):
         # Get positions and velocities from the input file.
         initial_conf = system.config[0]
         # these variables will be used later
-        box, pos, vel, atoms = self._read_configuration(initial_conf)
+        pos, vel, box, atoms = self._read_configuration(initial_conf)
         # inititalize turtlemd system
         particles = TParticles(dim=self.dim)
         for i in range(self.particles.npart):
@@ -258,7 +258,7 @@ class TurtleMDEngine(EngineBase):
     @staticmethod
     def _read_configuration(
         filename: str,
-    ) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str]]:
         """
         Read TurtleMD output configuration.
 
@@ -283,7 +283,7 @@ class TurtleMDEngine(EngineBase):
         """
         for snapshot in read_xyz_file(filename):
             box, xyz, vel, names = convert_snapshot(snapshot)
-            return box, xyz, vel, names
+            return xyz, vel, box, names
         raise ValueError("Missing TurtleMD configuration")
 
     def set_mdrun(self, config: dict[str, Any], md_items: dict[str, Any]):
@@ -302,7 +302,7 @@ class TurtleMDEngine(EngineBase):
             reversed velocities.
 
         """
-        box, xyz, vel, names = self._read_configuration(filename)
+        xyz, vel, box, names = self._read_configuration(filename)
         write_xyz_trajectory(
             outfile, xyz, -1.0 * vel, names, box, append=False
         )
@@ -322,7 +322,7 @@ class TurtleMDEngine(EngineBase):
             "rescale_energy", vel_settings.get("rescale")
         )
         pos = self.dump_frame(system)
-        box, xyz, vel, atoms = self._read_configuration(pos)
+        xyz, vel, box, atoms = self._read_configuration(pos)
         # to-do: retrieve system.vpot from previous energy file.
         if None not in ((rescale, system.vpot)) and rescale is not False:
             print("Rescale")
