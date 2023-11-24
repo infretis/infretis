@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import re
 import shlex
 import shutil
@@ -476,22 +477,17 @@ class EngineBase(metaclass=ABCMeta):
     @abstractmethod
     def _read_configuration(
         self, filename: str
-    ) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
         """Read output configuration from external software.
 
-        Parameters
-        ----------
-        filename : string
-            The file to open and read a configuration from.
+        Args:
+            filename: The file to open and read a configuration from.
 
-        Returns
-        -------
-        out[0] : numpy.array
-            The dimensions of the simulation box.
-        out[1] : numpy.array
-            The positions found in the given filename.
-        out[2] : numpy.array
-            The velocities found in the given filename.
+        Returns:
+            numpy.array: The positions found in the given filename.
+            numpy.array: The velocities found in the given filename.
+            numpy.array: The dimensions of the simulation box.
+            list[str]: Atom labels (if found).
 
         """
 
@@ -512,7 +508,7 @@ class EngineBase(metaclass=ABCMeta):
     def _modify_input(
         sourcefile: str,
         outputfile: str,
-        settings: dict[str, str],
+        settings: dict[str, str | float | int],
         delim: str = "=",
     ):
         """
@@ -689,10 +685,10 @@ class EngineBase(metaclass=ABCMeta):
         shutil.copyfile(source, dest)
 
     @staticmethod
-    def _removefile(filename: str):
+    def _removefile(filename: str | pathlib.Path):
         """Remove a given file if it exist."""
         try:
-            os.remove(filename)
+            pathlib.Path(filename).unlink(missing_ok=True)
             logger.debug("Removing: %s", filename)
         except OSError:
             logger.debug("Could not remove: %s", filename)
