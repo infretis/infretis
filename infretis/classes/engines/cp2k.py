@@ -957,7 +957,7 @@ class CP2KEngine(EngineBase):
         self.add_input_files(self.exe_dir)
         # Get positions and velocities from the input file.
         initial_conf = system.config[0]
-        box, xyz, vel, atoms = self._read_configuration(initial_conf)
+        xyz, vel, box, atoms = self._read_configuration(initial_conf)
         if box is None:
             box, _ = read_cp2k_box(self.input_files["template"])
         # Add CP2K input for N steps:
@@ -1180,12 +1180,12 @@ class CP2KEngine(EngineBase):
 
         Returns
         -------
-        box : numpy.array
-            The box dimensions if we manage to read it.
         xyz : numpy.array
             The positions.
         vel : numpy.array
             The velocities.
+        box : numpy.array
+            The box dimensions if we manage to read it.
         names : list of strings
             The atom names found in the file.
 
@@ -1193,7 +1193,7 @@ class CP2KEngine(EngineBase):
         for snapshot in read_xyz_file(filename):
             box, xyz, vel, names = convert_snapshot(snapshot)
             break  # Stop after the first snapshot.
-        return box, xyz, vel, names
+        return xyz, vel, box, names
 
     def set_mdrun(self, config: dict[str, Any], md_items: dict[str, Any]):
         """Remove or rename?"""
@@ -1213,7 +1213,7 @@ class CP2KEngine(EngineBase):
             reversed velocities.
 
         """
-        box, xyz, vel, names = self._read_configuration(filename)
+        xyz, vel, box, names = self._read_configuration(filename)
         write_xyz_trajectory(
             outfile, xyz, -1.0 * vel, names, box, append=False
         )
@@ -1233,7 +1233,7 @@ class CP2KEngine(EngineBase):
             "rescale_energy", vel_settings.get("rescale")
         )
         pos = self.dump_frame(system)
-        box, xyz, vel, atoms = self._read_configuration(pos)
+        xyz, vel, box, atoms = self._read_configuration(pos)
         # system.pos = xyz
         if box is None:
             box, _ = read_cp2k_box(self.input_files["template"])

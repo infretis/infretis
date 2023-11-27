@@ -214,9 +214,9 @@ class EngineBase(metaclass=ABCMeta):
         # Convert system into an internal representation:
         if any((xyz is None, vel is None, box is None)):
             out = self._read_configuration(system.config[0])
-            box = out[0]
-            xyz = out[1]
-            vel = out[2]
+            xyz = out[0]
+            vel = out[1]
+            box = out[2]
         if xyz is not None:
             system.pos = xyz
         if vel is not None:

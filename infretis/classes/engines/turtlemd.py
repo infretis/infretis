@@ -271,12 +271,12 @@ class TurtleMDEngine(EngineBase):
 
         Returns
         -------
-        box : numpy.array
-            The box dimensions if we manage to read it.
         xyz : numpy.arrayo
             The positions.
         vel : numpy.array
             The velocities.
+        box : numpy.array or None
+            The box dimensions if we manage to read it.
         names : list of strings
             The atom names found in the file.
 

@@ -280,7 +280,7 @@ class LAMMPSEngine(EngineBase):
         left, _, right = interfaces
         initial_conf = system.config[0]
 
-        box, xyz, vel = self._read_configuration(initial_conf)
+        xyz, vel, box, _ = self._read_configuration(initial_conf)
         # shift box such that lower bounds are zero
         order = self.calculate_order(system, xyz=xyz, vel=vel, box=box)
         msg_file.write(
@@ -441,7 +441,7 @@ class LAMMPSEngine(EngineBase):
         """Read a configuration (a single frame trajectory)"""
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         pos, box = shift_boxbounds(pos, box)
-        return box, pos, vel
+        return pos, vel, box, None
 
     def _reverse_velocities(self, filename, outfile):
         """Reverse the velocities of a configuration"""
