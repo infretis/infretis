@@ -2,6 +2,7 @@ import logging
 import math
 import os
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -406,10 +407,10 @@ def convert_snapshot(
 
 
 def look_for_input_files(
-    input_path: str,
-    required_files: dict[str, str],
-    extra_files: list[str] | None = None,
-) -> dict[str, str]:
+    input_path: str | Path,
+    required_files: dict[str, str] | dict[str, Path],
+    extra_files: list[str] | list[Path] | None = None,
+) -> dict[str, Any]:
     """Check that required files for external engines are present.
 
     It will first search for the default files.
@@ -436,16 +437,15 @@ def look_for_input_files(
         The paths to the required and extra files we found.
 
     """
-    if not os.path.isdir(input_path):
-        msg = f"Input path folder {input_path} not existing"
+    input_path = Path(input_path)
+    if not input_path.is_dir():
+        msg = f"Input path folder {str(input_path)} not existing"
         raise ValueError(msg)
 
     # Get the list of files in the input_path folder
-    files_in_input_path = [
-        i.name for i in os.scandir(input_path) if i.is_file()
-    ]
+    files_in_input_path = [i.name for i in input_path.iterdir() if i.is_file()]
 
-    input_files: dict[str, Any] = {}
+    input_files: dict[str, str | Path | list[str] | list[Path]] = {}
     # Check if the required files are present
     for file_type, file_to_check in required_files.items():
         req_ext = os.path.splitext(file_to_check)[1][1:].lower()
@@ -464,9 +464,7 @@ def look_for_input_files(
             # Since we are guessing the correct files, give an error if
             # multiple entries are possible.
             if file_counter == 1:
-                input_files[file_type] = os.path.join(
-                    input_path, selected_file
-                )
+                input_files[file_type] = input_path / selected_file
                 logger.warning(
                     f"using {input_files[file_type]} "
                     + f'as "{file_type}" file'
@@ -486,7 +484,6 @@ def look_for_input_files(
             else:
                 msg = f"Extra file {file_to_check} not present in {input_path}"
                 logger.info(msg)
-
     return input_files
 
 

@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import logging
 import os
-import pathlib
 import re
 import shlex
 import shutil
 import subprocess
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -17,7 +17,7 @@ from infretis.classes.formatter import FileIO
 
 if TYPE_CHECKING:  # pragma: no cover
     from infretis.classes.orderparameter import OrderParameter
-    from infretis.classes.path import Path
+    from infretis.classes.path import Path as InfPath
     from infretis.classes.system import System
 
 
@@ -55,7 +55,7 @@ class EngineBase(metaclass=ABCMeta):
         self.timestep: float = timestep
         self.subcycles: int = subcycles
         self.ext: str = "xyz"
-        self.input_files: dict[str, str] = {}
+        self.input_files: dict[str, str | Path] = {}
         self.order_function: OrderParameter | None = None
 
     @property
@@ -81,7 +81,7 @@ class EngineBase(metaclass=ABCMeta):
 
     @staticmethod
     def add_to_path(
-        path: Path, phase_point: System, left: float, right: float
+        path: InfPath, phase_point: System, left: float, right: float
     ) -> tuple[str, bool, bool, bool]:
         """
         Add a phase point and perform some checks.
@@ -318,7 +318,7 @@ class EngineBase(metaclass=ABCMeta):
 
     def propagate(
         self,
-        path: Path,
+        path: InfPath,
         ens_set: dict[str, Any],
         system: System,
         reverse: bool = False,
@@ -412,7 +412,7 @@ class EngineBase(metaclass=ABCMeta):
     def _propagate_from(
         self,
         name: str,
-        path: Path,
+        path: InfPath,
         system: System,
         ensemble: dict[str, Any],
         msg_file: FileIO,
@@ -506,8 +506,8 @@ class EngineBase(metaclass=ABCMeta):
 
     @staticmethod
     def _modify_input(
-        sourcefile: str,
-        outputfile: str,
+        sourcefile: str | Path,
+        outputfile: str | Path,
         settings: dict[str, str | float | int],
         delim: str = "=",
     ):
@@ -685,10 +685,10 @@ class EngineBase(metaclass=ABCMeta):
         shutil.copyfile(source, dest)
 
     @staticmethod
-    def _removefile(filename: str | pathlib.Path):
+    def _removefile(filename: str | Path):
         """Remove a given file if it exist."""
         try:
-            pathlib.Path(filename).unlink(missing_ok=True)
+            Path(filename).unlink(missing_ok=True)
             logger.debug("Removing: %s", filename)
         except OSError:
             logger.debug("Could not remove: %s", filename)

@@ -25,7 +25,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from io import BufferedReader
 
     from infretis.classes.formatter import FileIO
-    from infretis.classes.path import Path as InfretisPath
+    from infretis.classes.path import Path as InfPath
     from infretis.classes.system import System
 
 logger = logging.getLogger(__name__)
@@ -108,10 +108,10 @@ class GromacsEngine(EngineBase):
         self,
         gmx: str,
         mdrun: str,
-        input_path: str,
+        input_path: str | Path,
         timestep: float,
         subcycles: int,
-        exe_path: Path = Path(".").resolve(),
+        exe_path: str | Path = Path(".").resolve(),
         maxwarn: int = 0,
         gmx_format: str = "g96",
         write_vel: bool = True,
@@ -152,7 +152,7 @@ class GromacsEngine(EngineBase):
         # Define the energy terms, these are hard-coded, but
         # here we open up for changing that:
         self.energy_terms = self.select_energy_terms("path")
-        self.input_path = os.path.join(exe_path, input_path)
+        self.input_path = Path(exe_path) / input_path
         # Set the defaults input files:
         default_files = {
             "conf": f"conf.{self.ext}",
@@ -163,8 +163,8 @@ class GromacsEngine(EngineBase):
             "index": "index.ndx",
         }
 
-        file_g = os.path.join(self.input_path, "conf.")
-        self.top, _, _, _ = read_gromos96_file(file_g + self.ext)
+        file_g = self.input_path / default_files["conf"]
+        self.top, _, _, _ = read_gromos96_file(file_g)
         self.top["VELOCITY"] = self.top["POSITION"].copy()
 
         # Check the presence of the defaults input files or, if absent,
@@ -215,7 +215,7 @@ class GromacsEngine(EngineBase):
 
         # Generate a tpr file using the input files:
         logger.info('Creating ".tpr" for GROMACS in %s', self.input_path)
-        self.exe_dir = self.input_path
+        self.exe_dir = str(self.input_path)
 
         out_files = self._execute_grompp(
             self.input_files["input"], self.input_files["conf"], "topol"
@@ -260,7 +260,7 @@ class GromacsEngine(EngineBase):
         return allowed_terms[terms]
 
     def _execute_grompp(
-        self, mdp_file: str, config: str, deffnm: str
+        self, mdp_file: str | Path, config: str | Path, deffnm: str
     ) -> dict[str, str]:
         """Execute the GROMACS preprocessor.
 
@@ -280,17 +280,17 @@ class GromacsEngine(EngineBase):
             self.gmx,
             "grompp",
             "-f",
-            mdp_file,
+            str(mdp_file),
             "-c",
-            config,
+            str(config),
             "-p",
-            topol,
+            str(topol),
             "-o",
-            tpr,
+            str(tpr),
         ]
         cmd = shlex.split(" ".join(cmd))
         if "index" in self.input_files:
-            cmd.extend(["-n", self.input_files["index"]])
+            cmd.extend(["-n", str(self.input_files["index"])])
         if self.maxwarn > 0:
             cmd.extend(["-maxwarn", str(self.maxwarn)])
         self.execute_command(cmd, cwd=self.exe_dir)
@@ -438,7 +438,7 @@ class GromacsEngine(EngineBase):
         out_files["tpr"] = tpr_file
         return out_files
 
-    def _remove_gromacs_backup_files(self, dirname: str):
+    def _remove_gromacs_backup_files(self, dirname: str | Path):
         """Remove GROMACS backup files (files starting with a "#").
 
         Args:
@@ -520,7 +520,7 @@ class GromacsEngine(EngineBase):
     def _propagate_from(
         self,
         name: str,
-        path: InfretisPath,
+        path: InfPath,
         system: System,
         ens_set: dict[str, Any],
         msg_file: FileIO,
@@ -687,7 +687,7 @@ class GromacsEngine(EngineBase):
         self._remove_files(self.exe_dir, remove)
         return confout, energy
 
-    def set_mdrun(self, config, md_items):
+    def set_mdrun(self, config: dict[str, Any], md_items: dict[str, Any]):
         """Sets the worker terminal command to be run"""
         base = config["dask"]["wmdrun"][md_items["pin"]]
         self.mdrun = base + " -s {} -deffnm {} -c {}"
@@ -1138,7 +1138,7 @@ def gromacs_settings(settings: dict[str, Any], input_path: str):
 
 
 def read_gromos96_file(
-    filename: str,
+    filename: str | Path,
 ) -> tuple[dict[str, list[str]], np.ndarray, np.ndarray, np.ndarray | None]:
     """Read a single configuration GROMACS .g96 file.
 
@@ -1217,7 +1217,7 @@ def read_gromos96_file(
 
 
 def write_gromos96_file(
-    filename: str,
+    filename: str | Path,
     raw: dict[str, list[str]],
     xyz: np.ndarray,
     vel: np.ndarray | None,
