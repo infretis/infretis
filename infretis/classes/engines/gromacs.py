@@ -1529,33 +1529,6 @@ def read_remaining_trr(
                 continue
 
 
-def _add_matrices_to_snapshot(snapshot):
-    """Extract positions and velocities as matrices from GROMACS.
-
-    The extracted positions and velocities will be added to the given
-    snapshot.
-
-    Args:
-        snapshot: This dict contains the data read from the GROMACS file.
-
-    Returns:
-        xyz: The positions as an array, (N, 3).
-        vel: The velocities as an array, (N, 3).
-
-    """
-    xyz = np.zeros((len(snapshot["atomnr"]), 3))
-    for i, key in enumerate(("x", "y", "z")):
-        if key in snapshot:
-            xyz[:, i] = snapshot[key]
-    vel = np.zeros_like(xyz)
-    for i, key in enumerate(("vx", "vy", "vz")):
-        if key in snapshot:
-            vel[:, i] = snapshot[key]
-    snapshot["xyz"] = xyz
-    snapshot["vel"] = vel
-    return xyz, vel
-
-
 def reopen_file(
     filename: str, fileh: BufferedReader, inode: int, bytes_read: int
 ) -> tuple[BufferedReader | None, int | None]:
