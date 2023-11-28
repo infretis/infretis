@@ -445,7 +445,7 @@ def look_for_input_files(
     # Get the list of files in the input_path folder
     files_in_input_path = [i.name for i in input_path.iterdir() if i.is_file()]
 
-    input_files: dict[str, str | Path | list[str] | list[Path]] = {}
+    input_files: dict[str, Any] = {}
     # Check if the required files are present
     for file_type, file_to_check in required_files.items():
         req_ext = os.path.splitext(file_to_check)[1][1:].lower()

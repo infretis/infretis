@@ -16,6 +16,7 @@ import re
 import shlex
 import signal
 import subprocess
+from pathlib import Path
 from time import sleep
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -36,7 +37,7 @@ from infretis.classes.engines.engineparts import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from infretis.classes.formatter import FileIO
-    from infretis.classes.path import Path
+    from infretis.classes.path import Path as InfPath
     from infretis.classes.system import System
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -191,7 +192,7 @@ def set_parents(listofnodes: list[SectionNode]):
     return node_ref
 
 
-def read_cp2k_input(filename: str) -> list[SectionNode]:
+def read_cp2k_input(filename: str | Path) -> list[SectionNode]:
     """Read a CP2K input file.
 
     Parameters
@@ -376,8 +377,8 @@ def remove_node(
 
 
 def update_cp2k_input(
-    template: str,
-    output: str,
+    template: str | Path,
+    output: str | Path,
     update: dict[str, Any] | None = None,
     remove: list[str] | None = None,
 ):
@@ -483,7 +484,7 @@ def read_box_data(
     return box, periodic
 
 
-def read_cp2k_energy(energy_file: str) -> dict[str, np.ndarray]:
+def read_cp2k_energy(energy_file: str | Path) -> dict[str, np.ndarray]:
     """Read and return CP2K energies.
 
     Parameters
@@ -514,7 +515,7 @@ def read_cp2k_energy(energy_file: str) -> dict[str, np.ndarray]:
 
 
 def read_cp2k_restart(
-    restart_file: str,
+    restart_file: str | Path,
 ) -> tuple[list[str], np.ndarray, np.ndarray, np.ndarray | None, list[bool]]:
     """Read some info from a CP2K restart file.
 
@@ -554,7 +555,9 @@ def read_cp2k_restart(
     return atoms, np.array(pos), np.array(vel), box, periodic
 
 
-def read_cp2k_box(inputfile: str) -> tuple[np.ndarray | None, list[bool]]:
+def read_cp2k_box(
+    inputfile: str | Path,
+) -> tuple[np.ndarray | None, list[bool]]:
     """Read the box from a CP2K file.
 
     Parameters
@@ -676,8 +679,8 @@ def reset_momentum(vel: np.ndarray, mass: np.ndarray) -> np.ndarray:
 
 
 def write_for_run_vel(
-    infile: str,
-    outfile: str,
+    infile: str | Path,
+    outfile: str | Path,
     timestep: float,
     nsteps: int,
     subcycles: int,
@@ -895,7 +898,7 @@ class CP2KEngine(EngineBase):
     def _propagate_from(
         self,
         name: str,
-        path: Path,
+        path: InfPath,
         system: System,
         ens_set: dict[str, Any],
         msg_file: FileIO,
