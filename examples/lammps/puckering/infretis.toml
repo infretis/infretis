@@ -21,7 +21,6 @@ aimless = true
 allowmaxlength = false
 zero_momentum = true # momentum true
 rescale_energy = false
-high_accept = true
 n_jumps = 2
 interface_cap = 70.0
 
