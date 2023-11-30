@@ -180,7 +180,7 @@ class OutputFormatter:
 
         """
         self.name = name
-        self._header = None
+        self._header = "infretis output"
         self.print_header = True
         if header is not None:
             if "width" in header and "labels" in header:
@@ -190,12 +190,12 @@ class OutputFormatter:
                     spacing=header.get("spacing", 1),
                 )
             else:
-                self._header = header.get("text", None)
+                self._header = header.get("text", "infretis output")
         else:
             self.print_header = False
 
     @property
-    def header(self):
+    def header(self) -> str:
         """Define the header as a property."""
         return self._header
 
