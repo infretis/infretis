@@ -271,7 +271,7 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
     trial_path = path.empty_path()  # The trial path we will generate.
     if shooting_point is None:
         shooting_point, idx, dek = prepare_shooting_point(
-            path, ens_set["rgen"], engine
+            path, ens_set["rgen"], engine, ens_set
         )
         kick = check_kick(
             shooting_point, interfaces, trial_path, ens_set["rgen"], dek
@@ -666,7 +666,7 @@ def shoot_backwards(
     return True
 
 
-def prepare_shooting_point(path, rgen, engine):
+def prepare_shooting_point(path, rgen, engine, ensemble_settings):
     """Select and modify velocities for a shooting move.
 
     This method will randomly select a shooting point from a given
@@ -690,10 +690,15 @@ def prepare_shooting_point(path, rgen, engine):
           These are the interface positions of the form
           ``[left, middle, right]``.
 
-    tis_settings : dict
-        This contains the settings for TIS. Here, we use the
-        settings which dictates how we modify the velocities.
+    ensemble_settings : dict
+        The settings that dictate how we modify the velocities.
         * `aimless`: boolean, is the shooting aimless or not?
+        * `sigma_v`: float, if not aimless, use sigma_v for the
+        standard deviations of the velocities at the shooting point
+        * `zero_momentum`: boolean, do we remove the total momentum,
+        if so, we remove Ndim degrees of freedom
+        * `rescale`: boolean, do we rescale the energy after shooting
+
 
     Returns
     -------
@@ -712,17 +717,16 @@ def prepare_shooting_point(path, rgen, engine):
     # Copy the shooting point, so that we can modify velocities without
     # altering the original path:
     # Modify the velocities:
-    tis_settings = {}
     (
         dek,
         _,
     ) = engine.modify_velocities(
         shpt_copy,
         {
-            "sigma_v": tis_settings.get("sigma_v", False),
-            "aimless": tis_settings.get("aimless", True),
-            "zero_momentum": tis_settings.get("zero_momentum", True),
-            "rescale": tis_settings.get("rescale_energy", False),
+            "sigma_v": ensemble_settings.get("sigma_v", False),
+            "aimless": ensemble_settings.get("aimless", True),
+            "zero_momentum": ensemble_settings.get("zero_momentum", True),
+            "rescale": ensemble_settings.get("rescale_energy", False),
         },
     )
     orderp = engine.calculate_order(shpt_copy)
