@@ -833,7 +833,11 @@ class CP2KEngine(EngineBase):
         pos, vel, box, atoms = self._read_configuration(
             self.input_files["conf"]
         )
-        mass = [guess_particle_mass(i, name) for i, name in enumerate(atoms)]
+        mass = []
+        if atoms is not None:
+            mass = [
+                guess_particle_mass(i, name) for i, name in enumerate(atoms)
+            ]
         self.mass = np.reshape(mass, (len(mass), 1))
 
         # read temperature from cp2k input, defaults to 300
@@ -1170,7 +1174,9 @@ class CP2KEngine(EngineBase):
         return out
 
     @staticmethod
-    def _read_configuration(filename):
+    def _read_configuration(
+        filename: str | Path,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
         """
         Read CP2K output configuration.
 

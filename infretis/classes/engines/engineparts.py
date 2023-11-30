@@ -224,7 +224,7 @@ def get_box_from_header(header: str) -> np.ndarray | None:
 
 
 def read_txt_snapshots(
-    filename: str, data_keys: tuple[str, ...] | None = None
+    filename: str | Path, data_keys: tuple[str, ...] | None = None
 ) -> Iterator[dict]:
     """Read snapshots from a text file.
 
@@ -277,7 +277,7 @@ def read_txt_snapshots(
         yield snapshot
 
 
-def read_xyz_file(filename: str) -> Iterator[dict]:
+def read_xyz_file(filename: str | Path) -> Iterator[dict]:
     """Read files in XYZ format.
 
     This method will read a XYZ file and yield the different snapshots
@@ -312,7 +312,7 @@ def write_xyz_trajectory(
     filename: str,
     pos: np.ndarray,
     vel: np.ndarray,
-    names: list[str],
+    names: list[str] | None,
     box: np.ndarray | None,
     step: int | None = None,
     append: bool = True,
@@ -346,7 +346,8 @@ def write_xyz_trajectory(
 
     """
     npart = len(pos)
-
+    if names is None:
+        names = ["X"] * npart
     filemode = "a" if append else "w"
     with open(filename, filemode, encoding="utf-8") as output_file:
         output_file.write(f"{npart}\n")
