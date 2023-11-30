@@ -116,11 +116,11 @@ class SectionNode:
         self.level = 0
         self.parents: list[str] | None = None  # TODO: Check if this can be []
 
-    def add_child(self, child: SectionNode):
+    def add_child(self, child: SectionNode) -> None:
         """Add a sub-section to the current section."""
         self.children.add(child)
 
-    def get_all_parents(self):
+    def get_all_parents(self) -> None:
         """Find the path to the top of the tree."""
         parents = [self.title]
         prev = self.parent
@@ -163,11 +163,11 @@ def dfs_print(node: SectionNode, visited: set[SectionNode]) -> list[str]:
     return out
 
 
-def set_parents(listofnodes: list[SectionNode]):
+def set_parents(listofnodes: list[SectionNode]) -> dict[str, SectionNode]:
     """Set parents for all nodes."""
     node_ref: dict[str, SectionNode] = {}
 
-    def dfs_set(node: SectionNode, vis: set[SectionNode]):
+    def dfs_set(node: SectionNode, vis: set[SectionNode]) -> None:
         """DFS traverse the nodes."""
         if node.parents is None:
             node.get_all_parents()
@@ -246,7 +246,7 @@ def _add_node(
     data: dict[str, str],
     nodes: list[SectionNode],
     node_ref: dict[str, SectionNode],
-):
+) -> None:
     """Just add a new node."""
     # check if this is a root node:
     root = target.find("->") == -1
@@ -336,7 +336,7 @@ def remove_node(
     target: str,
     node_ref: dict[str, SectionNode],
     root_nodes: list[SectionNode],
-):
+) -> None:
     """Remove a node (and it's children) from the tree.
 
     Parameters
@@ -381,7 +381,7 @@ def update_cp2k_input(
     output: str | Path,
     update: dict[str, Any] | None = None,
     remove: list[str] | None = None,
-):
+) -> None:
     """Read a template input and create a new CP2K input.
 
     Parameters
@@ -688,7 +688,7 @@ def write_for_run_vel(
     vel: np.ndarray,
     name: str = "md_step",
     print_freq: int | None = None,
-):
+) -> None:
     """Create input file to perform n steps.
 
     Note, a single step actually consists of a number of subcycles.
@@ -868,7 +868,7 @@ class CP2KEngine(EngineBase):
                 else:
                     self.extra_files.append(fname)
 
-    def _extract_frame(self, traj_file: str, idx: int, out_file: str):
+    def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """
         Extract a frame from a trajectory file.
 
@@ -1144,7 +1144,7 @@ class CP2KEngine(EngineBase):
         self._removefile(wave_file)
         return success, status
 
-    def add_input_files(self, dirname: str):
+    def add_input_files(self, dirname: str) -> None:
         """Add required input files to a given directory.
 
         Parameters
@@ -1204,13 +1204,15 @@ class CP2KEngine(EngineBase):
             break  # Stop after the first snapshot.
         return xyz, vel, box, names
 
-    def set_mdrun(self, config: dict[str, Any], md_items: dict[str, Any]):
+    def set_mdrun(
+        self, config: dict[str, Any], md_items: dict[str, Any]
+    ) -> None:
         """Remove or rename?"""
         self.exe_dir = md_items["w_folder"]
         # self.rgen = md_items['picked']['tis_set']['rgen']
         self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"]
 
-    def _reverse_velocities(self, filename: str, outfile: str):
+    def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocity in a given snapshot.
 
         Parameters

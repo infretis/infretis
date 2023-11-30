@@ -149,7 +149,7 @@ class TurtleMDEngine(EngineBase):
         ens_set: dict[str, Any],
         msg_file: FileIO,
         reverse: bool = False,
-    ) -> None:
+    ) -> tuple[bool, str]:
         """
         We assume the following:
             * Box does not change (constant volume simulation)

@@ -64,7 +64,7 @@ class EngineBase(metaclass=ABCMeta):
         return self._exe_dir
 
     @exe_dir.setter
-    def exe_dir(self, exe_dir: str):
+    def exe_dir(self, exe_dir: str) -> None:
         """Set the directory for executing."""
         self._exe_dir = exe_dir
         if exe_dir is not None:
@@ -169,7 +169,9 @@ class EngineBase(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def set_mdrun(self, config: dict[str, Any], md_items: dict[str, Any]):
+    def set_mdrun(
+        self, config: dict[str, Any], md_items: dict[str, Any]
+    ) -> None:
         """Sets the worker terminal command to be run"""
 
     def calculate_order(
@@ -229,12 +231,14 @@ class EngineBase(metaclass=ABCMeta):
             raise ValueError("Order parameter is not defined!")
         return self.order_function.calculate(system)
 
-    def dump_phasepoint(self, phasepoint: System, deffnm: str = "conf"):
+    def dump_phasepoint(
+        self, phasepoint: System, deffnm: str = "conf"
+    ) -> None:
         """Just dump the frame from a system object."""
         pos_file = self.dump_config(phasepoint.config, deffnm=deffnm)
         phasepoint.set_pos((pos_file, None))
 
-    def _name_output(self, basename: str):
+    def _name_output(self, basename: str) -> str:
         """
         Create a file name for the output file.
 
@@ -294,7 +298,7 @@ class EngineBase(metaclass=ABCMeta):
         return self.dump_config(system.config, deffnm=deffnm)
 
     @abstractmethod
-    def _extract_frame(self, traj_file: str, idx: int, out_file: str):
+    def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """Extract a frame from a trajectory file.
 
         Parameters
@@ -308,7 +312,7 @@ class EngineBase(metaclass=ABCMeta):
 
         """
 
-    def clean_up(self):
+    def clean_up(self) -> None:
         """Will remove all files from the current directory."""
         dirname = self.exe_dir
         logger.debug('Running engine clean-up in "%s"', dirname)
@@ -492,7 +496,7 @@ class EngineBase(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def _reverse_velocities(self, filename: str, outfile: str):
+    def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocities in a given snapshot.
 
         Parameters
@@ -510,7 +514,7 @@ class EngineBase(metaclass=ABCMeta):
         outputfile: str | Path,
         settings: dict[str, str | float | int],
         delim: str = "=",
-    ):
+    ) -> None:
         """
         Modify input file for external software.
 
@@ -552,7 +556,9 @@ class EngineBase(metaclass=ABCMeta):
                     outfile.write(f"{key} {delim} {value}\n")
 
     @staticmethod
-    def _read_input_settings(sourcefile, delim="="):
+    def _read_input_settings(
+        sourcefile: str, delim: str = "="
+    ) -> dict[str, Any]:
         """
         Read input settings for simulation input files.
 
@@ -673,19 +679,19 @@ class EngineBase(metaclass=ABCMeta):
         return return_code
 
     @staticmethod
-    def _movefile(source: str, dest: str):
+    def _movefile(source: str, dest: str) -> None:
         """Move file from source to destination."""
         logger.debug("Moving: %s -> %s", source, dest)
         shutil.move(source, dest)
 
     @staticmethod
-    def _copyfile(source: str, dest: str):
+    def _copyfile(source: str, dest: str) -> None:
         """Copy file from source to destination."""
         logger.debug("Copy: %s -> %s", source, dest)
         shutil.copyfile(source, dest)
 
     @staticmethod
-    def _removefile(filename: str | Path):
+    def _removefile(filename: str | Path) -> None:
         """Remove a given file if it exist."""
         try:
             Path(filename).unlink(missing_ok=True)
@@ -693,7 +699,7 @@ class EngineBase(metaclass=ABCMeta):
         except OSError:
             logger.debug("Could not remove: %s", filename)
 
-    def _remove_files(self, dirname: str, files: list[str]):
+    def _remove_files(self, dirname: str, files: list[str]) -> None:
         """Remove files from a directory.
 
         Parameters
@@ -707,7 +713,7 @@ class EngineBase(metaclass=ABCMeta):
         for i in files:
             self._removefile(os.path.join(dirname, i))
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """Check if two engines are equal."""
         if self.__class__ != other.__class__:
             logger.debug("%s and %s.__class__ differ", self, other)
@@ -749,12 +755,12 @@ class EngineBase(metaclass=ABCMeta):
 
         return True
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         """Check if two engines are not equal."""
         return not self == other
 
     @classmethod
-    def can_use_order_function(cls, order_function: OrderParameter):
+    def can_use_order_function(cls, order_function: OrderParameter) -> None:
         """Fail if the engine can't be used with an empty order parameter."""
         if order_function is None and cls.needs_order:
             raise ValueError(
@@ -776,7 +782,7 @@ class EngineBase(metaclass=ABCMeta):
         info = {"description": self.description}
         return info
 
-    def load_restart_info(self, info: dict[str, str] | None = None):
+    def load_restart_info(self, info: dict[str, str] | None = None) -> None:
         """Load restart information.
 
         Parameters
@@ -789,7 +795,7 @@ class EngineBase(metaclass=ABCMeta):
         if info is not None:
             self.description = info["description"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the string description of the integrator."""
         return self.description
 
