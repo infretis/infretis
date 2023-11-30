@@ -25,7 +25,6 @@ aimless = true
 allowmaxlength = false
 zero_momentum = false # momentum true
 rescale_energy = false
-high_accept = true
 n_jumps = 4
 
 
