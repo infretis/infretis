@@ -469,6 +469,14 @@ class LAMMPSEngine(EngineBase):
         id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
         kin_old = kinetic_energy(vel, mass)[0]
 
+        rescale = vel_settings.get(
+            "rescale_energy", vel_settings.get("rescale")
+        )
+        if rescale is not None and rescale is not False:
+            msgtxt = "LAMMPS engine does not support energy re-scaleing."
+            logger.error(msgtxt)
+            raise NotImplementedError(msgtxt)
+
         if vel_settings.get("aimless", False):
             vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
         else:
