@@ -34,7 +34,7 @@ def write_lammpstrj(
     vel: np.ndarray,
     box: np.ndarray | None,
     append: bool = False,
-):
+) -> None:
     """Write a lammps trajectory frame in .lammpstrj format
     correspondds to dump id name x y z vx vy vz
     """
@@ -141,7 +141,7 @@ def write_for_run(
     infile: str | Path,
     outfile: str | Path,
     input_settings: dict[str, Any] | None = None,
-):
+) -> None:
     """Create input file to perform n steps with lammps.
 
     Currently, we define a set of variables starting with `infretis_`
@@ -373,8 +373,8 @@ class LAMMPSEngine(EngineBase):
                 # the remaning contnent in the files.
                 iterations_after_stop = 0
                 step_nr = 0
-                trajectory = []
-                box_trajectory = []
+                trajectory: list[np.ndarray] = []
+                box_trajectory: list[np.ndarray] = []
                 while exe.poll() is None or iterations_after_stop <= 1:
                     # we may still have some data in the trajectory
                     # so use += here
@@ -464,7 +464,7 @@ class LAMMPSEngine(EngineBase):
         self._removefile(run_input)
         return success, status
 
-    def _extract_frame(self, traj_file: str, idx: int, out_file: str):
+    def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """Extract a frame from a trajectory and write a new configuration,
         which is a single frame trajectory"""
         id_type, pos, vel, box = read_lammpstrj(traj_file, idx, self.n_atoms)
@@ -478,7 +478,7 @@ class LAMMPSEngine(EngineBase):
         pos, box = shift_boxbounds(pos, box)
         return pos, vel, box, None
 
-    def _reverse_velocities(self, filename: str, outfile: str):
+    def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse the velocities of a configuration"""
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         vel *= -1.0
@@ -538,7 +538,9 @@ class LAMMPSEngine(EngineBase):
             dek = kin_new - kin_old
         return dek, kin_new
 
-    def set_mdrun(self, config: dict[str, Any], md_items: dict[str, Any]):
+    def set_mdrun(
+        self, config: dict[str, Any], md_items: dict[str, Any]
+    ) -> None:
         """Give worker the correct random generator and executional directory,
         and eventual alternative run stuff"""
         self.exe_dir = md_items["w_folder"]

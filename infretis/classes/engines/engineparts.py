@@ -502,7 +502,7 @@ class ReadAndProcessOnTheFly:
     def __init__(
         self,
         file_path: str | Path,
-        processing_function: Callable[..., list[np.ndarray]],
+        processing_function: Callable[..., Any],
         read_mode: str = "r",
     ):
         self.file_path = file_path
@@ -511,7 +511,7 @@ class ReadAndProcessOnTheFly:
         self.file_object: IO[Any] | None = None
         self.read_mode = read_mode
 
-    def read_and_process_content(self) -> list[np.ndarray]:
+    def read_and_process_content(self) -> Any:
         # we may open at a time where the file
         # is currently not open for reading
         try:

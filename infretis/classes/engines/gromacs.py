@@ -22,7 +22,8 @@ from infretis.classes.engines.engineparts import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterator
-    from io import BufferedReader
+    from io import BufferedReader, BufferedWriter
+    from types import TracebackType
 
     from infretis.classes.formatter import FileIO
     from infretis.classes.path import Path as InfPath
@@ -438,7 +439,7 @@ class GromacsEngine(EngineBase):
         out_files["tpr"] = tpr_file
         return out_files
 
-    def _remove_gromacs_backup_files(self, dirname: str | Path):
+    def _remove_gromacs_backup_files(self, dirname: str | Path) -> None:
         """Remove GROMACS backup files (files starting with a "#").
 
         Args:
@@ -449,7 +450,7 @@ class GromacsEngine(EngineBase):
             if entry.name.startswith("#") and entry.is_file():
                 self._removefile(entry)
 
-    def _extract_frame(self, traj_file: str, idx: int, out_file: str):
+    def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """Extract a frame from a .trr, .xtc or .trj file.
 
         If the extension is different from .trr, .xtc or .trj, we will
@@ -687,7 +688,9 @@ class GromacsEngine(EngineBase):
         self._remove_files(self.exe_dir, remove)
         return confout, energy
 
-    def set_mdrun(self, config: dict[str, Any], md_items: dict[str, Any]):
+    def set_mdrun(
+        self, config: dict[str, Any], md_items: dict[str, Any]
+    ) -> None:
         """Sets the worker terminal command to be run"""
         base = config["dask"]["wmdrun"][md_items["pin"]]
         self.mdrun = base + " -s {} -deffnm {} -c {}"
@@ -715,7 +718,7 @@ class GromacsEngine(EngineBase):
         _, xyz, vel, box = read_gromos96_file(filename)
         return xyz, vel, box, None
 
-    def _reverse_velocities(self, filename: str, outfile: str):
+    def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocity in a given snapshot.
 
         Args:
@@ -857,18 +860,18 @@ class GromacsRunner:
         self.edr_file = edr_file
         self.exe_dir = exe_dir
         self.fileh: BufferedReader
-        self.running = None
+        self.running: subprocess.Popen[bytes] | None = None
         self.bytes_read = 0
         self.ino = 0
         self.stop_read = True
         self.data_size = 0
         self.header_size = 0
-        self.stdout_name = None
-        self.stderr_name = None
-        self.stdout = None
-        self.stderr = None
+        self.stdout_name: str | None = None
+        self.stderr_name: str | None = None
+        self.stdout: BufferedWriter | None = None
+        self.stderr: BufferedWriter | None = None
 
-    def start(self):
+    def start(self) -> None:
         """Start execution of GROMACS and wait for output file creation."""
         logger.debug("Starting GROMACS execution in %s", self.exe_dir)
 
@@ -914,7 +917,7 @@ class GromacsRunner:
         self.start()
         return self
 
-    def get_gromacs_frames(self):
+    def get_gromacs_frames(self) -> Iterator[dict[str, np.ndarray]]:
         """Read the GROMACS TRR file on-the-fly."""
         first_header = True
         header = None
@@ -948,7 +951,7 @@ class GromacsRunner:
                             self.ino,
                             self.bytes_read,
                         )
-                        if new_fileh is not None:
+                        if new_fileh is not None and new_ino is not None:
                             self.fileh = new_fileh
                             self.ino = new_ino
                     if header is not None:
@@ -976,7 +979,10 @@ class GromacsRunner:
                                         self.ino,
                                         self.bytes_read,
                                     )
-                                    if new_fileh is not None:
+                                    if (
+                                        new_fileh is not None
+                                        and new_ino is not None
+                                    ):
                                         self.fileh = new_fileh
                                         self.ino = new_ino
                                 if data is None:
@@ -992,7 +998,7 @@ class GromacsRunner:
                     # Header was not ready, just wait before trying again.
                     sleep(self.SLEEP)
 
-    def close(self):
+    def close(self) -> None:
         """Close the file, in case that is explicitly needed."""
         if self.fileh is not None and not self.fileh.closed:
             logger.debug('Closing GROMACS file: "%s"', self.trr_file)
@@ -1001,7 +1007,7 @@ class GromacsRunner:
             if handle is not None and not handle.closed:
                 handle.close()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the current GROMACS execution."""
         if self.running:
             for handle in (
@@ -1022,7 +1028,12 @@ class GromacsRunner:
         self.stop_read = True
         self.close()  # Close the TRR file.
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Just stop execution and close file for a context manager."""
         self.stop()
 
@@ -1114,7 +1125,7 @@ def read_trr_header(fileh: BufferedReader) -> tuple[dict[str, Any], int]:
     return header, fileh.tell() - start
 
 
-def gromacs_settings(settings: dict[str, Any], input_path: str):
+def gromacs_settings(settings: dict[str, Any], input_path: str) -> None:
     """Read and processes GROMACS settings.
 
     Args:
@@ -1222,7 +1233,7 @@ def write_gromos96_file(
     xyz: np.ndarray,
     vel: np.ndarray | None,
     box: np.ndarray | list[float] | None = None,
-):
+) -> None:
     """Write configuration in GROMACS .g96 format.
 
     Args:
@@ -1305,7 +1316,7 @@ def is_double(header: dict[str, Any]) -> bool:
     return size == _SIZE_DOUBLE
 
 
-def skip_trr_data(fileh: BufferedReader, header: dict[str, Any]):
+def skip_trr_data(fileh: BufferedReader, header: dict[str, Any]) -> None:
     """Skip coordinates/box data etc.
 
     This method is used when we want to skip a data section in
