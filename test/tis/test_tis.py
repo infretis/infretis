@@ -61,7 +61,6 @@ def return_ensset() -> dict():
             "allowmaxlength": False,
             "zero_momentum": False,
             "rescale_energy": False,
-            "high_accept": True,
             "n_jumps": 4,
         },
         "mc_move": "sh",

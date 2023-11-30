@@ -20,7 +20,6 @@ allowmaxlength = false
 zero_momentum = true # momentum true
 rescale_energy = false
 temperature = 300
-high_accept = true
 n_jumps = 4
 
 
