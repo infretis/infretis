@@ -1,19 +1,24 @@
 """Test methods for doing TIS."""
 import os
+from pathlib import PosixPath
 
 import numpy as np
 import pytest
-from pathlib import PosixPath
+from rgen import MockRandomGenerator
 
 from infretis.classes.engines.engineparts import read_xyz_file
 from infretis.classes.engines.factory import create_engine
 from infretis.classes.engines.turtlemd import TurtleMDEngine
 from infretis.classes.orderparameter import create_orderparameters
+
 # from infretis.classes.path import Path, restart_path
 from infretis.classes.path import Path, load_path
-from infretis.core.tis import prepare_shooting_point, shoot, wire_fencing, compute_weight
-
-from rgen import MockRandomGenerator
+from infretis.core.tis import (
+    compute_weight,
+    prepare_shooting_point,
+    shoot,
+    wire_fencing,
+)
 
 CWD = os.getcwd()
 BASEPATH = os.path.dirname(__file__)
@@ -23,6 +28,7 @@ INP_PATH = load_path(PATH_DIR)
 for idx, i in enumerate(INP_PATH.phasepoints):
     tup = (os.path.join(BASEPATH, i.config[0]), i.config[1])
     INP_PATH.phasepoints[idx].config = tup
+
 
 def return_engset() -> dict():
     eng_set = {
@@ -45,6 +51,7 @@ def return_engset() -> dict():
     }
     return eng_set
 
+
 def return_ensset() -> dict():
     ens_set = {
         "interfaces": (-0.99, -0.3, 1.0),
@@ -54,7 +61,7 @@ def return_ensset() -> dict():
             "allowmaxlength": False,
             "zero_momentum": False,
             "rescale_energy": False,
-            'n_jumps': 4,
+            "n_jumps": 4,
         },
         "mc_move": "sh",
         "eng_name": "turtlemd",
@@ -63,6 +70,7 @@ def return_ensset() -> dict():
         "rgen": MockRandomGenerator(),
     }
     return ens_set
+
 
 def create_ensdic_and_engine() -> (dict(), TurtleMDEngine):
     eng_set = return_engset()
@@ -92,6 +100,7 @@ def check_smooth(path: Path) -> tuple:
     smooth = np.std(diff) / abs(np.average(diff))
     return smooth, smooth <= 1.0
 
+
 def create_traj_from_list(op_list: list) -> Path:
     toy_path = INP_PATH.empty_path()
     for op in op_list:
@@ -114,13 +123,14 @@ def test_shooting(tmp_path: PosixPath) -> None:
     f1.mkdir()
     turtle.exe_dir = f1
     turtle.rgen = ens_set["rgen"]
-    print('lion', INP_PATH.generated)
+    print("lion", INP_PATH.generated)
     success, trial_seg, status = shoot(ens_set, INP_PATH, turtle)
     assert not success
     assert trial_seg.length == 21
     assert status == "BTL"
     assert check_smooth(trial_seg)[1]
     assert pytest.approx(trial_seg.ordermax[0]) == 0.8130819530087089
+
 
 def test_wirefencing(tmp_path: PosixPath) -> None:
     """Template for wirefencing move tests.
@@ -160,7 +170,7 @@ def test_compute_weight_wf(tmp_path: PosixPath) -> None:
     f1 = tmp_path / "temp"
     f1.mkdir()
 
-    interfaces = (0., 1., 2.) # A, i, cap
+    interfaces = (0.0, 1.0, 2.0)  # A, i, cap
     # line shape:
     toy_path = create_traj_from_list([-1, 1.5, 1.5, 1.5, 1.5, 1.5, -1])
     weight = compute_weight(toy_path, interfaces, "wf")
@@ -181,6 +191,7 @@ def test_compute_weight_wf(tmp_path: PosixPath) -> None:
     weight = compute_weight(toy_path, interfaces, "wf")
     assert weight == 1
 
+
 def test_prepare_shooting_point(tmp_path: PosixPath) -> None:
     """Testing the prepare shooting point function.
 
@@ -192,7 +203,9 @@ def test_prepare_shooting_point(tmp_path: PosixPath) -> None:
     f1.mkdir()
     turtle.exe_dir = f1
 
-    shpt_copy, idx, dek = prepare_shooting_point(INP_PATH, turtle.rgen, turtle)
+    shpt_copy, idx, dek = prepare_shooting_point(
+        INP_PATH, turtle.rgen, turtle, {}
+    )
     shpt_xyz = list(read_xyz_file(shpt_copy.config[0]))
     path_xyz = list(read_xyz_file(INP_PATH.phasepoints[0].config[0]))
     assert os.path.isfile(shpt_copy.config[0])
