@@ -110,7 +110,7 @@ class TurtleMDEngine(EngineBase):
             )
         self.system = TSystem(self.box, self.particles, self.potential)
 
-    def _extract_frame(self, traj_file: str, idx: int, out_file: str):
+    def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """
         Extract a frame from a trajectory file.
 
@@ -149,7 +149,7 @@ class TurtleMDEngine(EngineBase):
         ens_set: dict[str, Any],
         msg_file: FileIO,
         reverse: bool = False,
-    ):
+    ) -> None:
         """
         We assume the following:
             * Box does not change (constant volume simulation)
@@ -286,11 +286,13 @@ class TurtleMDEngine(EngineBase):
             return xyz, vel, box, names
         raise ValueError("Missing TurtleMD configuration")
 
-    def set_mdrun(self, config: dict[str, Any], md_items: dict[str, Any]):
+    def set_mdrun(
+        self, config: dict[str, Any], md_items: dict[str, Any]
+    ) -> None:
         """Remove or rename?"""
         self.exe_dir = md_items["w_folder"]
 
-    def _reverse_velocities(self, filename: str, outfile: str):
+    def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocity in a given snapshot.
 
         Parameters
