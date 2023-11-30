@@ -3,6 +3,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -16,22 +17,22 @@ LOG_DEBUG_FMT = (
     "[%(levelname)s] [%(name)s, %(funcName)s() at"
     " line %(lineno)d]: %(message)s"
 )
+if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Callable, Iterable
 
 
-def _read_line_data(ncol, stripline, line_parser):
+def _read_line_data(
+    ncol: int, stripline: str, line_parser: Callable[[str], Any]
+) -> tuple[Any, bool, int]:
     """Read data for :py:func:`.read_some_lines.`.
 
-    Parameters
-    ----------
-    ncol : integer
-        The expected number of columns to read. If this is less than 1
-        it is not yet set. Note that we skip data which appear
-        inconsistent. A warning will be issued about this.
-    stripline : string
-        The line to read. Note that we assume that leading and
-        trailing spaces have been removed.
-    line_parser : callable
-        A method we use to parse a single line.
+    Args
+        ncol: The expected number of columns to read. If this is less than 1
+            it is not yet set. Note that we skip data which appear
+            inconsistent. A warning will be issued about this.
+        stripline: The line to read. Note that we assume that leading and
+            trailing spaces have been removed.
+        line_parser: A method for parsing a single line.
 
     """
     if line_parser is None:
@@ -50,7 +51,9 @@ def _read_line_data(ncol, stripline, line_parser):
     return None, False, -1
 
 
-def read_some_lines(filename, line_parser, block_label="#"):
+def read_some_lines(
+    filename: str, line_parser: Callable[[str], Any], block_label: str = "#"
+) -> Iterable[dict[str, Any]]:
     """Open a file and try to read as many lines as possible.
 
     This method will read a file using the given `line_parser`.
@@ -78,7 +81,7 @@ def read_some_lines(filename, line_parser, block_label="#"):
 
     """
     ncol = -1  # The number of columns
-    new_block = {"comment": [], "data": []}
+    new_block: dict[str, Any] = {"comment": [], "data": []}
     yield_block = False
     read_comment = False
     with open(filename, encoding="utf-8") as fileh:
@@ -119,21 +122,15 @@ def read_some_lines(filename, line_parser, block_label="#"):
         yield new_block
 
 
-def _make_header(labels, width, spacing=1):
+def _make_header(labels: list[str], width: list[int], spacing: int = 1) -> str:
     """Format a table header with the given labels.
 
-    Parameters
-    ----------
-    labels : list of strings
-        The strings to use for the table header.
-    width : list of ints
-        The widths to use for the table.
-    spacing : int
-        The spacing between the columns in the table
+    Args
+        labels: The strings to use for the table header.
+        width: The widths to use for the table.
+        spacing: The spacing between the columns in the table
 
     Returns
-    -------
-    out : string
         A header for the table.
 
     """
@@ -171,7 +168,7 @@ class OutputFormatter:
 
     _FMT = "{}"
 
-    def __init__(self, name, header=None):
+    def __init__(self, name: str, header: dict[str, Any] | None = None):
         """Initialise the formatter.
 
         Parameters
