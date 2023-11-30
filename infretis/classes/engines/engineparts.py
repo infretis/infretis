@@ -316,7 +316,7 @@ def write_xyz_trajectory(
     box: np.ndarray | None,
     step: int | None = None,
     append: bool = True,
-):
+) -> None:
     """Write XYZ snapshot to a trajectory.
 
     This is intended as a lightweight alternative for just
