@@ -1,9 +1,9 @@
 import logging
 import math
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 import numpy as np
 
@@ -225,7 +225,7 @@ def get_box_from_header(header: str) -> np.ndarray | None:
 
 def read_txt_snapshots(
     filename: str | Path, data_keys: tuple[str, ...] | None = None
-) -> Iterator[dict]:
+) -> Iterator[dict[str, Any]]:
     """Read snapshots from a text file.
 
     Parameters
@@ -277,7 +277,7 @@ def read_txt_snapshots(
         yield snapshot
 
 
-def read_xyz_file(filename: str | Path) -> Iterator[dict]:
+def read_xyz_file(filename: str | Path) -> Iterator[dict[str, Any]]:
     """Read files in XYZ format.
 
     This method will read a XYZ file and yield the different snapshots
@@ -499,31 +499,39 @@ class ReadAndProcessOnTheFly:
     at last whole ready block read and return [] or the ready frames.
     """
 
-    def __init__(self, file_path, processing_function, read_mode="r"):
+    def __init__(
+        self,
+        file_path: str | Path,
+        processing_function: Callable[..., list[np.ndarray]],
+        read_mode: str = "r",
+    ):
         self.file_path = file_path
         self.processing_function = processing_function
         self.current_position = 0
-        self.file_object = None
+        self.file_object: IO[Any] | None = None
         self.read_mode = read_mode
 
-    def read_and_process_content(self):
+    def read_and_process_content(self) -> list[np.ndarray]:
         # we may open at a time where the file
         # is currently not open for reading
         try:
             with open(self.file_path, self.read_mode) as self.file_object:
                 self.file_object.seek(self.current_position)
                 self.previous_position = self.current_position
-                trajectory = self.processing_function(self)
-                return trajectory
+                return self.processing_function(self)
         except FileNotFoundError:
             return []
 
 
-def xyz_reader(reader_class):
+def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
     # trajectory of ready frames to be returned
-    trajectory = []
+    trajectory: list[np.ndarray] = []
     # holder for storing frame coordinates
-    frame_coordinates = []
+    frame_coordinates: list[list[float]] = []
+    block_size = 0
+    N_atoms = 0
+    if reader_class.file_object is None:
+        return trajectory
     for i, line in enumerate(reader_class.file_object.readlines()):
         spl = line.split()
         if i == 0 and spl:
@@ -548,7 +556,9 @@ def xyz_reader(reader_class):
     return trajectory
 
 
-def lammpstrj_reader(reader_class):
+def lammpstrj_reader(
+    reader_class: ReadAndProcessOnTheFly,
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """
     Return the coordinates, velocities and box bounds from a trajectory.
 
@@ -572,12 +582,17 @@ def lammpstrj_reader(reader_class):
     """
     # the ready frames to be returned
     # which will be a list of np.arrays
-    trajectory = []
+    trajectory: list[np.ndarray] = []
     # the corresponding box dimensions to be returned
-    box = []
+    box: list[np.ndarray] = []
+    box_snapshot = np.zeros(1)
     # the number of lines each snapshot takes in the trajectory
     # It is a placeholder for now
     block_size = 4
+    N_atoms = 0
+    coordinate_snapshot = np.zeros(1)
+    if reader_class.file_object is None:
+        return trajectory, box
     for i, line in enumerate(reader_class.file_object.readlines()):
         spl = line.split()
         if i == 3 and spl:
