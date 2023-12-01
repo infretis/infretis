@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import logging
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any, TypedDict
 
 import numpy as np
 
@@ -19,6 +21,8 @@ LOG_DEBUG_FMT = (
 )
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable, Iterable
+
+    from infretis.classes.path import Path as InfPath
 
 
 def _read_line_data(
@@ -200,11 +204,11 @@ class OutputFormatter:
         return self._header
 
     @header.setter
-    def header(self, value):
+    def header(self, value: str):
         """Set the header."""
         self._header = value
 
-    def format(self, step, data):
+    def format(self, step: int, data: Any) -> Iterable[str]:
         """Use the formatter to generate output.
 
         Parameters
@@ -223,7 +227,7 @@ class OutputFormatter:
         yield " ".join(out)
 
     @staticmethod
-    def parse(line):
+    def parse(line: str) -> list[int] | list[float] | list[str]:
         """Parse formatted data.
 
         This method is intended to be the "inverse" of the :py:meth:`.format`
@@ -246,7 +250,7 @@ class OutputFormatter:
             for i, col in enumerate(line.split())
         ]
 
-    def load(self, filename):
+    def load(self, filename: str) -> Iterable[dict[str, Any]]:
         """Read generic data from a file.
 
         Since this class defines how the data is formatted it is also
@@ -276,7 +280,7 @@ class OutputFormatter:
             data_dict = {"comment": blocks["comment"], "data": blocks["data"]}
             yield data_dict
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return basic info about the formatter."""
         return self.name
 
@@ -302,12 +306,12 @@ class OrderFormatter(OutputFormatter):
     # we need to format yet.
     ORDER_FMT = ["{:>10d}", "{:>12.6f}"]
 
-    def __init__(self, name="OrderFormatter"):
+    def __init__(self, name: str = "OrderFormatter"):
         """Initialise a `OrderFormatter` formatter."""
         header = {"labels": ["Time", "Orderp"], "width": [10, 12]}
         super().__init__(name, header=header)
 
-    def format_data(self, step, orderdata):
+    def format_data(self, step: int, orderdata: list[float]) -> str:
         """Format order parameter data.
 
         Parameters
@@ -329,11 +333,11 @@ class OrderFormatter(OutputFormatter):
         out = " ".join(towrite)
         return out
 
-    def format(self, step, data):
+    def format(self, step: int, data: list[float]) -> Iterable[str]:
         """Yield formatted order parameters. See :py:meth:`.format_data`."""
         yield self.format_data(step, data)
 
-    def load(self, filename):
+    def load(self, filename: str) -> Iterable[dict[str, Any]]:
         """Read order parameter data from a file.
 
         Since this class defines how the data is formatted it is also
@@ -374,7 +378,7 @@ class OrderPathFormatter(OrderFormatter):
         super().__init__(name="OrderPathFormatter")
         self.print_header = False
 
-    def format(self, step, data):
+    def format(self, step: int, data: list[Any]) -> Iterable[str]:
         """Format the order parameter data from a path.
 
         Parameters
@@ -419,12 +423,12 @@ class OutputBase(metaclass=ABCMeta):
 
     """
 
-    def __init__(self, formatter):
+    def __init__(self, formatter: OutputFormatter):
         """Create the object and attach a formatter."""
         self.formatter = formatter
         self.first_write = True
 
-    def output(self, step, data):
+    def output(self, step: int, data: list[Any]) -> Any:
         """Use the formatter to write data to the file.
 
         Parameters
@@ -442,7 +446,7 @@ class OutputBase(metaclass=ABCMeta):
             self.write(line)
 
     @abstractmethod
-    def write(self, towrite, end="\n"):
+    def write(self, towrite: str, end: str = "\n") -> bool:
         """Write a string to the output defined by this class.
 
         Parameters
@@ -458,15 +462,14 @@ class OutputBase(metaclass=ABCMeta):
             True if we managed to write, False otherwise.
 
         """
-        return
 
-    def formatter_info(self):
+    def formatter_info(self) -> str:
         """Return a string with info about the formatter."""
         if self.formatter is not None:
-            return self.formatter.__class__
-        return None
+            return str(self.formatter.__class__)
+        return "No formatter defined"
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return basic info."""
         return f"{self.__class__.__name__}\n\t* Formatter: {self.formatter}"
 
@@ -500,7 +503,13 @@ class FileIO(OutputBase):
     target = "file"
     FILE_FLUSH = 1  # Interval for flushing files in seconds.
 
-    def __init__(self, filename, file_mode, formatter, backup=True):
+    def __init__(
+        self,
+        filename: str,
+        file_mode: str,
+        formatter: OutputFormatter,
+        backup: bool = True,
+    ):
         """Set up the file object.
 
         Parameters
@@ -524,12 +533,12 @@ class FileIO(OutputBase):
             self.backup = True
         else:
             self.backup = backup
-        self.fileh = None
+        self.fileh: IO[Any] | None = None
         if self.file_mode.startswith("a") and self.formatter is not None:
             self.formatter.print_header = False
-        self.last_flush = None
+        self.last_flush: datetime | None = None
 
-    def open_file_read(self):
+    def open_file_read(self) -> IO[Any] | None:
         """Open a file for reading."""
         if not self.file_mode.startswith("r"):
             raise ValueError(
@@ -547,7 +556,7 @@ class FileIO(OutputBase):
                 )
         return self.fileh
 
-    def open_file_write(self):
+    def open_file_write(self) -> IO[Any] | None:
         """Open a file for writing.
 
         In this method, we also handle the possible backup settings.
@@ -574,7 +583,7 @@ class FileIO(OutputBase):
             logger.critical("I/O error (%d): %d", error.errno, error.strerror)
         return self.fileh
 
-    def open(self):
+    def open(self) -> IO[Any] | None:
         """Open a file for reading or writing."""
         if self.fileh is not None:
             logger.debug(
@@ -588,11 +597,11 @@ class FileIO(OutputBase):
             return self.open_file_write()
         raise ValueError(f'Unknown file mode "{self.file_mode}"')
 
-    def load(self):
+    def load(self) -> Iterable[dict[str, Any]]:
         """Read blocks or lines from the file."""
         return self.formatter.load(self.filename)
 
-    def write(self, towrite, end="\n"):
+    def write(self, towrite: str, end: str = "\n") -> bool:
         """Write a string to the file.
 
         Parameters
@@ -640,7 +649,7 @@ class FileIO(OutputBase):
             )
         return status
 
-    def close(self):
+    def close(self) -> None:
         """Close the file."""
         if self.fileh is not None and not self.fileh.closed:
             try:
@@ -648,19 +657,19 @@ class FileIO(OutputBase):
             finally:
                 self.fileh.close()
 
-    def flush(self):
+    def flush(self) -> None:
         """Flush file buffers to file."""
         if self.fileh is not None and not self.fileh.closed:
             self.fileh.flush()
             os.fsync(self.fileh.fileno())
 
-    def output(self, step, data):
+    def output(self, step: int, data: list[Any]):
         """Open file before first write."""
         if self.first_write:
             self.open()
         return super().output(step, data)
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Close the file in case the object is deleted."""
         self.close()
 
@@ -669,7 +678,7 @@ class FileIO(OutputBase):
         self.open()
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args) -> None:
         """Context manager for closing the file."""
         self.close()
 
@@ -685,7 +694,7 @@ class FileIO(OutputBase):
             raise StopIteration
         return next(self.fileh)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return basic info."""
         msg = [f'FileIO (file: "{self.filename}")']
         if self.fileh is not None and not self.fileh.closed:
@@ -698,7 +707,7 @@ class FileIO(OutputBase):
 class OrderFile(FileIO):
     """A class for handling PyRETIS order parameter files."""
 
-    def __init__(self, filename, file_mode, backup=True):
+    def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the order file with correct formatter."""
         super().__init__(filename, file_mode, OrderFormatter(), backup=backup)
 
@@ -706,7 +715,7 @@ class OrderFile(FileIO):
 class OrderPathFile(FileIO):
     """A class for handling PyRETIS order parameter path files."""
 
-    def __init__(self, filename, file_mode, backup=True):
+    def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the order path file with correct formatter."""
         super().__init__(
             filename, file_mode, OrderPathFormatter(), backup=backup
@@ -739,11 +748,11 @@ class EnergyFormatter(OutputFormatter):
         "width": [10, 14],
     }
 
-    def __init__(self, name="EnergyFormatter"):
+    def __init__(self, name: str = "EnergyFormatter"):
         """Initialise the formatter for energy."""
         super().__init__(name, header=self.HEADER)
 
-    def apply_format(self, step, energy):
+    def apply_format(self, step: int, energy: Any):
         """Apply the energy format.
 
         Parameters
@@ -768,11 +777,11 @@ class EnergyFormatter(OutputFormatter):
                 towrite.append(self.ENERGY_FMT[i + 1].format(float(value)))
         return " ".join(towrite)
 
-    def format(self, step, data):
+    def format(self, step: int, data: Any) -> Iterable[str]:
         """Yield formatted energy data. See :py:meth:.`apply_format`."""
         yield self.apply_format(step, data)
 
-    def load(self, filename):
+    def load(self, filename: str):
         """Load entire energy blocks into memory.
 
         Parameters
@@ -811,7 +820,7 @@ class EnergyPathFormatter(EnergyFormatter):
         super().__init__(name="EnergyPathFormatter")
         self.print_header = False
 
-    def format(self, step, data):
+    def format(self, step: int, data: Any) -> Iterable[str]:
         """Format the order parameter data from a path.
 
         Parameters
@@ -845,7 +854,7 @@ class EnergyPathFormatter(EnergyFormatter):
 class EnergyFile(FileIO):
     """A class for handling PyRETIS energy files."""
 
-    def __init__(self, filename, file_mode, backup=True):
+    def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the file object and attach the energy formatter."""
         super().__init__(filename, file_mode, EnergyFormatter(), backup=backup)
 
@@ -853,7 +862,7 @@ class EnergyFile(FileIO):
 class EnergyPathFile(FileIO):
     """A class for handling PyRETIS energy path files."""
 
-    def __init__(self, filename, file_mode, backup=True):
+    def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the file object and attach the energy formatter."""
         super().__init__(
             filename, file_mode, EnergyPathFormatter(), backup=backup
@@ -886,7 +895,7 @@ class PathExtFormatter(OutputFormatter):
         super().__init__("PathExtFormatter", header=header)
         self.print_header = False
 
-    def format(self, step, data):
+    def format(self, step: int, data: list[Any]) -> Iterable[str]:
         """Format path data for external paths.
 
         Parameters
@@ -918,7 +927,7 @@ class PathExtFormatter(OutputFormatter):
             yield self.FMT.format(i, filename_short, idx, vel)
 
     @staticmethod
-    def parse(line):
+    def parse(line: str) -> list[str]:
         """Parse the line data by splitting text on spaces.
 
         Parameters
@@ -938,11 +947,18 @@ class PathExtFormatter(OutputFormatter):
 class PathExtFile(FileIO):
     """A class for writing path data."""
 
-    def __init__(self, filename, file_mode, backup=True):
+    def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the path writer with correct format for external paths."""
         super().__init__(
             filename, file_mode, PathExtFormatter(), backup=backup
         )
+
+
+class FormattersEntry(TypedDict):
+    """To store formatters and output files."""
+
+    fmt: OutputFormatter  # The formatter to use.
+    file: str  # The file to write.
 
 
 class PathStorage(OutputBase):
@@ -974,7 +990,7 @@ class PathStorage(OutputBase):
     archive_acc = "traj-acc"
     archive_rej = "traj-rej"
     archive_traj = "traj"
-    formatters = {
+    formatters: dict[str, FormattersEntry] = {
         "order": {"fmt": OrderPathFormatter(), "file": "order.txt"},
         "energy": {"fmt": EnergyPathFormatter(), "file": "energy.txt"},
         "traj": {"fmt": PathExtFormatter(), "file": "traj.txt"},
@@ -990,9 +1006,12 @@ class PathStorage(OutputBase):
         trajectories.
 
         """
-        super().__init__(None)
+        formatter = OutputFormatter("empty formatter", header=None)
+        super().__init__(formatter)
 
-    def output_path_files(self, step, data, target_dir):
+    def output_path_files(
+        self, step: int, data: list[Any], target_dir: str
+    ) -> list[tuple[str, str]]:
         """Write the output files for energy, path and order parameter.
 
         Parameters
@@ -1039,7 +1058,9 @@ class PathStorage(OutputBase):
         return files
 
     @staticmethod
-    def _copy_path(path, target_dir, prefix=None):
+    def _copy_path(
+        path: InfPath, target_dir: str, prefix: str | None = None
+    ) -> InfPath:
         """Copy a path to a given target directory.
 
         Parameters
@@ -1075,7 +1096,7 @@ class PathStorage(OutputBase):
                 shutil.copy(src, dest)
         return path_copy
 
-    def output(self, step, data):
+    def output(self, step: int, data: Any) -> InfPath:
         """Format the path data and store the path.
 
         Parameters
@@ -1111,22 +1132,24 @@ class PathStorage(OutputBase):
         # Create the needed directories:
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
-        _ = self.output_path_files(step, (path, "ACC"), archive_path)
+        _ = self.output_path_files(step, [path, "ACC"], archive_path)
         path = self._copy_path(path, traj_dir)
         return path
 
-    def write(self, towrite, end="\n"):
+    def write(self, towrite: str, end: str = "\n"):
         """We do not need the write method for this object."""
         logger.critical(
             '%s does *not* support the "write" method!',
             self.__class__.__name__,
         )
 
-    def formatter_info(self):
+    def formatter_info(self) -> str:
         """Return info about the formatters."""
-        return [val["fmt"].__class__ for val in self.formatters.values()]
+        return "\n".join(
+            [str(val["fmt"].__class__) for val in self.formatters.values()]
+        )
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return basic info."""
         return f"{self.__class__.__name__} - archive writer."
 
