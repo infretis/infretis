@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import logging
 import os
 import shlex
 import signal
 import subprocess
+from pathlib import Path
 from time import sleep
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -14,11 +18,23 @@ from infretis.classes.engines.engineparts import (
     lammpstrj_reader,
 )
 
+if TYPE_CHECKING:  # pragma: nocover
+    from infretis.classes.formatter import FileIO
+    from infretis.classes.path import Path as InfPath
+    from infretis.classes.system import System
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
 
-def write_lammpstrj(outfile, id_type, pos, vel, box, append=False):
+def write_lammpstrj(
+    outfile: str,
+    id_type: np.ndarray,
+    pos: np.ndarray,
+    vel: np.ndarray,
+    box: np.ndarray | None,
+    append: bool = False,
+) -> None:
     """Write a lammps trajectory frame in .lammpstrj format
     correspondds to dump id name x y z vx vy vz
     """
@@ -30,8 +46,9 @@ ITEM: BOX BOUNDS xy xz yz pp pp pp\n"
             ""
         )
 
-        for box_vector in box:
-            to_write += " ".join(box_vector.astype(str)) + "\n"
+        if box is not None:
+            for box_vector in box:
+                to_write += " ".join(box_vector.astype(str)) + "\n"
         to_write += "ITEM: ATOMS id type x y z vx vy vz\n"
         for t, x, v in zip(id_type, pos, vel):
             to_write += (
@@ -45,7 +62,9 @@ ITEM: BOX BOUNDS xy xz yz pp pp pp\n"
         writefile.write(to_write)
 
 
-def read_lammpstrj(infile, frame, n_atoms):
+def read_lammpstrj(
+    infile: str, frame: int, n_atoms: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Read a single frame from a lammps trajectory
     Note that the atoms are sorted according to their index, such that
     order calculations are correct.
@@ -62,7 +81,7 @@ def read_lammpstrj(infile, frame, n_atoms):
     return id_type, pos, vel, box
 
 
-def read_energies(filename):
+def read_energies(filename: str) -> dict[str, np.ndarray]:
     """From pyretis
     Read some info from a LAMMPS log file.
 
@@ -81,7 +100,7 @@ def read_energies(filename):
 
     """
     energy_keys = []
-    energy_data = {}
+    energy_data: dict[str, list[float | int]] = {}
     read_energy = False
     with open(filename, encoding="utf-8") as logfile:
         for lines in logfile:
@@ -115,12 +134,14 @@ def read_energies(filename):
                         energy_data[key].append(int(value))
                     else:
                         energy_data[key].append(value)
-    for key, val in energy_data.items():
-        energy_data[key] = np.array(val)
-    return energy_data
+    return {key: np.array(val) for key, val in energy_data.items()}
 
 
-def write_for_run(infile, outfile, input_settings={}):
+def write_for_run(
+    infile: str | Path,
+    outfile: str | Path,
+    input_settings: dict[str, Any] | None = None,
+) -> None:
     """Create input file to perform n steps with lammps.
 
     Currently, we define a set of variables starting with `infretis_`
@@ -130,8 +151,7 @@ def write_for_run(infile, outfile, input_settings={}):
 
     The variables to be replaced are:
     "infretis_timestep": the timestep,
-    "infretis_nsteps": number of infretis steps
-        = path.maxlen * self.subcycles,
+    "infretis_nsteps": number of infretis steps = path.maxlen * self.subcycles,
     "infretis_subcycles": self.subcycles,
     "infretis_initconf": path to initial configuration to start run
     "infretis_name": name of the current project
@@ -146,6 +166,8 @@ def write_for_run(infile, outfile, input_settings={}):
         The file to create.
     input_settings: dict
     """
+    if input_settings is None:
+        input_settings = {}
     not_found = {key: 0 for key in input_settings.keys()}
     with open(infile) as readfile:
         with open(outfile, "w") as writefile:
@@ -166,12 +188,12 @@ def write_for_run(infile, outfile, input_settings={}):
         )
 
 
-def get_atom_masses(lammps_data):
+def get_atom_masses(lammps_data: str | Path) -> np.ndarray:
     """Read a lammps.data file and get the masses of the atoms"""
     n_atoms = 0
     n_atom_types = 0
-    atom_type_masses = 0
-    atoms = 0
+    atom_type_masses = np.zeros(0)
+    atoms = np.zeros(0)
     with open(lammps_data) as readfile:
         for i, line in enumerate(readfile):
             spl = line.split()
@@ -204,7 +226,9 @@ def get_atom_masses(lammps_data):
     return masses
 
 
-def shift_boxbounds(xyz, box):
+def shift_boxbounds(
+    xyz: np.ndarray, box: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """Shift positions such that the lower box bounds are 0, and
     return the modified positions and the new upper box bounds
     """
@@ -247,25 +271,25 @@ class LAMMPSEngine(EngineBase):
 
     def __init__(
         self,
-        lmp,
-        input_path,
-        timestep,
-        subcycles,
-        temperature,
-        exe_path=os.path.abspath("."),
-        sleep=0.1,
+        lmp: str,
+        input_path: str | Path,
+        timestep: float,
+        subcycles: int,
+        temperature: float,
+        exe_path: Path = Path(".").resolve(),
+        sleep: float = 0.1,
     ):
         super().__init__("LAMMPS external engine", timestep, subcycles)
         self.lmp = shlex.split(lmp)
         self.name = "lammps"
         self.sleep = sleep
         self.exe_path = exe_path
-        self.input_path = os.path.abspath(os.path.join(exe_path, input_path))
+        self.input_path = (Path(exe_path) / input_path).resolve()
         self.ext = "lammpstrj"
 
         self.input_files = {
-            "data": os.path.join(self.input_path, "lammps.data"),
-            "input": os.path.join(self.input_path, "lammps.input"),
+            "data": self.input_path / "lammps.data",
+            "input": self.input_path / "lammps.input",
         }
         self.mass = get_atom_masses(self.input_files["data"])
         self.n_atoms = self.mass.shape[0]
@@ -274,15 +298,24 @@ class LAMMPSEngine(EngineBase):
         self.beta = 1 / (self.kb * self.temperature)
 
     def _propagate_from(
-        self, name, path, system, ens_set, msg_file, reverse=False
-    ):
+        self,
+        name: str,
+        path: InfPath,
+        system: System,
+        ens_set: dict[str, Any],
+        msg_file: FileIO,
+        reverse: bool = False,
+    ) -> tuple[bool, str]:
+        status = f"propagating with LAMMPS (reverse = {reverse})"
         interfaces = ens_set["interfaces"]
+        logger.debug(status)
+        success = False
         left, _, right = interfaces
         initial_conf = system.config[0]
 
-        box, xyz, vel = self._read_configuration(initial_conf)
+        xyzi, veli, boxi, _ = self._read_configuration(initial_conf)
         # shift box such that lower bounds are zero
-        order = self.calculate_order(system, xyz=xyz, vel=vel, box=box)
+        order = self.calculate_order(system, xyz=xyzi, vel=veli, box=boxi)
         msg_file.write(
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
@@ -311,6 +344,7 @@ class LAMMPSEngine(EngineBase):
         # fire off lammps
         return_code = None
         lammps_was_terminated = False
+        step_nr = 0
         with open(out_name, "wb") as fout, open(err_name, "wb") as ferr:
             exe = subprocess.Popen(
                 cmd,
@@ -339,8 +373,8 @@ class LAMMPSEngine(EngineBase):
                 # the remaning contnent in the files.
                 iterations_after_stop = 0
                 step_nr = 0
-                trajectory = []
-                box_trajectory = []
+                trajectory: list[np.ndarray] = []
+                box_trajectory: list[np.ndarray] = []
                 while exe.poll() is None or iterations_after_stop <= 1:
                     # we may still have some data in the trajectory
                     # so use += here
@@ -424,32 +458,35 @@ class LAMMPSEngine(EngineBase):
         msg_file.write(f"# Reading energies from: {energy_file}")
         energy = read_energies(energy_file)
         end = (step_nr + 1) * self.subcycles
-        ekin = energy.get("KinEng", [])
-        vpot = energy.get("PotEng", [])
+        ekin: np.ndarray | list[float] = energy.get("KinEng", [])
+        vpot: np.ndarray | list[float] = energy.get("PotEng", [])
         path.update_energies(ekin[:end], vpot[:end])
         self._removefile(run_input)
         return success, status
 
-    def _extract_frame(self, traj_file, idx, out_file):
+    def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """Extract a frame from a trajectory and write a new configuration,
         which is a single frame trajectory"""
         id_type, pos, vel, box = read_lammpstrj(traj_file, idx, self.n_atoms)
         write_lammpstrj(out_file, id_type, pos, vel, box)
-        return
 
-    def _read_configuration(self, filename):
+    def _read_configuration(
+        self, filename: str
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
         """Read a configuration (a single frame trajectory)"""
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         pos, box = shift_boxbounds(pos, box)
-        return box, pos, vel
+        return pos, vel, box, None
 
-    def _reverse_velocities(self, filename, outfile):
+    def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse the velocities of a configuration"""
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         vel *= -1.0
         write_lammpstrj(outfile, id_type, pos, vel, box)
 
-    def modify_velocities(self, system, vel_settings=None):
+    def modify_velocities(
+        self, system: System, vel_settings: dict[str, Any]
+    ) -> tuple[float, float]:
         """Draw random velocities from a boltzmann distribution, and
         write a new configuration to genvel.lammpstrj.
 
@@ -488,7 +525,7 @@ class LAMMPSEngine(EngineBase):
         write_lammpstrj(conf_out, id_type, xyz, vel, box)
 
         kin_new = kinetic_energy(vel, mass)[0]
-        system.config = (conf_out, None)
+        system.config = (conf_out, 0)
         system.ekin = kin_new
         if kin_old == 0.0:
             dek = float("inf")
@@ -501,7 +538,9 @@ class LAMMPSEngine(EngineBase):
             dek = kin_new - kin_old
         return dek, kin_new
 
-    def set_mdrun(self, config, md_items):
+    def set_mdrun(
+        self, config: dict[str, Any], md_items: dict[str, Any]
+    ) -> None:
         """Give worker the correct random generator and executional directory,
         and eventual alternative run stuff"""
         self.exe_dir = md_items["w_folder"]
