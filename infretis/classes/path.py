@@ -24,7 +24,7 @@ logger.addHandler(logging.NullHandler())
 class Path:
     """Define Path class."""
 
-    def __init__(self, maxlen: int | None = None, time_origin: int = 0):
+    def __init__(self, maxlen: int = 10000, time_origin: int = 0):
         """Initiate Path class."""
         self.maxlen = maxlen
         self.status = None
@@ -194,6 +194,7 @@ class Path:
 
         start, end, middle, _ = self.check_interfaces(interfaces)
         path_info["interface"] = (start, middle, end)
+
         return path_info
 
     def get_move(self) -> str | None:

@@ -8,13 +8,17 @@ Important classes defined here
 CP2KEngine (:py:class:`.CP2KEngine`)
     A class responsible for interfacing CP2K.
 """
+from __future__ import annotations
+
 import logging
 import os
 import re
 import shlex
 import signal
 import subprocess
+from pathlib import Path
 from time import sleep
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import numpy as np
 
@@ -30,6 +34,11 @@ from infretis.classes.engines.engineparts import (
     write_xyz_trajectory,
     xyz_reader,
 )
+
+if TYPE_CHECKING:  # pragma: no cover
+    from infretis.classes.formatter import FileIO
+    from infretis.classes.path import Path as InfPath
+    from infretis.classes.system import System
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -75,7 +84,13 @@ class SectionNode:
 
     """
 
-    def __init__(self, title, parent, settings, data=None):
+    def __init__(
+        self,
+        title: str,
+        parent: SectionNode | None,
+        settings: list[str],
+        data: dict[str, str] | None = None,
+    ):
         """Initialise a node.
 
         Parameters
@@ -97,15 +112,15 @@ class SectionNode:
             self.data = list(data)
         else:
             self.data = []
-        self.children = set()
+        self.children: set[SectionNode] = set()
         self.level = 0
-        self.parents = None
+        self.parents: list[str] | None = None  # TODO: Check if this can be []
 
-    def add_child(self, child):
+    def add_child(self, child: SectionNode) -> None:
         """Add a sub-section to the current section."""
         self.children.add(child)
 
-    def get_all_parents(self):
+    def get_all_parents(self) -> None:
         """Find the path to the top of the tree."""
         parents = [self.title]
         prev = self.parent
@@ -115,7 +130,7 @@ class SectionNode:
         self.parents = parents[::-1]
 
 
-def dfs_print(node, visited):
+def dfs_print(node: SectionNode, visited: set[SectionNode]) -> list[str]:
     """Walk through the nodes and print out text.
 
     Parameters
@@ -148,15 +163,16 @@ def dfs_print(node, visited):
     return out
 
 
-def set_parents(listofnodes):
+def set_parents(listofnodes: list[SectionNode]) -> dict[str, SectionNode]:
     """Set parents for all nodes."""
-    node_ref = {}
+    node_ref: dict[str, SectionNode] = {}
 
-    def dfs_set(node, vis):
+    def dfs_set(node: SectionNode, vis: set[SectionNode]) -> None:
         """DFS traverse the nodes."""
         if node.parents is None:
             node.get_all_parents()
-            par = "->".join(node.parents)
+            # This sets the parents, so the line below is fine
+            par = "->".join(node.parents)  # type: ignore[arg-type]
             if par in node_ref:
                 prev = node_ref.pop(par)
                 par1 = f'{par}->{" ".join(prev.settings)}'
@@ -171,12 +187,12 @@ def set_parents(listofnodes):
                 dfs_set(child, vis)
 
     for nodes in listofnodes:
-        visited = set()
+        visited: set[SectionNode] = set()
         dfs_set(nodes, visited)
     return node_ref
 
 
-def read_cp2k_input(filename):
+def read_cp2k_input(filename: str | Path) -> list[SectionNode]:
     """Read a CP2K input file.
 
     Parameters
@@ -190,8 +206,8 @@ def read_cp2k_input(filename):
         The root section nodes found in the file.
 
     """
-    nodes = []
-    current_node = None
+    nodes: list[SectionNode] = []
+    current_node: SectionNode | None = None
     with open(filename, encoding="utf-8") as infile:
         for lines in infile:
             lstrip = lines.strip()
@@ -201,7 +217,9 @@ def read_cp2k_input(filename):
             if lstrip.startswith("&"):
                 strip = lstrip[1:].split()
                 if lstrip[1:].lower().startswith("end"):
-                    current_node = current_node.parent
+                    # current node is alway set here, so the line below is
+                    # fine:
+                    current_node = current_node.parent  # type: ignore
                 else:
                     if len(strip) > 1:
                         setts = strip[1:]
@@ -222,7 +240,13 @@ def read_cp2k_input(filename):
     return nodes
 
 
-def _add_node(target, settings, data, nodes, node_ref):
+def _add_node(
+    target: str,
+    settings: list[str],
+    data: dict[str, str],
+    nodes: list[SectionNode],
+    node_ref: dict[str, SectionNode],
+) -> None:
     """Just add a new node."""
     # check if this is a root node:
     root = target.find("->") == -1
@@ -234,7 +258,7 @@ def _add_node(target, settings, data, nodes, node_ref):
         title = parents[-1]
         par = "->".join(parents[:-1])
         if par not in node_ref:
-            _add_node(par, None, None, nodes, node_ref)
+            _add_node(par, [], {}, nodes, node_ref)
         parent = node_ref["->".join(parents[:-1])]
         new_node = SectionNode(title, parent, settings, data=data)
         new_node.level = parent.level + 1
@@ -242,7 +266,14 @@ def _add_node(target, settings, data, nodes, node_ref):
     node_ref[target] = new_node
 
 
-def update_node(target, settings, data, node_ref, nodes, replace=False):
+def update_node(
+    target: str,
+    settings: list[str],
+    data: dict[str, str],
+    node_ref: dict[str, SectionNode],
+    nodes: list[SectionNode],
+    replace: bool = False,
+) -> SectionNode | None:
     """Update the given target node.
 
     If the node does not exist, it will be created.
@@ -301,7 +332,11 @@ def update_node(target, settings, data, node_ref, nodes, replace=False):
     return node
 
 
-def remove_node(target, node_ref, root_nodes):
+def remove_node(
+    target: str,
+    node_ref: dict[str, SectionNode],
+    root_nodes: list[SectionNode],
+) -> None:
     """Remove a node (and it's children) from the tree.
 
     Parameters
@@ -319,7 +354,7 @@ def remove_node(target, node_ref, root_nodes):
         pass
     else:
         # remove all it's children:
-        visited = set()
+        visited: set[SectionNode] = set()
         nodes = [to_del]
         while nodes:
             node = nodes.pop()
@@ -335,11 +370,18 @@ def remove_node(target, node_ref, root_nodes):
         else:
             parent.children.remove(to_del)
         del to_del
+        # TODO: Is the code below actually working?
+        # It seems like key has the wrong type?
         for key in visited:
-            _ = node_ref.pop(key, None)
+            _ = node_ref.pop(key, None)  # type: ignore[call-overload]
 
 
-def update_cp2k_input(template, output, update=None, remove=None):
+def update_cp2k_input(
+    template: str | Path,
+    output: str | Path,
+    update: dict[str, Any] | None = None,
+    remove: list[str] | None = None,
+) -> None:
     """Read a template input and create a new CP2K input.
 
     Parameters
@@ -359,9 +401,9 @@ def update_cp2k_input(template, output, update=None, remove=None):
     if update is not None:
         for target in update:
             value = update[target]
-            settings = value.get("settings", None)
+            settings = value.get("settings", [])
             replace = value.get("replace", False)
-            data = value.get("data", [])
+            data = value.get("data", {})
             update_node(
                 target, settings, data, node_ref, nodes, replace=replace
             )
@@ -369,15 +411,26 @@ def update_cp2k_input(template, output, update=None, remove=None):
         for nodei in remove:
             remove_node(nodei, node_ref, nodes)
     with open(output, "w", encoding="utf-8") as outf:
-        for i, nodei in enumerate(nodes):
-            vis = set()
+        for i, nodej in enumerate(nodes):
+            vis: set[SectionNode] = set()
             if i > 0:
                 outf.write("\n")
-            outf.write("\n".join(dfs_print(nodei, vis)))
+            outf.write("\n".join(dfs_print(nodej, vis)))
             outf.write("\n")
 
 
-def read_box_data(box_data):
+class BoxData(TypedDict, total=False):
+    A: np.ndarray
+    B: np.ndarray
+    C: np.ndarray
+    PERIODIC: str
+    ABC: np.ndarray
+    ALPHA_BETA_GAMMA: np.ndarray
+
+
+def read_box_data(
+    box_data: list[str],
+) -> tuple[np.ndarray | None, list[bool]]:
     """Read the box data.
 
     Parameters
@@ -393,50 +446,45 @@ def read_box_data(box_data):
         The periodic boundary setting for each dimension.
 
     """
-    to_read = {
-        "A": "vec",
-        "B": "vec",
-        "C": "vec",
-        "PERIODIC": "string",
-        "ABC": "vec",
-        "ALPHA_BETA_GAMMA": "vec",
-    }
-    data = {}
+    vectors = ("A", "B", "C", "ABC", "ALPHA_BETA_GAMMA")
+    strings = ("PERIODIC",)
+    data: BoxData = {}
     for lines in box_data:
-        for key, val in to_read.items():
-            keyword = f"{key} "
-            if lines.startswith(keyword):
-                if val == "vec":
-                    data[key] = [float(i) for i in lines.split()[1:]]
-                elif val == "string":
-                    data[key] = " ".join(lines.split()[1:])
-    if all(("A" in data, "B" in data, "C" in data)):
+        for key in vectors + strings:
+            if lines.startswith(f"{key} "):
+                if key in strings:
+                    data[key] = " ".join(  # type: ignore[literal-required]
+                        lines.split()[1:]
+                    )
+                else:
+                    data[key] = np.array(  # type: ignore[literal-required]
+                        [float(i) for i in lines.split()[1:]]
+                    )
+    if all(key in data for key in ("A", "B", "C")):
         box_matrix = np.zeros((3, 3))
         box_matrix[:, 0] = data["A"]
         box_matrix[:, 1] = data["B"]
         box_matrix[:, 2] = data["C"]
-        box = box_matrix_to_list(box_matrix)
+        box = np.array(box_matrix_to_list(box_matrix))
+    elif "ABC" in data and "ALPHA_BETA_GAMMA" in data:
+        box_matrix = box_vector_angles(
+            data["ABC"],
+            data["ALPHA_BETA_GAMMA"][0],
+            data["ALPHA_BETA_GAMMA"][1],
+            data["ALPHA_BETA_GAMMA"][2],
+        )
+        box = np.array(box_matrix_to_list(box_matrix))
     elif "ABC" in data:
-        if "ALPHA_BETA_GAMMA" in data:
-            box_matrix = box_vector_angles(
-                data["ABC"],
-                data["ALPHA_BETA_GAMMA"][0],
-                data["ALPHA_BETA_GAMMA"][1],
-                data["ALPHA_BETA_GAMMA"][2],
-            )
-            box = box_matrix_to_list(box_matrix)
-        else:
-            box = np.array(data["ABC"])
+        box = data["ABC"]
     else:
         box = None
-    periodic = []
-    periodic_setting = data.get("PERIODIC", "XYZ")
-    for val in ("X", "Y", "Z"):
-        periodic.append(val in periodic_setting.upper())
+
+    periodic_setting = data.get("PERIODIC", "XYZ").upper()
+    periodic = [axis in periodic_setting for axis in ["X", "Y", "Z"]]
     return box, periodic
 
 
-def read_cp2k_energy(energy_file):
+def read_cp2k_energy(energy_file: str | Path) -> dict[str, np.ndarray]:
     """Read and return CP2K energies.
 
     Parameters
@@ -466,7 +514,9 @@ def read_cp2k_energy(energy_file):
     return energy
 
 
-def read_cp2k_restart(restart_file):
+def read_cp2k_restart(
+    restart_file: str | Path,
+) -> tuple[list[str], np.ndarray, np.ndarray, np.ndarray | None, list[bool]]:
     """Read some info from a CP2K restart file.
 
     Parameters
@@ -476,6 +526,7 @@ def read_cp2k_restart(restart_file):
 
     Returns
     -------
+    atoms: ?
     pos : numpy.array
         The positions.
     vel : numpy.array
@@ -500,13 +551,13 @@ def read_cp2k_restart(restart_file):
         atoms.append(pos_split[0])
         pos.append([float(i) for i in pos_split[1:4]])
         vel.append([float(i) for i in veli.split()])
-    pos = np.array(pos)
-    vel = np.array(vel)
     box, periodic = read_box_data(node_ref[cell].data)
-    return atoms, pos, vel, box, periodic
+    return atoms, np.array(pos), np.array(vel), box, periodic
 
 
-def read_cp2k_box(inputfile):
+def read_cp2k_box(
+    inputfile: str | Path,
+) -> tuple[np.ndarray | None, list[bool]]:
     """Read the box from a CP2K file.
 
     Parameters
@@ -538,7 +589,7 @@ def read_cp2k_box(inputfile):
     return box, periodic
 
 
-def guess_particle_mass(particle_no, particle_type):
+def guess_particle_mass(particle_no: int, particle_type: str) -> float:
     """Guess a particle mass from it's type and convert to cp2k
     units.
 
@@ -574,7 +625,9 @@ def guess_particle_mass(particle_no, particle_type):
     return particle_mass
 
 
-def kinetic_energy(vel, mass):
+def kinetic_energy(
+    vel: np.ndarray, mass: np.ndarray
+) -> tuple[float, np.ndarray]:
     """Obtain the kinetic energy for given velocities and masses.
 
     Parameters
@@ -600,7 +653,7 @@ def kinetic_energy(vel, mass):
     return kin.trace(), kin
 
 
-def reset_momentum(vel, mass):
+def reset_momentum(vel: np.ndarray, mass: np.ndarray) -> np.ndarray:
     """Set the linear momentum of all particles to zero.
        Note that velocities are modified in place, but also
        returned.
@@ -626,16 +679,16 @@ def reset_momentum(vel, mass):
 
 
 def write_for_run_vel(
-    infile,
-    outfile,
-    timestep,
-    nsteps,
-    subcycles,
-    posfile,
-    vel,
-    name="md_step",
-    print_freq=None,
-):
+    infile: str | Path,
+    outfile: str | Path,
+    timestep: float,
+    nsteps: int,
+    subcycles: int,
+    posfile: str,
+    vel: np.ndarray,
+    name: str = "md_step",
+    print_freq: int | None = None,
+) -> None:
     """Create input file to perform n steps.
 
     Note, a single step actually consists of a number of subcycles.
@@ -667,7 +720,7 @@ def write_for_run_vel(
     """
     if print_freq is None:
         print_freq = subcycles
-    to_update = {
+    to_update: dict[str, Any] = {
         "GLOBAL": {
             "data": [f"PROJECT {name}", "RUN_TYPE MD", "PRINT_LEVEL LOW"],
             "replace": True,
@@ -727,14 +780,14 @@ class CP2KEngine(EngineBase):
 
     def __init__(
         self,
-        cp2k,
-        input_path,
-        timestep,
-        subcycles,
-        extra_files=None,
-        exe_path=os.path.abspath("."),
-        seed=0,
-        sleep=0.1,
+        cp2k: str,
+        input_path: str,
+        timestep: float,
+        subcycles: int,
+        extra_files: list[str] | None = None,
+        exe_path: str = os.path.abspath("."),
+        seed: int = 0,
+        sleep: float = 0.1,
     ):
         """Set up the CP2K engine.
 
@@ -780,7 +833,11 @@ class CP2KEngine(EngineBase):
         pos, vel, box, atoms = self._read_configuration(
             self.input_files["conf"]
         )
-        mass = [guess_particle_mass(i, name) for i, name in enumerate(atoms)]
+        mass = []
+        if atoms is not None:
+            mass = [
+                guess_particle_mass(i, name) for i, name in enumerate(atoms)
+            ]
         self.mass = np.reshape(mass, (len(mass), 1))
 
         # read temperature from cp2k input, defaults to 300
@@ -811,7 +868,7 @@ class CP2KEngine(EngineBase):
                 else:
                     self.extra_files.append(fname)
 
-    def _extract_frame(self, traj_file, idx, out_file):
+    def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """
         Extract a frame from a trajectory file.
 
@@ -843,8 +900,14 @@ class CP2KEngine(EngineBase):
         )
 
     def _propagate_from(
-        self, name, path, system, ens_set, msg_file, reverse=False
-    ):
+        self,
+        name: str,
+        path: InfPath,
+        system: System,
+        ens_set: dict[str, Any],
+        msg_file: FileIO,
+        reverse: bool = False,
+    ) -> tuple[bool, str]:
         """
         Propagate with CP2K from the current system configuration.
 
@@ -901,7 +964,7 @@ class CP2KEngine(EngineBase):
         self.add_input_files(self.exe_dir)
         # Get positions and velocities from the input file.
         initial_conf = system.config[0]
-        box, xyz, vel, atoms = self._read_configuration(initial_conf)
+        xyz, vel, box, atoms = self._read_configuration(initial_conf)
         if box is None:
             box, _ = read_cp2k_box(self.input_files["template"])
         # Add CP2K input for N steps:
@@ -1067,8 +1130,8 @@ class CP2KEngine(EngineBase):
         msg_file.write(f"# Reading energies from: {energy_file}")
         energy = read_cp2k_energy(energy_file)
         end = (step_nr + 1) * self.subcycles
-        ekin = energy.get("ekin", [])
-        vpot = energy.get("vpot", [])
+        ekin: np.ndarray = energy.get("ekin", np.array([]))
+        vpot: np.ndarray = energy.get("vpot", np.array([]))
         path.update_energies(
             ekin[: end : self.subcycles], vpot[: end : self.subcycles]
         )
@@ -1081,7 +1144,7 @@ class CP2KEngine(EngineBase):
         self._removefile(wave_file)
         return success, status
 
-    def add_input_files(self, dirname):
+    def add_input_files(self, dirname: str) -> None:
         """Add required input files to a given directory.
 
         Parameters
@@ -1100,7 +1163,7 @@ class CP2KEngine(EngineBase):
                 self._copyfile(files, dest)
 
     @staticmethod
-    def _find_backup_files(dirname):
+    def _find_backup_files(dirname: str) -> list[str]:
         """Return backup-files in the given directory."""
         out = []
         for entry in os.scandir(dirname):
@@ -1111,7 +1174,9 @@ class CP2KEngine(EngineBase):
         return out
 
     @staticmethod
-    def _read_configuration(filename):
+    def _read_configuration(
+        filename: str | Path,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
         """
         Read CP2K output configuration.
 
@@ -1124,29 +1189,30 @@ class CP2KEngine(EngineBase):
 
         Returns
         -------
-        box : numpy.array
-            The box dimensions if we manage to read it.
         xyz : numpy.array
             The positions.
         vel : numpy.array
             The velocities.
+        box : numpy.array
+            The box dimensions if we manage to read it.
         names : list of strings
             The atom names found in the file.
 
         """
-        xyz, vel, box, names = None, None, None, None
         for snapshot in read_xyz_file(filename):
             box, xyz, vel, names = convert_snapshot(snapshot)
             break  # Stop after the first snapshot.
-        return box, xyz, vel, names
+        return xyz, vel, box, names
 
-    def set_mdrun(self, config, md_items):
+    def set_mdrun(
+        self, config: dict[str, Any], md_items: dict[str, Any]
+    ) -> None:
         """Remove or rename?"""
         self.exe_dir = md_items["w_folder"]
         # self.rgen = md_items['picked']['tis_set']['rgen']
         self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"]
 
-    def _reverse_velocities(self, filename, outfile):
+    def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocity in a given snapshot.
 
         Parameters
@@ -1158,12 +1224,14 @@ class CP2KEngine(EngineBase):
             reversed velocities.
 
         """
-        box, xyz, vel, names = self._read_configuration(filename)
+        xyz, vel, box, names = self._read_configuration(filename)
         write_xyz_trajectory(
             outfile, xyz, -1.0 * vel, names, box, append=False
         )
 
-    def modify_velocities(self, system, vel_settings=None):
+    def modify_velocities(
+        self, system: System, vel_settings: dict[str, Any]
+    ) -> tuple[float, float]:
         """
         Modfy the velocities of all particles. Note that cp2k by default
         removes the center of mass motion, thus, we need to rescale the
@@ -1176,7 +1244,7 @@ class CP2KEngine(EngineBase):
             "rescale_energy", vel_settings.get("rescale")
         )
         pos = self.dump_frame(system)
-        box, xyz, vel, atoms = self._read_configuration(pos)
+        xyz, vel, box, atoms = self._read_configuration(pos)
         # system.pos = xyz
         if box is None:
             box, _ = read_cp2k_box(self.input_files["template"])
@@ -1213,7 +1281,7 @@ class CP2KEngine(EngineBase):
         )
         write_xyz_trajectory(conf_out, xyz, vel, atoms, box, append=False)
         kin_new = kinetic_energy(vel, mass)[0]
-        system.config = (conf_out, None)
+        system.config = (conf_out, 0)
         system.ekin = kin_new
         if kin_old == 0.0:
             dek = float("inf")

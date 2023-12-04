@@ -1,6 +1,9 @@
 import logging
 import math
 import os
+from collections.abc import Callable, Iterator
+from pathlib import Path
+from typing import IO, Any
 
 import numpy as np
 
@@ -98,7 +101,7 @@ _XYZ_BIG_FMT = "{:5s}" + 3 * " {:15.9f}"
 _XYZ_BIG_VEL_FMT = _XYZ_BIG_FMT + 3 * " {:15.9f}"
 
 
-def _cos(angle):
+def _cos(angle: float) -> float:
     """Return cosine of an angle.
 
     We also check if the angle is close to 90.0 and if so, we return
@@ -120,7 +123,9 @@ def _cos(angle):
     return math.cos(math.radians(angle))
 
 
-def box_vector_angles(length, alpha, beta, gamma):
+def box_vector_angles(
+    length: np.ndarray, alpha: float, beta: float, gamma: float
+) -> np.ndarray:
     """Obtain the box matrix from given lengths and angles.
 
     Parameters
@@ -157,7 +162,9 @@ def box_vector_angles(length, alpha, beta, gamma):
     return box_matrix
 
 
-def box_matrix_to_list(matrix, full=False):
+def box_matrix_to_list(
+    matrix: np.ndarray, full: bool = False
+) -> np.ndarray | None:
     """Return a list representation of the box matrix.
 
     This method ensures correct ordering of the elements for PyRETIS:
@@ -181,21 +188,23 @@ def box_matrix_to_list(matrix, full=False):
     if matrix is None:
         return None
     if np.count_nonzero(matrix) <= 3 and not full:
-        return [matrix[0, 0], matrix[1, 1], matrix[2, 2]]
-    return [
-        matrix[0, 0],
-        matrix[1, 1],
-        matrix[2, 2],
-        matrix[0, 1],
-        matrix[0, 2],
-        matrix[1, 0],
-        matrix[1, 2],
-        matrix[2, 0],
-        matrix[2, 1],
-    ]
+        return np.array([matrix[0, 0], matrix[1, 1], matrix[2, 2]])
+    return np.array(
+        [
+            matrix[0, 0],
+            matrix[1, 1],
+            matrix[2, 2],
+            matrix[0, 1],
+            matrix[0, 2],
+            matrix[1, 0],
+            matrix[1, 2],
+            matrix[2, 0],
+            matrix[2, 1],
+        ]
+    )
 
 
-def get_box_from_header(header):
+def get_box_from_header(header: str) -> np.ndarray | None:
     """Get box lengths from a text header.
 
     Parameters
@@ -216,7 +225,9 @@ def get_box_from_header(header):
     return None
 
 
-def read_txt_snapshots(filename, data_keys=None):
+def read_txt_snapshots(
+    filename: str | Path, data_keys: tuple[str, ...] | None = None
+) -> Iterator[dict[str, Any]]:
     """Read snapshots from a text file.
 
     Parameters
@@ -234,7 +245,7 @@ def read_txt_snapshots(filename, data_keys=None):
 
     """
     lines_to_read = 0
-    snapshot = None
+    snapshot: dict[str, Any] = {}
     if data_keys is None:
         data_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
     read_header = False
@@ -246,7 +257,7 @@ def read_txt_snapshots(filename, data_keys=None):
                 read_header = False
                 continue
             if lines_to_read == 0:  # new snapshot
-                if snapshot is not None:
+                if snapshot:
                     yield snapshot
                 try:
                     lines_to_read = int(lines.strip())
@@ -254,24 +265,21 @@ def read_txt_snapshots(filename, data_keys=None):
                     logger.error("Error in the input file %s", filename)
                     raise
                 read_header = True
-                snapshot = None
+                snapshot = {}
             else:
                 lines_to_read -= 1
                 data = lines.strip().split()
                 for i, (val, key) in enumerate(zip(data, data_keys)):
-                    if i == 0:
-                        value = val.strip()
-                    else:
-                        value = float(val)
+                    value = val.strip() if i == 0 else float(val)
                     try:
                         snapshot[key].append(value)
                     except KeyError:
                         snapshot[key] = [value]
-    if snapshot is not None:
+    if snapshot:
         yield snapshot
 
 
-def read_xyz_file(filename):
+def read_xyz_file(filename: str | Path) -> Iterator[dict[str, Any]]:
     """Read files in XYZ format.
 
     This method will read a XYZ file and yield the different snapshots
@@ -303,8 +311,14 @@ def read_xyz_file(filename):
 
 
 def write_xyz_trajectory(
-    filename, pos, vel, names, box, step=None, append=True
-):
+    filename: str,
+    pos: np.ndarray,
+    vel: np.ndarray,
+    names: list[str] | None,
+    box: np.ndarray | None,
+    step: int | None = None,
+    append: bool = True,
+) -> None:
     """Write XYZ snapshot to a trajectory.
 
     This is intended as a lightweight alternative for just
@@ -334,7 +348,8 @@ def write_xyz_trajectory(
 
     """
     npart = len(pos)
-
+    if names is None:
+        names = ["X"] * npart
     filemode = "a" if append else "w"
     with open(filename, filemode, encoding="utf-8") as output_file:
         output_file.write(f"{npart}\n")
@@ -359,7 +374,9 @@ def write_xyz_trajectory(
             output_file.write(f"{line}\n")
 
 
-def convert_snapshot(snapshot):
+def convert_snapshot(
+    snapshot: dict[str, Any]
+) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
     """Convert a XYZ snapshot to numpy arrays.
 
     Parameters
@@ -392,7 +409,11 @@ def convert_snapshot(snapshot):
     return box, xyz, vel, names
 
 
-def look_for_input_files(input_path, required_files, extra_files=None):
+def look_for_input_files(
+    input_path: str | Path,
+    required_files: dict[str, str] | dict[str, Path],
+    extra_files: list[str] | list[Path] | None = None,
+) -> dict[str, Any]:
     """Check that required files for external engines are present.
 
     It will first search for the default files.
@@ -419,16 +440,15 @@ def look_for_input_files(input_path, required_files, extra_files=None):
         The paths to the required and extra files we found.
 
     """
-    if not os.path.isdir(input_path):
-        msg = f"Input path folder {input_path} not existing"
+    input_path = Path(input_path)
+    if not input_path.is_dir():
+        msg = f"Input path folder {str(input_path)} not existing"
         raise ValueError(msg)
 
     # Get the list of files in the input_path folder
-    files_in_input_path = [
-        i.name for i in os.scandir(input_path) if i.is_file()
-    ]
+    files_in_input_path = [i.name for i in input_path.iterdir() if i.is_file()]
 
-    input_files = {}
+    input_files: dict[str, Any] = {}
     # Check if the required files are present
     for file_type, file_to_check in required_files.items():
         req_ext = os.path.splitext(file_to_check)[1][1:].lower()
@@ -447,9 +467,7 @@ def look_for_input_files(input_path, required_files, extra_files=None):
             # Since we are guessing the correct files, give an error if
             # multiple entries are possible.
             if file_counter == 1:
-                input_files[file_type] = os.path.join(
-                    input_path, selected_file
-                )
+                input_files[file_type] = input_path / selected_file
                 logger.warning(
                     f"using {input_files[file_type]} "
                     + f'as "{file_type}" file'
@@ -469,7 +487,6 @@ def look_for_input_files(input_path, required_files, extra_files=None):
             else:
                 msg = f"Extra file {file_to_check} not present in {input_path}"
                 logger.info(msg)
-
     return input_files
 
 
@@ -484,31 +501,39 @@ class ReadAndProcessOnTheFly:
     at last whole ready block read and return [] or the ready frames.
     """
 
-    def __init__(self, file_path, processing_function, read_mode="r"):
+    def __init__(
+        self,
+        file_path: str | Path,
+        processing_function: Callable[..., Any],
+        read_mode: str = "r",
+    ):
         self.file_path = file_path
         self.processing_function = processing_function
         self.current_position = 0
-        self.file_object = None
+        self.file_object: IO[Any] | None = None
         self.read_mode = read_mode
 
-    def read_and_process_content(self):
+    def read_and_process_content(self) -> Any:
         # we may open at a time where the file
         # is currently not open for reading
         try:
             with open(self.file_path, self.read_mode) as self.file_object:
                 self.file_object.seek(self.current_position)
                 self.previous_position = self.current_position
-                trajectory = self.processing_function(self)
-                return trajectory
+                return self.processing_function(self)
         except FileNotFoundError:
             return []
 
 
-def xyz_reader(reader_class):
+def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
     # trajectory of ready frames to be returned
-    trajectory = []
+    trajectory: list[np.ndarray] = []
     # holder for storing frame coordinates
-    frame_coordinates = []
+    frame_coordinates: list[list[float]] = []
+    block_size = 0
+    N_atoms = 0
+    if reader_class.file_object is None:
+        return trajectory
     for i, line in enumerate(reader_class.file_object.readlines()):
         spl = line.split()
         if i == 0 and spl:
@@ -533,7 +558,9 @@ def xyz_reader(reader_class):
     return trajectory
 
 
-def lammpstrj_reader(reader_class):
+def lammpstrj_reader(
+    reader_class: ReadAndProcessOnTheFly,
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """
     Return the coordinates, velocities and box bounds from a trajectory.
 
@@ -557,12 +584,17 @@ def lammpstrj_reader(reader_class):
     """
     # the ready frames to be returned
     # which will be a list of np.arrays
-    trajectory = []
+    trajectory: list[np.ndarray] = []
     # the corresponding box dimensions to be returned
-    box = []
+    box: list[np.ndarray] = []
+    box_snapshot = np.zeros(1)
     # the number of lines each snapshot takes in the trajectory
     # It is a placeholder for now
     block_size = 4
+    N_atoms = 0
+    coordinate_snapshot = np.zeros(1)
+    if reader_class.file_object is None:
+        return trajectory, box
     for i, line in enumerate(reader_class.file_object.readlines()):
         spl = line.split()
         if i == 3 and spl:
