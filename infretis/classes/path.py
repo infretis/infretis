@@ -183,7 +183,7 @@ class Path:
             These are just the interfaces we are currently considering.
 
         """
-        path_info = {
+        path_info: dict[str, Any] = {
             "generated": self.generated,
             "status": status,
             "length": self.length,
@@ -194,7 +194,6 @@ class Path:
 
         start, end, middle, _ = self.check_interfaces(interfaces)
         path_info["interface"] = (start, middle, end)
-
         return path_info
 
     def get_move(self) -> str | None:
