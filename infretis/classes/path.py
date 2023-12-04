@@ -15,6 +15,8 @@ from infretis.classes.formatter import (
 from infretis.classes.system import System
 
 if TYPE_CHECKING:  # pragma: no cover
+    from numpy.random import Generator
+
     from infretis.classes.orderparameter import OrderParameter
 
 logger = logging.getLogger(__name__)
@@ -133,7 +135,7 @@ class Path:
             logger.debug("Undefined starting point.")
         return start
 
-    def get_shooting_point(self, rgen):
+    def get_shooting_point(self, rgen: Generator) -> tuple[System, int]:
         ### TODO: probably need an unittest for this to check if correct.
         ### idx = rgen.random_integers(1, self.length - 2)
         idx = rgen.integers(1, self.length - 1)
@@ -141,7 +143,7 @@ class Path:
         logger.debug(f"Selected point with orderp {order}")
         return self.phasepoints[idx], idx
 
-    def append(self, phasepoint) -> bool:
+    def append(self, phasepoint: System) -> bool:
         """Append a new phase point to the path."""
         if self.maxlen is None or self.length < self.maxlen:
             self.phasepoints.append(phasepoint)
@@ -229,13 +231,13 @@ class Path:
         new_path.weights = self.weights
         return new_path
 
-    def reverse_velocities(self, system: System):
+    def reverse_velocities(self, system: System) -> None:
         """Reverse the velocities in the system."""
         # TODO: The path should not modify the system?
         system.vel_rev = not system.vel_rev
 
     def reverse(
-        self, order_function: OrderParameter, rev_v=True
+        self, order_function: OrderParameter, rev_v: bool = True
     ) -> Path | None:
         """Reverse a path and return the reverse path as a new path.
 
@@ -317,7 +319,7 @@ class Path:
         """Check if two paths are not equal."""
         return not self == other
 
-    def delete(self, idx: int):
+    def delete(self, idx: int) -> None:
         """Remove the specified phase point from the path."""
         del self.phasepoints[idx]
 
@@ -348,7 +350,7 @@ class Path:
 
     def update_energies(
         self, ekin: np.ndarray | list[float], vpot: np.ndarray | list[float]
-    ):
+    ) -> None:
         """Update the energies for the phase points.
 
         This method is useful in cases where the energies are
@@ -576,7 +578,7 @@ def _check_path(
     return accept, status
 
 
-def _load_energies_for_path(path: Path, dirname: str):
+def _load_energies_for_path(path: Path, dirname: str) -> None:
     """Load energy data for a path.
 
     Parameters
