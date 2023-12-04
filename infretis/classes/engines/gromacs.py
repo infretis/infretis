@@ -606,11 +606,12 @@ class GromacsEngine(EngineBase):
                 # available:
                 system.pos = data["x"]
                 system.vel = data["v"]
+                system.box = box_matrix_to_list(data["box"], full=True)
                 if system.vel is not None and reverse:
                     system.vel *= -1
-                # ##### length = box_matrix_to_list(data['box'])
-                # ##### system.update_box(length)
-                order = self.calculate_order(system)
+                order = self.calculate_order(
+                    system, xyz=system.pos, vel=system.vel, box=system.box
+                )
                 msg_file.write(f'{i} {" ".join([str(j) for j in order])}')
                 snapshot = {
                     "order": order,

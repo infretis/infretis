@@ -164,7 +164,7 @@ def box_vector_angles(
 
 def box_matrix_to_list(
     matrix: np.ndarray, full: bool = False
-) -> list[float] | None:
+) -> np.ndarray | None:
     """Return a list representation of the box matrix.
 
     This method ensures correct ordering of the elements for PyRETIS:
@@ -188,18 +188,20 @@ def box_matrix_to_list(
     if matrix is None:
         return None
     if np.count_nonzero(matrix) <= 3 and not full:
-        return [matrix[0, 0], matrix[1, 1], matrix[2, 2]]
-    return [
-        matrix[0, 0],
-        matrix[1, 1],
-        matrix[2, 2],
-        matrix[0, 1],
-        matrix[0, 2],
-        matrix[1, 0],
-        matrix[1, 2],
-        matrix[2, 0],
-        matrix[2, 1],
-    ]
+        return np.array([matrix[0, 0], matrix[1, 1], matrix[2, 2]])
+    return np.array(
+        [
+            matrix[0, 0],
+            matrix[1, 1],
+            matrix[2, 2],
+            matrix[0, 1],
+            matrix[0, 2],
+            matrix[1, 0],
+            matrix[1, 2],
+            matrix[2, 0],
+            matrix[2, 1],
+        ]
+    )
 
 
 def get_box_from_header(header: str) -> np.ndarray | None:
