@@ -1,6 +1,9 @@
 """Define the path class."""
+from __future__ import annotations
+
 import logging
 import os
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -11,6 +14,9 @@ from infretis.classes.formatter import (
 )
 from infretis.classes.system import System
 
+if TYPE_CHECKING:  # pragma: no cover
+    pass
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -18,45 +24,47 @@ logger.addHandler(logging.NullHandler())
 class Path:
     """Define Path class."""
 
-    def __init__(self, maxlen=None, time_origin=0):
+    def __init__(self, maxlen: int | None = None, time_origin: int = 0):
         """Initiate Path class."""
         self.maxlen = maxlen
         self.status = None
         self.generated = None
         self.path_number = None
         self.weights = None
-        self.phasepoints = []
+        self.phasepoints: list[System] = []
         self.min_valid = None
         self.time_origin = time_origin
 
     @property
-    def length(self):
+    def length(self) -> int:
         """Compute the length of the path."""
         return len(self.phasepoints)
 
     @property
-    def ordermin(self):
+    def ordermin(self) -> tuple[float, np.intp]:
         """Compute the minimum order parameter of the path."""
         idx = np.argmin([i.order[0] for i in self.phasepoints])
         return (self.phasepoints[idx].order[0], idx)
 
     @property
-    def ordermax(self):
+    def ordermax(self) -> tuple[float, np.intp]:
         """Compute the maximum order parameter of the path."""
         idx = np.argmax([i.order[0] for i in self.phasepoints])
         return (self.phasepoints[idx].order[0], idx)
 
     @property
-    def adress(self):
+    def adress(self) -> set[Any]:
         """Compute the maximum order parameter of the path."""
         adresses = set(i.config[0] for i in self.phasepoints)
         return adresses
 
-    def check_interfaces(self, interfaces):
+    def check_interfaces(
+        self, interfaces: list[float]
+    ) -> tuple[str | None, str | None, str, list[bool]]:
         """Check interfaces."""
         if self.length < 1:
             logger.warning("Path is empty!")
-            return None, None, None, None
+            return None, None, "*", [False] * len(interfaces)
         ordermax, ordermin = self.ordermax[0], self.ordermin[0]
         cross = [ordermin < interpos <= ordermax for interpos in interfaces]
         left, right = min(interfaces), max(interfaces)
@@ -66,7 +74,9 @@ class Path:
         middle = "M" if cross[1] else "*"
         return start, end, middle, cross
 
-    def get_end_point(self, left, right=None):
+    def get_end_point(
+        self, left: float, right: float | None = None
+    ) -> str | None:
         """Return the end point of the path as a string.
 
         The end point is either to the left of the `left` interface or
@@ -99,7 +109,9 @@ class Path:
             logger.debug("Undefined end point.")
         return end
 
-    def get_start_point(self, left, right=None):
+    def get_start_point(
+        self, left: float, right: float | None = None
+    ) -> str | None:
         """Return the start point of the path as a string.
 
         The start point is either to the left of the `left` interface or
@@ -155,7 +167,9 @@ class Path:
         logger.debug("Max length exceeded. Could not append to path.")
         return False
 
-    def get_path_data(self, status, interfaces):
+    def get_path_data(
+        self, status: str, interfaces: list[float]
+    ) -> dict[str, Any]:
         """Return information about the path.
 
         This information can be stored in a object like
@@ -180,16 +194,15 @@ class Path:
 
         start, end, middle, _ = self.check_interfaces(interfaces)
         path_info["interface"] = (start, middle, end)
-
         return path_info
 
-    def get_move(self):
+    def get_move(self) -> str | None:
         """Return the move used to generate the path."""
         if self.generated is None:
             return None
         return self.generated[0]
 
-    def success(self, target_interface):
+    def success(self, target_interface: float) -> bool:
         """Check if the path is successful.
 
         The check is based on the maximum order parameter and the value
@@ -205,7 +218,7 @@ class Path:
         """
         return self.ordermax[0] > target_interface
 
-    def __iadd__(self, other):
+    def __iadd__(self, other) -> Path:
         """Add path data to a path from another path, i.e. ``self += other``.
 
         This will simply append the phase points from `other`.

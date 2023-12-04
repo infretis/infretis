@@ -12,7 +12,7 @@ class System:
     """System class."""
 
     config: tuple[None, None] = (None, None)
-    order: list[float] | None = None
+    order: list[float] = [-float("nan")]
     pos: np.ndarray = np.zeros(0)
 
     def __init__(self):
