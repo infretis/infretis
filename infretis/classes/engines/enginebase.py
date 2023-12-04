@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from infretis.classes.formatter import FileIO
+from infretis.classes.formatter import FileIO, OutputFormatter
 
 if TYPE_CHECKING:  # pragma: no cover
     from infretis.classes.orderparameter import OrderParameter
@@ -376,7 +376,9 @@ class EngineBase(metaclass=ABCMeta):
         # Also create a message file for inspecting progress:
         msg_file_name = os.path.join(self.exe_dir, f"msg-{name}.txt")
         logger.debug("Writing propagation progress to: %s", msg_file_name)
-        msg_file = FileIO(msg_file_name, "w", None, backup=False)
+        msg_file = FileIO(
+            msg_file_name, "w", OutputFormatter("MSG_File"), backup=False
+        )
         msg_file.open()
         msg_file.write(f"# Preparing propagation with {self.description}")
         msg_file.write(f"# Trajectory label: {name}")
