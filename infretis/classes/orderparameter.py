@@ -186,7 +186,7 @@ class Distancevel(OrderParameter):
 
         """
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
-        if self.periodic:
+        if self.periodic and system.box is not None:
             delta = pbc_dist_coordinate(delta, system.box)
         lamb = np.sqrt(np.dot(delta, delta))
         # Add the velocity as an additional collective variable:
@@ -309,9 +309,9 @@ class Distance(OrderParameter):
             The distance order parameter.
 
         """
-        box = np.array(system.box[:3])
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
-        if self.periodic:
+        if self.periodic and system.box is not None:
+            box = np.array(system.box[:3])
             delta = pbc_dist_coordinate(delta, box)
         lamb = np.sqrt(np.dot(delta, delta))
         return [lamb]
@@ -501,12 +501,12 @@ class Dihedral(OrderParameter):
 
         """
         pos = system.pos
-        box = np.array(system.box[:3])
         vector1 = pos[self.index[0]] - pos[self.index[1]]
         vector2 = pos[self.index[1]] - pos[self.index[2]]
         vector3 = pos[self.index[3]] - pos[self.index[2]]
 
-        if self.periodic:
+        if self.periodic and system.box is not None:
+            box = np.array(system.box[:3])
             vector1 = pbc_dist_coordinate(vector1, box)
             vector2 = pbc_dist_coordinate(vector2, box)
             vector3 = pbc_dist_coordinate(vector3, box)
@@ -601,9 +601,9 @@ class Puckering(OrderParameter):
             The order parameter.
 
         """
-        box = np.array(system.box[:3])
         pos = system.pos[self.index]
-        if self.periodic:
+        if self.periodic and system.box is not None:
+            box = np.array(system.box[:3])
             # make 6-ring whole around atom 0
             for i in range(1, 6):
                 pos[i, :] = pbc_dist_coordinate(pos[i, :] - pos[0, :], box)

@@ -11,7 +11,7 @@ logger.addHandler(logging.NullHandler())
 class System:
     """System class."""
 
-    config: tuple[None, None] = (None, None)
+    config: tuple[str, int] = ("", -1)
     order: list[float] | None = None
     pos: np.ndarray = np.zeros(0)
 
@@ -21,7 +21,7 @@ class System:
         self.vel_rev: bool = False
         self.ekin: float | None = None
         self.vpot: float | None = None
-        self.box: np.ndarray = np.zeros((3, 3))
+        self.box: np.ndarray | None = np.zeros((3, 3))
 
     def copy(self):
         """Return a copy of the system.
