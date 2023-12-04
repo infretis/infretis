@@ -204,7 +204,7 @@ class OutputFormatter:
         return self._header
 
     @header.setter
-    def header(self, value: str):
+    def header(self, value: str) -> None:
         """Set the header."""
         self._header = value
 
@@ -373,7 +373,7 @@ class OrderFormatter(OutputFormatter):
 class OrderPathFormatter(OrderFormatter):
     """A class for formatting order parameter data for paths."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialise."""
         super().__init__(name="OrderPathFormatter")
         self.print_header = False
@@ -663,7 +663,7 @@ class FileIO(OutputBase):
             self.fileh.flush()
             os.fsync(self.fileh.fileno())
 
-    def output(self, step: int, data: list[Any]):
+    def output(self, step: int, data: list[Any]) -> Any:
         """Open file before first write."""
         if self.first_write:
             self.open()
@@ -752,7 +752,7 @@ class EnergyFormatter(OutputFormatter):
         """Initialise the formatter for energy."""
         super().__init__(name, header=self.HEADER)
 
-    def apply_format(self, step: int, energy: Any):
+    def apply_format(self, step: int, energy: Any) -> str:
         """Apply the energy format.
 
         Parameters
@@ -781,7 +781,7 @@ class EnergyFormatter(OutputFormatter):
         """Yield formatted energy data. See :py:meth:.`apply_format`."""
         yield self.apply_format(step, data)
 
-    def load(self, filename: str):
+    def load(self, filename: str) -> Iterable[dict[str, Any]]:
         """Load entire energy blocks into memory.
 
         Parameters
@@ -1136,12 +1136,13 @@ class PathStorage(OutputBase):
         path = self._copy_path(path, traj_dir)
         return path
 
-    def write(self, towrite: str, end: str = "\n"):
+    def write(self, towrite: str, end: str = "\n") -> bool:
         """We do not need the write method for this object."""
         logger.critical(
             '%s does *not* support the "write" method!',
             self.__class__.__name__,
         )
+        return False
 
     def formatter_info(self) -> str:
         """Return info about the formatters."""
@@ -1154,7 +1155,7 @@ class PathStorage(OutputBase):
         return f"{self.__class__.__name__} - archive writer."
 
 
-def get_log_formatter(level):
+def get_log_formatter(level: int) -> PyretisLogFormatter:
     """Select a log format based on a given level.
 
     Here, it is just used to get a slightly more verbose format for
@@ -1186,17 +1187,12 @@ class PyretisLogFormatter(logging.Formatter):  # pragma: no cover
     def format(self, record):
         """Apply the PyRETIS log format."""
         out = logging.Formatter.format(self, record)
-        # if '\n' in out:
-        #     print('gori 0', record.message)
-        #     heading, _ = out.split(record.message)
-        #     if len(heading) < 12:
-        #         out = out.replace('\n', '\n' + ' ' * len(heading))
-        #     else:
-        #         out = out.replace('\n', '\n' + ' ' * 4)
         return out
 
 
-def _generate_file_names(path, target_dir, prefix=None):
+def _generate_file_names(
+    path: InfPath, target_dir: str, prefix: str | None = None
+) -> tuple[list[tuple[str, str]], dict[Any, str]]:
     """Generate new file names for moving copying paths.
 
     Parameters
