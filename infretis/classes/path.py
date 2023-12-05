@@ -23,10 +23,13 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
+DEFAULT_MAXLEN: int = 100_000
+
+
 class Path:
     """Define Path class."""
 
-    def __init__(self, maxlen: int = 10000, time_origin: int = 0):
+    def __init__(self, maxlen: int = DEFAULT_MAXLEN, time_origin: int = 0):
         """Initiate Path class."""
         self.maxlen = maxlen
         self.status: str = ""
