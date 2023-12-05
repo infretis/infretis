@@ -18,6 +18,9 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from infretis.classes.path import Path as InfPath
 
+    # Define a signature for move methods:
+    MoveMethod = Callable[..., tuple[bool, InfPath, str]]
+
 
 def log_mdlogs(inp: str) -> None:
     logs = [log for log in os.listdir(inp) if "log" in log]
@@ -203,10 +206,6 @@ def wirefence_weight_and_pick(
                 new_segment.generated = "ct"
                 return n_frames, new_segment
     return n_frames, False
-
-
-# Define a signature for move methods:
-MoveMethod = Callable[..., tuple[bool, InfPath, str]]
 
 
 def select_shoot(
