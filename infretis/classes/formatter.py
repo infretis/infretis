@@ -1192,7 +1192,7 @@ class PyretisLogFormatter(logging.Formatter):  # pragma: no cover
 
 def _generate_file_names(
     path: InfPath, target_dir: str, prefix: str | None = None
-) -> tuple[list[tuple[str, str]], dict[Any, str]]:
+) -> tuple[list[tuple[str, int]], dict[str, str]]:
     """Generate new file names for moving copying paths.
 
     Parameters

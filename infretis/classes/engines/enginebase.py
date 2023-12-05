@@ -514,7 +514,7 @@ class EngineBase(metaclass=ABCMeta):
     def _modify_input(
         sourcefile: str | Path,
         outputfile: str | Path,
-        settings: dict[str, str | float | int],
+        settings: dict[str, Any],
         delim: str = "=",
     ) -> None:
         """
