@@ -14,6 +14,8 @@ logger.addHandler(logging.NullHandler())
 
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Callable
+
     from infretis.classes.path import Path as InfPath
 
 
@@ -203,7 +205,13 @@ def wirefence_weight_and_pick(
     return n_frames, False
 
 
-def select_shoot(picked, start_cond=("L",)):
+# Define a signature for move methods:
+MoveMethod = Callable[..., tuple[bool, InfPath, str]]
+
+
+def select_shoot(
+    picked: dict[int, Any], start_cond: tuple[str, ...] = ("L",)
+) -> tuple[bool, list[InfPath], str]:
     """Select the shooting move to generate a new path.
 
     The new path will be generated from the input path, either by
@@ -256,7 +264,7 @@ def select_shoot(picked, start_cond=("L",)):
         The status of the path.
 
     """
-    sh_moves = {
+    sh_moves: dict[str, MoveMethod] = {
         "wf": wire_fencing,
         "sh": shoot,
     }
@@ -264,6 +272,7 @@ def select_shoot(picked, start_cond=("L",)):
     if len(picked) == 1:
         pens = next(iter(picked.values()))
         ens_set, path, engine = (pens[i] for i in ["ens", "traj", "engine"])
+
         move = ens_set["mc_move"]
         logger.info(
             f"starting {move} in {ens_set['ens_name']}"
@@ -281,7 +290,9 @@ def select_shoot(picked, start_cond=("L",)):
     return accept, new_paths, status
 
 
-def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
+def shoot(
+    ens_set, path, engine, shooting_point=None, start_cond=("L",)
+) -> tuple[bool, InfPath, str]:
     interfaces = ens_set["interfaces"]
     trial_path = path.empty_path()  # The trial path we will generate.
     if shooting_point is None:
@@ -400,7 +411,9 @@ def shoot(ens_set, path, engine, shooting_point=None, start_cond=("L",)):
     return True, trial_path, trial_path.status
 
 
-def wire_fencing(ens_set, trial_path, engine, start_cond=("L",)):
+def wire_fencing(
+    ens_set, trial_path, engine, start_cond=("L",)
+) -> tuple[bool, InfPath, str]:
     """Perform a wire_fencing move.
 
     This function will perform the non famous wire fencing move
@@ -800,7 +813,9 @@ def check_kick(shooting_point, interfaces, trial_path, rgen, dek):
     return True
 
 
-def retis_swap_zero(picked):
+def retis_swap_zero(
+    picked: dict[int, Any],
+) -> tuple[bool, list[InfPath], str]:
     """Perform the RETIS swapping for ``[0^-] <-> [0^+]`` swaps.
 
     The RETIS swapping move for ensembles [0^-] and [0^+] requires some
@@ -1019,7 +1034,7 @@ def retis_swap_zero(picked):
             compute_weight(path, intf_w[i], move) if move in ("wf") else 1
         )
 
-    return accept, (path0, path1), status
+    return accept, [path0, path1], status
 
 
 def metropolis_accept_reject(rgen, system, deltae):
