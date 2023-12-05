@@ -30,9 +30,9 @@ class Path:
         """Initiate Path class."""
         self.maxlen = maxlen
         self.status: str | None = None
-        self.generated: tuple[str, None, None, None] | None = None
+        self.generated: tuple[str, None, None, None] | str | None = None
         self.path_number = None
-        self.weights = None
+        self.weights: tuple[float, ...] | None = None
         self.phasepoints: list[System] = []
         self.min_valid = None
         self.time_origin = time_origin
