@@ -22,7 +22,7 @@ class Path:
         """Initiate Path class."""
         self.maxlen = maxlen
         self.status = None
-        self.generated = None
+        self.generated: str | None = None
         self.path_number = None
         self.weights = None
         self.phasepoints = []
