@@ -16,6 +16,8 @@ logger.addHandler(logging.NullHandler())
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable
 
+    from numpy.random import Generator
+
     from infretis.classes.engines.enginebase import EngineBase
     from infretis.classes.path import Path as InfPath
     from infretis.classes.system import System
@@ -604,7 +606,12 @@ def subt_acceptance(
     return True, trial_path
 
 
-def extender(source_seg, engine, ens_set, start_cond=("R", "L")):
+def extender(
+    source_seg: InfPath,
+    engine: EngineBase,
+    ens_set: dict[str, Any],
+    start_cond: tuple[str, ...] = ("R", "L"),
+) -> tuple[bool, InfPath, str]:
     interfaces = ens_set["interfaces"]
     # ensemble['system'] = source_seg.phasepoints[0].copy()
     sh_pt = source_seg.phasepoints[0].copy()
@@ -648,8 +655,13 @@ def extender(source_seg, engine, ens_set, start_cond=("R", "L")):
 
 
 def shoot_backwards(
-    path_back, trial_path, system, ens_set, engine, start_cond
-):
+    path_back: InfPath,
+    trial_path: InfPath,
+    system: System,
+    ens_set: dict[str, Any],
+    engine: EngineBase,
+    start_cond: tuple[str, ...],
+) -> bool:
     """Shoot in the backward time direction.
 
     Parameters
@@ -708,7 +720,9 @@ def shoot_backwards(
     return True
 
 
-def prepare_shooting_point(path, rgen, engine):
+def prepare_shooting_point(
+    path: InfPath, rgen: Generator, engine: EngineBase
+) -> tuple[System, int, float]:
     """Select and modify velocities for a shooting move.
 
     This method will randomly select a shooting point from a given
@@ -754,7 +768,8 @@ def prepare_shooting_point(path, rgen, engine):
     # Copy the shooting point, so that we can modify velocities without
     # altering the original path:
     # Modify the velocities:
-    tis_settings = {}
+    tis_settings: dict[str, bool] = {}
+    # TODO: REMOVE tis_settings?
     (
         dek,
         _,
@@ -772,7 +787,13 @@ def prepare_shooting_point(path, rgen, engine):
     return shpt_copy, idx, dek
 
 
-def check_kick(shooting_point, interfaces, trial_path, rgen, dek):
+def check_kick(
+    shooting_point: System,
+    interfaces: list[float],
+    trial_path: InfPath,
+    rgen: Generator,
+    dek: float,
+) -> bool:
     """Check the modification of the shooting point.
 
     After generating velocities for a shooting point, we
@@ -805,7 +826,8 @@ def check_kick(shooting_point, interfaces, trial_path, rgen, dek):
     """
     # 1) Check if the kick was too violent:
     left, _, right = interfaces
-    tis_settings = {}
+    tis_settings: dict[str, Any] = {}
+    # TODO: REMOVE tis_settings above.
     if "exp" in tis_settings.get("shooting_move", {}):
         return True
     if not left <= shooting_point.order[0] < right:
