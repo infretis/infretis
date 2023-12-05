@@ -110,9 +110,7 @@ class Path:
             logger.debug("Undefined end point.")
         return end
 
-    def get_start_point(
-        self, left: float, right: float | None = None
-    ) -> str | None:
+    def get_start_point(self, left: float, right: float | None = None) -> str:
         """Return the start point of the path as a string.
 
         The start point is either to the left of the `left` interface or
@@ -135,7 +133,7 @@ class Path:
         elif self.phasepoints[0].order[0] >= right:
             start = "R"
         else:
-            start = None
+            start = "?"
             logger.debug("Undefined starting point.")
         return start
 
@@ -241,8 +239,8 @@ class Path:
         system.vel_rev = not system.vel_rev
 
     def reverse(
-        self, order_function: OrderParameter, rev_v: bool = True
-    ) -> Path | None:
+        self, order_function: OrderParameter | None, rev_v: bool = True
+    ) -> Path:
         """Reverse a path and return the reverse path as a new path.
 
         Args:
@@ -263,6 +261,8 @@ class Path:
             if rev_v:
                 self.reverse_velocities(new_point)
             new_path.append(new_point)
+        if order_function is None:
+            return new_path
         if order_function.velocity_dependent and rev_v:
             for phasepoint in new_path.phasepoints:
                 phasepoint.order = order_function.calculate(phasepoint)

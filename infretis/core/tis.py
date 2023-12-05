@@ -18,6 +18,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from infretis.classes.engines.enginebase import EngineBase
     from infretis.classes.path import Path as InfPath
+    from infretis.classes.system import System
 
     # Define a signature for move methods:
     MoveMethod = Callable[..., tuple[bool, InfPath, str]]
@@ -291,10 +292,10 @@ def select_shoot(
 
 
 def shoot(
-    ens_set,
+    ens_set: dict[str, Any],
     path: InfPath,
     engine: EngineBase,
-    shooting_point=None,
+    shooting_point: System | None = None,
     start_cond: tuple[str, ...] = ("L",),
 ) -> tuple[bool, InfPath, str]:
     interfaces = ens_set["interfaces"]
@@ -416,7 +417,10 @@ def shoot(
 
 
 def wire_fencing(
-    ens_set, trial_path, engine, start_cond=("L",)
+    ens_set: dict[str, Any],
+    trial_path: InfPath,
+    engine: EngineBase,
+    start_cond: tuple[str, ...] = ("L",),
 ) -> tuple[bool, InfPath, str]:
     """Perform a wire_fencing move.
 
@@ -540,7 +544,13 @@ def wire_fencing(
     return True, trial_path, trial_path.status
 
 
-def subt_acceptance(trial_path, ens_set, engine, path_old, start_cond=("L",)):
+def subt_acceptance(
+    trial_path: InfPath,
+    ens_set: dict[str, Any],
+    engine: EngineBase,
+    path_old: InfPath,
+    start_cond: tuple[str, ...] = ("L",),
+) -> tuple[bool, InfPath]:
     """Weights, possibly reverses and accept/rejects generated SS/WT/WFpaths.
 
     Parameters
