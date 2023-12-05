@@ -29,10 +29,11 @@ class Path:
     def __init__(self, maxlen: int = 10000, time_origin: int = 0):
         """Initiate Path class."""
         self.maxlen = maxlen
-        self.status: str | None = None
-        self.generated: tuple[str, None, None, None] | str | None = None
+        self.status: str = ""
+        self.generated: tuple[str, float, int, int] | str | None = None
         self.path_number = None
         self.weights: tuple[float, ...] | None = None
+        self.weight: float = 0.0
         self.phasepoints: list[System] = []
         self.min_valid = None
         self.time_origin = time_origin
@@ -614,7 +615,7 @@ def load_paths_from_disk(config: dict[str, Any]) -> list[Path]:
         status = "re" if "restarted_from" in config["current"] else "ld"
         ### TODO: important for shooting move if 'ld' is set. need a smart way
         ### to remember if status is 'sh' or 'wf' etc. maybe in the toml file.
-        new_path.generated = (status, None, None, None)
+        new_path.generated = (status, float("nan"), 0, 0)
         paths.append(new_path)
         # assign pnumber
         paths[-1].path_number = pnumber
