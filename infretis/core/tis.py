@@ -1073,7 +1073,9 @@ def retis_swap_zero(
     return accept, [path0, path1], status
 
 
-def metropolis_accept_reject(rgen, system, deltae):
+def metropolis_accept_reject(
+    rgen: Generator, system: System, deltae: float
+) -> bool:
     """accept/reject a energy change according to the metropolis rule.
 
     fixme: check if metropolis really is a good name here.
@@ -1104,10 +1106,16 @@ def metropolis_accept_reject(rgen, system, deltae):
     if deltae < 0.0:  # short-cut to avoid calculating np.exp()
         return True
     pacc = np.exp(-system.temperature["beta"] * deltae)
-    return rgen.rand(shape=1)[0] < pacc
+    return rgen.random() < pacc
 
 
-def high_acc_swap(paths, rgen, intf0, intf1, ens_moves):
+def high_acc_swap(
+    paths: list[InfPath],
+    rgen: Generator,
+    intf0: list[float],
+    intf1: list[float],
+    ens_moves: list[str],
+) -> tuple[bool, str]:
     """Accept or Reject a swap move using the High Acceptance weights.
 
     Parameters
@@ -1149,7 +1157,7 @@ def high_acc_swap(paths, rgen, intf0, intf1, ens_moves):
             c2_old,
             str(ens_moves),
         )
-        p_swap_acc = 1
+        p_swap_acc = 1.0
     else:
         p_swap_acc = c1_new * c2_new / (c1_old * c2_old)
 
