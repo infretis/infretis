@@ -1,0 +1,24 @@
+#!/bin/bash
+MolecularDynamics
+    TimeStep 0.5
+    Preserve CenterofMass=Yes Momentum=No AngularMomentum=No
+    Thermostat Type=none
+    InitialVelocities Type=Random Temperature=300 RandomVelocitiesMethod=Exact
+End
+
+System
+Atoms
+    H    0.303000003    0.400000006    0.372000009
+    H    0.370000005    0.423999995    0.442999989
+    H    0.432000011    0.352999985    0.407999992
+    H    0.495999992    0.423999995    0.377999991
+End
+    Charge 0.0
+    # BOX 0.800000012    0.800000012    0.800000012
+End
+
+Engine LennardJones
+    Rmin 0.87
+    Eps 1
+    Cutoff 1
+EndEngine

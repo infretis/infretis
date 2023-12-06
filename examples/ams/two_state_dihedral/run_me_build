@@ -1,0 +1,14 @@
+#!/bin/bash
+clear
+rm -rf ??? amsworker_* out.rst* pyretis.log* error.txt* EXIT initial pyretis.restart
+# source ~/opt/ams/ams2023.202.r113177/amsbashrc.sh
+
+#(
+#    cd ~/.scm/python/AMS2023.2.venv/lib/python3.8/site-packages/pyretis/ 
+#    git checkout ams-dev
+#	amspython -m pip install -e .
+#)
+export NSCM=1 # cores used
+export OMP_NUM_THREADS=1 # parallelization
+export AMS_COPYSTATE_MOVES_RESULTS=1
+infretisrun -i infretis.toml 

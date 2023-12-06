@@ -1,0 +1,45 @@
+# infretis config
+
+[dask]
+workers = 1 
+#wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
+#	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 1 -pin on',]
+wmdrun = []
+
+[simulation]
+interfaces = [-1.1, -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 1.5]
+steps = 40000
+seed = 0
+load_dir = 'load'
+shooting_moves = ['sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh', 'sh']
+
+
+[simulation.tis_set]
+maxlength = 20000
+aimless = true
+allowmaxlength = false
+zero_momentum = true # momentum true
+rescale_energy = false
+temperature = 300
+
+
+[engine]
+class = 'ams'
+engine = 'ams' 
+timestep = 0.0005
+input_path = 'ams_inp'
+subcycles = 10
+
+[orderparameter]
+class = 'Dihedral'
+index = [ 1, 2, 3, 4]
+periodic = true
+
+[output]
+backup = 'backup'
+data_dir = "./"
+order-file = 1
+energy-file = 1
+trajectory-file = -1
+screen = 1
+pattern = 1
