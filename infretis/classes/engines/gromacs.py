@@ -784,7 +784,7 @@ class GromacsEngine(EngineBase):
             pos = self.dump_frame(system)
             posvel, energy = self._prepare_shooting_point(pos)
             kin_new = energy["kinetic en."][-1]
-            system.set_pos((posvel, None))
+            system.set_pos((posvel, 0))
             system.set_vel(False)
             system.ekin = kin_new
             system.vpot = energy["potential"][-1]
