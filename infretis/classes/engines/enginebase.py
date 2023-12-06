@@ -236,7 +236,7 @@ class EngineBase(metaclass=ABCMeta):
     ) -> None:
         """Just dump the frame from a system object."""
         pos_file = self.dump_config(phasepoint.config, deffnm=deffnm)
-        phasepoint.set_pos((pos_file, None))
+        phasepoint.set_pos((pos_file, 0))
 
     def _name_output(self, basename: str) -> str:
         """
@@ -402,7 +402,7 @@ class EngineBase(metaclass=ABCMeta):
         msg_file.write(f"# Initial config: {initial_conf}")
 
         # Update system to point to the configuration file:
-        system.set_pos((initial_conf, None))
+        system.set_pos((initial_conf, 0))
         system.set_vel(reverse)
         # Propagate from this point:
         # msg_file.write(f'# Interfaces: {ensemble["interfaces"]}')
