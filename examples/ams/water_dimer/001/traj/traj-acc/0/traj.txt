@@ -1,0 +1,5 @@
+# Cycle: 0, status: ACC
+#     Step              Filename       index    vel
+         0           2_trajB.rkf           0     -1
+         1           1_trajF.rkf           0      1
+         2           1_trajF.rkf           1      1

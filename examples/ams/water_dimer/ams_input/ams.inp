@@ -1,0 +1,30 @@
+
+MolecularDynamics
+    TimeStep 1.0
+    Preserve CenterofMass=Yes Momentum=No AngularMomentum=No
+    Thermostat Type=none
+    InitialVelocities Type=Random Temperature=300 RandomVelocitiesMethod=Exact
+End
+
+System
+    Charge 0.0
+    Atoms [A]
+        O 49.91002560 49.72051620 50.63497066 ForceField.Type=OW ForceField.Charge=-0.834
+        H 49.91043091 50.30117035 49.87400055 ForceField.Type=HW ForceField.Charge=0.417
+        H 50.39500713 48.94715309 50.34698963 ForceField.Type=HW ForceField.Charge=0.417
+        O 50.09613991 51.82065487 48.74695301 ForceField.Type=OW ForceField.Charge=-0.834
+        H 49.73316669 52.70631790 48.73785973 ForceField.Type=HW ForceField.Charge=0.417
+        H 50.76516151 51.82843685 48.06241989 ForceField.Type=HW ForceField.Charge=0.417
+    End
+    BondOrders
+        1 2 1.0
+        1 3 1.0
+        4 5 1.0
+        4 6 1.0
+    End
+End
+
+Engine ForceField
+    Type GAFF
+    NonBondedCutoff 999.0
+EndEngine
