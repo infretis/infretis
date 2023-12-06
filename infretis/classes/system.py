@@ -24,6 +24,7 @@ class System:
         self.ekin: float | None = None
         self.vpot: float | None = None
         self.box: np.ndarray | None = np.zeros((3, 3))
+        self.temperature: dict[str, float] = {}
 
     def copy(self) -> System:
         """Return a copy of the system.
