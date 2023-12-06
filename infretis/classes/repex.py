@@ -293,7 +293,6 @@ class REPEX_state:
                 list(valid) + [0 for _ in range(self.n - self._offset)]
             )
         ens += self._offset
-        # print('dog a', ens, valid, traj.path_number, traj.length)
         assert valid[ens] != 0
         # invalidate last prob
         self._last_prob = None
@@ -391,7 +390,7 @@ class REPEX_state:
             ):
                 logger.info("date: " + datetime.now().strftime(DATE_FORMAT))
                 logger.info(
-                    f"------- infinity {self.cstep:5.0f} END -------" + "\n"
+                    f"------- infinity {self.cstep:5.0f} END ------- " + "\n"
                 )
 
         if self.cstep >= self.tsteps:
@@ -407,7 +406,7 @@ class REPEX_state:
         self.cstep += 1
 
         if self.printing() and self.cstep <= self.tsteps:
-            logger.info(f"------- infinity {self.cstep:5.0f} START -------")
+            logger.info(f"------- infinity {self.cstep:5.0f} START ------- ")
             logger.info("date: " + datetime.now().strftime(DATE_FORMAT))
 
         return self.cstep <= self.tsteps
@@ -425,14 +424,14 @@ class REPEX_state:
         if self.toinitiate < self.workers:
             if self.screen > 0:
                 logger.info(
-                    f"------- submit worker {self.cworker-1} END -------"
+                    f"------- submit worker {self.cworker-1} END ------- "
                     + datetime.now().strftime(DATE_FORMAT)
                     + "\n"
                 )
         if self.toinitiate > 0:
             if self.screen > 0:
                 logger.info(
-                    f"------- submit worker {self.cworker} START -------"
+                    f"------- submit worker {self.cworker} START ------- "
                     + datetime.now().strftime(DATE_FORMAT)
                 )
         self.toinitiate -= 1
@@ -816,15 +815,9 @@ class REPEX_state:
             last_prob = False
 
         logger.info("===")
-        logger.info(" xx |\tv Ensemble numbers v")
-        to_print = [f"{i:03.0f}" for i in range(self.n - 1)]
-        for i in range(len(to_print[0])):
-            to_print0 = " ".join([j[i] for j in to_print])
-            if i == len(to_print[0]) - 1:
-                to_print0 += "\t\tmax_op\tmin_op\tlen"
-            logger.info(" xx |\t" + to_print0)
-
-        logger.info(" -- |\t" + "".join("--" for _ in range(self.n + 14)))
+        to_print = "\t".join(["e" + f"{i:03.0f}" for i in range(self.n - 1)])
+        logger.info(" xx |\t" + to_print)
+        logger.info(" -- |     -----------------------------------")
 
         locks = self.locked_paths()
         oil = False
@@ -837,24 +830,14 @@ class REPEX_state:
                 ):
                     oil = True
                 for prob in self._last_prob[idx][:-1]:
-                    if prob == 1:
-                        marker = "x "
-                    elif prob == 0:
-                        marker = "- "
-                    else:
-                        marker = f"{int(round(prob*10,1))} "
-                        # change if marker == 10
-                        if len(marker) == 3:
-                            marker = "9 "
-                    to_print += marker
-                to_print += f"|\t{self.traj_data[live]['max_op'][0]:5.3f} \t"
-                to_print += f"{self.traj_data[live]['min_op'][0]:5.3f} \t"
+                    to_print += f"{prob:.2f}\t" if prob != 0 else "----\t"
+                to_print += f"{self.traj_data[live]['max_op'][0]:8.5f} |"
                 to_print += f"{self.traj_data[live]['length']:5.0f}"
                 logger.info(to_print)
             else:
                 to_print = f"p{live:02.0f} |\t"
                 logger.info(
-                    to_print + "".join(["- " for j in range(self.n - 1)]) + "|"
+                    to_print + "\t".join(["----" for j in range(self.n - 1)])
                 )
         if oil:
             logger.info("olive oil")
@@ -912,7 +895,6 @@ class REPEX_state:
                 self.traj_data[traj_num] = {
                     "frac": np.zeros(self.n, dtype="float128"),
                     "max_op": out_traj.ordermax,
-                    "min_op": out_traj.ordermin,
                     "length": out_traj.length,
                     "weights": out_traj.weights,
                     "adress": out_traj.adress,
@@ -978,7 +960,6 @@ class REPEX_state:
             self.traj_data[pnum] = {
                 "ens_save_idx": i + 1,
                 "max_op": paths[i + 1].ordermax,
-                "min_op": paths[i + 1].ordermin,
                 "length": paths[i + 1].length,
                 "adress": paths[i + 1].adress,
                 "weights": paths[i + 1].weights,
@@ -996,7 +977,6 @@ class REPEX_state:
         self.traj_data[pnum] = {
             "ens_save_idx": 0,
             "max_op": paths[0].ordermax,
-            "min_op": paths[0].ordermin,
             "length": paths[0].length,
             "weights": paths[0].weights,
             "adress": paths[0].adress,

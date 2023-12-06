@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 
 plt.rcParams.update({"font.size": 16})
+print('pattern')
 
 
 def pattern_reader(inp, cap=250):

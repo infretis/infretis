@@ -1,9 +1,6 @@
 import logging
 import math
 import os
-from collections.abc import Callable, Iterator
-from pathlib import Path
-from typing import IO, Any
 
 import numpy as np
 
@@ -101,7 +98,7 @@ _XYZ_BIG_FMT = "{:5s}" + 3 * " {:15.9f}"
 _XYZ_BIG_VEL_FMT = _XYZ_BIG_FMT + 3 * " {:15.9f}"
 
 
-def _cos(angle: float) -> float:
+def _cos(angle):
     """Return cosine of an angle.
 
     We also check if the angle is close to 90.0 and if so, we return
@@ -123,9 +120,7 @@ def _cos(angle: float) -> float:
     return math.cos(math.radians(angle))
 
 
-def box_vector_angles(
-    length: np.ndarray, alpha: float, beta: float, gamma: float
-) -> np.ndarray:
+def box_vector_angles(length, alpha, beta, gamma):
     """Obtain the box matrix from given lengths and angles.
 
     Parameters
@@ -162,9 +157,7 @@ def box_vector_angles(
     return box_matrix
 
 
-def box_matrix_to_list(
-    matrix: np.ndarray, full: bool = False
-) -> np.ndarray | None:
+def box_matrix_to_list(matrix, full=False):
     """Return a list representation of the box matrix.
 
     This method ensures correct ordering of the elements for PyRETIS:
@@ -188,23 +181,21 @@ def box_matrix_to_list(
     if matrix is None:
         return None
     if np.count_nonzero(matrix) <= 3 and not full:
-        return np.array([matrix[0, 0], matrix[1, 1], matrix[2, 2]])
-    return np.array(
-        [
-            matrix[0, 0],
-            matrix[1, 1],
-            matrix[2, 2],
-            matrix[0, 1],
-            matrix[0, 2],
-            matrix[1, 0],
-            matrix[1, 2],
-            matrix[2, 0],
-            matrix[2, 1],
-        ]
-    )
+        return [matrix[0, 0], matrix[1, 1], matrix[2, 2]]
+    return [
+        matrix[0, 0],
+        matrix[1, 1],
+        matrix[2, 2],
+        matrix[0, 1],
+        matrix[0, 2],
+        matrix[1, 0],
+        matrix[1, 2],
+        matrix[2, 0],
+        matrix[2, 1],
+    ]
 
 
-def get_box_from_header(header: str) -> np.ndarray | None:
+def get_box_from_header(header):
     """Get box lengths from a text header.
 
     Parameters
@@ -225,9 +216,7 @@ def get_box_from_header(header: str) -> np.ndarray | None:
     return None
 
 
-def read_txt_snapshots(
-    filename: str | Path, data_keys: tuple[str, ...] | None = None
-) -> Iterator[dict[str, Any]]:
+def read_txt_snapshots(filename, data_keys=None):
     """Read snapshots from a text file.
 
     Parameters
@@ -245,7 +234,7 @@ def read_txt_snapshots(
 
     """
     lines_to_read = 0
-    snapshot: dict[str, Any] = {}
+    snapshot = None
     if data_keys is None:
         data_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
     read_header = False
@@ -257,7 +246,7 @@ def read_txt_snapshots(
                 read_header = False
                 continue
             if lines_to_read == 0:  # new snapshot
-                if snapshot:
+                if snapshot is not None:
                     yield snapshot
                 try:
                     lines_to_read = int(lines.strip())
@@ -265,21 +254,24 @@ def read_txt_snapshots(
                     logger.error("Error in the input file %s", filename)
                     raise
                 read_header = True
-                snapshot = {}
+                snapshot = None
             else:
                 lines_to_read -= 1
                 data = lines.strip().split()
                 for i, (val, key) in enumerate(zip(data, data_keys)):
-                    value = val.strip() if i == 0 else float(val)
+                    if i == 0:
+                        value = val.strip()
+                    else:
+                        value = float(val)
                     try:
                         snapshot[key].append(value)
                     except KeyError:
                         snapshot[key] = [value]
-    if snapshot:
+    if snapshot is not None:
         yield snapshot
 
 
-def read_xyz_file(filename: str | Path) -> Iterator[dict[str, Any]]:
+def read_xyz_file(filename):
     """Read files in XYZ format.
 
     This method will read a XYZ file and yield the different snapshots
@@ -311,14 +303,8 @@ def read_xyz_file(filename: str | Path) -> Iterator[dict[str, Any]]:
 
 
 def write_xyz_trajectory(
-    filename: str,
-    pos: np.ndarray,
-    vel: np.ndarray,
-    names: list[str] | None,
-    box: np.ndarray | None,
-    step: int | None = None,
-    append: bool = True,
-) -> None:
+    filename, pos, vel, names, box, step=None, append=True
+):
     """Write XYZ snapshot to a trajectory.
 
     This is intended as a lightweight alternative for just
@@ -348,8 +334,7 @@ def write_xyz_trajectory(
 
     """
     npart = len(pos)
-    if names is None:
-        names = ["X"] * npart
+
     filemode = "a" if append else "w"
     with open(filename, filemode, encoding="utf-8") as output_file:
         output_file.write(f"{npart}\n")
@@ -374,9 +359,7 @@ def write_xyz_trajectory(
             output_file.write(f"{line}\n")
 
 
-def convert_snapshot(
-    snapshot: dict[str, Any]
-) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
+def convert_snapshot(snapshot):
     """Convert a XYZ snapshot to numpy arrays.
 
     Parameters
@@ -409,11 +392,7 @@ def convert_snapshot(
     return box, xyz, vel, names
 
 
-def look_for_input_files(
-    input_path: str | Path,
-    required_files: dict[str, str] | dict[str, Path],
-    extra_files: list[str] | list[Path] | None = None,
-) -> dict[str, Any]:
+def look_for_input_files(input_path, required_files, extra_files=None):
     """Check that required files for external engines are present.
 
     It will first search for the default files.
@@ -440,15 +419,16 @@ def look_for_input_files(
         The paths to the required and extra files we found.
 
     """
-    input_path = Path(input_path)
-    if not input_path.is_dir():
-        msg = f"Input path folder {str(input_path)} not existing"
+    if not os.path.isdir(input_path):
+        msg = f"Input path folder {input_path} not existing"
         raise ValueError(msg)
 
     # Get the list of files in the input_path folder
-    files_in_input_path = [i.name for i in input_path.iterdir() if i.is_file()]
+    files_in_input_path = [
+        i.name for i in os.scandir(input_path) if i.is_file()
+    ]
 
-    input_files: dict[str, Any] = {}
+    input_files = {}
     # Check if the required files are present
     for file_type, file_to_check in required_files.items():
         req_ext = os.path.splitext(file_to_check)[1][1:].lower()
@@ -467,7 +447,9 @@ def look_for_input_files(
             # Since we are guessing the correct files, give an error if
             # multiple entries are possible.
             if file_counter == 1:
-                input_files[file_type] = input_path / selected_file
+                input_files[file_type] = os.path.join(
+                    input_path, selected_file
+                )
                 logger.warning(
                     f"using {input_files[file_type]} "
                     + f'as "{file_type}" file'
@@ -487,153 +469,5 @@ def look_for_input_files(
             else:
                 msg = f"Extra file {file_to_check} not present in {input_path}"
                 logger.info(msg)
+
     return input_files
-
-
-class ReadAndProcessOnTheFly:
-    """Read from an open fileobject on the fly and do some processing on
-    new data that is written to it. Files should be opened using a 'with open'
-    statement to be sure that they are closed.
-
-    To do
-    use with open in here. Point at current pos and read N finished blocks. Put
-    pointer at that position and return traj. If only some frames ready, point
-    at last whole ready block read and return [] or the ready frames.
-    """
-
-    def __init__(
-        self,
-        file_path: str | Path,
-        processing_function: Callable[..., Any],
-        read_mode: str = "r",
-    ):
-        self.file_path = file_path
-        self.processing_function = processing_function
-        self.current_position = 0
-        self.file_object: IO[Any] | None = None
-        self.read_mode = read_mode
-
-    def read_and_process_content(self) -> Any:
-        # we may open at a time where the file
-        # is currently not open for reading
-        try:
-            with open(self.file_path, self.read_mode) as self.file_object:
-                self.file_object.seek(self.current_position)
-                self.previous_position = self.current_position
-                return self.processing_function(self)
-        except FileNotFoundError:
-            return []
-
-
-def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
-    # trajectory of ready frames to be returned
-    trajectory: list[np.ndarray] = []
-    # holder for storing frame coordinates
-    frame_coordinates: list[list[float]] = []
-    block_size = 0
-    N_atoms = 0
-    if reader_class.file_object is None:
-        return trajectory
-    for i, line in enumerate(reader_class.file_object.readlines()):
-        spl = line.split()
-        if i == 0 and spl:
-            N_atoms = int(spl[0])
-            block_size = N_atoms + 2  # 2 header lines
-        # if we are not in the atom nr or header block
-        if i % block_size > 1:
-            # if there arent enough values to iterate through
-            # return the (posibly empty) ready trajectory frames
-            if len(spl) != 4:
-                reader_class.current_position = reader_class.previous_position
-                return trajectory
-            else:
-                frame_coordinates.append([float(spl[i]) for i in range(1, 4)])
-        # if we are done with one block
-        # update the file object pointer to the new position
-        if i % block_size == N_atoms + 1 and i > 0:
-            trajectory.append(np.array(frame_coordinates))
-            reader_class.current_position = reader_class.file_object.tell()
-            frame_coordinates = []
-
-    return trajectory
-
-
-def lammpstrj_reader(
-    reader_class: ReadAndProcessOnTheFly,
-) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    """
-    Return the coordinates, velocities and box bounds from a trajectory.
-
-    For large trajectories, the whole thing is returned as one list
-    and might shred through your ram.
-
-    Note that the precision defaults to the numpy array precision.
-
-    lammps format should be `dump custom id type x y z vx vy vz`
-    which gives
-    ITEM: TIMESTEP
-    t
-    ITEM: NUMBER OF ATOMS
-    n
-    ITEM: BOX BOUNDS xy xz yz pp pp pp
-    xlo xhi (?)
-    ylo yhi (?)
-    zlo zhi (?)
-    ITEM: ATOMS id type x y z vx vy vz
-    n_atoms
-    """
-    # the ready frames to be returned
-    # which will be a list of np.arrays
-    trajectory: list[np.ndarray] = []
-    # the corresponding box dimensions to be returned
-    box: list[np.ndarray] = []
-    box_snapshot = np.zeros(1)
-    # the number of lines each snapshot takes in the trajectory
-    # It is a placeholder for now
-    block_size = 4
-    N_atoms = 0
-    coordinate_snapshot = np.zeros(1)
-    if reader_class.file_object is None:
-        return trajectory, box
-    for i, line in enumerate(reader_class.file_object.readlines()):
-        spl = line.split()
-        if i == 3 and spl:
-            N_atoms = int(spl[0])
-            coordinate_snapshot = np.zeros((N_atoms, 6))
-            box_snapshot = np.zeros((3, 3))
-            # Natoms + timestep_block
-            # + N_atoms_block + box_block + atoms_header
-            block_size = N_atoms + 2 + 2 + 4 + 1
-        # the line number if a single frame was extracted
-        line_nr = i % block_size
-        # if we are in the box bound block
-        if line_nr >= 5 and line_nr <= 7:
-            # frame is not ready
-            n_box_cols = len(spl)
-            if n_box_cols not in [2, 3]:
-                reader_class.current_position = reader_class.previous_position
-                return trajectory, box
-            else:
-                # we may have either 2 or 3 colums in box output
-                box_snapshot[line_nr - 5] = spl + [0] * (3 - n_box_cols)
-        # we are in the atoms block
-        elif line_nr >= 9:
-            # frame is not ready
-            if len(spl) != 8:
-                reader_class.current_position = reader_class.previous_position
-                return trajectory, box
-            else:
-                # the atom number, which are not sorted by default in lammps
-                atom = int(spl[0]) - 1
-                coordinate_snapshot[atom, :] = spl[2:8]
-        # if we are done with one block
-        # update the file object pointer to the new position
-        # and append the box and trajectory
-        if i % block_size == block_size - 1 and i > 0:
-            trajectory.append(coordinate_snapshot)
-            box.append(np.array(box_snapshot))
-            reader_class.current_position = reader_class.file_object.tell()
-            # allocate memory for next frame
-            coordinate_snapshot = np.zeros((N_atoms, 6))
-            box_snapshot = np.zeros((3, 3))
-    return trajectory, box

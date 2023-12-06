@@ -14,24 +14,22 @@ from infretis.classes.repex import REPEX_state
 logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)
 
+print('setup')
 
 def setup_internal(config):
     """Run the various setup functions."""
     # setup logger
     setup_logger()
-
     # setup repex
     state = REPEX_state(config, minus=True)
-
     # setup ensembles
     state.initiate_ensembles()
 
     # setup engines
     state.engines = create_engines(config)
-
+    print('state.engeines', state.engines)
     # setup engine orderparameter functions
     create_orderparameters(state.engines, config)
-
     # load paths from disk and add to repex
     paths = load_paths_from_disk(config)
     state.load_paths(paths)
@@ -42,7 +40,6 @@ def setup_internal(config):
         "interfaces": state.interfaces,
         "cap": state.cap,
     }
-
     # write pattern header
     if state.pattern:
         state.pattern_header()
@@ -66,8 +63,7 @@ def setup_dask(state):
     futures = as_completed(None, with_results=True)
 
     # setup individual worker logs
-    for i in range(state.workers):
-        client.submit(set_worker_logger, i)
+    client.run(set_worker_logger)
 
     return client, futures
 
@@ -165,7 +161,7 @@ def setup_logger(inp="sim.log"):
     logger.addHandler(fileh)
 
 
-def set_worker_logger(i):
+def set_worker_logger():
     """Set logger for each worker."""
     # for each worker
     pin = get_worker().name
