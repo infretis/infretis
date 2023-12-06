@@ -1,0 +1,11 @@
+# Preparing propagation with AMS engine
+# Trajectory label: 2_trajF
+# Initial file: /home/konrad/AMS_test/pyretis_test/water_dimer/000/generate/2_conf.rkf
+# Initial config: /home/konrad/AMS_test/pyretis_test/water_dimer/000/generate/2_conf.rkf
+# Interfaces: (-inf, 0.3, 0.3)
+# Initial order parameter: 0.2895662670803835
+0 0.2895662670803835
+1 0.29393998827413576
+2 0.2994509646457239
+3 0.3042224243261444
+# Propagation done.

@@ -1,0 +1,10 @@
+# Preparing propagation with AMS engine
+# Trajectory label: 1_trajB
+# Initial file: /home/konrad/AMS_test/pyretis_test/water_dimer/001/generate/1_conf.rkf
+# Reversing velocities
+# Initial config: /home/konrad/AMS_test/pyretis_test/water_dimer/001/generate/r_1_conf.rkf
+# Interfaces: (0.3, 0.3, 0.5)
+# Initial order parameter: 0.30455686010850674
+0 0.30455686010850674
+1 0.2990775079367038
+# Propagation done.
