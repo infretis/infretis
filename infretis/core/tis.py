@@ -230,56 +230,19 @@ def wirefence_weight_and_pick(
 def select_shoot(
     picked: dict[int, Any], start_cond: tuple[str, ...] = ("L",)
 ) -> tuple[bool, list[InfPath], str]:
-    """Select the shooting move to generate a new path.
+    """Select shooting move and generate a new path.
 
-    The new path will be generated from the input path, either by
-    performing a normal shooting or web-throwing. This is
-    determined pseudo-randomly by drawing a random number from a
-    uniform distribution using the given random generator.
+    Args:
+        picked: A dictionary mapping the ensemble indices to their
+            settings, including the move, current path and engine.
+        start_cond: The starting condition for the path.
+            This is determined by the ensemble we are generating
+            for - it is right ("R") or left ("L").
 
-    Parameters
-    ----------
-    ensemble : dictionary of objects
-        It contains:
-
-        * `path_ensemble`: object like :py:class:`.PathEnsemble`
-          This is the path ensemble to perform the TIS step for.
-        * `path`: object like :py:class:`.PathBase`
-          This is the input path which will be used for generating a
-          new path.
-        * `system`: object like :py:class:`.System`
-          System is used here since we need access to the temperature
-          and to the particle list.
-        * `order_function`: object like :py:class:`.OrderParameter`
-          The class used for obtaining the order parameter(s).
-        * `engine`: object like :py:class:`.EngineBase`
-          The engine to use for propagating a path.
-        * `rgen`: object like :py:class:`.RandomGenerator`
-          This is the random generator that will be used.
-        * `interfaces`: list of floats
-          These are the interface positions on form
-          [left, middle, right].
-
-    tis_settings : dict
-        This dictionary contains the settings for the TIS method. Here we
-        explicitly use:
-
-        * `freq`: float, the frequency of how often we should do time
-          reversal moves.
-        * `shooting_move`: string, the label of the shooting move to perform.
-
-    start_cond : string
-        The starting condition for the path. This is determined by the
-        ensemble we are generating for - it is 'R'ight or 'L'eft.
-
-    Returns
-    -------
-    out[0] : boolean
-        True if the new path can be accepted.
-    out[1] : object like :py:class:`.PathBase`
-        The generated path.
-    out[2] : string
-        The status of the path.
+    Returns:
+        out[0]: True if the new path can be accepted.
+        out[1]: The generated path.
+        out[2]: The status of the path.
 
     """
     sh_moves: dict[str, MoveMethod] = {
@@ -315,6 +278,22 @@ def shoot(
     shooting_point: System | None = None,
     start_cond: tuple[str, ...] = ("L",),
 ) -> tuple[bool, InfPath, str]:
+    """Perform a shooting move.
+
+    Args:
+        ens_set: Settings for the ensemble.
+        path: The initial path to shoot from.
+        engine: The MD engine used for generating a new path.
+        shooting_point: The selected shooting point. If None,
+            it will be randomly selected here.
+        start_cond: The starting condition for the ensemble as
+            left ("L") or right ("R").
+
+    Returns:
+        out[0]: True if the new path can be accepted.
+        out[1]: The generated path.
+        out[2]: The status of the path.
+    """
     interfaces = ens_set["interfaces"]
     trial_path = path.empty_path()  # The trial path we will generate.
     if shooting_point is None:
@@ -336,7 +315,7 @@ def shoot(
     if not kick:
         return False, trial_path, trial_path.status
     # OK: kick was either aimless or it was accepted by Metropolis
-    # we should now generate trajectories, but first check how long
+    # We should now generate trajectories, but first check how long
     # it should be (if the path comes from a load, it is assumed to not
     # respect the detail balance anyway):
     if path.get_move() == "ld" or ens_set.get("allowmaxlength", False):
@@ -348,6 +327,7 @@ def shoot(
         )
     # Since the forward path must be at least one step, the maximum
     # length for the backward path is maxlen-1.
+
     # Generate the backward path:
     path_back = path.empty_path(maxlen=maxlen - 1)
     # todo this inputs are a mess
@@ -359,13 +339,12 @@ def shoot(
     ):
         return False, trial_path, trial_path.status
 
-    # Everything seems fine, now propagate forward.
+    # Generate forward path:
     # Note that the length of the forward path is adjusted to
     # account for the fact that it shares a point with the backward
     # path (i.e. the shooting point). The duplicate point is just
     # counted once when the paths are merged by the method
-    # `paste_paths` by setting `overlap=True` (which indicates that
-    # the forward and backward paths share a point).
+    # `paste_paths` by setting `overlap=True`.
     path_forw = path.empty_path(maxlen=(maxlen - path_back.length + 1))
     logger.debug("Propagating forwards for shooting move...")
     # Set ensemble state to the selected shooting point:
@@ -439,52 +418,19 @@ def wire_fencing(
     engine: EngineBase,
     start_cond: tuple[str, ...] = ("L",),
 ) -> tuple[bool, InfPath, str]:
-    """Perform a wire_fencing move.
+    """Perform a Wire Fencing move from an initial path.
 
-    This function will perform the non famous wire fencing move
-    from an initial path.
+    Args:
+        ens_set: Ensemble settings.
+        trial_path: The path to perform the move from.
+        engine: The MD engine.
+        start_cond: The starting condition for the ensemble as
+            left ("L") or right ("R").
 
-    Parameters
-    ----------
-    ensemble: dict
-        It contains:
-
-        * `path_ensemble`: object like :py:class:`.PathEnsemble`
-          This is the path ensemble to perform the TIS step for.
-        * `system`: object like :py:class:`.System`
-          System is used here since we need access to the temperature
-          and to the particle list.
-        * `order_function`: object like :py:class:`.OrderParameter`
-          The class used for obtaining the order parameter(s).
-        * `engine`: object like :py:class:`.EngineBase`
-          The engine to use for propagating a path.
-        * `rgen`: object like :py:class:`.RandomGenerator`
-          This is the random generator that will be used.
-        * `interfaces`: list of floats
-          These are the interface positions on form
-          [left, middle, right].
-
-    tis_settings : dict
-        This contains the settings for TIS. Keys used here:
-
-        * `aimless`: boolean, is the shooting aimless or not?
-        * `allowmaxlength`: boolean, should paths be allowed to reach
-          maximum length?
-        * `maxlength`: integer, maximum allowed length of paths.
-
-    start_cond : string
-        The starting condition for the current ensemble, 'L'eft or
-        'R'ight.
-
-    Returns
-    -------
-    out[0] : boolean
-        True if the path can be accepted.
-    out[1] : object like :py:class:`.PathBase`
-        Returns the generated path.
-    out[2] : string
-        Status of the path, this is one of the strings defined in
-        :py:const:`.path._STATUS`.
+    Returns:
+        out[0]: True if the path can be accepted.
+        out[1]: The generated path.
+        out[2]: The status of the path.
 
     """
     old_path = trial_path.copy()
