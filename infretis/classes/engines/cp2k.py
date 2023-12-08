@@ -692,7 +692,7 @@ def write_for_run_vel(
     """Create input file to perform n steps.
 
     Note, a single step actually consists of a number of subcycles.
-    But from PyRETIS' point of view, this is a single step.
+    But from InfRETIS' point of view, this is a single step.
     Further, we here assume that we start from a given xyz file and
     we also explicitly give the velocities here.
 
@@ -705,7 +705,7 @@ def write_for_run_vel(
     timestep : float
         The time-step to use for the simulation.
     nsteps : integer
-        The number of pyretis steps to perform.
+        The number of InfRETIS steps to perform.
     subcycles : integer
         The number of sub-cycles to perform.
     posfile : string

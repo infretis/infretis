@@ -167,7 +167,7 @@ def box_matrix_to_list(
 ) -> np.ndarray | None:
     """Return a list representation of the box matrix.
 
-    This method ensures correct ordering of the elements for PyRETIS:
+    This method ensures correct ordering of the elements for InfRETIS:
     ``xx, yy, zz, xy, xz, yx, yz, zx, zy``.
 
     Parameters
@@ -294,12 +294,6 @@ def read_xyz_file(filename: str | Path) -> Iterator[dict[str, Any]]:
     ------
     out : dict
         This dict contains the snapshot.
-
-    Examples
-    --------
-    >>> from pyretis.inout.formats.xyz import read_xyz_file
-    >>> for snapshot in read_xyz_file('traj.xyz'):
-    ...     print(snapshot['x'][0])
 
     Note
     ----

@@ -82,8 +82,7 @@ def read_lammpstrj(
 
 
 def read_energies(filename: str) -> dict[str, np.ndarray]:
-    """From pyretis
-    Read some info from a LAMMPS log file.
+    """Read some info from a LAMMPS log file.
 
     In particular, this method is used to read the thermodynamic
     output from a simulation (e.g. potential and kinetic energies).

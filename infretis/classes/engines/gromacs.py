@@ -91,9 +91,9 @@ class GromacsEngine(EngineBase):
         The directory where the input files are stored.
     subcycles : int,
         The number of simulation steps of the external engine for each
-        PyRETIS step (e.g. interaction between the softwares frequency)
+        step in the path simulation.
     exe_path : string, optional
-        The absolute path at which the main PyRETIS simulation will be run.
+        The absolute path where the simulation will be run.
     maxwarn : integer
         Setting for the GROMACS ``grompp -maxwarn`` option.
     gmx_format : string
@@ -126,8 +126,8 @@ class GromacsEngine(EngineBase):
             input_path: The absolute path to where the input files are stored.
             timestep: The time step used in the GROMACS MD simulation.
             subcycles: The number of steps each GROMACS MD run is composed of.
-            exe_path: The absolute path at which the main PyRETIS simulation
-                will be run.
+            exe_path: The absolute path at which the main simulation will be
+                run.
             maxwarn: Setting for the GROMACS ``grompp -maxwarn`` option.
             gmx_format: The format used for GROMACS configurations.
             write_vel: Determines if GROMACS should write velocities or not.
@@ -173,7 +173,7 @@ class GromacsEngine(EngineBase):
         self.input_files = look_for_input_files(
             self.input_path, default_files, [i for _, i in extra_files.items()]
         )
-        # Check the input file and create a PyRETIS version with
+        # Check the input file and create new input file with
         # consistent settings:
         settings: dict[str, str | float | int] = {
             "dt": self.timestep,
@@ -195,9 +195,9 @@ class GromacsEngine(EngineBase):
         if not write_force:
             settings["nstfout"] = 0
 
-        # PyRETIS construct its own mdp file
+        # Create the .mdp file name:
         self.input_files["input"] = os.path.join(
-            self.input_path, "pyretis.mdp"
+            self.input_path, "infretis.mdp"
         )
         self._modify_input(
             self.input_files["input_o"],
