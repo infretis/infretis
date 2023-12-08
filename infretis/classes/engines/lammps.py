@@ -35,8 +35,19 @@ def write_lammpstrj(
     box: np.ndarray | None,
     append: bool = False,
 ) -> None:
-    """Write a lammps trajectory frame in .lammpstrj format
-    correspondds to dump id name x y z vx vy vz
+    """Write a LAMMPS trajectory frame in .lammpstrj format.
+
+    This method assumes a dump format from LAMMPS of:
+    `dump id name x y z vx vy vz`.
+
+    Args:
+        outfile: Path to the file to write.
+        id_type:
+        pos: The positions to write.
+        vel: The velocities to write.
+        box: The simulation box to write (if available).
+        append: If True, the `outfile` will be appended to,
+            otherwise, `outfile` will be overwritten.
     """
     filemode = "a" if append else "w"
     with open(outfile, filemode) as writefile:
@@ -65,9 +76,23 @@ ITEM: BOX BOUNDS xy xz yz pp pp pp\n"
 def read_lammpstrj(
     infile: str, frame: int, n_atoms: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Read a single frame from a lammps trajectory
-    Note that the atoms are sorted according to their index, such that
-    order calculations are correct.
+    """Read a single frame from a LAMMPS trajectory.
+
+    Args:
+        infile: The path to the file to read.
+        frame: The index of the frame to read from `infile`.
+        n_atoms: The number of atoms to read.
+
+    Returns:
+        A tuple containing:
+            - The id type for the particles.
+            - The positions.
+            - The velocities.
+            - The simulation box.
+
+    Note:
+        - The atoms are sorted according to their index, so that
+            (index-based) order calculations are correct.
     """
     block_size = n_atoms + 9
     box = np.genfromtxt(infile, skip_header=block_size * frame + 5, max_rows=3)
@@ -82,20 +107,16 @@ def read_lammpstrj(
 
 
 def read_energies(filename: str) -> dict[str, np.ndarray]:
-    """Read some info from a LAMMPS log file.
+    """Read energies from a LAMMPS log file.
 
-    In particular, this method is used to read the thermodynamic
-    output from a simulation (e.g. potential and kinetic energies).
+    This method is used to read the thermodynamic output from a
+    simulation (e.g., potential and kinetic energies).
 
-    Parameters
-    ----------
-    filename : string
-        The path to the LAMMPS log file.
+    Args:
+        filename: The path to the LAMMPS log file to read.
 
-    Returns
-    -------
-    out : dict
-        A dict containing the data we found in the file.
+    Returns:
+        A dictionary containing the data we found in the file.
 
     """
     energy_keys = []
@@ -141,29 +162,28 @@ def write_for_run(
     outfile: str | Path,
     input_settings: dict[str, Any] | None = None,
 ) -> None:
-    """Create input file to perform n steps with lammps.
+    """Create input file to perform n steps with LAMMPS.
 
     Currently, we define a set of variables starting with `infretis_`
-    at the beginning of the lammps.input template file, which are
+    at the beginning of the `lammps.input` template file, which are
     simply replaced in this function. See the examples for the
-    lammps.input file structures.
+    `lammps.input` file structures.
 
     The variables to be replaced are:
-    "infretis_timestep": the timestep,
-    "infretis_nsteps": number of infretis steps = path.maxlen * self.subcycles,
-    "infretis_subcycles": self.subcycles,
-    "infretis_initconf": path to initial configuration to start run
-    "infretis_name": name of the current project
-    "infretis_lammpsdata": self.input_files["data"],
-    "infretis_temperature": self.temperature,
+        - `infretis_timestep`: the timestep.
+        - `infretis_nsteps`: number of infretis steps, equals
+            `path.maxlen * self.subcycles`.
+        - `infretis_subcycles`: The number of subcycles
+        - `infretis_initconf`: The path to the initial configuration
+            for the LAMMPS simulation.
+        - `infretis_name`: name of the current project
+        - `infretis_lammpsdata`: The path to the LAMMPS data file.
+        - `infretis_temperature`: The temperature of the simulation.
 
-    Parameters
-    ----------
-    infile : string
-        The input template to use.
-    outfile : string
-        The file to create.
-    input_settings: dict
+    Args:
+        infile: Path to the LAMMPS input template.
+        outfile: Path to the LAMMPS file to create.
+        input_settings: Dictionary with the input settings to use.
     """
     if input_settings is None:
         input_settings = {}
@@ -188,7 +208,14 @@ def write_for_run(
 
 
 def get_atom_masses(lammps_data: str | Path) -> np.ndarray:
-    """Read a lammps.data file and get the masses of the atoms"""
+    """Read atom masses from a LAMMPS data file.
+
+    Args:
+        lammps_data: Path to the LAMMPS data file to read.
+
+    Returns:
+        An array with the masses read from the file.
+    """
     n_atoms = 0
     n_atom_types = 0
     atom_type_masses = np.zeros(0)
@@ -228,8 +255,17 @@ def get_atom_masses(lammps_data: str | Path) -> np.ndarray:
 def shift_boxbounds(
     xyz: np.ndarray, box: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Shift positions such that the lower box bounds are 0, and
-    return the modified positions and the new upper box bounds
+    """Shift positions so that the lower box bounds are 0.
+
+    Args:
+        xyz: The positions to shift.
+        box: The box boundaries.
+
+    Returns:
+        A tuple containing:
+            - The shifted positions.
+            - A flattended version of the upper box bounds.
+
     """
     xyz -= box[:, 0]
     box[:, 1] -= box[:, 0]
@@ -237,9 +273,10 @@ def shift_boxbounds(
 
 
 class LAMMPSEngine(EngineBase):
-    """
+    """Define a engine for running MD with LAMMPS.
+
     TO DO:
-    * Add possibility to use lammps internally to modify the velocities
+    * Add possibility to use LAMMPS internally to modify the velocities
     such that all constraints (e.g. between bonds) are fulfilled.
     external_orderparameter : boolean
 
@@ -253,18 +290,18 @@ class LAMMPSEngine(EngineBase):
     finishes before we managed to check for a crossing, leading to
     large files.
 
-    * Make lammps remove and replace commands in input
+    * Make LAMMPS remove and replace commands in input
     instead of making variables. Much easier to run md with
     the same input file
 
-    * Periodicity in lammps has to take into accound hi and lo box bounds:
+    * Periodicity in LAMMPS has to take into accound hi and lo box bounds:
     As of now, we subtract the lower bounds from the positions and the box
     vectors to create a regular box with 0 lower bounds. This is hard coded
     in _propagate_from() when calculating, and also in _read_configuration().
 
     * external_orderparameter. If this is set to true, we read
     in the orderparameter from and external file. May be usefull when the
-    orderparameter is calculated internally in lammps for expensive
+    orderparameter is calculated internally in LAMMPS for expensive
     calculations such as in nucleation, or any other fancy stuff.
     """
 
@@ -278,6 +315,23 @@ class LAMMPSEngine(EngineBase):
         exe_path: Path = Path(".").resolve(),
         sleep: float = 0.1,
     ):
+        """Initialize the LAMMPS simulation engine.
+
+        Args:
+            lmp: The name of/path to the LAMMPS executable.
+            input_path: The path to the directory containing the
+                LAMMPS input files.
+            timestep: The MD time step to use for LAMMPS.
+            subcycles: The number of subcycles to use for each
+                InfRetis step.
+            temperature: The temperature the simulation is
+                performed at.
+            exe_path: The path to the directory where `input_path` is,
+                in case `input_path` is a relative path.
+            sleep: A time in seconds used for waiting between attempts to read
+                the LAMMPS output.
+
+        """
         super().__init__("LAMMPS external engine", timestep, subcycles)
         self.lmp = shlex.split(lmp)
         self.name = "lammps"
@@ -361,13 +415,13 @@ class LAMMPSEngine(EngineBase):
                     logger.debug("LAMMPS execution stopped")
                     break
 
-            # lammps may have finished after last processing the files
+            # LAMMPS may have finished after last processing the files
             # or it may have crashed without writing to the files
             if exe.poll() is None or exe.returncode == 0:
                 traj_reader = ReadAndProcessOnTheFly(
                     traj_file, lammpstrj_reader
                 )
-                # start reading on the fly as lammps is still running
+                # start reading on the fly as LAMMPS is still running
                 # if it stops, perform one more iteration to read
                 # the remaning contnent in the files.
                 iterations_after_stop = 0
@@ -423,7 +477,7 @@ class LAMMPSEngine(EngineBase):
 
                         step_nr += 1
                     sleep(self.sleep)
-                    # if lammps finished, we run one more loop
+                    # if LAMMPS finished, we run one more loop
                     if exe.poll() is not None and iterations_after_stop <= 1:
                         iterations_after_stop += 1
 
@@ -513,7 +567,7 @@ class LAMMPSEngine(EngineBase):
             )
             vel += dvel
         vel /= scale
-        # reset momentum is not the default in lammps
+        # reset momentum is not the default in LAMMPS
         if vel_settings.get("zero_momentum", False):
             vel = reset_momentum(vel, mass)
 
