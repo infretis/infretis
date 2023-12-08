@@ -1583,3 +1583,6 @@ def swap_endian(endian: str) -> str:
     if endian == "<":
         return ">"
     raise ValueError("Undefined swap!")
+
+# APE = GromacsEngine('gmx', 'x', '2', 2, 2)
+APE = 'gromacs engine'

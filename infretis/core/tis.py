@@ -9,6 +9,30 @@ from infretis.classes.path import paste_paths
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
+import tomli
+
+# CONFIG = os.path.join(os.getcwd(), './infretis.toml'))
+# if os.path.isfile(
+
+# print('boiiiiii', os.getcwd())
+# CONFIG = toml.read(os.getcwd() + toml)
+# ENGINE = engine_factory(CONFIG['qwdqwd'])
+# ORDERP = orderp_factor(CONFIG['qwdqwd'])
+# from infretis.setup import pickle0
+
+from infretis.classes.engines.factory import create_engines
+from infretis.classes.orderparameter import create_orderparameters
+ENGINE = None
+ORDERP = None
+def def_globals(config):
+    global engine
+    if None in (ENGINE, ORDERP):
+
+        ENGINES = create_engines(config)
+        ORDERP = create_orderparameters(ENGINES, config)
+
+    print('haap')
+
 
 def log_mdlogs(inp):
     logs = [log for log in os.listdir(inp) if "log" in log]

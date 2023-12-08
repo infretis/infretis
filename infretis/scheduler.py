@@ -1,5 +1,5 @@
 """The main infretis loop."""
-from infretis.core.tis import run_md
+from infretis.core.tis import def_globals, run_globals
 from infretis.setup import setup_dask, setup_internal
 
 
@@ -8,6 +8,9 @@ def scheduler(config):
     # setup repex, dask and futures
     md_items, state = setup_internal(config)
     client, futures = setup_dask(state)
+    # define global orderparameters and engines
+    client.submit(def_globals, setup_dask, pure=False)
+    _ = next(futures)[1]
 
     # submit the first number of workers
     while state.initiate():

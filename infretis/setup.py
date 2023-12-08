@@ -26,11 +26,11 @@ def setup_internal(config):
     # setup ensembles
     state.initiate_ensembles()
 
-    # setup engines
-    state.engines = create_engines(config)
+    # # setup engines
+    # state.engines = create_engines(config)
 
-    # setup engine orderparameter functions
-    create_orderparameters(state.engines, config)
+    # # setup engine orderparameter functions
+    # create_orderparameters(state.engines, config)
 
     # load paths from disk and add to repex
     paths = load_paths_from_disk(config)
@@ -178,3 +178,7 @@ def set_worker_logger(i):
     logger.info("=============================")
     logger.info("Logging file for worker %s", pin)
     logger.info("=============================\n")
+
+
+def pickle0():
+    print('whada')
