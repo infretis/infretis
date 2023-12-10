@@ -298,6 +298,7 @@ class LAMMPSEngine(EngineBase):
             "infretis_name": name,
             "infretis_lammpsdata": self.input_files["data"],
             "infretis_temperature": self.temperature,
+            "infretis_seed": self.rgen.integers(1e7),
         }
         # write the file run.input from lammps input template
         run_input = os.path.join(self.exe_dir, "run.inp")
@@ -468,6 +469,7 @@ class LAMMPSEngine(EngineBase):
         pos = self.dump_frame(system)
         id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
         kin_old = kinetic_energy(vel, mass)[0]
+        print(vel_settings)
 
         rescale = vel_settings.get(
             "rescale_energy", vel_settings.get("rescale")
