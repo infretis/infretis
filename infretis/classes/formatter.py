@@ -1093,7 +1093,8 @@ class PathStorage(OutputBase):
                         logger.debug("Removing %s as it exists", dest)
                         os.remove(dest)
                 logger.debug("Copy %s -> %s", src, dest)
-                shutil.copy(src, dest)
+                ### NB TODO rename function from copy to move.
+                shutil.move(src, dest)
         return path_copy
 
     def output(self, step: int, data: Any) -> InfPath:
@@ -1126,13 +1127,17 @@ class PathStorage(OutputBase):
             f"{path.path_number}",
         )
 
+
         # To organize things we create a subfolder for storing the
         # files. This is on form: /path/to/000/traj/11/traj
         traj_dir = os.path.join(archive_path, "accepted")
         # Create the needed directories:
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
+
         _ = self.output_path_files(step, [path, "ACC"], archive_path)
+
+        print('desert b', _)
         path = self._copy_path(path, traj_dir)
         return path
 

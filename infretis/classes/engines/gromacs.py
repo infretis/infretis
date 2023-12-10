@@ -693,7 +693,8 @@ class GromacsEngine(EngineBase):
         self, config: dict[str, Any], md_items: dict[str, Any]
     ) -> None:
         """Sets the worker terminal command to be run"""
-        base = config["dask"]["wmdrun"][md_items["pin"]]
+        print('pineapple a', config, md_items)
+        base = config["wmdrun"]
         self.mdrun = base + " -s {} -deffnm {} -c {}"
         self.mdrun_c = base + " -s {} -cpi {} -append -deffnm {} -c {}"
         self.exe_dir = md_items["w_folder"]

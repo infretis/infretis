@@ -10,6 +10,9 @@ import subprocess
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from dask.distributed import get_worker
+
+
 
 import numpy as np
 
@@ -314,7 +317,9 @@ class EngineBase(metaclass=ABCMeta):
 
     def clean_up(self) -> None:
         """Will remove all files from the current directory."""
+
         dirname = self.exe_dir
+        print('candy a', get_worker().id, dirname)
         logger.debug('Running engine clean-up in "%s"', dirname)
         files = [item.name for item in os.scandir(dirname) if item.is_file()]
         if dirname is not None:

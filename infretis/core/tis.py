@@ -22,15 +22,20 @@ import tomli
 
 from infretis.classes.engines.factory import create_engines
 from infretis.classes.orderparameter import create_orderparameters
-ENGINE = None
-ORDERP = None
+
+ENGINES = None
+ORDERPS = None
+
+print('cool a', ENGINES, ORDERPS)
+
 def def_globals(config):
-    global engine
-    if None in (ENGINE, ORDERP):
-
+    global ENGINES
+    global ORDERPS
+    print('cool b', ENGINES, ORDERPS, None in (ENGINES, ORDERPS))
+    if None in (ENGINES, ORDERPS):
         ENGINES = create_engines(config)
-        ORDERP = create_orderparameters(ENGINES, config)
-
+        ORDERPS = create_orderparameters(ENGINES, config)
+    print('cool c', ENGINES, ORDERPS, None in (ENGINES, ORDERPS))
     print('haap')
 
 
@@ -50,13 +55,22 @@ def run_md(md_items):
     # record start time
     md_items["wmd_start"] = time.time()
 
+    if ENGINES == None:
+        def_globals(md_items["config"])
+
+    print("witch from mercury", md_items)
+    # if "rgen" in md_items:
+    #     engine = ENGINES[config["engine"]["engine"]]
+    #     engine.rgen = md_items["rgen"]
+
+
     # perform the hw move:
     picked = md_items["picked"]
     accept, trials, status = select_shoot(picked)
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
-        log_mdlogs(picked[ens_num]["engine"].exe_dir)
+        log_mdlogs(picked[ens_num]["exe_dir"])
         md_items["moves"].append(md_items["mc_moves"][ens_num + 1])
         md_items["trial_len"].append(trial.length)
         md_items["trial_op"].append((trial.ordermin[0], trial.ordermax[0]))
@@ -270,9 +284,20 @@ def select_shoot(picked, start_cond=("L",)):
         "sh": shoot,
     }
 
+
+
     if len(picked) == 1:
         pens = next(iter(picked.values()))
-        ens_set, path, engine = (pens[i] for i in ["ens", "traj", "engine"])
+        # ens_set, path, engine = (pens[i] for i in ["ens", "traj", "engine"])
+        # print("pretty", pens)
+        engine = ENGINES[pens["engine"]]
+        engine.set_mdrun(pens, pens)
+        print('snow', pens)
+        engine.rgen = pens["ens"]["rgen"]
+        engine.clean_up()
+        # print('dill', engine)
+        # print('pickle', picked)
+        ens_set, path = (pens[i] for i in ["ens", "traj"])
         move = ens_set["mc_move"]
         logger.info(
             f"starting {move} in {ens_set['ens_name']}"
@@ -871,8 +896,13 @@ def retis_swap_zero(picked):
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = picked[-1]["engine"]
-    engine1 = picked[0]["engine"]
+    engine0 = ENGINES[picked[-1]["engine"]]
+    engine1 = ENGINES[picked[0]["engine"]]
+    print('pearl a', picked[-1], picked[-1])
+    print('pearl b', picked[0], picked[0])
+    engine0.set_mdrun(picked[-1], picked[-1])
+    engine1.set_mdrun(picked[0], picked[0])
+    engine0.clean_up()
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
     maxlen0 = ens_set0.get("maxlength", 100000)

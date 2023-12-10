@@ -19,7 +19,7 @@ if __name__ == "__main__":
         futures.add(j)
 
     it = 0
-    while it < 10000:
+    while it < 10:
         items = next(futures)
         j = client.submit(return_data, items[1], pure=False)
         futures.add(j)

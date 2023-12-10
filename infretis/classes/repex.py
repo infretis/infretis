@@ -179,7 +179,8 @@ class REPEX_state:
                 "ens": ens_pick,
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
-                "engine": self.engines[ens_pick["eng_name"]],
+                # "engine": self.engines[ens_pick["eng_name"]],
+                "engine": ens_pick["eng_name"],
             }
             # 'ens_name': self.ensembles[ens_num+1].ensemble_name_simple}
         return picked
@@ -251,20 +252,26 @@ class REPEX_state:
 
         # allocate worker pin:
         for ens_num in md_items["ens_nums"]:
+            md_items["picked"][ens_num]["exe_dir"] = md_items["w_folder"]
+            md_items["picked"][ens_num]["w_folder"] = md_items["w_folder"]
             if self.config["dask"].get("wmdrun", False):
-                md_items["picked"][ens_num]["engine"].set_mdrun(
-                    self.config, md_items
-                )
+                md_items["picked"][ens_num]["wmdrun"] = self.config["dask"]["wmdrun"][md_items["pin"]]
+        #     ### TO BE SENT IN THE OK GROMACS
+        #   # if self.config["dask"].get("wmdrun", False):
+        #     #     md_items["picked"][ens_num]["engine"].set_mdrun(
+        #     #         self.config, md_items
+        #     #     )
             # sets the rgen for {cp2k, turtlemd}
-            if md_items["picked"][ens_num]["engine"].name in (
-                "cp2k",
-                "turtlemd",
-            ):
-                md_items["picked"][ens_num]["engine"].rgen = self.rgen.spawn(
-                    1
-                )[0]
-            # clean up
-            md_items["picked"][ens_num]["engine"].clean_up()
+        #     ### TO BE SENT IN
+            # print('soup', md_items["picked"][ens_num])
+            # if md_items["picked"][ens_num]["engine"] in (
+            #     "cp2k",
+            #     "turtlemd",
+            # ):
+            #     md_items["picked"][ens_num]["rgenz"]= self.rgen.spawn(1)[0]
+        #     # clean up
+        #     ### TO BE SENT IN ### DONER.
+        #     md_items["picked"][ens_num]["engine"].clean_up()
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:
@@ -908,6 +915,7 @@ class REPEX_state:
                         os.getcwd(), self.config["simulation"]["load_dir"]
                     ),
                 }
+                print('pipipi', data)
                 out_traj = self.pstore.output(self.cstep, data)
                 self.traj_data[traj_num] = {
                     "frac": np.zeros(self.n, dtype="float"),
