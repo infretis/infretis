@@ -8,21 +8,21 @@ wmdrun = ['0',
 	  '0',]
 
 [simulation]
-interfaces = [3.45, 12.00]
-steps = 40000
+interfaces = [ 3.45, 12.0]
+steps = 5000
 seed = 0
 load_dir = 'load'
-shooting_moves = ['sh','sh','sh','sh','sh','sh','sh','sh']
+shooting_moves = ['sh','sh']
 
 
 [simulation.tis_set]
 maxlength = 2000
 aimless = true
 allowmaxlength = false
-zero_momentum = true # momentum true
+zero_momentum = false # we do not remove momentum by default in lammps
 rescale_energy = false
-temperature = 300
-
+high_accept = true
+n_jumps = 3
 
 [engine]
 class = 'lammps'
@@ -31,10 +31,11 @@ timestep = 0.2
 input_path = 'lammps_input'
 lmp = 'lmp_mpi'
 subcycles = 10
+temperature = 300
 
 [orderparameter]
 class = 'Distance'
-index = [ 0, 1]
+index = [0, 1]
 periodic = true
 
 [output]
@@ -42,6 +43,7 @@ backup = 'backup'
 data_dir = "./"
 order-file = 1
 energy-file = 1
-trajectory-file = -1
+trajectory-file = 1
 screen = 1
-pattern = 1
+pattern = false
+delete_old = true
