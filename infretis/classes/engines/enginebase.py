@@ -179,9 +179,8 @@ class EngineBase(metaclass=ABCMeta):
         return
 
     @abstractmethod
-    def set_mdrun(self, config, md_items):
-        """Sets the worker terminal command to be run"""
-        return
+    def set_mdrun(self, md_items: dict[str, Any]) -> None:
+        """Sets exe_dir and what worker terminal command to be run."""
 
     def calculate_order(self, system, xyz=None, vel=None, box=None):
         """
@@ -236,7 +235,7 @@ class EngineBase(metaclass=ABCMeta):
     def dump_phasepoint(self, phasepoint, deffnm="conf"):
         """Just dump the frame from a system object."""
         pos_file = self.dump_config(phasepoint.config, deffnm=deffnm)
-        phasepoint.set_pos((pos_file, None))
+        phasepoint.set_pos((pos_file, 0))
 
     def _name_output(self, basename):
         """
@@ -393,7 +392,7 @@ class EngineBase(metaclass=ABCMeta):
         msg_file.write(f"# Initial config: {initial_conf}")
 
         # Update system to point to the configuration file:
-        system.set_pos((initial_conf, None))
+        system.set_pos((initial_conf, 0))
         system.set_vel(reverse)
         # Propagate from this point:
         # msg_file.write(f'# Interfaces: {ensemble["interfaces"]}')

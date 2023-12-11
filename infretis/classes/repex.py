@@ -22,11 +22,10 @@ DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 class REPEX_state:
     """Define the REPEX object."""
 
-    # dicts to hold *toml, path data, ensembles and engines.
+    # dicts to hold *toml, path data and ensembles.
     config: dict = {}
     traj_data: dict = {}
     ensembles: dict = {}
-    engines: dict = {}
 
     # holds counts current worker.
     cworker = None
@@ -179,9 +178,8 @@ class REPEX_state:
                 "ens": ens_pick,
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
-                "engine": self.engines[ens_pick["eng_name"]],
+                "eng_name": ens_pick["eng_name"],
             }
-            # 'ens_name': self.ensembles[ens_num+1].ensemble_name_simple}
         return picked
 
     def pick_traj_ens(self, ens):
@@ -220,10 +218,8 @@ class REPEX_state:
                 "ens": self.ensembles[ens_num],
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
-                "engine": self.engines[self.ensembles[ens_num].engine],
+                "ens_name": self.ensembles[ens_num]["ens_name"],
             }
-
-        # return tuple(enss), tuple(trajs)
         return picked
 
     def prep_md_items(self, md_items):
@@ -251,20 +247,17 @@ class REPEX_state:
 
         # allocate worker pin:
         for ens_num in md_items["ens_nums"]:
+            md_items["picked"][ens_num]["exe_dir"] = md_items["w_folder"]
             if self.config["dask"].get("wmdrun", False):
-                md_items["picked"][ens_num]["engine"].set_mdrun(
-                    self.config, md_items
-                )
-            # sets the rgen for {cp2k, turtlemd}
-            if md_items["picked"][ens_num]["engine"].name in (
+                md_items["picked"][ens_num]["wmdrun"] = self.config["dask"][
+                    "wmdrun"
+                ][md_items["pin"]]
+            # spawn rgen for {cp2k, turtlemd}
+            if md_items["picked"][ens_num]["eng_name"] in (
                 "cp2k",
                 "turtlemd",
             ):
-                md_items["picked"][ens_num]["engine"].rgen = self.rgen.spawn(
-                    1
-                )[0]
-            # clean up
-            md_items["picked"][ens_num]["engine"].clean_up()
+                md_items["picked"][ens_num]["rgen-eng"] = self.rgen.spawn(1)[0]
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:

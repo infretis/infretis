@@ -1,4 +1,6 @@
 """Defines the snapshot system class."""
+from __future__ import annotations
+
 import logging
 from copy import copy
 
@@ -16,15 +18,16 @@ class System:
     order: list[float] | None = None
     pos: np.ndarray = np.zeros(0)
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initiate class."""
         self.vel: np.ndarray = np.zeros(0)
         self.vel_rev: bool = False
         self.ekin: float | None = None
         self.vpot: float | None = None
-        self.box: np.ndarray = np.zeros((3, 3))
+        self.box: np.ndarray | None = np.zeros((3, 3))
+        self.temperature: dict[str, float] = {}
 
-    def copy(self):
+    def copy(self) -> System:
         """Return a copy of the system.
 
         This copy is useful for storing snapshots obtained during
@@ -39,11 +42,11 @@ class System:
         system_copy = copy(self)
         return system_copy
 
-    def set_pos(self, pos):
+    def set_pos(self, pos: tuple[str, int]) -> None:
         """Set positions for the particles."""
         self.config = (pos[0], pos[1])
 
-    def set_vel(self, rev_vel):
+    def set_vel(self, rev_vel: bool) -> None:
         """Set velocities for the particles.
 
         Here we store information which tells if the

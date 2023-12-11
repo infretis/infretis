@@ -1046,7 +1046,9 @@ class PathStorage(OutputBase):
         return files
 
     @staticmethod
-    def _copy_path(path, target_dir, prefix=None):
+    def _move_path(
+        path: InfPath, target_dir: str, prefix: str | None = None
+    ) -> InfPath:
         """Copy a path to a given target directory.
 
         Parameters
@@ -1079,7 +1081,7 @@ class PathStorage(OutputBase):
                         logger.debug("Removing %s as it exists", dest)
                         os.remove(dest)
                 logger.debug("Copy %s -> %s", src, dest)
-                shutil.copy(src, dest)
+                shutil.move(src, dest)
         return path_copy
 
     def output(self, step, data):
@@ -1118,8 +1120,8 @@ class PathStorage(OutputBase):
         # Create the needed directories:
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
-        _ = self.output_path_files(step, (path, "ACC"), archive_path)
-        path = self._copy_path(path, traj_dir)
+        _ = self.output_path_files(step, [path, "ACC"], archive_path)
+        path = self._move_path(path, traj_dir)
         return path
 
     def write(self, towrite, end="\n"):

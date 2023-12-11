@@ -13,18 +13,22 @@ from infretis.classes.system import System
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-print('path')
+
+DEFAULT_MAXLEN: int = 100_000
+
+
 class Path:
     """Define Path class."""
 
-    def __init__(self, maxlen=None, time_origin=0):
+    def __init__(self, maxlen: int = DEFAULT_MAXLEN, time_origin: int = 0):
         """Initiate Path class."""
         self.maxlen = maxlen
-        self.status = None
-        self.generated = None
+        self.status: str = ""
+        self.generated: tuple[str, float, int, int] | str | None = None
         self.path_number = None
-        self.weights = None
-        self.phasepoints = []
+        self.weights: tuple[float, ...] | None = None
+        self.weight: float = 0.0
+        self.phasepoints: list[System] = []
         self.min_valid = None
         self.time_origin = time_origin
 
@@ -98,7 +102,7 @@ class Path:
             logger.debug("Undefined end point.")
         return end
 
-    def get_start_point(self, left, right=None):
+    def get_start_point(self, left: float, right: float | None = None) -> str:
         """Return the start point of the path as a string.
 
         The start point is either to the left of the `left` interface or
@@ -126,7 +130,7 @@ class Path:
         elif self.phasepoints[0].order[0] >= right:
             start = "R"
         else:
-            start = None
+            start = "?"
             logger.debug("Undefined starting point.")
         return start
 
@@ -246,7 +250,9 @@ class Path:
         """Reverse the velocities in the system."""
         system.vel_rev = not system.vel_rev
 
-    def reverse(self, order_function=False, rev_v=True):
+    def reverse(
+        self, order_function: OrderParameter | None, rev_v: bool = True
+    ) -> Path:
         """Reverse a path and return the reverse path as a new path.
 
         This will reverse a path and return the reversed path as
@@ -271,12 +277,10 @@ class Path:
             new_point = phasepoint.copy()
             if rev_v:
                 self.reverse_velocities(new_point)
-            app = new_path.append(new_point)
-            if not app:  # pragma: no cover
-                msg = "Could not reverse path"
-                logger.error(msg)
-                return None
-        if order_function and order_function.velocity_dependent and rev_v:
+            new_path.append(new_point)
+        if order_function is None:
+            return new_path
+        if order_function.velocity_dependent and rev_v:
             for phasepoint in new_path.phasepoints:
                 phasepoint.order = order_function.calculate(phasepoint)
         return new_path
@@ -649,7 +653,7 @@ def load_paths_from_disk(config):
         status = "re" if "restarted_from" in config["current"] else "ld"
         ### TODO: important for shooting move if 'ld' is set. need a smart way
         ### to remember if status is 'sh' or 'wf' etc. maybe in the toml file.
-        new_path.generated = (status, None, None, None)
+        new_path.generated = (status, float("nan"), 0, 0)
         paths.append(new_path)
         # assign pnumber
         paths[-1].path_number = pnumber

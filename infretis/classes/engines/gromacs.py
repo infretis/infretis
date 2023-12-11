@@ -798,12 +798,13 @@ class GromacsEngine(EngineBase):
         self._remove_files(self.exe_dir, remove)
         return confout, energy
 
-    def set_mdrun(self, config, md_items):
+    def set_mdrun(self, md_items: dict[str, Any]) -> None:
+
         """Sets the worker terminal command to be run"""
-        base = config["dask"]["wmdrun"][md_items["pin"]]
+        base = md_items["wmdrun"]
         self.mdrun = base + " -s {} -deffnm {} -c {}"
         self.mdrun_c = base + " -s {} -cpi {} -append -deffnm {} -c {}"
-        self.exe_dir = md_items["w_folder"]
+        self.exe_dir = md_items["exe_dir"]
 
     def _read_configuration(self, filename):
         """Read output from GROMACS .g96 files.
@@ -906,7 +907,7 @@ class GromacsEngine(EngineBase):
             pos = self.dump_frame(system)
             posvel, energy = self._prepare_shooting_point(pos)
             kin_new = energy["kinetic en."][-1]
-            system.set_pos((posvel, None))
+            system.set_pos((posvel, 0))
             system.set_vel(False)
             system.ekin = kin_new
             system.vpot = energy["potential"][-1]
