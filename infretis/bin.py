@@ -2,10 +2,8 @@
 import argparse
 import os
 
-import tomli
-
 from infretis.scheduler import scheduler
-from infretis.setup import setup_config
+from infretis.setup import setup_config, write_header
 from infretis.tools.Wham_Pcross import run_analysis
 
 
@@ -19,6 +17,10 @@ def infretisrun():
     args_dict = vars(parser.parse_args())
     input_file = args_dict["input"]
     config = setup_config(input_file)
+
+    # write/overwrite infretis_data.txt
+    write_header(config)
+
     if config is None:
         return
     scheduler(config)
@@ -71,8 +73,7 @@ def infretisanalyze():
         parser.print_help()
         return
 
-    with open(imps["toml"], "rb") as toml_file:
-        config = tomli.load(toml_file)
+    config = setup_config(imps["toml"])
     imps["intfs"] = config["simulation"]["interfaces"]
 
     if imps["lamres"] == "(intf_1-intf0)/10)":

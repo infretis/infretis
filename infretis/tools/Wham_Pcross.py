@@ -334,8 +334,8 @@ def run_analysis(inp_dic):
                     # round-off issue that should not lead to an exit
                 else:
                     print(
-                        "Error: lambda_max is lower or equal" +
-                        " to all TIS interfaces"
+                        "Error: lambda_max is lower or equal"
+                        + " to all TIS interfaces"
                     )
                     print("data line=", x)
                     print("lmax=", lmax)
@@ -396,8 +396,8 @@ def run_analysis(inp_dic):
                     # round-off issue that should not lead to an exit
                 else:
                     print(
-                        "Error: lambda_max is lower or equal" +
-                        " to all TIS interfaces"
+                        "Error: lambda_max is lower or equal"
+                        + " to all TIS interfaces"
                     )
                     print("data line=", x)
                     print("lmax=", lmax)

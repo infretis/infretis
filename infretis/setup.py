@@ -121,9 +121,6 @@ def setup_config(inp="infretis.toml", re_inp="restart.toml"):
             "frac": {},
         }
 
-        # write/overwrite infretis_data.txt
-        write_header(config)
-
         # set pattern
         if config["output"].get("pattern", False):
             config["output"]["pattern_file"] = os.path.join("pattern.txt")
