@@ -15,16 +15,13 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
 
-ENGINES = None
-ORDERPS = None
+ENGINES: list = []
 
 
 def def_globals(config):
     global ENGINES
-    global ORDERPS
-    if None in (ENGINES, ORDERPS):
-        ENGINES = create_engines(config)
-        ORDERPS = create_orderparameters(ENGINES, config)
+    ENGINES = create_engines(config)
+    create_orderparameters(ENGINES, config)
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -57,7 +54,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
     md_items["wmd_start"] = time.time()
 
     # initiate engine and order parameter function if None
-    if ENGINES is None:
+    if ENGINES is []:
         def_globals(md_items["config"])
     # set mdrun, rng, clean_up
     for ens_num in md_items["ens_nums"]:
