@@ -13,7 +13,6 @@ from infretis.classes.path import DEFAULT_MAXLEN, paste_paths
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
-print('tis')
 
 
 ENGINES: dict = {}
@@ -53,7 +52,6 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
     """run md function."""
     # record start time
     md_items["wmd_start"] = time.time()
-    print('items')
 
     # initiate engine and order parameter function if None
     if len(ENGINES) == 0:
@@ -70,7 +68,6 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
     # perform the hw move:
     picked = md_items["picked"]
     accept, trials, status = select_shoot(picked)
-    print('moevs')
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -89,7 +86,6 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
                 minus=minus,
             )
             picked[ens_num]["traj"] = trial
-    print('after loop')
 
     md_items.update({"status": status, "wmd_end": time.time()})
     return md_items
@@ -483,7 +479,6 @@ def wire_fencing(
         * `allowmaxlength`: boolean, should paths be allowed to reach
           maximum length?
         * `maxlength`: integer, maximum allowed length of paths.
-        * `high_accept`: boolean, the option for High Acceptance WF.
 
     start_cond : string
         The starting condition for the current ensemble, 'L'eft or
@@ -564,6 +559,7 @@ def wire_fencing(
 
     # This might get triggered when accepting 0-L paths.
     left, _, right = ens_set["interfaces"]
+    # TODO: check this
     # print(start_cond, tuple(trial_path.get_start_point(left, right)))
     assert set(start_cond) == set(
         trial_path.get_start_point(left, right)
@@ -603,7 +599,6 @@ def subt_acceptance(
     tis_settings : dict
         This contains the settings for TIS. KEys used here;
 
-        * `high_accept` : boolean, the option for High Acceptance SS/WF.
         * `shooting_move` : string, the label of the shooting move to perform.
 
     start_cond : string, optional
@@ -623,87 +618,15 @@ def subt_acceptance(
     if move == "wf":
         intf[2] = ens_set["tis_set"].get("interface_cap", intf[2])
     trial_path.weight = compute_weight(trial_path, intf, move)
+
     if set(start_cond) != set(trial_path.get_start_point(intf[0], intf[2])):
         trial_path = trial_path.reverse(engine.order_function)
 
-    success = ss_wt_wf_metropolis_acc(
-        path_old, trial_path, ens_set, start_cond
-    )
-
-    return success, trial_path
-
-
-def ss_wt_wf_metropolis_acc(path_old, path_new, ens_set, start_cond="L"):
-    """Accept or reject the path_new.
-
-    Super detailed balance rule is used in the original version
-    and in the High Acceptance one for SS and WF.
-
-    In the regular version, P acc = min (1, Cold/Cnew), where
-    for Stone Skipping C is crossing, for Web Throwing C is segment,
-    for Wire Fencing C is number of phasepoint between ensemble and
-    right interface.
-
-    In the High Acceptance version, P acc = 1 for SS and Wf. It
-    also allows to accept paths that go from B to A, by reversing them.
-    NB. To respect super detailed balance, the weights have to be changed
-    accordingly. This is done elsewhere.
-
-    Parameters
-    ----------
-    path_new : object like :py:class:`.PathBase`
-        This is the new path that might get accepted.
-    ensemble : dict
-        It contains:
-
-        * `path_ensemble`: object like :py:class:`.PathEnsemble`
-          This is the path ensemble to perform the TIS step for.
-        * `order_function`: object like :py:class:`.OrderParameter`
-          The class used for obtaining the order parameter(s).
-        * `rgen`: object like :py:class:`.RandomGenerator`
-          This is the random generator that will be used.
-        * `interfaces` : list/tuple of floats
-          These are the interface positions of the form
-          ``[left, middle, right]``.
-
-    tis_settings : dict
-        This contains the settings for TIS. Keys used here:
-
-        * `high_accept` : boolean, the option for High Acceptance SS/WF.
-
-    start_cond : string, optional
-        The starting condition for the current ensemble, 'L'eft or
-        'R'ight.
-
-    Returns
-    -------
-    out[0] : boolean
-        True if the path can be accepted.
-
-    """
-    interfaces = ens_set["interfaces"]
-    move = ens_set["mc_move"]
-    high_accept = ens_set["tis_set"].get("high_accept", False)
-    if not high_accept:
-        if move == "wf":
-            wf_cap = ens_set["tis_set"].get("interface_cap", interfaces[2])
-            cr_old, _ = wirefence_weight_and_pick(
-                path_old, interfaces[1], wf_cap
-            )
-            cr_new, _ = wirefence_weight_and_pick(
-                path_new, interfaces[1], wf_cap
-            )
-            if ens_set["rgen"].random() >= min(1.0, cr_old / cr_new):
-                path_new.status = "WFA"
-                return False
-
-    if set(start_cond) != set(
-        path_new.get_start_point(interfaces[0], interfaces[2])
-    ):
-        path_new.status = "BWI"
-        return False
-    path_new.status = "ACC"
-    return True
+    if set(start_cond) != set(trial_path.get_start_point(intf[0], intf[2])):
+        trial_path.status = "BWI"
+        return False, trial_path
+    trial_path.status = "ACC"
+    return True, trial_path
 
 
 def extender(
@@ -724,12 +647,9 @@ def extender(
         logger.debug("Trying to extend backwards")
         source_seg_copy = source_seg.copy()
 
-        if not shoot_backwards(
+        shoot_backwards(
             back_segment, source_seg_copy, sh_pt, ens_set, engine, start_cond
-        ):
-            if not ens_set.get("high_accept", False):
-                return False, source_seg_copy, source_seg_copy.status
-
+        )
         trial_path = paste_paths(
             back_segment,
             source_seg,
@@ -1147,7 +1067,7 @@ def retis_swap_zero(
         else (path0.status if path0.status != "ACC" else path1.status)
     )
     # High Acceptance swap is required when Wire Fencing are used
-    if accept and ens_set1["tis_set"].get("high_accept", False):
+    if accept:
         if "wf" in ens_moves:
             accept, status = high_acc_swap(
                 [path1, path_old1],
@@ -1170,9 +1090,7 @@ def retis_swap_zero(
         # ens_set = settings['ensemble'][i]
         move = ens_moves[i]
         path.weight = (
-            compute_weight(path, intf_w[i], move)
-            if (tis_set.get("high_accept", False) and move in ("wf", "ss"))
-            else 1
+            compute_weight(path, intf_w[i], move) if move in ("wf") else 1
         )
 
     return accept, [path0, path1], status

@@ -12,14 +12,15 @@ from infretis.classes.repex import REPEX_state
 logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)
 
-print('setup')
 
 def setup_internal(config):
     """Run the various setup functions."""
     # setup logger
     setup_logger()
+
     # setup repex
     state = REPEX_state(config, minus=True)
+
     # setup ensembles
     state.initiate_ensembles()
 
@@ -34,6 +35,7 @@ def setup_internal(config):
         "cap": state.cap,
         "config": config,
     }
+
     # write pattern header
     if state.pattern:
         state.pattern_header()
@@ -57,7 +59,8 @@ def setup_dask(state):
     futures = as_completed(None, with_results=True)
 
     # setup individual worker logs
-    client.run(set_worker_logger)
+    for i in range(state.workers):
+        client.submit(set_worker_logger, i)
 
     return client, futures
 
@@ -155,7 +158,7 @@ def setup_logger(inp="sim.log"):
     logger.addHandler(fileh)
 
 
-def set_worker_logger():
+def set_worker_logger(i):
     """Set logger for each worker."""
     # for each worker
     pin = get_worker().name

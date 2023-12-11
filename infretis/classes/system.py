@@ -8,14 +8,13 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
-print('System')
 
 
 class System:
     """System class."""
 
-    config: tuple[None, None] = (None, None)
-    order: list[float] | None = None
+    config: tuple[str, int] = ("", -1)
+    order: list[float] = [-float("nan")]
     pos: np.ndarray = np.zeros(0)
 
     def __init__(self) -> None:

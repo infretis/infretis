@@ -45,7 +45,6 @@ def generic_factory(
         return none.
 
     """
-    print()
     try:
         klass = settings["class"].lower()
     except KeyError:
@@ -241,7 +240,7 @@ def create_external(settings, key, required_methods):
 
     """
     klass = settings.get("class", None)
-    module = settings.get("module", None) 
+    module = settings.get("module", None)
     # Here we assume we are to load from a file. Before we import
     # we need to check that the path is ok or if we should include
     # the 'exe_path' from settings.

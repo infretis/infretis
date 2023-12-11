@@ -30,6 +30,7 @@ from infretis.classes.engines.engineparts import (
     box_matrix_to_list,
     look_for_input_files,
 )
+
 from scm.plams.trajectories.rkffile import RKFTrajectoryFile
 from scm.plams.interfaces.adfsuite.ams import AMSJob
 from scm.plams.interfaces.adfsuite.amsworker import AMSWorker, AMSWorkerResults

@@ -1,4 +1,6 @@
 """Base engine class."""
+from __future__ import annotations
+
 import logging
 import os
 import re
@@ -6,10 +8,18 @@ import shlex
 import shutil
 import subprocess
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from infretis.classes.formatter import FileIO
+from infretis.classes.formatter import FileIO, OutputFormatter
+
+if TYPE_CHECKING:  # pragma: no cover
+    from infretis.classes.orderparameter import OrderParameter
+    from infretis.classes.path import Path as InfPath
+    from infretis.classes.system import System
+
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -36,26 +46,25 @@ class EngineBase(metaclass=ABCMeta):
 
     """
 
-    needs_order = True
-    engine_type = None
+    needs_order: bool = True
 
-    def __init__(self, description, timestep, subcycles):
+    def __init__(self, description: str, timestep: float, subcycles: int):
         """Just add the description."""
-        self.description = description
-        self._exe_dir = None
-        self.timestep = timestep
-        self.subcycles = subcycles
-        self.ext = "xyz"
-        self.input_files = {}
-        self.order_function = None
+        self.description: str = description
+        self._exe_dir: str = "."
+        self.timestep: float = timestep
+        self.subcycles: int = subcycles
+        self.ext: str = "xyz"
+        self.input_files: dict[str, str | Path] = {}
+        self.order_function: OrderParameter | None = None
 
     @property
-    def exe_dir(self):
+    def exe_dir(self) -> str:
         """Return the directory we are currently using."""
         return self._exe_dir
 
     @exe_dir.setter
-    def exe_dir(self, exe_dir):
+    def exe_dir(self, exe_dir: str) -> None:
         """Set the directory for executing."""
         self._exe_dir = exe_dir
         if exe_dir is not None:
@@ -70,30 +79,10 @@ class EngineBase(metaclass=ABCMeta):
                     exe_dir,
                 )
 
-    def integration_step(self):
-        """
-        Perform a single time step of the integration.
-
-        For external engines, it does not make much sense to run single
-        steps unless we absolutely have to. We therefore just fail here.
-        I.e. the external engines are not intended for performing pure
-        MD simulations.
-
-        If it's absolutely needed, there is a :py:meth:`self.step()`
-        method which can be used, for instance in the initialisation.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            A system to run the integration step on.
-
-        """
-        msg = 'External engine does **NOT** support "integration_step()"!'
-        logger.error(msg)
-        raise NotImplementedError(msg)
-
     @staticmethod
-    def add_to_path(path, phase_point, left, right):
+    def add_to_path(
+        path: InfPath, phase_point: System, left: float, right: float
+    ) -> tuple[str, bool, bool, bool]:
         """
         Add a phase point and perform some checks.
 
@@ -101,7 +90,7 @@ class EngineBase(metaclass=ABCMeta):
 
         Parameters
         ----------
-        path : object like :py:class:`.PathBase`
+        path : object like :py:class:`.Path`
             The path to add to.
         phase_point : object like py:class:`.System`
             The phase point to add to the path.
@@ -137,7 +126,9 @@ class EngineBase(metaclass=ABCMeta):
         return status, success, stop, add
 
     @abstractmethod
-    def modify_velocities(self, ensemble, vel_settings):
+    def modify_velocities(
+        self, ensemble: System, vel_settings: dict[str, Any]
+    ) -> tuple[float, float]:
         """Modify the velocities of the current state.
 
         Parameters
@@ -176,13 +167,18 @@ class EngineBase(metaclass=ABCMeta):
             The new kinetic energy.
 
         """
-        return
 
     @abstractmethod
     def set_mdrun(self, md_items: dict[str, Any]) -> None:
         """Sets exe_dir and what worker terminal command to be run."""
 
-    def calculate_order(self, system, xyz=None, vel=None, box=None):
+    def calculate_order(
+        self,
+        system: System,
+        xyz: np.ndarray | None = None,
+        vel: np.ndarray | None = None,
+        box: np.ndarray | None = None,
+    ) -> list[float]:
         """
         Calculate order parameter from configuration in a file.
 
@@ -218,26 +214,29 @@ class EngineBase(metaclass=ABCMeta):
         # Convert system into an internal representation:
         if any((xyz is None, vel is None, box is None)):
             out = self._read_configuration(system.config[0])
-            box = out[0]
-            xyz = out[1]
-            vel = out[2]
-        system.pos = xyz
-        if system.vel_rev:
-            if vel is not None:
-                system.vel = -1.0 * vel
-        else:
-            system.vel = vel
+            xyz = out[0]
+            vel = out[1]
+            box = out[2]
+        if xyz is not None:
+            system.pos = xyz
+        if vel is not None:
+            system.vel = vel * -1.0 if system.vel_rev else vel
 
         # system.update_box(box)
-        system.box = box
+        if box is not None:
+            system.box = box
+        if self.order_function is None:
+            raise ValueError("Order parameter is not defined!")
         return self.order_function.calculate(system)
 
-    def dump_phasepoint(self, phasepoint, deffnm="conf"):
+    def dump_phasepoint(
+        self, phasepoint: System, deffnm: str = "conf"
+    ) -> None:
         """Just dump the frame from a system object."""
         pos_file = self.dump_config(phasepoint.config, deffnm=deffnm)
         phasepoint.set_pos((pos_file, 0))
 
-    def _name_output(self, basename):
+    def _name_output(self, basename: str) -> str:
         """
         Create a file name for the output file.
 
@@ -258,7 +257,9 @@ class EngineBase(metaclass=ABCMeta):
         out_file = f"{basename}.{self.ext}"
         return os.path.join(self.exe_dir, out_file)
 
-    def dump_config(self, config, deffnm="conf"):
+    def dump_config(
+        self, config: tuple[str, int], deffnm: str = "conf"
+    ) -> str:
         """Extract configuration frame from a system if needed.
 
         Parameters
@@ -290,12 +291,12 @@ class EngineBase(metaclass=ABCMeta):
             self._extract_frame(pos_file, idx, out_file)
         return out_file
 
-    def dump_frame(self, system, deffnm="conf"):
+    def dump_frame(self, system: System, deffnm: str = "conf") -> str:
         """Just dump the frame from a system object."""
         return self.dump_config(system.config, deffnm=deffnm)
 
     @abstractmethod
-    def _extract_frame(self, traj_file, idx, out_file):
+    def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """Extract a frame from a trajectory file.
 
         Parameters
@@ -308,9 +309,8 @@ class EngineBase(metaclass=ABCMeta):
             The file to dump to.
 
         """
-        return
 
-    def clean_up(self):
+    def clean_up(self) -> None:
         """Will remove all files from the current directory."""
         dirname = self.exe_dir
         logger.debug('Running engine clean-up in "%s"', dirname)
@@ -318,7 +318,13 @@ class EngineBase(metaclass=ABCMeta):
         if dirname is not None:
             self._remove_files(dirname, files)
 
-    def propagate(self, path, ens_set, system, reverse=False):
+    def propagate(
+        self,
+        path: InfPath,
+        ens_set: dict[str, Any],
+        system: System,
+        reverse: bool = False,
+    ) -> tuple[bool, str]:
         """
         Propagate the equations of motion with the external code.
 
@@ -327,7 +333,7 @@ class EngineBase(metaclass=ABCMeta):
 
         Parameters
         ----------
-        path : object like :py:class:`.PathBase`
+        path : object like :py:class:`.Path`
             This is the path we use to fill in phase-space points.
             We are here not returning a new path - this since we want
             to delegate the creation of the path to the method
@@ -368,7 +374,9 @@ class EngineBase(metaclass=ABCMeta):
         # Also create a message file for inspecting progress:
         msg_file_name = os.path.join(self.exe_dir, f"msg-{name}.txt")
         logger.debug("Writing propagation progress to: %s", msg_file_name)
-        msg_file = FileIO(msg_file_name, "w", None, backup=False)
+        msg_file = FileIO(
+            msg_file_name, "w", OutputFormatter("MSG_File"), backup=False
+        )
         msg_file.open()
         msg_file.write(f"# Preparing propagation with {self.description}")
         msg_file.write(f"# Trajectory label: {name}")
@@ -405,7 +413,15 @@ class EngineBase(metaclass=ABCMeta):
         return success, status
 
     @abstractmethod
-    def _propagate_from(self, name, path, ensemble, msg_file, reverse=False):
+    def _propagate_from(
+        self,
+        name: str,
+        path: InfPath,
+        system: System,
+        ensemble: dict[str, Any],
+        msg_file: FileIO,
+        reverse: bool = False,
+    ) -> tuple[bool, str]:
         """
         Run the actual propagation using the specific engine.
 
@@ -446,10 +462,9 @@ class EngineBase(metaclass=ABCMeta):
             A text description of the current status of the propagation.
 
         """
-        return
 
     @staticmethod
-    def snapshot_to_system(system, snapshot):
+    def snapshot_to_system(system: System, snapshot: dict[str, Any]) -> System:
         """Convert a snapshot to a system object."""
         system_copy = system.copy()
         system_copy.order = snapshot.get("order", None)
@@ -464,48 +479,24 @@ class EngineBase(metaclass=ABCMeta):
         return system_copy
 
     @abstractmethod
-    def step(self, system, name):
-        """Perform a single step with the external engine.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The system we are integrating.
-        name : string
-            To name the output files from the external engine.
-
-        Returns
-        -------
-        out : string
-            The name of the output configuration, obtained after
-            completing the step.
-
-        """
-        return
-
-    @abstractmethod
-    def _read_configuration(self, filename):
+    def _read_configuration(
+        self, filename: str
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
         """Read output configuration from external software.
 
-        Parameters
-        ----------
-        filename : string
-            The file to open and read a configuration from.
+        Args:
+            filename: The file to open and read a configuration from.
 
-        Returns
-        -------
-        out[0] : numpy.array
-            The dimensions of the simulation box.
-        out[1] : numpy.array
-            The positions found in the given filename.
-        out[2] : numpy.array
-            The velocities found in the given filename.
+        Returns:
+            numpy.array: The positions found in the given filename.
+            numpy.array: The velocities found in the given filename.
+            numpy.array: The dimensions of the simulation box.
+            list[str]: Atom labels (if found).
 
         """
-        return
 
     @abstractmethod
-    def _reverse_velocities(self, filename, outfile):
+    def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocities in a given snapshot.
 
         Parameters
@@ -516,10 +507,14 @@ class EngineBase(metaclass=ABCMeta):
             File to write with reversed velocities.
 
         """
-        return
 
     @staticmethod
-    def _modify_input(sourcefile, outputfile, settings, delim="="):
+    def _modify_input(
+        sourcefile: str | Path,
+        outputfile: str | Path,
+        settings: dict[str, Any],
+        delim: str = "=",
+    ) -> None:
         """
         Modify input file for external software.
 
@@ -547,10 +542,10 @@ class EngineBase(metaclass=ABCMeta):
         ) as outfile:
             for line in infile:
                 to_write = line
-                key = reg.match(line)
-                if key:
-                    keyword = "".join([key.group(1), delim])
-                    keyword_strip = key.group(1).strip()
+                match = reg.match(line)
+                if match:
+                    keyword = "".join([match.group(1), delim])
+                    keyword_strip = match.group(1).strip()
                     if keyword_strip in settings:
                         to_write = f"{keyword} {settings[keyword_strip]}\n"
                     written.add(keyword_strip)
@@ -561,7 +556,9 @@ class EngineBase(metaclass=ABCMeta):
                     outfile.write(f"{key} {delim} {value}\n")
 
     @staticmethod
-    def _read_input_settings(sourcefile, delim="="):
+    def _read_input_settings(
+        sourcefile: str, delim: str = "="
+    ) -> dict[str, Any]:
         """
         Read input settings for simulation input files.
 
@@ -597,7 +594,12 @@ class EngineBase(metaclass=ABCMeta):
                     settings[keyword_strip] = line.split(delim)[1].strip()
         return settings
 
-    def execute_command(self, cmd, cwd=None, inputs=None):
+    def execute_command(
+        self,
+        cmd: list[str],
+        cwd: str | None = None,
+        inputs: bytes | None = None,
+    ) -> int:
         """
         Execute an external command for the engine.
 
@@ -677,27 +679,27 @@ class EngineBase(metaclass=ABCMeta):
         return return_code
 
     @staticmethod
-    def _movefile(source, dest):
+    def _movefile(source: str, dest: str) -> None:
         """Move file from source to destination."""
         logger.debug("Moving: %s -> %s", source, dest)
         shutil.move(source, dest)
 
     @staticmethod
-    def _copyfile(source, dest):
+    def _copyfile(source: str, dest: str) -> None:
         """Copy file from source to destination."""
         logger.debug("Copy: %s -> %s", source, dest)
         shutil.copyfile(source, dest)
 
     @staticmethod
-    def _removefile(filename):
+    def _removefile(filename: str | Path) -> None:
         """Remove a given file if it exist."""
         try:
-            os.remove(filename)
+            Path(filename).unlink(missing_ok=True)
             logger.debug("Removing: %s", filename)
         except OSError:
             logger.debug("Could not remove: %s", filename)
 
-    def _remove_files(self, dirname, files):
+    def _remove_files(self, dirname: str, files: list[str]) -> None:
         """Remove files from a directory.
 
         Parameters
@@ -711,7 +713,7 @@ class EngineBase(metaclass=ABCMeta):
         for i in files:
             self._removefile(os.path.join(dirname, i))
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """Check if two engines are equal."""
         if self.__class__ != other.__class__:
             logger.debug("%s and %s.__class__ differ", self, other)
@@ -753,12 +755,12 @@ class EngineBase(metaclass=ABCMeta):
 
         return True
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         """Check if two engines are not equal."""
         return not self == other
 
     @classmethod
-    def can_use_order_function(cls, order_function):
+    def can_use_order_function(cls, order_function: OrderParameter) -> None:
         """Fail if the engine can't be used with an empty order parameter."""
         if order_function is None and cls.needs_order:
             raise ValueError(
@@ -766,7 +768,7 @@ class EngineBase(metaclass=ABCMeta):
                 "engine *does* require it."
             )
 
-    def restart_info(self):
+    def restart_info(self) -> dict[str, str]:
         """General method.
 
         Returns the info to allow an engine exact restart.
@@ -778,10 +780,9 @@ class EngineBase(metaclass=ABCMeta):
 
         """
         info = {"description": self.description}
-
         return info
 
-    def load_restart_info(self, info=None):
+    def load_restart_info(self, info: dict[str, str] | None = None) -> None:
         """Load restart information.
 
         Parameters
@@ -791,13 +792,20 @@ class EngineBase(metaclass=ABCMeta):
             similar to the dict produced by :py:func:`.restart_info`.
 
         """
-        self.description = info.get("description")
+        if info is not None:
+            self.description = info["description"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the string description of the integrator."""
         return self.description
 
-    def draw_maxwellian_velocities(self, vel, mass, beta, sigma_v=None):
+    def draw_maxwellian_velocities(
+        self,
+        vel: np.ndarray,
+        mass: np.ndarray,
+        beta: float,
+        sigma_v: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         """Draw numbers from a Gaussian distribution.
 
         Parameters
@@ -812,14 +820,18 @@ class EngineBase(metaclass=ABCMeta):
             If it's not given it will be estimated.
 
         """
-        if not sigma_v or sigma_v < 0.0:
+        # TODO: Check why cp2k and turtlemd uses this differently.
+        if (
+            not sigma_v or sigma_v < 0.0
+        ):  # TODO: The check < 0.0 is not correct for an array.
             kbt = 1.0 / beta
             sigma_v = np.sqrt(kbt * (1 / mass))
 
         npart, dim = vel.shape
         ### probably need a check that we have rgen.. and move this
         ### somewhere maybe.
-        vel = self.rgen.normal(loc=0.0, scale=sigma_v, size=(npart, dim))
+        if hasattr(self, "rgen"):  # TODO: Not a good solution:
+            vel = self.rgen.normal(loc=0.0, scale=sigma_v, size=(npart, dim))
         return vel, sigma_v
 
 
