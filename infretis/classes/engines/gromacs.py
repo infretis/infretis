@@ -689,9 +689,7 @@ class GromacsEngine(EngineBase):
         self._remove_files(self.exe_dir, remove)
         return confout, energy
 
-    def set_mdrun(
-        self, md_items: dict[str, Any]
-    ) -> None:
+    def set_mdrun(self, md_items: dict[str, Any]) -> None:
         """Sets the worker terminal command to be run"""
         base = md_items["wmdrun"]
         self.mdrun = base + " -s {} -deffnm {} -c {}"

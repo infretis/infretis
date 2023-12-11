@@ -4,18 +4,17 @@ import time
 
 import numpy as np
 
+from infretis.classes.engines.factory import create_engines
+from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import paste_paths
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
-import tomli
-
-from infretis.classes.engines.factory import create_engines
-from infretis.classes.orderparameter import create_orderparameters
 
 ENGINES = None
 ORDERPS = None
+
 
 def def_globals(config):
     global ENGINES
@@ -23,6 +22,7 @@ def def_globals(config):
     if None in (ENGINES, ORDERPS):
         ENGINES = create_engines(config)
         ORDERPS = create_orderparameters(ENGINES, config)
+
 
 def log_mdlogs(inp):
     logs = [log for log in os.listdir(inp) if "log" in log]
@@ -41,9 +41,9 @@ def run_md(md_items):
     md_items["wmd_start"] = time.time()
 
     # initiate engine and order parameter function if None
-    if ENGINES == None:
+    if ENGINES is None:
         def_globals(md_items["config"])
-    # set mdrun, rng, clean_up 
+    # set mdrun, rng, clean_up
     for ens_num in md_items["ens_nums"]:
         pens = md_items["picked"][ens_num]
         engine = ENGINES[pens["eng_name"]]

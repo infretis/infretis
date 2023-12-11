@@ -169,9 +169,7 @@ class EngineBase(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def set_mdrun(
-        self, md_items: dict[str, Any]
-    ) -> None:
+    def set_mdrun(self, md_items: dict[str, Any]) -> None:
         """Sets exe_dir and what worker terminal command to be run."""
 
     def calculate_order(

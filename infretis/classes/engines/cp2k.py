@@ -1204,9 +1204,7 @@ class CP2KEngine(EngineBase):
             break  # Stop after the first snapshot.
         return xyz, vel, box, names
 
-    def set_mdrun(
-        self, md_items: dict[str, Any]
-    ) -> None:
+    def set_mdrun(self, md_items: dict[str, Any]) -> None:
         """Remove or rename?"""
         self.exe_dir = md_items["exe_dir"]
 

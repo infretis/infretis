@@ -249,13 +249,15 @@ class REPEX_state:
         for ens_num in md_items["ens_nums"]:
             md_items["picked"][ens_num]["exe_dir"] = md_items["w_folder"]
             if self.config["dask"].get("wmdrun", False):
-                md_items["picked"][ens_num]["wmdrun"] = self.config["dask"]["wmdrun"][md_items["pin"]]
+                md_items["picked"][ens_num]["wmdrun"] = self.config["dask"][
+                    "wmdrun"
+                ][md_items["pin"]]
             # spawn rgen for {cp2k, turtlemd}
             if md_items["picked"][ens_num]["eng_name"] in (
                 "cp2k",
                 "turtlemd",
             ):
-                md_items["picked"][ens_num]["rgen-eng"]= self.rgen.spawn(1)[0]
+                md_items["picked"][ens_num]["rgen-eng"] = self.rgen.spawn(1)[0]
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:
@@ -488,7 +490,7 @@ class REPEX_state:
 
         equal = equal_minus and equal_pos
 
-        out = np.zeros(shape=sorted_non_locked.shape, dtype="float")
+        out = np.zeros(shape=sorted_non_locked.shape, dtype="float128")
         if equal:
             # All trajectories have equal weights, run fast algorithm
             # run_fast
@@ -568,8 +570,8 @@ class REPEX_state:
 
     def quick_prob(self, arr):
         """Quick P matrix calculation for specific W matrix."""
-        total_traj_prob = np.ones(shape=arr.shape[0], dtype="float")
-        out_mat = np.zeros(shape=arr.shape, dtype="float")
+        total_traj_prob = np.ones(shape=arr.shape[0], dtype="float128")
+        out_mat = np.zeros(shape=arr.shape, dtype="float128")
         working_mat = np.where(arr != 0, 1, 0)  # convert non-zero numbers to 1
 
         for i, column in enumerate(working_mat.T[::-1]):
@@ -587,8 +589,8 @@ class REPEX_state:
         """Quick P matrix calculation for specific W matrix."""
         # TODO: DEBUG CODE
         # ONLY HERE TO DEBUG THE OTHER MEHTODS
-        total_traj_prob = np.ones(shape=arr.shape[0], dtype="float")
-        out_mat = np.zeros(shape=arr.shape, dtype="float")
+        total_traj_prob = np.ones(shape=arr.shape[0], dtype="float128")
+        out_mat = np.zeros(shape=arr.shape, dtype="float128")
 
         force_arr = arr.copy()
         # Force everything to be identical
@@ -606,7 +608,7 @@ class REPEX_state:
 
     def permanent_prob(self, arr):
         """P matrix calculation for specific W matrix."""
-        out = np.zeros(shape=arr.shape, dtype="float")
+        out = np.zeros(shape=arr.shape, dtype="float128")
         # Don't overwrite input arr
         scaled_arr = arr.copy()
         n = len(scaled_arr)
@@ -629,7 +631,7 @@ class REPEX_state:
 
     def random_prob(self, arr, n=10_000):
         """P matrix calculation for specific W matrix."""
-        out = np.eye(len(arr), dtype="float")
+        out = np.eye(len(arr), dtype="float128")
         current_state = np.eye(len(arr))
         choices = len(arr) // 2
         even = choices * 2 == len(arr)
@@ -689,7 +691,7 @@ class REPEX_state:
             else:
                 return -1
 
-        row_comb = np.sum(M, axis=0, dtype="float")
+        row_comb = np.sum(M, axis=0, dtype="float128")
         n = len(M)
 
         total = 0
@@ -901,7 +903,7 @@ class REPEX_state:
                 }
                 out_traj = self.pstore.output(self.cstep, data)
                 self.traj_data[traj_num] = {
-                    "frac": np.zeros(self.n, dtype="float"),
+                    "frac": np.zeros(self.n, dtype="float128"),
                     "max_op": out_traj.ordermax,
                     "min_op": out_traj.ordermin,
                     "length": out_traj.length,
@@ -973,7 +975,7 @@ class REPEX_state:
                 "length": paths[i + 1].length,
                 "adress": paths[i + 1].adress,
                 "weights": paths[i + 1].weights,
-                "frac": np.array(frac, dtype="float"),
+                "frac": np.array(frac, dtype="float128"),
             }
         # add minus path:
         paths[0].weights = (1.0,)
@@ -991,7 +993,7 @@ class REPEX_state:
             "length": paths[0].length,
             "weights": paths[0].weights,
             "adress": paths[0].adress,
-            "frac": np.array(frac, dtype="float"),
+            "frac": np.array(frac, dtype="float128"),
         }
 
     def pattern_header(self):

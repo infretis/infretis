@@ -286,9 +286,7 @@ class TurtleMDEngine(EngineBase):
             return xyz, vel, box, names
         raise ValueError("Missing TurtleMD configuration")
 
-    def set_mdrun(
-        self, md_items: dict[str, Any]
-    ) -> None:
+    def set_mdrun(self, md_items: dict[str, Any]) -> None:
         """Remove or rename?"""
         self.exe_dir = md_items["exe_dir"]
 
