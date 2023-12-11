@@ -264,11 +264,11 @@ class REPEX_state:
             # sets the rgen for {cp2k, turtlemd}
         #     ### TO BE SENT IN
             # print('soup', md_items["picked"][ens_num])
-            # if md_items["picked"][ens_num]["engine"] in (
-            #     "cp2k",
-            #     "turtlemd",
-            # ):
-            #     md_items["picked"][ens_num]["rgenz"]= self.rgen.spawn(1)[0]
+            if md_items["picked"][ens_num]["engine"] in (
+                "cp2k",
+                "turtlemd",
+            ):
+                md_items["picked"][ens_num]["rgenz"]= self.rgen.spawn(1)[0]
         #     # clean up
         #     ### TO BE SENT IN ### DONER.
         #     md_items["picked"][ens_num]["engine"].clean_up()

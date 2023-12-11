@@ -58,7 +58,7 @@ def run_md(md_items):
     if ENGINES == None:
         def_globals(md_items["config"])
 
-    print("witch from mercury", md_items)
+    # print("witch from mercury", md_items)
     # if "rgen" in md_items:
     #     engine = ENGINES[config["engine"]["engine"]]
     #     engine.rgen = md_items["rgen"]
@@ -292,8 +292,10 @@ def select_shoot(picked, start_cond=("L",)):
         # print("pretty", pens)
         engine = ENGINES[pens["engine"]]
         engine.set_mdrun(pens, pens)
-        print('snow', pens)
-        engine.rgen = pens["ens"]["rgen"]
+        # print('snow', pens)
+        print('bap', pens)
+        engine.rgen = pens["rgenz"]
+        print('barrage', engine.rgen.bit_generator.state, engine.rgen.bit_generator.state)
         engine.clean_up()
         # print('dill', engine)
         # print('pickle', picked)
@@ -902,6 +904,7 @@ def retis_swap_zero(picked):
     print('pearl b', picked[0], picked[0])
     engine0.set_mdrun(picked[-1], picked[-1])
     engine1.set_mdrun(picked[0], picked[0])
+    engine1.rgen = picked[0]["rgenz"]
     engine0.clean_up()
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
