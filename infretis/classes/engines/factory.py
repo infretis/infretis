@@ -1,24 +1,17 @@
 """Engine factory."""
-from __future__ import annotations
-
 import logging
-from typing import TYPE_CHECKING, Any
 
+from infretis.classes.engines.ams import AMSEngine
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.gromacs import GromacsEngine
-from infretis.classes.engines.lammps import LAMMPSEngine
-from infretis.classes.engines.turtlemdengine import TurtleMDEngine
+from infretis.classes.engines.turtlemd import TurtleMDEngine
 from infretis.core.core import create_external, generic_factory
-
-if TYPE_CHECKING:  # pragma: no cover
-    from infretis.classes.engines.enginebase import EngineBase
-
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-def create_engine(settings: dict[str, Any]) -> EngineBase | None:
+def create_engine(settings):
     """Create an engine from settings.
 
     Parameters
@@ -33,19 +26,21 @@ def create_engine(settings: dict[str, Any]) -> EngineBase | None:
 
     """
     engine_map = {
+        "ams": {"class": AMSEngine},
         "gromacs": {"class": GromacsEngine},
         "cp2k": {"class": CP2KEngine},
         "turtlemd": {"class": TurtleMDEngine},
-        "lammps": {"class": LAMMPSEngine},
     }
 
     if settings["engine"]["class"].lower() not in engine_map:
-        return create_external(settings["engine"], "engine", ["step"])
+        return create_external(
+            settings["engine"], "engine", ["integration_step"]
+        )
     engine = generic_factory(settings["engine"], engine_map, name="engine")
     return engine
 
 
-def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
+def create_engines(config):
     """Create engines."""
     if config.get("engine", {}).get("obj", False):
         return config["engine"]["obj"]
@@ -57,7 +52,7 @@ def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
     return {config["engine"]["engine"]: engine}
 
 
-def check_engine(settings: dict[str, Any]) -> bool:
+def check_engine(settings):
     """Check the engine settings.
 
     Checks that the input engine settings are correct, and

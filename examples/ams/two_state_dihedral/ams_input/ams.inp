@@ -1,0 +1,18 @@
+#!/bin/bash
+MolecularDynamics
+    TimeStep 0.25
+    Preserve CenterofMass=Yes Momentum=No AngularMomentum=No
+    Thermostat Type=none
+    InitialVelocities Type=Random Temperature=300 RandomVelocitiesMethod=Exact
+End
+
+System
+    GeometryFile /home/konrad/AMS_test/structures/CsPbI3_O_3x3x3_V_Cs.xyz
+    Charge 0.0
+End
+# structure=./CsPbI3_O_3x3x3_V_Cs.xyz # structure location
+
+Engine ReaxFF
+    ForceField CsPbI.ff
+    Torsions 2013
+EndEngine

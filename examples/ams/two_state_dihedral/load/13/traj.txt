@@ -1,0 +1,15 @@
+# Cycle: 943, status: ACC
+#     Step              Filename       index    vel
+         0     013_287_trajB.rkf           7     -1
+         1     013_287_trajB.rkf           6     -1
+         2     013_287_trajB.rkf           5     -1
+         3     013_287_trajB.rkf           4     -1
+         4     013_287_trajB.rkf           3     -1
+         5     013_287_trajB.rkf           2     -1
+         6     013_287_trajB.rkf           1     -1
+         7     013_287_trajB.rkf           0     -1
+         8     013_288_trajF.rkf           1      1
+         9     013_288_trajF.rkf           2      1
+        10     013_288_trajF.rkf           3      1
+        11     013_288_trajF.rkf           4      1
+        12     013_288_trajF.rkf           5      1

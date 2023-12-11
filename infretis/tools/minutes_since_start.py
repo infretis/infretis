@@ -12,6 +12,7 @@ parser.add_argument("-f", help="The sim.log file to analyze")
 
 args = parser.parse_args()
 
+print('minutes since start')
 
 def grep(infile):
     out = []

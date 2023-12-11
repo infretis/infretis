@@ -1,0 +1,25 @@
+moleculardynamics
+  initialvelocities
+    randomvelocitiesmethod Exact
+    temperature 300
+    type Random
+  End
+  preserve
+    angularmomentum no
+    centerofmass yes
+    momentum no
+  End
+  thermostat
+    type none
+  End
+  timestep 0.5
+End
+
+task pipe
+
+Engine lennardjones
+  cutoff 1
+  eps 1
+  rmin 0.87
+EndEngine
+

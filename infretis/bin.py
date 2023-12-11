@@ -6,6 +6,7 @@ from infretis.setup import setup_config
 from infretis.tools.conv_inf_py import print_pathens
 from infretis.tools.pattern import pattern
 
+print('bin')
 
 def infretisrun():
     """Read input and runs infretis."""

@@ -1,4 +1,5 @@
 import numpy as np
+print('conv_inf')
 
 HEAD = (
     "#     Step    No.-acc  No.-shoot l m r  Length Acc Mc            "

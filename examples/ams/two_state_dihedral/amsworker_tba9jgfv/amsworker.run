@@ -1,0 +1,4 @@
+unset AMS_SWITCH_LOGFILE_AND_STDOUT
+unset SCM_LOGFILE
+AMS_JOBNAME="amsworker" AMS_RESULTSDIR=. $AMSBIN/ams --input="amsworker.in" < /dev/null
+

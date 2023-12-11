@@ -1,0 +1,65 @@
+
+ *******************************************************************************
+ *                                                                             *
+ *  --------------------------------                                           *
+ *   Amsterdam Modeling Suite (AMS)              2023.202                      *
+ *  --------------------------------                                           *
+ *                                               r113177 2023-06-16            *
+ *                                                                             *
+ *                                                                             *
+ *                              =================                              *
+ *                              |               |                              *
+ *                              |     A M S     |                              *
+ *                              |               |                              *
+ *                              =================                              *
+ *                                                                             *
+ *                                                                             *
+ *   Online information and documentation:  https://www.scm.com/support/       *
+ *   E-mail:  support@scm.com   info@scm.com                                   *
+ *                                                                             *
+ *   Scientific publications using AMS results must be properly referenced     *
+ *   See the User Manuals (or the web site) for recommended citations          *
+ *   The terms and conditions of the End User License Agreement apply to       *
+ *   the use of AMS, https://www.scm.com/license-terms/                        *
+ *                                                                             *
+ **********************  x86_64_linux_amdZen / intelmpi  ***********************
+ 
+ Licensed to: Dr. P. Bobbert / Site license Eindhoven University of Technology / Eindhoven / The Netherlands 2023-07-05 19:02:54
+ SCM User ID: u10757
+  
+ AMS 2023.202  RunTime: Dec06-2023 14:08:58  ShM Nodes: 1  Procs: 1
+
+ AMS jobname: amsworker
+ AMS jobid  : 1934821754
+
+ Start   directory: /home/konrad/opt/infretis/examples/ams/two_state_dihedral/amsworker_75wkx91l/
+ Results directory: /home/konrad/opt/infretis/examples/ams/two_state_dihedral/amsworker_75wkx91l/
+ Scratch directory: /tmp/amstmp_amsworker_kid0.1934821754/
+
+ RNG seed: 906970986 1775444599 -947500398 -130116653 468414577 1316701577 -977948406 1346671617
+
+       ********************
+       * Pipe Application *
+       ********************
+ 
+----------------------------------
+Lennard-Jones Engine configuration
+----------------------------------
+r_min (bohr) =         1.64406173
+eps (hartree) =        1.00000000
+cutoff (bohr) =        1.88972612
+ 
+--------------------
+ Molecular Dynamics 
+--------------------
+ 
+          Step       Time    Temp.         E Tot         E Pot         E Kin  <Temp.>       <E Tot>       <E Pot>       <E Kin>
+                     (fs)      (K)          (au)          (au)          (au)      (K)          (au)          (au)          (au)
+ 
+             0       0.00       0.    2274.80291    2274.80291       0.00000       0.    2274.80291    2274.80291       0.00000
+
+AMS application finished. Exiting.
+NORMAL TERMINATION
+     Total cpu time:       0.22
+  Total system time:       0.04
+ Total elapsed time:       0.28
