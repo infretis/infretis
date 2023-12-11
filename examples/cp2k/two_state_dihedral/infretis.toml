@@ -1,7 +1,7 @@
 # infretis config
 
 [dask]
-workers = 1
+workers = 7
 wmdrun = [1.0,
 	  1.0,
 	  1.0,
@@ -33,7 +33,7 @@ engine = 'cp2k'
 cp2k_format = 'xyz'
 timestep = 0.5
 input_path = 'cp2k_input'
-cp2k = 'cp2k.psmp'
+cp2k = 'cp2k'
 subcycles = 10
 
 [orderparameter]

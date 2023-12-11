@@ -48,7 +48,8 @@ def run_md(md_items):
         pens = md_items["picked"][ens_num]
         engine = ENGINES[pens["eng_name"]]
         engine.set_mdrun(pens)
-        engine.rgen = pens["rgen-eng"]
+        if "rgen-eng" in pens:
+            engine.rgen = pens["rgen-eng"]
         engine.clean_up()
 
     # perform the hw move:

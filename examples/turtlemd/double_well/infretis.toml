@@ -1,7 +1,7 @@
 # infretis config
 
 [dask]
-workers = 1
+workers = 4
 files=["orderp.py"]
 wmdrun = ['not used',
 	  'not used',
