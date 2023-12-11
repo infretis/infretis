@@ -1015,7 +1015,6 @@ class CP2KEngine(EngineBase):
         return_code = None
         cp2k_was_terminated = False
 
-        print('bumpkin a', out_name, cmd) 
         with open(out_name, "wb") as fout, open(err_name, "wb") as ferr:
             exe = subprocess.Popen(
                 cmd,
@@ -1210,8 +1209,6 @@ class CP2KEngine(EngineBase):
     ) -> None:
         """Remove or rename?"""
         self.exe_dir = md_items["w_folder"]
-        # self.rgen = md_items['picked']['tis_set']['rgen']
-        # self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"]
 
     def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocity in a given snapshot.

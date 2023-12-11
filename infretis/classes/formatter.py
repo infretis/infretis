@@ -1127,17 +1127,13 @@ class PathStorage(OutputBase):
             f"{path.path_number}",
         )
 
-
         # To organize things we create a subfolder for storing the
         # files. This is on form: /path/to/000/traj/11/traj
         traj_dir = os.path.join(archive_path, "accepted")
         # Create the needed directories:
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
-
         _ = self.output_path_files(step, [path, "ACC"], archive_path)
-
-        print('desert b', _)
         path = self._copy_path(path, traj_dir)
         return path
 

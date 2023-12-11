@@ -5,8 +5,6 @@ import os
 import tomli
 from dask.distributed import Client, as_completed, dask, get_worker
 
-# from infretis.classes.engines.factory import create_engines
-# from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
@@ -25,12 +23,6 @@ def setup_internal(config):
 
     # setup ensembles
     state.initiate_ensembles()
-
-    # # setup engines
-    # state.engines = create_engines(config)
-
-    # # setup engine orderparameter functions
-    # create_orderparameters(state.engines, config)
 
     # load paths from disk and add to repex
     paths = load_paths_from_disk(config)
@@ -179,7 +171,3 @@ def set_worker_logger(i):
     logger.info("=============================")
     logger.info("Logging file for worker %s", pin)
     logger.info("=============================\n")
-
-
-def pickle0():
-    print('whada')

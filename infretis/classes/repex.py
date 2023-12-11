@@ -179,10 +179,9 @@ class REPEX_state:
                 "ens": ens_pick,
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
-                # "engine": self.engines[ens_pick["eng_name"]],
                 "engine": ens_pick["eng_name"],
             }
-            # 'ens_name': self.ensembles[ens_num+1].ensemble_name_simple}
+            ### TODO: merge double variable engine and eng_name.
         return picked
 
     def pick_traj_ens(self, ens):
@@ -256,22 +255,12 @@ class REPEX_state:
             md_items["picked"][ens_num]["w_folder"] = md_items["w_folder"]
             if self.config["dask"].get("wmdrun", False):
                 md_items["picked"][ens_num]["wmdrun"] = self.config["dask"]["wmdrun"][md_items["pin"]]
-        #     ### TO BE SENT IN THE OK GROMACS
-        #   # if self.config["dask"].get("wmdrun", False):
-        #     #     md_items["picked"][ens_num]["engine"].set_mdrun(
-        #     #         self.config, md_items
-        #     #     )
-            # sets the rgen for {cp2k, turtlemd}
-        #     ### TO BE SENT IN
-            # print('soup', md_items["picked"][ens_num])
+            # spawn rgen for {cp2k, turtlemd}
             if md_items["picked"][ens_num]["engine"] in (
                 "cp2k",
                 "turtlemd",
             ):
-                md_items["picked"][ens_num]["rgenz"]= self.rgen.spawn(1)[0]
-        #     # clean up
-        #     ### TO BE SENT IN ### DONER.
-        #     md_items["picked"][ens_num]["engine"].clean_up()
+                md_items["picked"][ens_num]["rgen-eng"]= self.rgen.spawn(1)[0]
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:
@@ -915,7 +904,6 @@ class REPEX_state:
                         os.getcwd(), self.config["simulation"]["load_dir"]
                     ),
                 }
-                print('pipipi', data)
                 out_traj = self.pstore.output(self.cstep, data)
                 self.traj_data[traj_num] = {
                     "frac": np.zeros(self.n, dtype="float"),
