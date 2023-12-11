@@ -7,10 +7,21 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from infretis.classes.engines.factory import create_engines
+from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import DEFAULT_MAXLEN, paste_paths
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
+
+
+ENGINES: dict = {}
+
+
+def def_globals(config):
+    global ENGINES
+    ENGINES = create_engines(config)
+    create_orderparameters(ENGINES, config)
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -42,13 +53,25 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
     # record start time
     md_items["wmd_start"] = time.time()
 
+    # initiate engine and order parameter function if None
+    if len(ENGINES) == 0:
+        def_globals(md_items["config"])
+    # set mdrun, rng, clean_up
+    for ens_num in md_items["ens_nums"]:
+        pens = md_items["picked"][ens_num]
+        engine = ENGINES[pens["eng_name"]]
+        engine.set_mdrun(pens)
+        if "rgen-eng" in pens:
+            engine.rgen = pens["rgen-eng"]
+        engine.clean_up()
+
     # perform the hw move:
     picked = md_items["picked"]
     accept, trials, status = select_shoot(picked)
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
-        log_mdlogs(picked[ens_num]["engine"].exe_dir)
+        log_mdlogs(picked[ens_num]["exe_dir"])
         md_items["moves"].append(md_items["mc_moves"][ens_num + 1])
         md_items["trial_len"].append(trial.length)
         md_items["trial_op"].append((trial.ordermin[0], trial.ordermax[0]))
@@ -274,8 +297,8 @@ def select_shoot(
 
     if len(picked) == 1:
         pens = next(iter(picked.values()))
-        ens_set, path, engine = (pens[i] for i in ["ens", "traj", "engine"])
-
+        engine = ENGINES[pens["eng_name"]]
+        ens_set, path = (pens[i] for i in ["ens", "traj"])
         move = ens_set["mc_move"]
         logger.info(
             f"starting {move} in {ens_set['ens_name']}"
@@ -913,8 +936,8 @@ def retis_swap_zero(
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = picked[-1]["engine"]
-    engine1 = picked[0]["engine"]
+    engine0 = ENGINES[picked[-1]["eng_name"]]
+    engine1 = ENGINES[picked[0]["eng_name"]]
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
     maxlen0 = ens_set0.get("maxlength", DEFAULT_MAXLEN)
