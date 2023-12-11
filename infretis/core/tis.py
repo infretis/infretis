@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
 
-ENGINES: list = []
+ENGINES: dict = {}
 
 
 def def_globals(config):
@@ -54,7 +54,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
     md_items["wmd_start"] = time.time()
 
     # initiate engine and order parameter function if None
-    if ENGINES is []:
+    if len(ENGINES) == 0:
         def_globals(md_items["config"])
     # set mdrun, rng, clean_up
     for ens_num in md_items["ens_nums"]:
