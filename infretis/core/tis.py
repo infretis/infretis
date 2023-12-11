@@ -40,8 +40,16 @@ def run_md(md_items):
     # record start time
     md_items["wmd_start"] = time.time()
 
+    # initiate engine and order parameter function if None
     if ENGINES == None:
         def_globals(md_items["config"])
+    # set mdrun, rng, clean_up 
+    for ens_num in md_items["ens_nums"]:
+        pens = md_items["picked"][ens_num]
+        engine = ENGINES[pens["eng_name"]]
+        engine.set_mdrun(pens)
+        engine.rgen = pens["rgen-eng"]
+        engine.clean_up()
 
     # perform the hw move:
     picked = md_items["picked"]
@@ -265,10 +273,7 @@ def select_shoot(picked, start_cond=("L",)):
 
     if len(picked) == 1:
         pens = next(iter(picked.values()))
-        engine = ENGINES[pens["engine"]]
-        engine.set_mdrun(pens, pens)
-        engine.rgen = pens["rgen-eng"]
-        engine.clean_up()
+        engine = ENGINES[pens["eng_name"]]
         ens_set, path = (pens[i] for i in ["ens", "traj"])
         move = ens_set["mc_move"]
         logger.info(
@@ -868,13 +873,8 @@ def retis_swap_zero(picked):
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = ENGINES[picked[-1]["engine"]]
-    engine1 = ENGINES[picked[0]["engine"]]
-    engine0.set_mdrun(picked[-1], picked[-1])
-    engine1.set_mdrun(picked[0], picked[0])
-    engine0.rgen = picked[-1]["rgen-eng"]
-    engine1.rgen = picked[0]["rgen-eng"]
-    engine0.clean_up()
+    engine0 = ENGINES[picked[-1]["eng_name"]]
+    engine1 = ENGINES[picked[0]["eng_name"]]
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
     maxlen0 = ens_set0.get("maxlength", 100000)

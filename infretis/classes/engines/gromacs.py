@@ -690,13 +690,13 @@ class GromacsEngine(EngineBase):
         return confout, energy
 
     def set_mdrun(
-        self, config: dict[str, Any], md_items: dict[str, Any]
+        self, md_items: dict[str, Any]
     ) -> None:
         """Sets the worker terminal command to be run"""
-        base = config["wmdrun"]
+        base = md_items["wmdrun"]
         self.mdrun = base + " -s {} -deffnm {} -c {}"
         self.mdrun_c = base + " -s {} -cpi {} -append -deffnm {} -c {}"
-        self.exe_dir = md_items["w_folder"]
+        self.exe_dir = md_items["exe_dir"]
 
     def _read_configuration(
         self, filename: str
