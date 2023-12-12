@@ -1,3 +1,4 @@
+"""Methods for XYZ."""
 from __future__ import annotations
 
 import errno
@@ -24,26 +25,19 @@ def generic_factory(
     """Create instances of classes based on settings.
 
     This method is intended as a semi-generic factory for creating
-    instances of different objects based on simulation input settings.
-    The input settings define what classes should be created and
+    instances of different objects based on the given settings.
+    The settings define what classes should be created and
     the object_map defines a mapping between settings and the
     class.
 
-    Parameters
-    ----------
-    settings : dict
-        This defines how we set up and select the order parameter.
-    object_map : dict
-        Definitions on how to initiate the different classes.
-    name : string, optional
-        Short name for the object type. Only used for error messages.
+    Args:
+        settings: Settings for initiating the class.
+        object_map: A mapping with the known classes.
+        name: Short name for the object type. Only used for error messages.
 
-    Returns
-    -------
-    out : instance of a class
+    Returns:
         The created object, in case we were successful. Otherwise we
         return none.
-
     """
     try:
         klass = settings["class"].lower()
@@ -65,18 +59,13 @@ def generic_factory(
 def initiate_instance(klass: type[Any], settings: dict[str, Any]) -> Any:
     """Initialise a class with optional arguments.
 
-    Parameters
-    ----------
-    klass : class
-        The class to initiate.
-    settings : dict
-        Positional and keyword arguments to pass to `klass.__init__()`.
+    Args;
+        klass: The class to initiate.
+        settings: Positional and keyword arguments to pass
+            to `klass.__init__()`.
 
-    Returns
-    -------
-    out : instance of `klass`
-        Here, we just return the initiated instance of the given class.
-
+    Returns:
+        The initiated instance of the given `klass`.
     """
     args, kwargs = _pick_out_arg_kwargs(klass, settings)
     # Ready to initiate:
@@ -99,21 +88,23 @@ def initiate_instance(klass: type[Any], settings: dict[str, Any]) -> Any:
 def _pick_out_arg_kwargs(
     klass: Any, settings: dict[str, Any]
 ) -> tuple[list[Any], dict[str, Any]]:
-    """Pick out arguments for a class from settings.
+    """Extract arguments required by class initialization.
 
-    Parameters
-    ----------
-    klass : class
-        The class to initiate.
-    settings : dict
-        Positional and keyword arguments to pass to `klass.__init__()`.
+    Extracts arguments and keyword arguments from a settings dictionary
+    that are required to initialize an instance of the specified class.
 
-    Returns
-    -------
-    out[0] : list
-        A list of the positional arguments.
-    out[1] : dict
-        The keyword arguments.
+    Args:
+        klass: The class for which to find initialization arguments.
+        settings: Positional and keyword arguments to pass
+            to `klass.__init__()`.
+
+    Returns:
+        out[0]: A list of the positional arguments.
+        out[1]: The keyword arguments.
+
+    Raises:
+        ValueError: If a required argument for the class initialization
+                    is not found in the given settings.
 
     """
     info = inspect_function(klass.__init__)
@@ -136,29 +127,30 @@ def _pick_out_arg_kwargs(
 
 
 def inspect_function(function: Callable) -> dict[str, list[Any]]:
-    """Return arguments/kwargs of a given function.
+    """Extract arguments/kwargs of the given function.
 
     This method is intended for use where we are checking that we can
     call a certain function. This method will return arguments and
-    keyword arguments a function expects. This method may be fragile -
-    we assume here that we are not really interested in args and
-    kwargs and we do not look for more information about these here.
+    keyword arguments a function expects, so that other methods
+    can check if these arguments are available, e.g., in a
+    dictionary of simulation settings.
 
-    Parameters
-    ----------
-    function : callable
-        The function to inspect.
+    Args:
+        function: The function to inspect.
 
-    Returns
-    -------
-    out : dict
-        A dict with the arguments, the following keys are defined:
+    Returns:
+        A dictionary containing four keys:
+            - `args`: A list of names of standard positional arguments.
+            - `kwargs`: A list of names of keyword arguments with
+                default values.
+            - `varargs`: A list containing the name of the *args
+                parameter, if present.
+            - `keywords`: A list containing the name of the **kwargs
+                parameter, if present.
 
-        * `args` : list of the positional arguments
-        * `kwargs` : list of keyword arguments
-        * `varargs` : list of arguments
-        * `keywords` : list of keyword arguments
-
+    Note:
+        This method does not check the *args and **kwargs in detail,
+        it will just extract their name, if present.
     """
     out = {
         "args": [],
@@ -166,7 +158,7 @@ def inspect_function(function: Callable) -> dict[str, list[Any]]:
         "varargs": [],
         "keywords": [],
     }  # type: dict[str, list[Any]]
-    arguments = inspect.signature(function)  # pylint: disable=no-member
+    arguments = inspect.signature(function)
     for arg in arguments.parameters.values():
         kind = _arg_kind(arg)
         if kind is not None:
@@ -179,20 +171,20 @@ def inspect_function(function: Callable) -> dict[str, list[Any]]:
 
 
 def _arg_kind(arg: Parameter) -> str | None:
-    """Determine kind for a given argument.
+    """Determine kind (positional, keyword, etc.) for a given parameter.
 
-    This method will help :py:func:`.inspect_function` to determine
-    the correct kind for arguments.
+    This helper method will support :py:func:`.inspect_function` by
+    categorizing each parameter of a function into specific types such
+    as positional, keyword with default values, variable positional,
+    and variable keyword.
 
-    Parameters
-    ----------
-    arg : object like :py:class:`inspect.Parameter`
-        The argument we will determine the type of.
+    Args:
+        arg: The parameter we will determine the kind of.
 
-    Returns
-    -------
-    out : string
-        A string we use for determine the kind.
+    Returns:
+        A string representation of the kind ("args", "kwargs",
+        "varargs", or "keywords"). Returns None if the argument
+        kind does not match any of these.
 
     """
     kind = None
@@ -213,36 +205,33 @@ def _arg_kind(arg: Parameter) -> str | None:
     return kind
 
 
-def create_external(settings, key, required_methods):
+def create_external(
+    settings: dict[str, Any], key: str, required_methods: list[str]
+) -> Any:
     """Create external objects from settings.
 
     This method will handle the creation of objects from settings. The
-    requested objects can be PyRETIS internals or defined in external
-    modules.
+    requested objects can be internals or defined in external modules.
 
-    Parameters
-    ----------
-    settings : dict
-        This dictionary contains the settings for the simulation.
-    key : string
-        The setting we are creating for.
-    factory : callable
-        A method to call that can handle the creation of internal
-        objects for us.
-    required_methods : list of strings
-        The methods we need to have if creating an object from external
-        files.
+    Args:
+        settings: This dictionary contains the settings we use to create
+            the object. Specifically, we look up the "class" and
+            "module" names. If these are not given, we use the
+            "exe_path" setting from the "simulation" section to
+            find the absolute path to the module.
+        key: The setting we are creating the object for. This argument
+            is only used in an error message.
+        required_methods: A list of method names that the created
+            object must implement.
 
-    Returns
-    -------
-    out : object
+    Returns:
         This object represents the class we are requesting here.
 
     """
-    klass = settings.get("class", None)
-    module = settings.get("module", None)
+    klass = settings.get("class", "")
+    module = settings.get("module", "")
     # Here we assume we are to load from a file. Before we import
-    # we need to check that the path is ok or if we should include
+    # we need to check that the path is OK or if we should include
     # the 'exe_path' from settings.
     # 1) Check if we can find the module:
     if os.path.isfile(module):
@@ -270,24 +259,20 @@ def create_external(settings, key, required_methods):
 
 
 def import_from(module_path: str, function_name: str) -> Any:
-    """Import a method/class from a module.
+    """Import a method/class from a specified module.
 
-    This method will dynamically import a specified method/object
-    from a module and return it. If the module can not be imported or
-    if we can't find the method/class in the module we will raise
-    exceptions.
+    This method will dynamically import a specified method/class
+    given the module's file path and the name of the method/class.
+    Exceptions are raised if the module can not be imported or if
+    the method/class is not found in the module.
 
-    Parameters
-    ----------
-    module_path : string
-        The path/filename to load from.
-    function_name : string
-        The name of the method/class to load.
+    Args:
+        module_path: The path/filename to load from.
+        function_name: The name of the method/class to import from
+        the module.
 
-    Returns
-    -------
-    out : object
-        The thing we managed to import.
+    Returns:
+        A referemce to the imported method or class.
 
     """
     msg = f"Could not import module: {module_path}"
@@ -310,23 +295,21 @@ def import_from(module_path: str, function_name: str) -> Any:
 
 
 def make_dirs(dirname: str) -> str:
-    """Create directories for path simulations.
+    """Create a directory at a specified path.
 
-    This function will create a folder using a specified path.
-    If the path already exists and if it's a directory, we will do
-    nothing. If the path exists and is a file we will raise an
-    `OSError` exception here.
+    This function attempts to create a directory using the provided
+    path. If the directory already exists, no action is taken, and a
+    message indicating this is returned. If the path exists but is a
+    file, an `OSError` is raised.
 
-    Parameters
-    ----------
-    dirname : string
-        This is the directory to create.
+    Args:
+        dirname: This path of the directory to create.
 
-    Returns
-    -------
-    out : string
-        A string with some info on what this function did. Intended for
-        output.
+    Returns:
+        A message indicating the outcome of the operation.
+
+    Raises:
+        OSError: If the path exists and is a file.
 
     """
     msg = f'Directory "{dirname}" was not created.'
