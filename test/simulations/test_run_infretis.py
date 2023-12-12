@@ -66,3 +66,7 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     items = ["infretis_data.txt", "restart.toml"]
     for item in items:
         assert filecmp.cmp(f"./{item}", f"{basepath}/data/30steps_wf/{item}")
+
+    # check the delete_old_all setting,
+    num_files = os.listdir("load")
+    assert num_files == 24
