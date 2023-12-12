@@ -9,12 +9,13 @@ def test_write_header(tmp_path: PosixPath) -> None:
     f1.mkdir()
     os.chdir(f1)
     config = {"current": {"size": 10}, "output": {"data_dir": "./"}}
-    write_header(config)
 
-    # isfile = os.path.join(f1, "infretis_data.txt")
-    isfile = "infretis_data.txt"
-    assert os.path.isfile(isfile)
+    # write the first infretis_data.txt file
+    write_header(config)
+    assert os.path.isfile("./infretis_data.txt")
     for i in range(1, 6):
+
+        # create new infretis_data.txt files
         write_header(config)
         isfile = f"./infretis_data_{i}.txt"
         assert os.path.isfile(isfile)
