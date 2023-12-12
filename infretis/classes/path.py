@@ -270,7 +270,7 @@ class Path:
 
     def empty_path(self, **kwargs) -> Path:
         """Return an empty path of same class as the current one."""
-        maxlen = kwargs.get("maxlen", 10000)
+        maxlen = kwargs.get("maxlen", DEFAULT_MAXLEN)
         time_origin = kwargs.get("time_origin", 0)
         return self.__class__(maxlen=maxlen, time_origin=time_origin)
 
