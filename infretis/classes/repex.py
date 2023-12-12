@@ -947,7 +947,7 @@ class REPEX_state:
                     # keep delete list:
                     if len(self.pn_olds) <= self.n - 2:
                         self.pn_olds[str(pn_old)] = {
-                            'adress': self.traj_data[pn_old]["adress"],
+                            "adress": self.traj_data[pn_old]["adress"],
                         }
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
