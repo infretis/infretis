@@ -66,6 +66,9 @@ class REPEX_state:
         # determines the number of initiation loops to do.
         self.toinitiate = self.workers
 
+        # keep track of olds in case of delete_old = True
+        self.pn_olds = {}
+
     @property
     def prob(self):
         """Calculate the P matrix."""
@@ -108,6 +111,11 @@ class REPEX_state:
     def pattern(self):
         """Retrive pattern_file from config dict."""
         return self.config["output"].get("pattern", False)
+
+    @property
+    def data_dir(self):
+        """Retrive pattern_file from config dict."""
+        return self.config["output"]["data_dir"]
 
     @property
     def pattern_file(self):
@@ -916,11 +924,31 @@ class REPEX_state:
                     self.config["output"].get("delete_old", False)
                     and pn_old > self.n - 2
                 ):
-                    # if pn is larger than ensemble number ...
-                    for adress in self.traj_data[pn_old]["adress"]:
-                        # Make checker? so it doesn't do anything super yabai
-                        os.remove(adress)
-
+                    if len(self.pn_olds) > self.n - 2:
+                        pn_old_del, del_dic = next(iter(self.pn_olds.items()))
+                        # delete trajectory files
+                        for adress in del_dic["adress"]:
+                            os.remove(adress)
+                        # delete txt files
+                        load_dir = self.config["simulation"]["load_dir"]
+                        if self.config["output"].get("delete_old_all", False):
+                            for txt in ("order.txt", "traj.txt", "energy.txt"):
+                                txt_adress = os.path.join(
+                                    load_dir, pn_old_del, txt
+                                )
+                                if os.path.isfile(txt_adress):
+                                    os.remove(txt_adress)
+                            os.rmdir(
+                                os.path.join(load_dir, pn_old_del, "accepted")
+                            )
+                            os.rmdir(os.path.join(load_dir, pn_old_del))
+                        # pop the deleted path.
+                        self.pn_olds.pop(pn_old_del)
+                    # keep delete list:
+                    if len(self.pn_olds) <= self.n - 2:
+                        self.pn_olds[str(pn_old)] = {
+                            'adress': self.traj_data[pn_old]["adress"],
+                        }
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
 
