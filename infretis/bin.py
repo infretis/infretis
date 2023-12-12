@@ -17,7 +17,6 @@ def infretisrun():
     args_dict = vars(parser.parse_args())
     input_file = args_dict["input"]
     config = setup_config(input_file)
-
     if config is None:
         return
     scheduler(config)
@@ -27,38 +26,20 @@ def infretisanalyze():
     """Run Titus0 wham script."""
     parser = argparse.ArgumentParser()
     args = [
-        "-toml",
-        "-data",
-        "-nskip",
-        "-lamres",
-        "-nblock",
-        "-fener",
-        "-folder",
-    ]
-    helps = [
-        "the toml file for the simulation",
-        "the infretis data.txt file",
-        "number of skipped lines",
-        "resolution along the lambda-CV",
-        "minimal number of blocks",
-        "calculate free energy",
-        "output folder",
-    ]
-    defaults = [
-        "infretis.toml",
-        "infretis_data.txt",
-        100,
-        "(intf_1-intf0)/10)",
-        5,
-        False,
-        "wham",
+        ("-toml", "the toml file for the simulation", "infretis.toml"),
+        ("-data", "the infretis data.txt file", "infretis_data.txt"),
+        ("-nskip", "number of skipped lines", 100),
+        ("-lamres", "resolution along the lambda-CV", "(intf_1-intf0)/10)"),
+        ("-nblock", "minimal number of blocks", 5),
+        ("-fener", "calculate free energy", False),
+        ("-folder", "output folder", "wham"),
     ]
     # fill defaults
-    for arg, help0, def0 in zip(args, helps, defaults):
+    for arg, info, default in args:
         parser.add_argument(
             arg,
-            help=help0 + f" (default: {def0})",
-            default=def0,
+            help=info + f" (default: {default})",
+            default=default,
         )
 
     # get user input

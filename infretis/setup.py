@@ -135,14 +135,13 @@ def write_header(config):
     """Write infretis_data.txt header."""
     size = config["current"]["size"]
     data_dir = config["output"]["data_dir"]
-    data_name = os.path.join(data_dir, "infretis_data.txt")
-    if os.path.isfile(data_name):
+    data_file = os.path.join(data_dir, "infretis_data.txt")
+    if os.path.isfile(data_file):
         for i in range(1, 1000):
-            data_name = os.path.join(data_dir, f"infretis_data_{i}.txt")
-            if not os.path.isfile(data_name):
+            data_file = os.path.join(data_dir, f"infretis_data_{i}.txt")
+            if not os.path.isfile(data_file):
                 break
 
-    data_file = os.path.join(data_dir, data_name)
     config["output"]["data_file"] = data_file
     with open(data_file, "w", encoding="utf-8") as write:
         write.write("# " + "=" * (34 + 8 * size) + "\n")
