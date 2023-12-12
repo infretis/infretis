@@ -121,6 +121,9 @@ def setup_config(inp="infretis.toml", re_inp="restart.toml"):
             "frac": {},
         }
 
+        # write/overwrite infretis_data.txt
+        write_header(config)
+
         # set pattern
         if config["output"].get("pattern", False):
             config["output"]["pattern_file"] = os.path.join("pattern.txt")
@@ -132,10 +135,10 @@ def write_header(config):
     """Write infretis_data.txt header."""
     size = config["current"]["size"]
     data_dir = config["output"]["data_dir"]
-    data_name = "infretis_data.txt"
-    if os.path.isfile("infretis_data.txt"):
-        for i in range(1000):
-            data_name = f"infretis_data_{i}.txt"
+    data_name = os.path.join(data_dir, "infretis_data.txt")
+    if os.path.isfile(data_name):
+        for i in range(1, 1000):
+            data_name = os.path.join(data_dir, f"infretis_data_{i}.txt")
             if not os.path.isfile(data_name):
                 break
 

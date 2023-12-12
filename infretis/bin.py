@@ -3,7 +3,7 @@ import argparse
 import os
 
 from infretis.scheduler import scheduler
-from infretis.setup import setup_config, write_header
+from infretis.setup import setup_config
 from infretis.tools.Wham_Pcross import run_analysis
 
 
@@ -17,9 +17,6 @@ def infretisrun():
     args_dict = vars(parser.parse_args())
     input_file = args_dict["input"]
     config = setup_config(input_file)
-
-    # write/overwrite infretis_data.txt
-    write_header(config)
 
     if config is None:
         return
@@ -57,7 +54,6 @@ def infretisanalyze():
         "wham",
     ]
     # fill defaults
-    # for defs, (key, value) in zip(defaults, args.items()):
     for arg, help0, def0 in zip(args, helps, defaults):
         parser.add_argument(
             arg,
