@@ -69,5 +69,5 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
 
     # check the delete_old_all setting,
     # nb: technically num_files == 24, but due to restarts pn_olds get reset.
-    num_files = os.listdir("load")
+    num_files = len(os.listdir("load"))
     assert num_files < 40
