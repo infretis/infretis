@@ -160,8 +160,7 @@ def compute_weight(path: InfPath, interfaces: list[float], move: str) -> float:
         interfaces: A list of three floats representing interface
             positions, in the order `[left, middle, right]`.
         move: A string representing the MC move to compute
-            the weights for. Expected values include "ss" for
-            Stone Skipping and "wf" for Wire Fencing.
+            the weights for. Expects "wf" for Wire Fencing.
 
     Returns:
         The weight of the path.
@@ -1033,7 +1032,7 @@ def high_acc_swap(
 
     Notes:
         -  This function is only needed when paths are generated via
-            Wire Fencing or Stone Skipping.
+            Wire Fencing.
 
     """
     # Crossing before the move
