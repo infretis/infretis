@@ -71,37 +71,23 @@ TRR_DATA_ITEMS = (
 
 
 class GromacsEngine(EngineBase):
-    """
-    A class for interfacing GROMACS.
+    """A class for interfacing GROMACS.
 
-    This class defines the interface to GROMACS.
+    Note:
+        This method assumes that we use a GROMACS version
+        of 5 or later.
 
-    Attributes
-    ----------
-    gmx : string
-        The command for executing GROMACS. Note that we are assuming
-        that we are using version 5 (or later) of GROMACS.
-    mdrun : string
-        The command for executing GROMACS mdrun. In some cases, this
-        executable can be different from ``gmx mdrun``.
-    mdrun_c : string
-        The command for executing GROMACS mdrun when continuing a
-        simulation. This is derived from the ``mdrun`` command.
-    input_path : string
-        The directory where the input files are stored.
-    subcycles : int,
-        The number of simulation steps of the external engine for each
-        step in the path simulation.
-    exe_path : string, optional
-        The absolute path where the simulation will be run.
-    maxwarn : integer
-        Setting for the GROMACS ``grompp -maxwarn`` option.
-    gmx_format : string
-        This string selects the output format for GROMACS.
-    write_vel : boolean, optional
-        True if we want to output the velocities.
-    write_force : boolean, optional
-        True if we want to output the forces.
+    Attributes:
+        gmx: The command for executing GROMACS.
+        mdrun: The command for executing GROMACS mdrun.
+        mdrun_c: The command for executing GROMACS mdrun when
+            continuing a simulation. This is derived from
+            the `mdrun` command.
+        maxwarn: Setting for the GROMACS `grompp -maxwarn` option.
+        gmx_format: This string selects the output format for GROMACS.
+            Should be `"g96"` or `"gro`.
+        write_vel: True if we want to output the velocities.
+        write_force: True if we want to output the forces.
 
     """
 
