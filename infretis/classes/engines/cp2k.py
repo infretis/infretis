@@ -1204,13 +1204,9 @@ class CP2KEngine(EngineBase):
             break  # Stop after the first snapshot.
         return xyz, vel, box, names
 
-    def set_mdrun(
-        self, config: dict[str, Any], md_items: dict[str, Any]
-    ) -> None:
+    def set_mdrun(self, md_items: dict[str, Any]) -> None:
         """Remove or rename?"""
-        self.exe_dir = md_items["w_folder"]
-        # self.rgen = md_items['picked']['tis_set']['rgen']
-        self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"]
+        self.exe_dir = md_items["exe_dir"]
 
     def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocity in a given snapshot.

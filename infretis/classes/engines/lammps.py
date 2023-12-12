@@ -591,11 +591,7 @@ class LAMMPSEngine(EngineBase):
             dek = kin_new - kin_old
         return dek, kin_new
 
-    def set_mdrun(
-        self, config: dict[str, Any], md_items: dict[str, Any]
-    ) -> None:
+    def set_mdrun(self, md_items: dict[str, Any]) -> None:
         """Give worker the correct random generator and executional directory,
         and eventual alternative run stuff"""
         self.exe_dir = md_items["w_folder"]
-        # self.rgen = md_items['picked']['tis_set']['rgen']
-        self.rgen = md_items["picked"][md_items["ens_nums"][0]]["ens"]["rgen"]
