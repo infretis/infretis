@@ -1,6 +1,5 @@
 import numpy as np
 
-Trajdir = "trajs"
 Nbinsx = 100
 Nbinsy = 1
 Minx = 0.06
@@ -59,7 +58,7 @@ def printhisto(xval, yval, histogram, ofile):
             file.write(row + "\n")
 
 
-def calculate_free_energy(trajlabels, WFtot):
+def calculate_free_energy(trajlabels, WFtot, Trajdir):
     print("We are now going to perform the Landau Free Energy calculations")
     print(
         "Check Free_energy.py and modify to your needs"

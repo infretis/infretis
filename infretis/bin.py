@@ -56,6 +56,9 @@ def infretisanalyze():
     if imps["lamres"] == "(intf_1-intf0)/10)":
         imps["lamres"] = (imps["intfs"][1] - imps["intfs"][0]) / 10
 
+    if imps["fener"]:
+        imps["trajdir"] = config["simulation"]["load_dir"]
+
     run_analysis(imps)
 
 

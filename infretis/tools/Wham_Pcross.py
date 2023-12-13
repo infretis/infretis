@@ -844,6 +844,6 @@ def run_analysis(inp_dic):
         trajlabels = [int(x[0]) for x in matrix]
         from infretis.tools.Free_energy import calculate_free_energy
 
-        calculate_free_energy(trajlabels, WFtot)
+        calculate_free_energy(trajlabels, WFtot, inp_dic["trajdir"])
 
     # Finished!
