@@ -401,7 +401,7 @@ class EngineBase(metaclass=ABCMeta):
 
         # Update system to point to the configuration file:
         system.set_pos((initial_conf, 0))
-        system.set_vel(reverse)
+        system.vel_rev = reverse
         # Propagate from this point:
         # msg_file.write(f'# Interfaces: {ensemble["interfaces"]}')
         success, status = self._propagate_from(
