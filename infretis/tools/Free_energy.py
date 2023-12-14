@@ -1,13 +1,13 @@
 import numpy as np
 
-Nbinsx = 100
-Nbinsy = 1
-Minx = 0.06
-Maxx = 0.6
-Miny = 0.06
-Maxy = 0.6
-xcol = 2
-ycol = 4
+Nbinsx = 100  # number of bins in x-direction
+Nbinsy = 100  # number of bins in y-direction
+Minx = -1  # minimum orderparameter value x-direction
+Maxx = 3  # maximum orderparameter value x-direction
+Miny = -2.5
+Maxy = 2.5
+xcol = 2  # which column in order.txt to use as x-values
+ycol = 3  # which column in order.txt to use as y-values
 
 
 def extract(trajfile):
