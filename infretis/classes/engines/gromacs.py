@@ -87,7 +87,6 @@ class GromacsEngine(EngineBase):
             Currently, only `"g96"` is supported.
         write_vel: True if we want to output the velocities.
         write_force: True if we want to output the forces.
-
     """
 
     def __init__(
@@ -117,7 +116,6 @@ class GromacsEngine(EngineBase):
             gmx_format: The format used for GROMACS configurations.
             write_vel: Determines if GROMACS should write velocities or not.
             write_force: Determines if GROMACS should write forces or not.
-
         """
         super().__init__("GROMACS engine zamn", timestep, subcycles)
         self.ext = gmx_format
@@ -256,7 +254,6 @@ class GromacsEngine(EngineBase):
         Returns:
             A dict with the file names created by the GROMACS
             preprocessor.
-
         """
         topol = self.input_files["topology"]
         tpr = f"{deffnm}.tpr"
@@ -293,7 +290,6 @@ class GromacsEngine(EngineBase):
 
         Returns:
             A dict with the output file names created by `mdrun`.
-
         """
         confout = f"{deffnm}.{self.ext}"
         cmd = shlex.split(self.mdrun.format(tprfile, deffnm, confout))
@@ -319,7 +315,6 @@ class GromacsEngine(EngineBase):
 
         Returns:
             The file names created by this command.
-
         """
         out_files = {}
         out_grompp = self._execute_grompp(
@@ -372,7 +367,6 @@ class GromacsEngine(EngineBase):
 
         Returns:
             The files created by GROMACS when we extend.
-
         """
         tpxout = f"ext_{tprfile}"
         self._removefile(tpxout)
@@ -402,7 +396,6 @@ class GromacsEngine(EngineBase):
 
         Returns:
             The files created by GROMACS when we extend.
-
         """
         out_files = {}
         out_grompp = self._extend_gromacs(tpr_file, self.ext_time)
@@ -426,7 +419,6 @@ class GromacsEngine(EngineBase):
 
         Args:
             dirname: The directory to remove files from.
-
         """
         for entry in Path(dirname).iterdir():
             if entry.name.startswith("#") and entry.is_file():
@@ -443,7 +435,6 @@ class GromacsEngine(EngineBase):
         Note:
             If the extension is different from .trr, .xtc or .trj,
             we will basically just copy the given input file.
-
         """
         trajexts = [".trr", ".xtc", ".trj"]
 
@@ -642,7 +633,6 @@ class GromacsEngine(EngineBase):
             A tuple containing:
                 - The name of the file created.
                 - The energy terms read from the GROMACS .edr file.
-
         """
         # gen_mdp = os.path.join(self.exe_dir, 'genvel.mdp')
         gen_mdp = os.path.join(self.exe_dir, "genvel.mdp")
@@ -673,7 +663,7 @@ class GromacsEngine(EngineBase):
         return confout, energy
 
     def set_mdrun(self, md_items: dict[str, Any]) -> None:
-        """Sets the worker terminal command to execute."""
+        """Set the worker terminal command to execute."""
         base = md_items["wmdrun"]
         self.mdrun = base + " -s {} -deffnm {} -c {}"
         self.mdrun_c = base + " -s {} -cpi {} -append -deffnm {} -c {}"
@@ -694,7 +684,6 @@ class GromacsEngine(EngineBase):
                 - The box dimensions.
                 - Atom names, currently we do not read that for g96
                     files, and we return just a None.
-
         """
         if self.ext != "g96":
             msg = f"GROMACS engine does not support reading {self.ext}"
@@ -710,7 +699,6 @@ class GromacsEngine(EngineBase):
             filename: The configuration to reverse velocities in.
             outfile: The output file for storing the configuration with
                 reversed velocities.
-
         """
         if self.ext != "g96":
             # TODO: This check for an acceptable type should come earlier.
@@ -747,7 +735,6 @@ class GromacsEngine(EngineBase):
             A tuple containing:
                 - The change in the kinetic energy.
                 - The new kinetic energy.
-
         """
         dek = 0.0
         kin_old = 0.0
@@ -811,7 +798,6 @@ class GromacsRunner:
         stderr_name: Path to file to use for messages to standard error.
         stdout: File handle to write standard out to.
         stderr: File handle to write standard error to.
-
     """
 
     SLEEP: float = 0.1
@@ -826,7 +812,6 @@ class GromacsRunner:
             trr_file: The GROMACS TRR file we are going to read.
             edr_file: A .edr file we are going to read.
             exe_dir: Path to where we are currently running GROMACS.
-
         """
         self.cmd: list[str] = cmd
         self.trr_file: str = trr_file
@@ -1002,11 +987,11 @@ class GromacsRunner:
         self.close()  # Close the TRR file.
 
     def __exit__(self, *args) -> None:
-        """Just stop execution and close file for a context manager."""
+        """Stop execution and close file for a context manager."""
         self.stop()
 
     def __del__(self):
-        """Just stop execution and close file."""
+        """Stop execution and close file."""
         self.stop()
 
     def check_poll(self) -> int | None:
@@ -1065,7 +1050,6 @@ def read_trr_header(fileh: BufferedReader) -> tuple[dict[str, Any], int]:
         A tuple containing:
             - The header read from the file.
             - Number of bytes read.
-
     """
     start = fileh.tell()
     endian = ">"
@@ -1111,7 +1095,6 @@ def gromacs_settings(settings: dict[str, Any], input_path: str) -> None:
     Args:
         settings: The current input settings.
         input_path: The GROMACS input path.
-
     """
     ext = settings["engine"].get("gmx_format", "g96")
     default_files = {
@@ -1144,7 +1127,6 @@ def read_gromos96_file(
             - The positions.
             - The velocities.
             - The simulation box.
-
     """
     _len = 15
     _pos = 24
@@ -1223,7 +1205,6 @@ def write_gromos96_file(
         xyz: The positions to write.
         vel: The velocities to write.
         box: The box matrix.
-
     """
     _keys = ("TITLE", "POSITION", "VELOCITY", "BOX")
     with open(filename, "w", encoding="utf-8") as outfile:
@@ -1260,7 +1241,6 @@ def read_struct_buff(fileh: BufferedReader, fmt: str) -> tuple[Any, ...]:
     Raises:
         EOFError: An EOFError is raised if `fileh.read()` attempts to read
             past the end of the file.
-
     """
     buff = fileh.read(struct.calcsize(fmt))
     if not buff:
@@ -1281,7 +1261,6 @@ def is_double(header: dict[str, Any]) -> bool:
 
     Returns:
         True if we should use double precision, False otherwise.
-
     """
     key_order = ("box_size", "x_size", "v_size", "f_size")
     size = 0
@@ -1307,7 +1286,6 @@ def skip_trr_data(fileh: BufferedReader, header: dict[str, Any]) -> None:
     Args:
         fileh: The file handle for the file we are reading.
         header: The header read from the TRR file.
-
     """
     offset = sum([header[key] for key in TRR_DATA_ITEMS])
     fileh.seek(offset, 1)
@@ -1332,7 +1310,6 @@ def read_trr_data(
             - ``x`` : the coordinates,
             - ``v`` : the velocities, and
             - ``f`` : the forces
-
     """
     data = {}
     endian = header["endian"]
@@ -1387,7 +1364,6 @@ def read_matrix(
 
     Return:
         The matrix as an array.
-
     """
     if double:
         fmt = f"{endian}{_DIM**2}d"
@@ -1420,7 +1396,6 @@ def read_coord(
     Returns:
         The coordinates as a numpy array. It will have
             ``natoms`` rows and ``_DIM`` columns.
-
     """
     if double:
         fmt = f"{endian}{natoms * _DIM}d"
@@ -1476,7 +1451,6 @@ def get_data(
         A tuple containing:
             - The data read from the file.
             - The size of the data read.
-
     """
     data_size = sum([header[key] for key in TRR_DATA_ITEMS])
     data = read_trr_data(fileh, header)
@@ -1498,7 +1472,6 @@ def read_remaining_trr(
             - The header read from the file
             - The data read from the file.
             - The size of the data read.
-
     """
     stop = False
     bytes_read = start
@@ -1547,7 +1520,6 @@ def reopen_file(
         A tuple containing:
             - The new file object.
             - The new inode.
-
     """
     if os.stat(filename).st_ino != inode:
         new_fileh = open(filename, "rb")

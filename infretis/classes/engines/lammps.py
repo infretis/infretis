@@ -117,7 +117,6 @@ def read_energies(filename: str) -> dict[str, np.ndarray]:
 
     Returns:
         A dictionary containing the data we found in the file.
-
     """
     energy_keys = []
     energy_data: dict[str, list[float | int]] = {}
@@ -265,7 +264,6 @@ def shift_boxbounds(
         A tuple containing:
             - The shifted positions.
             - A flattended version of the upper box bounds.
-
     """
     xyz -= box[:, 0]
     box[:, 1] -= box[:, 0]
@@ -330,7 +328,6 @@ class LAMMPSEngine(EngineBase):
                 in case `input_path` is a relative path.
             sleep: A time in seconds used for waiting between attempts to read
                 the LAMMPS output.
-
         """
         super().__init__("LAMMPS external engine", timestep, subcycles)
         self.lmp = shlex.split(lmp)

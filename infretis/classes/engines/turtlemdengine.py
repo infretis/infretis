@@ -82,7 +82,6 @@ class TurtleMDEngine(EngineBase):
             potential: The name of the potential to use for TurtleMD.
             particles: The mass and name of the particles in the system.
             box: Definition of the simulation box.
-
         """
         self.temperature = temperature
         self.timestep = timestep
@@ -136,7 +135,6 @@ class TurtleMDEngine(EngineBase):
             traj_file: The trajectory file to dump from.
             idx: The frame number we look for.
             out_file: The file to dump to.
-
         """
         for i, snapshot in enumerate(read_xyz_file(traj_file)):
             if i == idx:
@@ -285,7 +283,6 @@ class TurtleMDEngine(EngineBase):
                 - vel: An array of atomic velocities.
                 - box: An array of box dimensions or None if not available.
                 - names: A list of atom names found in the file.
-
         """
         for snapshot in read_xyz_file(filename):
             box, xyz, vel, names = convert_snapshot(snapshot)
@@ -304,7 +301,6 @@ class TurtleMDEngine(EngineBase):
                 to reverse the velocities of.
             outfile : The path to the output file for storing the
                 configuration with reversed velocities.
-
         """
         xyz, vel, box, names = self._read_configuration(filename)
         write_xyz_trajectory(
@@ -334,7 +330,6 @@ class TurtleMDEngine(EngineBase):
         Raises:
             NotImplementedError: If the 'rescale_energy' option is
                 set but not implemented.
-
         """
         mass = self.mass
         beta = self.beta
