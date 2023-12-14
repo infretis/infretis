@@ -22,19 +22,18 @@ def pbc_dist_coordinate(
 ) -> np.ndarray:
     """Apply periodic boundaries to a distance.
 
-    This will apply periodic boundaries to a distance. Note that the
-    distance can be a vector, but not a matrix of distance vectors.
+    Apply periodic boundaries to a distance vector.
 
-    Parameters
-    ----------
-    distance : numpy.array with shape `(self.dim,)`
-        A distance vector.
+    Args:
+        distance: A distance vector.
+        box_lengths: The box lengths (one for each dimension.)
 
-    Returns
-    -------
-    out : numpy.array, same shape as the `distance` parameter
-        The periodic-boundary wrapped distance vector.
+    Returns:
+        The periodic-boundary wrapped distance vector (a numpy.array
+            with the same shape as the `distance` parameter).
 
+    Note:
+        This method assumes an orthogonal box.
     """
     box_ilengths = 1.0 / box_lengths
     pbcdist = np.zeros(distance.shape)
@@ -51,18 +50,14 @@ class OrderParameter:
 
     This class represents an order parameter and other collective
     variables. The order parameter is assumed to be a function
-    that can uniquely be determined by the system object and its
-    attributes.
+    uniquely determined by the system and its attributes.
 
     Attributes
-    ----------
-    description : string
-        This is a short description of the order parameter.
-    velocity_dependent : boolean
-        This flag indicates whether or not the order parameter
-        depends on the velocity direction. If so, we need to
-        recalculate the order parameter when reversing trajectories.
-
+        description: A short (textual) description of the order parameter.
+        velocity_dependent: This flag indicates whether or not the
+            order parameter depends on the velocity direction. If so,
+            the order parameter *must* be recalculated when reversing
+            trajectories.
     """
 
     def __init__(
@@ -70,13 +65,12 @@ class OrderParameter:
         description: str = "Generic order parameter",
         velocity: bool = False,
     ):
-        """Initialise the OrderParameter object.
+        """Initialize the OrderParameter object.
 
-        Parameters
-        ----------
-        description : string
-            Short description of the order parameter.
-
+        Args:
+            description: Short description of the order parameter.
+            velocity: If True, the order parameter is flagged as
+                velocity dependent.
         """
         self.description = description
         self.velocity_dependent = velocity
@@ -88,25 +82,18 @@ class OrderParameter:
 
     @abstractmethod
     def calculate(self, system: System) -> list[float]:
-        """Calculate the main order parameter and return it.
+        """Calculate the order parameter.
 
-        All order parameters should implement this method as
-        this ensures that the order parameter can be calculated.
+        All order parameters **must** implement this method.
 
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            This object contains the information needed to calculate
-            the order parameter.
+        Args:
+            system: This object contains the information
+                needed to calculate the order parameter.
 
-        Returns
-        -------
-        out : list of floats
-        ￼
-            The order parameter(s). The first order parameter returned
-            is used as the progress coordinate in path sampling
-            simulations!
-
+        Returns:
+            A list of floats containing the order parameter(s). The
+                first item in this list is used as the progress
+                coordinate in path sampling simulations.
         """
 
     def __str__(self) -> str:
@@ -131,30 +118,22 @@ class OrderParameter:
 class Distancevel(OrderParameter):
     """A rate of change of the distance order parameter.
 
-    This class defines a very simple order parameter which is just
-    the time derivative of the scalar distance between two particles.
+    This order parameter is the time derivative of the scalar
+    distance between two particles.
 
-    Attributes
-    ----------
-    index : tuple of integers
-        These are the indices used for the two particles.
-        `system.pos[index[0]]` and `system.pos[index[1]]` will be used.
-    periodic : boolean
-        This determines if periodic boundaries should be applied to
-        the distance or not.
-
+    Attributes:
+        index: These are the indices used for the two particles. The
+            distance is calculated using `system.pos[index[0]]`
+            and `system.pos[index[1]]`.
+        periodic: If True, apply periodic boundaries to the distance.
     """
 
     def __init__(self, index: tuple[int, int], periodic: bool = True):
-        """Initialise the order parameter.
+        """Initialize the order parameter.
 
-        Parameters
-        ----------
-        index : tuple of ints
-            This is the indices of the atom we will use the position of.
-        periodic : boolean, optional
-            This determines if periodic boundary conditions should be
-            applied to the position.
+        Args:
+            index: The indices of the particles to use for the distance.
+            periodic: If True, apply periodic boundary conditions.
 
         """
         _verify_pair(index)
@@ -170,20 +149,13 @@ class Distancevel(OrderParameter):
     def calculate(self, system: System) -> list[float]:
         """Calculate the order parameter.
 
-        Here, the order parameter is just the distance between two
-        particles.
+        Args:
+            system: The object containing the positions
+                and box used for the calculation.
 
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The object containing the positions and box used for the
-            calculation.
-
-        Returns
-        -------
-        out : list of floats
-            The rate-of-change of the distance order parameter.
-
+        Returns:
+            A list where the first item is the rate of change of the
+            distance.
         """
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic and system.box is not None:
@@ -196,93 +168,59 @@ class Distancevel(OrderParameter):
 
 
 class Position(OrderParameter):
-    """Position order parameter.
+    """The position of a particle in a dimension.
 
-
-    Attributes
-    ----------
-    index : tuple of integers
-        These are the indices used for the two particles.
-        `system.particles.pos[index[0]]` and
-        `system.particles.pos[index[1]]` will be used.
-    periodic : boolean
-        This determines if periodic boundaries should be applied to
-        the distance or not.
-
+    Attributes:
+        index: Tuple of integers where the first integer
+            selects the particle and the second integer
+            selects the dimension.
+        periodic: True, if we should apply periodic boundaries
+            to the position.
     """
 
     def __init__(self, index: tuple[int, int], periodic: bool = True):
-        """Initialise order parameter.
+        """Initialize the position order parameter.
 
-        Parameters
-        ----------
-        index : tuple of ints
-            This is the indices of the atom we will use the position of.
-        periodic : boolean, optional
-            This determines if periodic boundary conditions should be
-            applied to the position.
+        Args:
+            index: This tuple is used to select the particle (`index[0]`)
+                and the dimension (`index[1]`) to use.
+            periodic: If True, periodic boundary conditions should be
+                applied to the position.
 
+        Note:
+            The periodic setting is currently not supported.
         """
         _verify_pair(index)
         pbc = "Periodic" if periodic else "Non-periodic"
         txt = f"{pbc} distance, particles {index[0]} and {index[1]}"
         super().__init__(description=txt, velocity=False)
         self.periodic = periodic
-        if periodic:
+        if self.periodic:
             raise NotImplementedError("Can't use pbc for position order yet")
         self.index = index
 
     def calculate(self, system: System) -> list[float]:
-        """Calculate the order parameter.
-
-        Here, the order parameter is just the distance between two
-        particles.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The object containing the positions and box used for the
-            calculation.
-
-        Returns
-        -------
-        out : list of floats
-            The distance order parameter.
-
-        """
-        pos = system.pos[self.index[0], self.index[1]]
-        return [pos]
+        """Calculate the order parameter."""
+        return [system.pos[self.index[0], self.index[1]]]
 
 
 class Distance(OrderParameter):
-    """A distance order parameter.
+    """The scalar distance between two particles.
 
-    This class defines a very simple order parameter which is just
-    the scalar distance between two particles.
-
-    Attributes
-    ----------
-    index : tuple of integers
-        These are the indices used for the two particles.
-        `system.particles.pos[index[0]]` and
-        `system.particles.pos[index[1]]` will be used.
-    periodic : boolean
-        This determines if periodic boundaries should be applied to
-        the distance or not.
-
+    Attributes:
+        index: A tuple of integers that selects the two
+            particles.
+        periodic: This determines if periodic boundaries
+            should be applied to the distance or not.
     """
 
     def __init__(self, index: tuple[int, int], periodic: bool = True):
-        """Initialise order parameter.
+        """Initialize the order parameter.
 
-        Parameters
-        ----------
-        index : tuple of ints
-            This is the indices of the atom we will use the position of.
-        periodic : boolean, optional
-            This determines if periodic boundary conditions should be
-            applied to the position.
-
+        Args:
+            index: A tuple of ints that selects the two particles.
+            periodic: This determines if periodic boundary conditions
+                should be applied to the position.
         """
         _verify_pair(index)
         pbc = "Periodic" if periodic else "Non-periodic"
@@ -292,23 +230,7 @@ class Distance(OrderParameter):
         self.index = index
 
     def calculate(self, system: System) -> list[float]:
-        """Calculate the order parameter.
-
-        Here, the order parameter is just the distance between two
-        particles.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The object containing the positions and box used for the
-            calculation.
-
-        Returns
-        -------
-        out : list of floats
-            The distance order parameter.
-
-        """
+        """Calculate the order parameter."""
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic and system.box is not None:
             box = np.array(system.box[:3])
@@ -318,34 +240,25 @@ class Distance(OrderParameter):
 
 
 class Velocity(OrderParameter):
-    """Initialise the order parameter.
+    """The velocity of a given particle in a given dimension.
 
-    This class defines a very simple order parameter which is just
-    the velocity of a given particle.
-
-    Attributes
-    ----------
-    index : integer
-        This is the index of the atom which will be used, i.e.
-        ``system.particles.vel[index]`` will be used.
-    dim : integer
-        This is the dimension of the coordinate to use.
-        0, 1 or 2 for 'x', 'y' or 'z'.
-
+    Attributes:
+        index: This is the index of the particle which will be
+            used, i.e., `system.particles.vel[index]` will be used.
+        dim: A integer representing the dimension to use:
+            0, 1 or 2 for 'x', 'y' or 'z'.
     """
 
     def __init__(self, index: int, dim: str = "x"):
-        """Initialise the order parameter.
+        """Initialize the order parameter.
 
-        Parameters
-        ----------
-        index : int
-            This is the index of the atom we will use the velocity of.
-        dim : string
-            This select what dimension we should consider,
-            it should equal 'x', 'y' or 'z'.
-
+        Args:
+            index: This is the index of the particle we will use
+                the velocity of.
+        dim: A string ("x", "y", "z") that selects the
+            dimension of the velocity to use.
         """
+        dim = dim.lower()
         txt = f"Velocity of particle {index} (dim: {dim})"
         super().__init__(description=txt, velocity=True)
         self.index = index
@@ -355,19 +268,7 @@ class Velocity(OrderParameter):
             raise ValueError
 
     def calculate(self, system: System) -> list[float]:
-        """Calculate the velocity order parameter.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The object containing the velocities.
-
-        Returns
-        -------
-        out : list of floats
-            The velocity order parameter.
-
-        """
+        """Calculate the velocity order parameter."""
         return [system.vel[self.index][self.dim]]
 
 
@@ -382,16 +283,12 @@ def create_orderparameters(
 def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
     """Create order parameters from settings.
 
-    Parameters
-    ----------
-    settings : dict
-        This dictionary contains the settings for the simulation.
+    Args:
+        settings: A dictionary with simulation settings. This
+        method will use the `orderparameter` section of the settings.
 
-    Returns
-    -------
-    out : object like :py:class:`.OrderParameter`
-        This object represents the order parameter.
-
+    Returns:
+        The order parameter created here.
     """
     order_map = {
         "orderparameter": {"class": OrderParameter},
@@ -420,55 +317,45 @@ def _verify_pair(index: tuple[int, int]):
     try:
         if len(index) != 2:
             msg = (
-                "Wrong number of atoms for pair definition. "
+                "Wrong number of particles for pair definition. "
                 f"Expected 2 got {len(index)}"
             )
             logger.error(msg)
             raise ValueError(msg)
     except TypeError as err:
-        msg = "Atom pair should be defined as a tuple/list of integers."
+        msg = "Particle pair should be defined as a tuple/list of integers."
         logger.error(msg)
         raise TypeError(msg) from err
 
 
 class Dihedral(OrderParameter):
-    """Calculates the dihedral angle defined by 4 atoms.
+    """Calculate the dihedral angle defined by 4 particles.
 
     The angle definition is given by Blondel and Karplus,
     J. Comput. Chem., vol. 17, 1996, pp. 1132--1141. If we
-    label the 4 atoms A, B, C and D, then the angle is given by
+    label the 4 particles A, B, C and D, then the angle is given by
     the vectors u = A - B, v = B - C, w = D - C
 
-    Attributes
-    ----------
-    index : list/tuple of integers
-        These are the indices for the atoms to use in the
-        definition of the dihedral angle.
-    periodic : boolean
-        This determines if periodic boundaries should be applied to
-        the position or not.
-
+    Attributes:
+        index: A list/tuple of integers that defines the 4
+            particles in the dihedral angle.
+        periodic: If True, we apply periodic boundaries.
     """
 
     def __init__(
         self, index: tuple[int, int, int, int], periodic: bool = False
     ):
-        """Initialise the order parameter.
+        """Initialize the order parameter.
 
-        Parameters
-        ----------
-        index : list/tuple of integers
-            This list gives the indices for the atoms to use in the
-            definition of the dihedral angle.
-        periodic : boolean, optional
-            This determines if periodic boundary conditions should be
-            applied to the distance vectors.
-
+        Args:
+            index: The indices of the 4 particles in the dihedral.
+            periodic: This determines if periodic boundary conditions
+                should be applied to distance vectors.
         """
         try:
             if len(index) != 4:
                 msg = (
-                    "Wrong number of atoms for dihedral definition. "
+                    "Wrong number of particles for dihedral definition. "
                     f"Expected 4 got {len(index)}"
                 )
                 logger.error(msg)
@@ -477,7 +364,7 @@ class Dihedral(OrderParameter):
             msg = "Dihedral should be defined as a tuple/list of integers!"
             logger.error(msg)
             raise TypeError(msg) from err
-        self.index = [int(i) for i in index]
+        self.index = tuple(int(i) for i in index)
         txt = (
             "Dihedral angle between particles "
             f"{index[0]}, {index[1]}, {index[2]} and {index[3]}"
@@ -486,20 +373,7 @@ class Dihedral(OrderParameter):
         self.periodic = periodic
 
     def calculate(self, system: System) -> list[float]:
-        """Calculate the dihedral angle.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The object containing the information we need to calculate
-            the order parameter.
-
-        Returns
-        -------
-        out : list of float
-            The order parameter.
-
-        """
+        """Calculate the dihedral angle."""
         pos = system.pos
         vector1 = pos[self.index[0]] - pos[self.index[1]]
         vector2 = pos[self.index[1]] - pos[self.index[2]]
@@ -521,7 +395,7 @@ class Dihedral(OrderParameter):
 
 
 class Puckering(OrderParameter):
-    """Calculates puckering coordinates for a 6-ring.
+    """Calculate puckering coordinates for a 6-ring.
 
     The puckering coordinates are described by Cremer and Pople in
     J. Am. Chem. Soc. 1975, 97, 6, 1354–1358.
@@ -532,18 +406,14 @@ class Puckering(OrderParameter):
     (given by theta = 0 and theta = 180) are the well-known 1C4 or 4C1
     chair conformations.
 
-    For carbohydrates, the indice convention is
+    For carbohydrates, the indices convention is
         O5:0, C1:1, C2:2,..., C5:5
 
-    Attributes
-    ----------
-    index : list/tuple of integers
-        These are the indices for the atoms to use in the
-        definition of the puckering coordinates.
-    periodic : boolean
-        This determines if periodic boundaries should be applied to
-        the position or not.
-
+    Attributes:
+        index: A list/tuple of integers used to select the
+            particles to use for the puckering coordinates.
+        periodic: This determines if periodic boundaries should
+            be applied to the position or not.
     """
 
     def __init__(
@@ -551,56 +421,38 @@ class Puckering(OrderParameter):
         index: tuple[int, int, int, int, int, int],
         periodic: bool = False,
     ):
-        """Initialise the order parameter.
+        """Initialize the order parameter.
 
-        Parameters
-        ----------
-        index : list/tuple of integers
-            This list gives the indices for the atoms to use in the
-            definition of the puckering  coordinates.
-        periodic : boolean, optional
-            This determines if periodic boundary conditions should be
-            applied to the distance vectors.
-
+        Args:
+            index: This list gives the indices for the particles
+                to use in the definition of the puckering coordinates.
+            periodic: If True, apply periodic boundary conditions to
+                distance vectors.
         """
         try:
             if len(index) != 6:
                 msg = (
-                    "Wrong number of atoms for 6-ring puckering definition. "
-                    f"Expected 6 got {len(index)}"
+                    "Wrong number of particles for 6-ring puckering "
+                    f"definition. Expected 6 got {len(index)}"
                 )
                 logger.error(msg)
                 raise ValueError(msg)
         except TypeError as err:
-            msg = "Puckering atoms should be defined as a \
+            msg = "Puckering particles should be defined as a \
                     tuple/list of integers!"
             logger.error(msg)
             raise TypeError(msg) from err
-        self.index = [int(i) for i in index]
+        self.index = tuple(int(i) for i in index)
         self.periodic = periodic
         txt = (
             "Puckering coordinates between particles "
             f"{index[0]}, {index[1]}, {index[2]}, \
                     {index[3]}, {index[4]} and {index[5]}."
         )
-
         super().__init__(description=txt)
 
     def calculate(self, system: System) -> list[float]:
-        """Calculate the pcukering angle.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            The object containing the information we need to calculate
-            the order parameter.
-
-        Returns
-        -------
-        out : list of float
-            The order parameter.
-
-        """
+        """Calculate the puckering angle."""
         pos = system.pos[self.index]
         if self.periodic and system.box is not None:
             box = np.array(system.box[:3])
