@@ -201,6 +201,9 @@ class Path:
 
         Args:
             target_interface: The value for which the path is successful.
+
+        Returns:
+            True if the path is successful.
         """
         return self.ordermax[0] > target_interface
 
@@ -237,7 +240,6 @@ class Path:
 
     def reverse_velocities(self, system: System) -> None:
         """Reverse the velocities in the system."""
-        # TODO: The path should not modify the system?
         system.vel_rev = not system.vel_rev
 
     def reverse(
@@ -448,7 +450,7 @@ def paste_paths(
 
 
 def load_path(pdir: str) -> Path:
-    """Load path."""
+    """Load a path from the given directory."""
     trajtxt = os.path.join(pdir, "traj.txt")
     ordertxt = os.path.join(pdir, "order.txt")
     assert os.path.isfile(trajtxt)
@@ -496,6 +498,11 @@ def _check_path(
         path: The path we are to set up/fill.
         path_ensemble: The path ensemble the path could be added to.
         warning: If True, it output warnings, else only debug info.
+
+    Returns:
+        A tuple containing:
+            - True if the path can be accepted.
+            - A string representing the current status of the path.
     """
     start, end, _, cross = path.check_interfaces(path_ensemble.interfaces)
     accept = True
