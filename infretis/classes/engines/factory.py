@@ -21,16 +21,12 @@ logger.addHandler(logging.NullHandler())
 def create_engine(settings: dict[str, Any]) -> EngineBase | None:
     """Create an engine from settings.
 
-    Parameters
-    ----------
-    settings : dict
-        This dictionary contains the settings for the simulation.
+    Args:
+        settings: Settings for the simulation. This method will
+            use the `"engine"` section of the settings.
 
-    Returns
-    -------
-    out : object like :py:class:`.EngineBase`
-        This object represents the engine.
-
+    Returns:
+        The engine created here.
     """
     engine_map = {
         "gromacs": {"class": GromacsEngine},
@@ -58,17 +54,10 @@ def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
 
 
 def check_engine(settings: dict[str, Any]) -> bool:
-    """Check the engine settings.
+    """Check the input settings for engine creation.
 
-    Checks that the input engine settings are correct, and
-    automatically determine the 'internal' or 'external'
-    engine setting.
-
-    Parameters
-    ----------
-    settings : dict
-        The current input settings.
-
+    Args:
+        settings: The input settings to use for creating the engine.
     """
     msg = []
     if "engine" not in settings:
