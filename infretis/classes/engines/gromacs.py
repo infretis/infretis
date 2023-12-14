@@ -23,7 +23,6 @@ from infretis.classes.engines.engineparts import (
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterator
     from io import BufferedReader, BufferedWriter
-    from types import TracebackType
 
     from infretis.classes.formatter import FileIO
     from infretis.classes.path import Path as InfPath
@@ -85,7 +84,7 @@ class GromacsEngine(EngineBase):
             the `mdrun` command.
         maxwarn: Setting for the GROMACS `grompp -maxwarn` option.
         gmx_format: This string selects the output format for GROMACS.
-            Should be `"g96"` or `"gro`.
+            Currently, only `"g96"` is supported.
         write_vel: True if we want to output the velocities.
         write_force: True if we want to output the forces.
 
@@ -114,7 +113,7 @@ class GromacsEngine(EngineBase):
             subcycles: The number of steps each GROMACS MD run is composed of.
             exe_path: The absolute path at which the main simulation will be
                 run.
-            maxwarn: Setting for the GROMACS ``grompp -maxwarn`` option.
+            maxwarn: Setting for the GROMACS `grompp -maxwarn` option.
             gmx_format: The format used for GROMACS configurations.
             write_vel: Determines if GROMACS should write velocities or not.
             write_force: Determines if GROMACS should write forces or not.
@@ -224,9 +223,7 @@ class GromacsEngine(EngineBase):
         """Select energy terms to extract from GROMACS.
 
         Args:
-            terms: This string will name the terms to extract. Currently
-                we only allow for two types of output.
-
+            terms: This string selects the terms to extract.
         """
         allowed_terms = {
             "full": (
@@ -254,11 +251,11 @@ class GromacsEngine(EngineBase):
         Args:
             mdp_file: The path to the mdp file.
             config: The path to the GROMACS config file to use as input.
-            deffnm: A string used to name the GROMACS files.
+            deffnm: A string used to name the GROMACS output files.
 
         Returns:
-            out_files: A dict with the file names created by the GROMACS
-                preprocessor.
+            A dict with the file names created by the GROMACS
+            preprocessor.
 
         """
         topol = self.input_files["topology"]
@@ -285,19 +282,17 @@ class GromacsEngine(EngineBase):
         return out_files
 
     def _execute_mdrun(self, tprfile: str, deffnm: str) -> dict[str, str]:
-        """
-        Execute GROMACS mdrun.
+        """Execute GROMACS mdrun, e.g., `gmx mdrun`.
 
-        This method is intended as the initial ``gmx mdrun`` executed.
-        That is, we here assume that we do not continue a simulation.
+        Note:
+            This method assumes that we are *not* doing a continuation.
 
         Args:
             tprfile: The .tpr file to use for executing GROMACS.
             deffnm: To give the GROMACS simulation a name.
 
         Returns:
-            out_files: A dict with the output file names created by
-                ``mdrun``. Note that we here hard code the file names.
+            A dict with the output file names created by `mdrun`.
 
         """
         confout = f"{deffnm}.{self.ext}"
@@ -312,17 +307,18 @@ class GromacsEngine(EngineBase):
     def _execute_grompp_and_mdrun(
         self, config: str, deffnm: str
     ) -> dict[str, str]:
-        """
-        Execute GROMACS ``grompp`` and ``mdrun``.
+        """Execute GROMACS `grompp` and `mdrun`.
 
-        Here we use the input file given in the input directory.
+        Note:
+            The input GROMACS files are assumed to be in the `"input"`
+            directory.
 
         Args:
             config: The path to the input GROMACS config file.
             deffnm: A string used to name the GROMACS output files.
 
         Returns:
-            out_files: The file names created by this command.
+            The file names created by this command.
 
         """
         out_files = {}
@@ -340,11 +336,11 @@ class GromacsEngine(EngineBase):
     def _execute_mdrun_continue(
         self, tprfile: str, cptfile: str, deffnm: str
     ) -> dict[str, str]:
-        """
-        Continue the execution of GROMACS.
+        """Continue the execution of GROMACS.
 
-        Here, we assume that we have already executed ``gmx mdrun`` and
-        that we are to append and continue a simulation.
+        Note:
+            We assume that `gmx mdrun` has already been executed.
+            This method is to append and continue a simulation.
 
         Args:
             tprfile: The .tpr file which defines the simulation.
@@ -352,8 +348,8 @@ class GromacsEngine(EngineBase):
             deffnm: A name to give the GROMACS simulation.
 
         Returns:
-            out_files: The output file names created/appended by GROMACS when
-                we continue the simulation.
+            The output file names created/appended by GROMACS when
+            we continue the simulation.
         """
         confout = f"{deffnm}.{self.ext}".format(deffnm, self.ext)
         self._removefile(confout)
@@ -375,7 +371,7 @@ class GromacsEngine(EngineBase):
             time: The time (in ps) to extend the simulation by.
 
         Returns:
-            out_files: The files created by GROMACS when we extend.
+            The files created by GROMACS when we extend.
 
         """
         tpxout = f"ext_{tprfile}"
@@ -405,7 +401,7 @@ class GromacsEngine(EngineBase):
             deffnm: To give the GROMACS simulation a name.
 
         Returns:
-            out_files: The files created by GROMACS when we extend.
+            The files created by GROMACS when we extend.
 
         """
         out_files = {}
@@ -429,7 +425,7 @@ class GromacsEngine(EngineBase):
         """Remove GROMACS backup files (files starting with a "#").
 
         Args:
-            dirname: The directory where we are to remove files.
+            dirname: The directory to remove files from.
 
         """
         for entry in Path(dirname).iterdir():
@@ -439,17 +435,14 @@ class GromacsEngine(EngineBase):
     def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """Extract a frame from a .trr, .xtc or .trj file.
 
-        If the extension is different from .trr, .xtc or .trj, we will
-        basically just copy the given input file.
-
         Args:
             traj_file: The GROMACS file to open.
             idx: The frame number we look for.
             out_file: The file to extract to.
 
         Note:
-            This will only properly work if the frames in the input
-            trajectory are uniformly spaced in time.
+            If the extension is different from .trr, .xtc or .trj,
+            we will basically just copy the given input file.
 
         """
         trajexts = [".trr", ".xtc", ".trj"]
@@ -485,8 +478,10 @@ class GromacsEngine(EngineBase):
 
         Args:
             energy_file: The file from which to read energies.
-            begin: Time of the first frame to read. Defaults to None.
-            end: Time of the last frame to read. Defaults to None.
+            begin: Time of the first frame to read. If not given,
+                the GROMACS defaults are used.
+            end: Time of the last frame to read. If not given,
+                the GROMACS defaults are used.
 
         Returns:
             A dictionary with energy labels as keys and the corresponding
@@ -513,8 +508,7 @@ class GromacsEngine(EngineBase):
         msg_file: FileIO,
         reverse: bool = False,
     ) -> tuple[bool, str]:
-        """
-        Propagate with GROMACS from the current system configuration.
+        """Propagate with GROMACS from the given configuration.
 
         This method is assumed to be called after the `propagate()` has been
         invoked in the parent. The parent is responsible for reversing the
@@ -530,8 +524,11 @@ class GromacsEngine(EngineBase):
             reverse: If True, the system will be propagated backward in time.
 
         Returns:
-            bool: True if an acceptable path is generated.
-            str: A text description of the current status of the propagation.
+            A tuple containing:
+                - A boolean flag for the path; True if the path can be
+                    accepted generated.
+                - A text description of the current status of the
+                    propagation.
         """
         status = f"propagating with GROMACS (reverse = {reverse})"
         # system = ensemble['system']
@@ -632,8 +629,7 @@ class GromacsEngine(EngineBase):
     def _prepare_shooting_point(
         self, input_file: str
     ) -> tuple[str, dict[str, np.ndarray]]:
-        """
-        Create the initial configuration for a shooting move.
+        """Create the initial configuration for a shooting move.
 
         This creates a new initial configuration with random velocities.
         Here, the random velocities are obtained by running a zero-step
@@ -643,8 +639,9 @@ class GromacsEngine(EngineBase):
             input_file: The input configuration to generate velocities for.
 
         Returns:
-            output_file: The name of the file created.
-            energy: The energy terms read from the GROMACS .edr file.
+            A tuple containing:
+                - The name of the file created.
+                - The energy terms read from the GROMACS .edr file.
 
         """
         # gen_mdp = os.path.join(self.exe_dir, 'genvel.mdp')
@@ -676,7 +673,7 @@ class GromacsEngine(EngineBase):
         return confout, energy
 
     def set_mdrun(self, md_items: dict[str, Any]) -> None:
-        """Sets the worker terminal command to be run"""
+        """Sets the worker terminal command to execute."""
         base = md_items["wmdrun"]
         self.mdrun = base + " -s {} -deffnm {} -c {}"
         self.mdrun_c = base + " -s {} -cpi {} -append -deffnm {} -c {}"
@@ -691,9 +688,12 @@ class GromacsEngine(EngineBase):
             filename: The file to read the configuration from.
 
         Returns:
-            xyz: The positions.
-            vel: The velocities.
-            box: The box dimensions.
+            A tuple containing:
+                - The positions.
+                - The velocities.
+                - The box dimensions.
+                - Atom names, currently we do not read that for g96
+                    files, and we return just a None.
 
         """
         if self.ext != "g96":
@@ -713,6 +713,7 @@ class GromacsEngine(EngineBase):
 
         """
         if self.ext != "g96":
+            # TODO: This check for an acceptable type should come earlier.
             msg = f"GROMACS engine does not support writing {self.ext}"
             logger.error(msg)
             raise ValueError(msg)
@@ -724,13 +725,8 @@ class GromacsEngine(EngineBase):
     ) -> tuple[float, float]:
         """Modify the velocities of the current state.
 
-        This method will modify the velocities of a time slice.
-
         Args:
-            ensemble: A dict with:
-                * `system`: object like :py:class:`.System`
-                  This is the system that contains the particles we are
-                  investigating.
+            system: The system to modify the velocities in.
 
             vel_settings: A dict with:
                 * `sigma_v`: numpy.array, optional
@@ -748,8 +744,9 @@ class GromacsEngine(EngineBase):
                   the velocities) to match the given float.
 
         Returns:
-            dek: The change in the kinetic energy.
-            kin_new: The new kinetic energy.
+            A tuple containing:
+                - The change in the kinetic energy.
+                - The new kinetic energy.
 
         """
         dek = 0.0
@@ -757,7 +754,7 @@ class GromacsEngine(EngineBase):
         kin_new = 0.0
         rescale = vel_settings.get(
             "rescale_energy", vel_settings.get("rescale")
-        )
+        )  # TODO: Are these two settings the same?
         if rescale is not None and rescale is not False and rescale > 0:
             msgtxt = "GROMACS engine does not support energy re-scale."
             logger.error(msgtxt)
@@ -797,36 +794,27 @@ class GromacsRunner:
     it is used to decide when to end the GROMACS execution.
 
     Attributes:
-    ----------
-    cmd : string
-        The command for executing GROMACS.
-    trr_file : string
-        The GROMACS TRR file we are going to read.
-    edr_file : string
-        A .edr file we are going to read.
-    exe_dir : string
-        Path to where we are currently running GROMACS.
-    fileh : file object
-        The current open file object.
-    running : None or object like :py:class:`subprocess.Popen`
-        The process running GROMACS.
-    bytes_read : integer
-        The number of bytes read so far from the TRR file.
-    ino : integer
-        The current inode we are using for the file.
-    stop_read : boolean
-        If this is set to True, we will stop the reading.
-    SLEEP : float
-        How long we wait after an unsuccessful read before
-        reading again.
-    data_size : integer
-        The size of the data (x, v, f, box, etc.) in the TRR file.
-    header_size : integer
-        The size of the header in the TRR file.
+        cmd: The command for executing GROMACS.
+        trr_file: Path to the GROMACS TRR file we are going to read.
+        edr_file: Path to the GROMACS .edr file we are going to read.
+        exe_dir: Path to where we are currently running GROMACS.
+        fileh: The current open TRR file object.
+        running: The process running GROMACS.
+        bytes_read: The number of bytes read so far from the TRR file.
+        ino: The current inode we are using for the file.
+        stop_read: If this is set to True, we will stop the reading.
+        SLEEP: How long we wait after an unsuccessful read before
+            reading again.
+        data_size: The size of the data (x, v, f, box, etc.) in the TRR file.
+        header_size: The size of the header in the TRR file.
+        stdout_name: Path to file to use for messages to standard out.
+        stderr_name: Path to file to use for messages to standard error.
+        stdout: File handle to write standard out to.
+        stderr: File handle to write standard error to.
 
     """
 
-    SLEEP = 0.1
+    SLEEP: float = 0.1
 
     def __init__(
         self, cmd: list[str], trr_file: str, edr_file: str, exe_dir: str
@@ -840,17 +828,17 @@ class GromacsRunner:
             exe_dir: Path to where we are currently running GROMACS.
 
         """
-        self.cmd = cmd
-        self.trr_file = trr_file
-        self.edr_file = edr_file
-        self.exe_dir = exe_dir
+        self.cmd: list[str] = cmd
+        self.trr_file: str = trr_file
+        self.edr_file: str = edr_file
+        self.exe_dir: str = exe_dir
         self.fileh: BufferedReader
         self.running: subprocess.Popen[bytes] | None = None
-        self.bytes_read = 0
-        self.ino = 0
-        self.stop_read = True
-        self.data_size = 0
-        self.header_size = 0
+        self.bytes_read: int = 0
+        self.ino: int = 0
+        self.stop_read: bool = True
+        self.data_size: int = 0
+        self.header_size: int = 0
         self.stdout_name: str | None = None
         self.stderr_name: str | None = None
         self.stdout: BufferedWriter | None = None
@@ -898,7 +886,7 @@ class GromacsRunner:
             self.stop_read = True
 
     def __enter__(self):
-        """Start running GROMACS, for a context manager."""
+        """Context manager to start running GROMACS."""
         self.start()
         return self
 
@@ -1013,12 +1001,7 @@ class GromacsRunner:
         self.stop_read = True
         self.close()  # Close the TRR file.
 
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
+    def __exit__(self, *args) -> None:
         """Just stop execution and close file for a context manager."""
         self.stop()
 
@@ -1044,7 +1027,17 @@ class GromacsRunner:
 def read_trr_frame(
     filename: str, index: int
 ) -> tuple[dict[str, Any] | None, dict[str, np.ndarray] | None]:
-    """Return a given frame from a TRR file."""
+    """Return a given frame from a TRR file.
+
+    Args:
+        filename: The path to the file to read.
+        index: The frame number to read.
+
+    Returns:
+        A tuple containing:
+            - The header for the frame, if the frame exists.
+            - The data in the frame, if the frame exists.
+    """
     idx = 0
     with open(filename, "rb") as infile:
         while True:
@@ -1069,7 +1062,9 @@ def read_trr_header(fileh: BufferedReader) -> tuple[dict[str, Any], int]:
         fileh: The file handle for the file we are reading.
 
     Returns:
-        header: The header read from the file.
+        A tuple containing:
+            - The header read from the file.
+            - Number of bytes read.
 
     """
     start = fileh.tell()
@@ -1114,8 +1109,8 @@ def gromacs_settings(settings: dict[str, Any], input_path: str) -> None:
     """Read and processes GROMACS settings.
 
     Args:
-        settings: The current input settings..
-        input_path: The GROMACS input path
+        settings: The current input settings.
+        input_path: The GROMACS input path.
 
     """
     ext = settings["engine"].get("gmx_format", "g96")
@@ -1142,12 +1137,13 @@ def read_gromos96_file(
         filename: The file to read.
 
     Returns:
-        rawdata: This is the raw data read from the file grouped into sections.
-            Note that this does not include the actual positions and
-            velocities as these are returned separately.
-        xyz: The positions.
-        vel: The velocities.
-        box: The simulation box.
+        A tuple containing:
+            - The raw data read from the file, grouped into sections.
+                Note that this does not include the actual positions and
+                velocities as these are returned separately.
+            - The positions.
+            - The velocities.
+            - The simulation box.
 
     """
     _len = 15
@@ -1259,7 +1255,7 @@ def read_struct_buff(fileh: BufferedReader, fmt: str) -> tuple[Any, ...]:
         fmt: The format to use for unpacking.
 
     Returns:
-        out: The unpacked elements according to the given format.
+        The unpacked elements according to the given format.
 
     Raises:
         EOFError: An EOFError is raised if `fileh.read()` attempts to read
@@ -1275,8 +1271,8 @@ def read_struct_buff(fileh: BufferedReader, fmt: str) -> tuple[Any, ...]:
 def is_double(header: dict[str, Any]) -> bool:
     """Determine if we should use double precision.
 
-    This method determined the precision to use when reading
-    the TRR file. This is based on the header read for a given
+    This method determines the precision to use when reading
+    a TRR file. This is based on the header read for a given
     frame which defines the sizes of certain "fields" like the box
     or the positions. From this size, the precision can be obtained.
 
@@ -1302,7 +1298,7 @@ def is_double(header: dict[str, Any]) -> bool:
 
 
 def skip_trr_data(fileh: BufferedReader, header: dict[str, Any]) -> None:
-    """Skip coordinates/box data etc.
+    """Skip coordinates/box data in a frame.
 
     This method is used when we want to skip a data section in
     the TRR file. Rather than reading the data, it will use the
@@ -1390,7 +1386,7 @@ def read_matrix(
             were stored in double precision.
 
     Return:
-        mat: The matrix as an array.
+        The matrix as an array.
 
     """
     if double:
@@ -1422,7 +1418,7 @@ def read_coord(
         natoms: The number of atoms we have stored coordinates for.
 
     Returns:
-        mat: The coordinates as a numpy array. It will have
+        The coordinates as a numpy array. It will have
             ``natoms`` rows and ``_DIM`` columns.
 
     """
@@ -1437,7 +1433,16 @@ def read_coord(
 
 
 def read_xvg_file(filename: str) -> dict[str, np.ndarray]:
-    """Return data in xvg file as numpy array."""
+    """Return data from a .xvg file as numpy arrays.
+
+    Args:
+        filename: Path to the .xvg file to read.
+
+    Returns:
+        A dict containing where the keys are the fields read
+            in the .xvg file and the values are the corresponding
+            data.
+    """
     raw_data = []
     legends = []
     with open(filename, encoding="utf-8") as fileh:
@@ -1468,8 +1473,9 @@ def get_data(
         header: The previously read header. Contains sizes and what to read.
 
     Returns:
-        data: The data read from the file.
-        data_size: The size of the data read.
+        A tuple containing:
+            - The data read from the file.
+            - The size of the data read.
 
     """
     data_size = sum([header[key] for key in TRR_DATA_ITEMS])
@@ -1488,9 +1494,10 @@ def read_remaining_trr(
         start: The current position we are at.
 
     Yields:
-        out[0]: The header read from the file
-        out[1]: The data read from the file.
-        out[2]: The size of the data read.
+        A tuple containing:
+            - The header read from the file
+            - The data read from the file.
+            - The size of the data read.
 
     """
     stop = False
@@ -1537,8 +1544,9 @@ def reopen_file(
         bytes_read: The position we should start reading at.
 
     Returns:
-        out[0]: The new file object.
-        out[1]: The new inode.
+        A tuple containing:
+            - The new file object.
+            - The new inode.
 
     """
     if os.stat(filename).st_ino != inode:
@@ -1561,7 +1569,7 @@ def swap_integer(integer: int) -> int:
 
 
 def swap_endian(endian: str) -> str:
-    """Just swap the string for selecting big/little."""
+    """Just swap the string for selecting big/little endian."""
     if endian == ">":
         return "<"
     if endian == "<":
