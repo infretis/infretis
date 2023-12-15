@@ -39,11 +39,13 @@ jobs:
           for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
               if [[ "$file" == *.py ]]; then
                 echo "Running pydocstyle on $file"
-                #pydocstyle "$file"
-                pydocstyle_output=$(pydocstyle "$file" 2>&1) || true
-                if [ -n "$pydocstyle_output" ]; then
-                    echo "::warning file=$file::$pydocstyle_output"
-                fi
+                pydocstyle "$file"
+                # The following will turn the errors into warnings
+                # (can be used if the failing is too strict).
+                #pydocstyle_output=$(pydocstyle "$file" 2>&1) || true
+                #if [ -n "$pydocstyle_output" ]; then
+                #    echo "::warning file=$file::$pydocstyle_output"
+                #fi
               else
                 echo "$file is not a Python file, skipping"
               fi
