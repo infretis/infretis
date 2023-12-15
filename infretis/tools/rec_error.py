@@ -1,14 +1,13 @@
 import numpy as np
 
 
-def rec_blocks(r):
-    b = []
-    for i in range(len(r)):
-        if i == 0:
-            b.append(r[i])
-        else:
-            b.append((i + 1) * r[i] - i * r[i - 1])
-    return b
+def rec_blocks_np(r):
+    r_np = np.array(r)
+    n = len(r_np)
+    result = np.zeros(n, dtype=r_np.dtype)
+    result += np.arange(1, n + 1) * r_np
+    result[1:] -= np.arange(1, n) * r_np[:-1]
+    return result
 
 
 def rec_block_errors(runav, minblocks):
@@ -18,10 +17,8 @@ def rec_block_errors(runav, minblocks):
     for bloclengtgh in range(1, maxbll + 1):
         n = bloclengtgh
         runav_red = runav[n - 1 :: n]  # take every nth value of the array
-        blocks = rec_blocks(runav_red)
-        sum_qudiff = sum(
-            np.fromiter(((x - bestav) ** 2 for x in blocks), dtype=float)
-        )
+        blocks = rec_blocks_np(runav_red)
+        sum_qudiff = np.sum((blocks - bestav) ** 2)
         nb = len(blocks)
         Aerr2 = sum_qudiff / (nb * (nb - 1))
         Aerr = np.sqrt(Aerr2)  # esitimate of absolute error
