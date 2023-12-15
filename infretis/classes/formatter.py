@@ -38,6 +38,12 @@ def _read_line_data(
             trailing spaces have been removed.
         line_parser: A method for parsing a single line.
 
+    Returns:
+        A tuple containing:
+            - The line read.
+            - A boolean flag, True if data was read successfully.
+            - The number of columns read. If this is -1 the line
+                was malformed.
     """
     if line_parser is None:
         # Just return data without any parsing:
@@ -67,22 +73,17 @@ def read_some_lines(
     block is found. A special string (`block_label`) is assumed to
     identify the start of blocks.
 
-    Parameters
-    ----------
-    filename : string
-        This is the name/path of the file to open and read.
-    line_parser : function, optional
-        This is a function which knows how to translate a given line
-        to a desired internal format. If not given, a simple float
-        will be used.
-    block_label : string, optional
-        This string is used to identify blocks.
+    Args:
+        filename: This is the name/path of the file to open and read.
+        line_parser: This is a function which knows how to translate
+            a given line to a desired internal format. If not given,
+            a simple `float()` will be used.
+        block_label: This string is used to identify blocks.
 
-    Yields
-    ------
-    data : list
-        The data read from the file, arranged in dicts.
-
+    Yields:
+        The data read from the file, arranged in a dictionary.
+        The dictionary has a key for comments and a key for the
+        data.
     """
     ncol = -1  # The number of columns
     new_block: dict[str, Any] = {"comment": [], "data": []}
