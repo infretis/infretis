@@ -137,7 +137,6 @@ def _make_header(labels: list[str], width: list[int], spacing: int = 1) -> str:
 
     Returns
         A header for the table.
-
     """
     heading = []
     for i, col in enumerate(labels):
@@ -157,18 +156,13 @@ def _make_header(labels: list[str], width: list[int], spacing: int = 1) -> str:
 class OutputFormatter:
     """A generic class for formatting output from PyRETIS.
 
-    Attributes
-    ----------
-    name : string
-        A string which identifies the formatter.
-    header : string
-        A header (or table heading) with information about the
-        output data.
-    print_header : boolean
-        Determines if we are to print the header or not. This is useful
-        for classes making use of the formatter to determine if they
-        should write out the header or not.
-
+    Attributes:
+        name: A string which identifies the formatter.
+        header: A string representing the header (or table heading)
+            with information about the output data.
+        print_header: If True, the header is printed. This is useful
+            for classes making use of the formatter to determine if
+            they should write out the header or not.
     """
 
     _FMT = "{}"
@@ -176,13 +170,9 @@ class OutputFormatter:
     def __init__(self, name: str, header: dict[str, Any] | None = None):
         """Initialise the formatter.
 
-        Parameters
-        ----------
-        name : string
-            A string which identifies the output type of this formatter.
-        header : dict, optional
-            The header for the output data
-
+        Args:
+            name: A string that identifies the output type of this formatter.
+            header: A dictionary representing the header for the output data.
         """
         self.name = name
         self._header = "infretis output"
@@ -212,15 +202,9 @@ class OutputFormatter:
     def format(self, step: int, data: Any) -> Iterable[str]:
         """Use the formatter to generate output.
 
-        Parameters
-        ----------
-        step : integer
-            This is assumed to be the current step number for
-            generating the output.
-        data : list, dict or similar
-            This is the data we are to format. Here we assume that
-            this is something we can iterate over.
-
+        Args:
+            step: The current step number for generating the output.
+            data: The data to format; assumed to be iterable.
         """
         out = [f"{step}"]
         for i in data:
@@ -229,22 +213,17 @@ class OutputFormatter:
 
     @staticmethod
     def parse(line: str) -> list[int] | list[float] | list[str]:
-        """Parse formatted data.
+        """Parse formatted data to numbers.
 
         This method is intended to be the "inverse" of the :py:meth:`.format`
-        method. In this particular case, we assume that we read floats from
-        columns in a file. One input line corresponds to a "row" of data.
+        method. It assume that we read floats from columns in a file.
+        One input line corresponds to a "row" of data.
 
-        Parameters
-        ----------
-        line : string
-            The string we will parse.
+        Args:
+            line: The string we will parse.
 
-        Returns
-        -------
-        out : list of floats
+        Returns:
             The parsed input data.
-
         """
         return [
             int(col) if i == 0 else float(col)
@@ -254,28 +233,19 @@ class OutputFormatter:
     def load(self, filename: str) -> Iterable[dict[str, Any]]:
         """Read generic data from a file.
 
-        Since this class defines how the data is formatted it is also
-        convenient to have methods for reading the data defined here.
         This method will read entire blocks of data from a file into
-        memory. This will be slow for large files and this method
-        could be converted to also yield the individual "rows" of
-        the blocks, rather than the full blocks themselves.
+        memory. This will be slow for large files.
 
-        Parameters
-        ----------
-        filename : string
-            The path/file name of the file we want to open.
+        Args:
+            filename: The path to the file to read.
 
-        Yields
-        ------
-        data : list of tuples of int
-            This is the data contained in the file. The columns are the
-            step number, interface number and direction.
+        Yields:
+            This is the data contained in the file. It is return as
+            a dictionary where the key `"data"` contains the data
+            read.
 
-        See Also
-        --------
-        :py:func:`.read_some_lines`.
-
+        See Also:
+            :py:func:`.read_some_lines`.
         """
         for blocks in read_some_lines(filename, self.parse):
             data_dict = {"comment": blocks["comment"], "data": blocks["data"]}
@@ -308,24 +278,19 @@ class OrderFormatter(OutputFormatter):
     ORDER_FMT = ["{:>10d}", "{:>12.6f}"]
 
     def __init__(self, name: str = "OrderFormatter"):
-        """Initialise a `OrderFormatter` formatter."""
+        """Initialise the formatter."""
         header = {"labels": ["Time", "Orderp"], "width": [10, 12]}
         super().__init__(name, header=header)
 
     def format_data(self, step: int, orderdata: list[float]) -> str:
         """Format order parameter data.
 
-        Parameters
-        ----------
-        step : int
-            This is the current step number.
-        orderdata : list of floats
-            These are the order parameters.
+        Args:
+            step: This is the current step number.
+            orderdata: These are the order parameters to format.
 
-        Yields
-        ------
-        out : string
-            The strings to be written.
+        Yields:
+            The formatted data as a string.
 
         """
         towrite = [self.ORDER_FMT[0].format(step)]
@@ -339,30 +304,7 @@ class OrderFormatter(OutputFormatter):
         yield self.format_data(step, data)
 
     def load(self, filename: str) -> Iterable[dict[str, Any]]:
-        """Read order parameter data from a file.
-
-        Since this class defines how the data is formatted it is also
-        convenient to have methods for reading the data defined here.
-        This method will read entire blocks of data from a file into
-        memory. This will be slow for large files and this method
-        could be converted to also yield the individual "rows" of
-        the blocks, rather than the full blocks themselves.
-
-        Parameters
-        ----------
-        filename : string
-            The path/file name of the file we want to open.
-
-        Yields
-        ------
-        data_dict : dict
-            This is the order parameter data in the file.
-
-        See Also
-        --------
-        :py:func:`.read_some_lines`.
-
-        """
+        """Read order parameter data from the given file."""
         for blocks in read_some_lines(filename, self.parse):
             data_dict = {
                 "comment": blocks["comment"],
@@ -375,28 +317,21 @@ class OrderPathFormatter(OrderFormatter):
     """A class for formatting order parameter data for paths."""
 
     def __init__(self) -> None:
-        """Initialise."""
+        """Initialise the formatter."""
         super().__init__(name="OrderPathFormatter")
         self.print_header = False
 
     def format(self, step: int, data: list[Any]) -> Iterable[str]:
-        """Format the order parameter data from a path.
+        """Format the order parameter dat for a path.
 
-        Parameters
-        ----------
-        step : int
-            The cycle number we are creating output for.
-        data : tuple or list
-            Here, data[0] contains a object
-            like :py:class:`.PathBase` which is the path we are
-            creating output for. data[1] contains the status for
-            this path.
+        Args:
+            step: The cycle number we are creating output for.
+            data: A tuple on the form `(Path, status)` where `Path` is
+                the :py:class:`.PathBase` to extract order parameters for
+                and `status` is the string representing the status of the path.
 
-        Yields
-        ------
-        out : string
-            The strings to be written.
-
+        Yields:
+            The formatted order parameters.
         """
         path, status = data[0], data[1]
         if not path:  # E.g. when null-moves are False.
@@ -411,17 +346,10 @@ class OrderPathFormatter(OrderFormatter):
 class OutputBase(metaclass=ABCMeta):
     """A generic class for handling output.
 
-    Attributes
-    ----------
-    formatter : object like py:class:`.OutputFormatter`
-        The object responsible for formatting output.
-    target : string
-        Determines where the target for the output, for
-        instance "screen" or "file".
-    first_write : boolean
-        Determines if we have written something yet, or
-        if this is the first write.
-
+    Attributes:
+        formatter: The object responsible for formatting output.
+        first_write: Determines if we have written something yet, or
+            if this is the first write.
     """
 
     def __init__(self, formatter: OutputFormatter):
@@ -432,13 +360,9 @@ class OutputBase(metaclass=ABCMeta):
     def output(self, step: int, data: list[Any]) -> Any:
         """Use the formatter to write data to the file.
 
-        Parameters
-        ----------
-        step : int
-            The current step number.
-        data : list
-            The data we are going to output.
-
+        Args:
+            step: The current step number.
+            data: The data we are going to format and write.
         """
         if self.first_write and self.formatter.print_header:
             self.first_write = False
@@ -450,18 +374,12 @@ class OutputBase(metaclass=ABCMeta):
     def write(self, towrite: str, end: str = "\n") -> bool:
         """Write a string to the output defined by this class.
 
-        Parameters
-        ----------
-        towrite : string
-            The string to write.
-        end : string, optional
-            A "terminator" for the given string.
+        Parameters:
+            towrite: The string to write.
+            end: A "terminator" for the given string.
 
-        Returns
-        -------
-        status : boolean
+        Returns:
             True if we managed to write, False otherwise.
-
         """
 
     def formatter_info(self) -> str:
@@ -471,7 +389,7 @@ class OutputBase(metaclass=ABCMeta):
         return "No formatter defined"
 
     def __str__(self) -> str:
-        """Return basic info."""
+        """Return basic info about the formatter."""
         return f"{self.__class__.__name__}\n\t* Formatter: {self.formatter}"
 
 
