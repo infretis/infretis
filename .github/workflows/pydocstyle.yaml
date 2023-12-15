@@ -1,0 +1,43 @@
+name: pydocstyle on changes
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.py'
+  push:
+    branches:
+      - main
+    paths:
+      - '**.py'
+
+jobs:
+  pydocstyle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v3
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: "Install pydocstyle"
+        run: pip install pydocstyle
+
+      - name: "Get changed files"
+        id: files
+        uses: lots0logs/gh-action-get-changed-files@2.2.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run pydocstyle on changed files
+        run: |
+          for file in ${{ steps.files.outputs.added_modified }}; do
+            if [[ $file == *.py ]]; then
+              echo "Checking $file"
+              pydocstyle $file
+            fi
+          done
