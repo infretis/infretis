@@ -108,11 +108,11 @@ class OrderParameter:
 
     @abstractmethod
     def load_restart_info(self, info: dict[str, str]):
-        """Load the orderparameter restart info."""
+        """Load the order parameter restart info."""
 
     @abstractmethod
     def restart_info(self) -> dict[str, str]:
-        """Save any mutatable parameters for the restart."""
+        """Save any mutatable info for the restart."""
 
 
 class Distancevel(OrderParameter):
@@ -285,10 +285,10 @@ def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
 
     Args:
         settings: A dictionary with simulation settings. This
-        method will use the `orderparameter` section of the settings.
+        method will use the `"orderparameter"` section of the settings.
 
     Returns:
-        The order parameter created here.
+        The created order parameter.
     """
     order_map = {
         "orderparameter": {"class": OrderParameter},
