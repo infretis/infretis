@@ -1,8 +1,12 @@
 def method(x):
-    "X isaaaa function."
+    """X isaaaa function."""
     return x
 
 
 def test(y):
-    "Calcilite 10."
+    """Calcilite 10.
+
+    Thi method calculates soimething.
+
+    """
     return y * 10
