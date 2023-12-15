@@ -9,3 +9,7 @@ def method(x):
 def method2(x):
     """Return x*10."""
     return x * 10
+
+
+def method_missing_docs(x, y):
+    return x + y
