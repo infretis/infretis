@@ -12,5 +12,5 @@ def method2(x):
 
 
 def method_missing_docs(x, y):
-    """This does stuff."""
+    """Do stuff."""
     return x + y
