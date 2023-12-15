@@ -1,3 +1,4 @@
+"""Define the engine for using LAMMPS."""
 from __future__ import annotations
 
 import logging
@@ -515,21 +516,20 @@ class LAMMPSEngine(EngineBase):
         return success, status
 
     def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
-        """Extract a frame from a trajectory and write a new configuration,
-        which is a single frame trajectory"""
+        """Extract a frame from a trajectory to a new file."""
         id_type, pos, vel, box = read_lammpstrj(traj_file, idx, self.n_atoms)
         write_lammpstrj(out_file, id_type, pos, vel, box)
 
     def _read_configuration(
         self, filename: str
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
-        """Read a configuration (a single frame trajectory)"""
+        """Read a configuration (a single frame trajectory)."""
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         pos, box = shift_boxbounds(pos, box)
         return pos, vel, box, None
 
     def _reverse_velocities(self, filename: str, outfile: str) -> None:
-        """Reverse the velocities of a configuration"""
+        """Reverse the velocities of a configuration."""
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         vel *= -1.0
         write_lammpstrj(outfile, id_type, pos, vel, box)
@@ -537,11 +537,13 @@ class LAMMPSEngine(EngineBase):
     def modify_velocities(
         self, system: System, vel_settings: dict[str, Any]
     ) -> tuple[float, float]:
-        """Draw random velocities from a boltzmann distribution, and
-        write a new configuration to genvel.lammpstrj.
+        """Draw random velocities from a gaussian distribution.
 
-        Basically a shortened copy from cp2k.py. Does not
-        take care of constraints.
+        The new velocities are written to a new configuration. This is
+        basically a shortened copy from the CP2K engine.
+
+        Note:
+            This method does **not** take care of constraints.
         """
         mass = self.mass
         beta = self.beta
@@ -589,6 +591,5 @@ class LAMMPSEngine(EngineBase):
         return dek, kin_new
 
     def set_mdrun(self, md_items: dict[str, Any]) -> None:
-        """Give worker the correct random generator and executional directory,
-        and eventual alternative run stuff"""
+        """Set the executional directory for workers."""
         self.exe_dir = md_items["w_folder"]

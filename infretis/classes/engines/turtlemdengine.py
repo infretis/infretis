@@ -52,7 +52,8 @@ INTEGRATOR_MAPS = {
 
 
 class TurtleMDEngine(EngineBase):
-    """
+    """Interface the TurtleMD engine.
+
     To do:
         * Add support for multiple potentials?
         * Velocity generation adds needs to account for
@@ -158,7 +159,8 @@ class TurtleMDEngine(EngineBase):
         msg_file: FileIO,
         reverse: bool = False,
     ) -> tuple[bool, str]:
-        """
+        """Propagate the equations of motion from the given system.
+
         We assume the following:
             * Box does not change (constant volume simulation)
             * Box is orthogonal
@@ -290,7 +292,8 @@ class TurtleMDEngine(EngineBase):
         raise ValueError("Missing TurtleMD configuration")
 
     def set_mdrun(self, md_items: dict[str, Any]) -> None:
-        """Remove or rename?"""
+        """Set the execute directory."""
+        # TODO: REMOVE OR RENAME?
         self.exe_dir = md_items["exe_dir"]
 
     def _reverse_velocities(self, filename: str, outfile: str) -> None:

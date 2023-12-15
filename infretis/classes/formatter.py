@@ -155,7 +155,7 @@ def _make_header(labels: list[str], width: list[int], spacing: int = 1) -> str:
 
 
 class OutputFormatter:
-    """A generic class for formatting output from PyRETIS.
+    """A generic class for formatting output.
 
     Attributes:
         name: A string which identifies the formatter.
@@ -601,7 +601,7 @@ class FileIO(OutputBase):
 
 
 class OrderFile(FileIO):
-    """A class for handling PyRETIS order parameter files."""
+    """A class for handling order parameter files."""
 
     def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the order file with correct formatter."""
@@ -609,7 +609,7 @@ class OrderFile(FileIO):
 
 
 class OrderPathFile(FileIO):
-    """A class for handling PyRETIS order parameter path files."""
+    """A class for handling order parameter path files."""
 
     def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the order path file with correct formatter."""
@@ -619,7 +619,7 @@ class OrderPathFile(FileIO):
 
 
 class EnergyFormatter(OutputFormatter):
-    """A class for formatting energy data from PyRETIS.
+    """A class for formatting energy data.
 
     This class handles formatting of energy data.
     The data is formatted in 5 columns:
@@ -991,7 +991,7 @@ class LogFormatter(logging.Formatter):  # pragma: no cover
     """Hard-coded formatter for the log file."""
 
     def format(self, record):
-        """Apply the PyRETIS log format."""
+        """Apply the log format."""
         out = logging.Formatter.format(self, record)
         return out
 

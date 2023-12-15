@@ -1,3 +1,4 @@
+"""Helper methods for MD engines."""
 import logging
 import math
 import os
@@ -485,9 +486,12 @@ def look_for_input_files(
 
 
 class ReadAndProcessOnTheFly:
-    """Read from an open fileobject on the fly and do some processing on
-    new data that is written to it. Files should be opened using a 'with open'
-    statement to be sure that they are closed.
+    """Read and process from an open fileobject on the fly.
+
+    This method will read from an open fileobject on the fly,
+    and do some processing on new data that is written to the file.
+    Files should be opened using a 'with open' statement to be sure
+    that they are closed.
 
     To do
     use with open in here. Point at current pos and read N finished blocks. Put
@@ -501,6 +505,7 @@ class ReadAndProcessOnTheFly:
         processing_function: Callable[..., Any],
         read_mode: str = "r",
     ):
+        """Create the reader object."""
         self.file_path = file_path
         self.processing_function = processing_function
         self.current_position = 0
@@ -508,6 +513,7 @@ class ReadAndProcessOnTheFly:
         self.read_mode = read_mode
 
     def read_and_process_content(self) -> Any:
+        """Read and process content from a file."""
         # we may open at a time where the file
         # is currently not open for reading
         try:
@@ -520,6 +526,7 @@ class ReadAndProcessOnTheFly:
 
 
 def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
+    """Read XYZ-files on the fly."""
     # trajectory of ready frames to be returned
     trajectory: list[np.ndarray] = []
     # holder for storing frame coordinates

@@ -420,6 +420,8 @@ def update_cp2k_input(
 
 
 class BoxData(TypedDict, total=False):
+    """Store information about CP2K simulation box."""
+
     A: np.ndarray
     B: np.ndarray
     C: np.ndarray
@@ -590,15 +592,13 @@ def read_cp2k_box(
 
 
 def guess_particle_mass(particle_no: int, particle_type: str) -> float:
-    """Guess a particle mass from it's type and convert to cp2k
-    units.
+    """Guess a particle mass from its type and convert to CP2K units.
 
-    Parameters
-    ----------
-    particle_no : integer
-        Just used to identify the particle number.
-    particle_type : string
-        Used to identify the particle.
+    Args:
+        particle_no: The particle number. This is only used
+            for output to the logger.
+        particle_type: The particle type as a string. This
+            should be an element from the periodic table.
     """
     logger.info(
         (
@@ -655,24 +655,18 @@ def kinetic_energy(
 
 def reset_momentum(vel: np.ndarray, mass: np.ndarray) -> np.ndarray:
     """Set the linear momentum of all particles to zero.
-       Note that velocities are modified in place, but also
-       returned.
 
-    Parameters
-    ----------
-    vel : numpy.array
-        The velocities of the particles in system.
-    mass : numpy.array
-        The masses of the particles in the system.
+    Note:
+        Velocities are modified in place **and** returned.
 
-    Returns
-    -------
-    out : numpy.array
-        Returns the modified velocities of the particles.
+    Args:
+        vel: The velocities of the particles in system.
+        mass: The masses of the particles in the system.
 
+    Returns:
+        The modified velocities of the particles.
     """
-    # avoid creating an extra dimension by indexing array with None
-
+    # TODO: ?avoid creating an extra dimension by indexing array with None?
     mom = np.sum(vel * mass, axis=0)
     vel -= mom / mass.sum()
     return vel
@@ -1205,7 +1199,8 @@ class CP2KEngine(EngineBase):
         return xyz, vel, box, names
 
     def set_mdrun(self, md_items: dict[str, Any]) -> None:
-        """Remove or rename?"""
+        """Set the execute directory."""
+        # TODO: REMOVE OR RENAME?
         self.exe_dir = md_items["exe_dir"]
 
     def _reverse_velocities(self, filename: str, outfile: str) -> None:
@@ -1228,11 +1223,11 @@ class CP2KEngine(EngineBase):
     def modify_velocities(
         self, system: System, vel_settings: dict[str, Any]
     ) -> tuple[float, float]:
-        """
-        Modify the velocities of all particles. Note that cp2k by default
-        removes the center of mass motion, thus, we need to rescale the
-        momentum to zero by default.
+        """Modify the velocities of all particles.
 
+        Note:
+            CP2K removes the center of mass motion by default.
+            We need to rescale the momentum to zero by default.
         """
         mass = self.mass
         beta = self.beta
