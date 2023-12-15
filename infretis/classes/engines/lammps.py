@@ -238,7 +238,7 @@ def get_atom_masses(lammps_data: str | Path) -> np.ndarray:
                 atoms = np.genfromtxt(
                     lammps_data, skip_header=i + 1, max_rows=n_atoms
                 )
-    # if we didnt find all of the information
+    # if we did not find all of the information
     if n_atoms == 0 or n_atom_types == 0:
         raise ValueError(
             f"Could not read atom masses from {lammps_data}. \
@@ -292,13 +292,13 @@ class LAMMPSEngine(EngineBase):
     instead of making variables. Much easier to run md with
     the same input file
 
-    * Periodicity in LAMMPS has to take into accound hi and lo box bounds:
+    * Periodicity in LAMMPS has to take into account hi and lo box bounds:
     As of now, we subtract the lower bounds from the positions and the box
     vectors to create a regular box with 0 lower bounds. This is hard coded
     in _propagate_from() when calculating, and also in _read_configuration().
 
     * external_orderparameter. If this is set to true, we read
-    in the orderparameter from and external file. May be usefull when the
+    in the orderparameter from and external file. May be useful when the
     orderparameter is calculated internally in LAMMPS for expensive
     calculations such as in nucleation, or any other fancy stuff.
     """
@@ -420,7 +420,7 @@ class LAMMPSEngine(EngineBase):
                 )
                 # start reading on the fly as LAMMPS is still running
                 # if it stops, perform one more iteration to read
-                # the remaning contnent in the files.
+                # the remaining content in the files.
                 iterations_after_stop = 0
                 step_nr = 0
                 trajectory: list[np.ndarray] = []
@@ -460,7 +460,7 @@ class LAMMPSEngine(EngineBase):
                             if exe.poll() is None:
                                 logger.debug("Terminating LAMMPS execution")
                                 os.killpg(os.getpgid(exe.pid), signal.SIGTERM)
-                                # wait for process to die, neccessary for mpi
+                                # wait for process to die, necessary for mpi
                                 exe.wait(timeout=360)
                             logger.debug(
                                 "LAMMPS propagation ended at %i. Reason: %s",

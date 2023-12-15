@@ -535,8 +535,8 @@ def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
             block_size = N_atoms + 2  # 2 header lines
         # if we are not in the atom nr or header block
         if i % block_size > 1:
-            # if there arent enough values to iterate through
-            # return the (posibly empty) ready trajectory frames
+            # if there aren't enough values to iterate through
+            # return the (possibly empty) ready trajectory frames
             if len(spl) != 4:
                 reader_class.current_position = reader_class.previous_position
                 return trajectory
@@ -608,7 +608,7 @@ def lammpstrj_reader(
                 reader_class.current_position = reader_class.previous_position
                 return trajectory, box
             else:
-                # we may have either 2 or 3 colums in box output
+                # we may have either 2 or 3 columns in box output
                 box_snapshot[line_nr - 5] = spl + [0] * (3 - n_box_cols)
         # we are in the atoms block
         elif line_nr >= 9:

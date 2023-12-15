@@ -217,7 +217,7 @@ def read_cp2k_input(filename: str | Path) -> list[SectionNode]:
             if lstrip.startswith("&"):
                 strip = lstrip[1:].split()
                 if lstrip[1:].lower().startswith("end"):
-                    # current node is alway set here, so the line below is
+                    # current node is always set here, so the line below is
                     # fine:
                     current_node = current_node.parent  # type: ignore
                 else:
@@ -916,7 +916,7 @@ class CP2KEngine(EngineBase):
         for reversing the velocities and also for setting the initial
         state of the system.
 
-        Note that the on-the-fly reading of data is curently only applicable
+        Note that the on-the-fly reading of data is currently only applicable
         for NVT simulations, as no box information is read from cp2k.
 
         Parameters
@@ -1044,7 +1044,7 @@ class CP2KEngine(EngineBase):
                 )
                 # start reading on the fly as cp2k is still running
                 # if it stops, perform one more iteration to read
-                # the remaning contnent in the files. Note that we assume here
+                # the remaining content in the files. Note that we assume here
                 # that cp2k writes in blocks of frames, and never partially
                 # finished frames.
                 iterations_after_stop = 0
@@ -1229,7 +1229,7 @@ class CP2KEngine(EngineBase):
         self, system: System, vel_settings: dict[str, Any]
     ) -> tuple[float, float]:
         """
-        Modfy the velocities of all particles. Note that cp2k by default
+        Modify the velocities of all particles. Note that cp2k by default
         removes the center of mass motion, thus, we need to rescale the
         momentum to zero by default.
 

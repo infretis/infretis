@@ -1476,7 +1476,7 @@ def read_remaining_trr(
     stop = False
     bytes_read = start
     bytes_total = os.path.getsize(filename)
-    logger.debug("Reading remaing data from: %s", filename)
+    logger.debug("Reading remaining data from: %s", filename)
     while not stop:
         if bytes_read >= bytes_total:
             stop = True

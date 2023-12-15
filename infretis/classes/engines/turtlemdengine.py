@@ -55,7 +55,7 @@ class TurtleMDEngine(EngineBase):
     """
     To do:
         * Add support for multiple potentials?
-        * Velocity generation adds needs to accound for
+        * Velocity generation adds needs to account for
           the dimensionality of the system
     """
 
@@ -172,7 +172,7 @@ class TurtleMDEngine(EngineBase):
         initial_conf = system.config[0]
         # these variables will be used later
         pos, vel, box, atoms = self._read_configuration(initial_conf)
-        # inititalize turtlemd system
+        # initialize turtlemd system
         particles = TParticles(dim=self.dim)
         for i in range(self.particles.npart):
             particles.add_particle(
@@ -312,7 +312,7 @@ class TurtleMDEngine(EngineBase):
     ) -> tuple[float, float]:
         """Modify the velocities of all particles.
 
-        Thie method modifies the velocity of all particles. Note that default
+        This method modifies the velocity of all particles. Note that default
         removes the center of mass motion, thus, we need to rescale the
         momentum to zero by default.
 

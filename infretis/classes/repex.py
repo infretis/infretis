@@ -76,7 +76,7 @@ class REPEX_state:
 
     @property
     def cstep(self):
-        """Retrive cstep from config dict."""
+        """Retrieve cstep from config dict."""
         return self.config["current"]["cstep"]
 
     @cstep.setter
@@ -86,52 +86,52 @@ class REPEX_state:
 
     @property
     def tsteps(self):
-        """Retrive total steps from config dict."""
+        """Retrieve total steps from config dict."""
         return self.config["simulation"]["steps"]
 
     @property
     def screen(self):
-        """Retrive screen print frequency from config dict."""
+        """Retrieve screen print frequency from config dict."""
         return self.config["output"]["screen"]
 
     @property
     def mc_moves(self):
-        """Retrive mc moves list from config dict."""
+        """Retrieve mc moves list from config dict."""
         return self.config["simulation"]["shooting_moves"]
 
     @property
     def cap(self):
-        """Retrive mc moves list from config dict."""
+        """Retrieve mc moves list from config dict."""
         return self.config["simulation"]["tis_set"].get("interface_cap", None)
 
     @property
     def pattern(self):
-        """Retrive pattern_file from config dict."""
+        """Retrieve pattern_file from config dict."""
         return self.config["output"].get("pattern", False)
 
     @property
     def pattern_file(self):
-        """Retrive pattern_file from config dict."""
+        """Retrieve pattern_file from config dict."""
         return self.config["output"]["pattern_file"]
 
     @property
     def data_file(self):
-        """Retrive data_file from config dict."""
+        """Retrieve data_file from config dict."""
         return self.config["output"]["data_file"]
 
     @property
     def interfaces(self):
-        """Retrive interfaces from config dict."""
+        """Retrieve interfaces from config dict."""
         return self.config["simulation"]["interfaces"]
 
     @property
     def locked(self):
-        """Retrive locked from config dict."""
+        """Retrieve locked from config dict."""
         return list(self.config["current"].get("locked", []))
 
     @property
     def workers(self):
-        """Retrive workers from config dict."""
+        """Retrieve workers from config dict."""
         return self.config["dask"]["workers"]
 
     def pick(self):
@@ -376,7 +376,7 @@ class REPEX_state:
         self.rgen.bit_generator.state = seed_state["state"]
 
     def loop(self):
-        """Check and interate loop."""
+        """Check and iterate loop."""
         if self.printing():
             if self.cstep not in (
                 0,
@@ -531,7 +531,7 @@ class REPEX_state:
                         f"random #{self._random_count}, "
                         f"dims = {len(subarr)}"
                     )
-                    # do n random parrallel samples
+                    # do n random parallel samples
                     temp = self.random_prob(subarr)
                     out[start:stop, cstart:cstop:direction] = temp
 
@@ -588,7 +588,7 @@ class REPEX_state:
     def force_quick_prob(self, arr):
         """Quick P matrix calculation for specific W matrix."""
         # TODO: DEBUG CODE
-        # ONLY HERE TO DEBUG THE OTHER MEHTODS
+        # ONLY HERE TO DEBUG THE OTHER METHODS
         total_traj_prob = np.ones(shape=arr.shape[0], dtype="float128")
         out_mat = np.zeros(shape=arr.shape, dtype="float128")
 
