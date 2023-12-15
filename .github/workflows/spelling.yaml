@@ -1,0 +1,33 @@
+name: Spelling Check
+
+on:
+  pull_request:
+    paths:
+      - '**.py'
+      - '**.md'
+  push:
+    branches:
+      - main
+    paths:
+      - '**.py'
+      - '**.md'
+  workflow_dispatch:
+
+jobs:
+  check-spelling:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v3
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: "Install codespell"
+        run: pip install codespell
+
+      - name: "Run codespell"
+        run: codespell --skip="*.jpg,*.png,*.gif,*.pdf" .

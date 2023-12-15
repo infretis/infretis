@@ -1,0 +1,52 @@
+name: pydocstyle on changes
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.py'
+  push:
+    branches:
+      - main
+    paths:
+      - '**.py'
+  workflow_dispatch:
+
+jobs:
+  pydocstyle:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v3
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: "Install pydocstyle"
+        run: pip install pydocstyle
+
+      - name: "Get changed files"
+        id: changed-files
+        uses: tj-actions/changed-files@v40
+
+      - name: "Run pydocstyle on changed files"
+        run: |
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+              if [[ "$file" == *.py ]]; then
+                echo "Running pydocstyle on $file"
+                pydocstyle "$file"
+                # The following will turn the errors into warnings
+                # (can be used if the failing is too strict).
+                #pydocstyle_output=$(pydocstyle "$file" 2>&1) || true
+                #if [ -n "$pydocstyle_output" ]; then
+                #    echo "::warning file=$file::$pydocstyle_output"
+                #fi
+              else
+                echo "$file is not a Python file, skipping"
+              fi
+          done
