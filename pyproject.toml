@@ -6,6 +6,7 @@ authors = [
     "Daniel Zhang <daniel.t.zhang@ntnu.no>",
     "Lukas Baldauf <lukas.baldauf@ntnu.no>",
     "Anders Lervik <andersle@gmail.com>",
+    "Titus Sebastiaan van Erp <titus.van.erp@ntnu.no>"
 ]
 license = "MIT"
 readme = "README.md"
