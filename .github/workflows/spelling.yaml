@@ -38,7 +38,7 @@ jobs:
           for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
             if [[ "$file" == *.py || "$file" == *.md ]]; then
               echo "Checking: $file"
-              codespell "$file"
+              codespell "$file" --ignore-words=codespell-ignore.txt
             else
                 echo "Skipping: $file (not .py or .md)"
             fi
