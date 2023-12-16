@@ -54,7 +54,7 @@ class REPEX_state:
 
         self.n = n
         self.state = np.zeros(shape=(n, n))
-        self._locks = np.ones(shape=(n))
+        self._locks = np.ones(shape=n)
         self._last_prob = None
         self._random_count = 0
         self._trajs = [""] * n
@@ -197,8 +197,7 @@ class REPEX_state:
         """
         if not self.locked0:
             return self.pick()
-        else:
-            self.locked0.pop()
+        self.locked0.pop()
         logger.info("pick locked!")
         enss = []
         trajs = []
@@ -355,7 +354,7 @@ class REPEX_state:
         return locks
 
     def save_rgen(self):
-        """Save numpy random generator state.."""
+        """Save numpy random generator state."""
         save_loc = self.config["simulation"].get("save_loc", "./")
         save_loc = os.path.join("./", save_loc, "infretis.restart")
         # seed keeps track of number of children spawned
