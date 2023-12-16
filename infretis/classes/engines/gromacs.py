@@ -920,7 +920,7 @@ class GromacsRunner:
                             first_header = False
                         # Calculate the size of the data:
                         self.data_size = sum(
-                            [header[key] for key in TRR_DATA_ITEMS]
+                            header[key] for key in TRR_DATA_ITEMS
                         )
                         data = None
                         while data is None:
@@ -1287,7 +1287,7 @@ def skip_trr_data(fileh: BufferedReader, header: dict[str, Any]) -> None:
         fileh: The file handle for the file we are reading.
         header: The header read from the TRR file.
     """
-    offset = sum([header[key] for key in TRR_DATA_ITEMS])
+    offset = sum(header[key] for key in TRR_DATA_ITEMS)
     fileh.seek(offset, 1)
 
 
@@ -1452,7 +1452,7 @@ def get_data(
             - The data read from the file.
             - The size of the data read.
     """
-    data_size = sum([header[key] for key in TRR_DATA_ITEMS])
+    data_size = sum(header[key] for key in TRR_DATA_ITEMS)
     data = read_trr_data(fileh, header)
     return data, data_size
 
