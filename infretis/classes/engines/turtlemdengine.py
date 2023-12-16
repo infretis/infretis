@@ -370,9 +370,7 @@ class TurtleMDEngine(EngineBase):
             raise NotImplementedError(
                 "Option 'rescale_energy' is not implemented yet."
             )
-        conf_out = os.path.join(
-            self.exe_dir, "{}.{}".format("genvel", self.ext)
-        )
+        conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
         write_xyz_trajectory(conf_out, xyz, vel, atoms, box, append=False)
         kin_new = kinetic_energy(vel, mass)[0]
         system.config = (conf_out, 0)
