@@ -570,9 +570,7 @@ class LAMMPSEngine(EngineBase):
         if vel_settings.get("zero_momentum", False):
             vel = reset_momentum(vel, mass)
 
-        conf_out = os.path.join(
-            self.exe_dir, "{}.{}".format("genvel", self.ext)
-        )
+        conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
 
         write_lammpstrj(conf_out, id_type, xyz, vel, box)
 
