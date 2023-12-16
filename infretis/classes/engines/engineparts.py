@@ -103,21 +103,16 @@ _XYZ_BIG_VEL_FMT = _XYZ_BIG_FMT + 3 * " {:15.9f}"
 
 
 def _cos(angle: float) -> float:
-    """Return cosine of an angle.
+    """Return cosine of an angle in degrees.
 
-    We also check if the angle is close to 90.0 and if so, we return
-    a zero.
+    Note:
+        If the angle is close to 90.0 we return 0.0.
 
-    Parameters
-    ----------
-    angle : float
-        The angle in degrees.
+    Args:
+        angle: The angle in degrees.
 
-    Returns
-    -------
-    out : float
+    Returns:
         The cosine of the angle.
-
     """
     if math.isclose(angle, 90.0):
         return 0.0
@@ -127,24 +122,20 @@ def _cos(angle: float) -> float:
 def box_vector_angles(
     length: np.ndarray, alpha: float, beta: float, gamma: float
 ) -> np.ndarray:
-    """Obtain the box matrix from given lengths and angles.
+    """Return the box matrix from given lengths and angles.
 
-    Parameters
-    ----------
-    length : numpy.array
-        1D array, the box-lengths on form ``[a, b, c]``.
-    alpha : float
-        The alpha angle, in degrees.
-    beta : float
-        The beta angle, in degrees.
-    gamma : float
-        The gamma angle, in degrees.
+    Args:
+        length: The box lengths as a 1D array.
+        alpha: The alpha angle, in degrees.
+        beta: The beta angle, in degrees.
+        gamma: The gamma angle, in degrees.
 
-    Returns
-    -------
-    out : numpy.array, 2D
+    Returns:
         The (upper triangular) box matrix.
 
+    Note:
+        The angles and box lengths follow the convention from
+        LAMMPS (https://docs.lammps.org/Howto_triclinic.html).
     """
     box_matrix = np.zeros((3, 3))
     cos_alpha = _cos(alpha)
@@ -166,25 +157,18 @@ def box_vector_angles(
 def box_matrix_to_list(
     matrix: np.ndarray, full: bool = False
 ) -> np.ndarray | None:
-    """Return a list representation of the box matrix.
+    """Flatten a box matrix to a list.
 
-    This method ensures correct ordering of the elements for InfRETIS:
-    ``xx, yy, zz, xy, xz, yx, yz, zx, zy``.
+    This method flattens and orders a box matrix to the following order:
+    `xx, yy, zz, xy, xz, yx, yz, zx, zy`.
 
-    Parameters
-    ----------
-    matrix : numpy.array
-        A matrix (2D) representing the box.
-    full : boolean, optional
-        Return a full set of parameters (9) if set to True. If False,
-        and we need 3 or fewer parameters (i.e. the other 6 are zero)
-        we will only return the 3 non-zero ones.
+    Args:
+        matrix: A matrix (2D) representing the box.
+        full: If True, this method returns the full set of 9 parameters.
+            If False, only the diagonal elements will be returned.
 
-    Returns
-    -------
-    out : list
-        A list with the box-parametres.
-
+    Returns:
+        A list with the box parameters.
     """
     if matrix is None:
         return None
@@ -208,16 +192,11 @@ def box_matrix_to_list(
 def get_box_from_header(header: str) -> np.ndarray | None:
     """Get box lengths from a text header.
 
-    Parameters
-    ----------
-    header : string
-        Header from which we will extract the box.
+    Args:
+        header: Text from which we will extract the box information.
 
-    Returns
-    -------
-    out : numpy.array or None
+    Returns:
         The box lengths.
-
     """
     low = header.lower()
     if low.find("box:") != -1:
@@ -231,19 +210,14 @@ def read_txt_snapshots(
 ) -> Iterator[dict[str, Any]]:
     """Read snapshots from a text file.
 
-    Parameters
-    ----------
-    filename : string
-        The file to read from.
-    data_keys : tuple of strings, optional
-        This tuple determines the data we are to read. It can
-        be of type ``('atomname', 'x', 'y', 'z', ...)``.
+    Args:
+        filename: Path to the file to read snapshots from.
+        data_keys: A tuple representing the data we are to read,
+            typically on the form: ('atomname', 'x', 'y', 'z', ...)`.
 
-    Yields
-    ------
-    out : dict
-        A dictionary with the snapshot.
-
+    Yields:
+        A dictionary with the snapshot. The keys are the given
+            `data_keys` and the values contain the corresponding data.
     """
     lines_to_read = 0
     snapshot: dict[str, Any] = {}
@@ -286,20 +260,11 @@ def read_xyz_file(filename: str | Path) -> Iterator[dict[str, Any]]:
     This method will read a XYZ file and yield the different snapshots
     found in the file.
 
-    Parameters
-    ----------
-    filename : string
-        The file to open.
+    Args:
+        filename: Path to the file to open.
 
-    Yields
-    ------
-    out : dict
-        This dict contains the snapshot.
-
-    Note
-    ----
-    The positions will **NOT** be converted to a specified set of units.
-
+    Yields:
+        A dictionary containing the snapshot.
     """
     xyz_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
     yield from read_txt_snapshots(filename, data_keys=xyz_keys)
@@ -314,33 +279,21 @@ def write_xyz_trajectory(
     step: int | None = None,
     append: bool = True,
 ) -> None:
-    """Write XYZ snapshot to a trajectory.
+    """Write a XYZ snapshot to a trajectory file.
 
     This is intended as a lightweight alternative for just
     dumping snapshots to a trajectory file.
 
-    Parameters
-    ----------
-    filename : string
-        The file name to dump to.
-    pos : numpy.array
-        The positions we are to write.
-    vel : numpy.array
-        The velocities we are to write.
-    names : list of strings
-        Atom names to write.
-    box : numpy.array
-        The box dimensions/vectors
-    step : integer, optional
-        If the ``step`` is given, then the step number is
-        written to the header.
-    append : boolean, optional
-        Determines if we append or overwrite an existing file.
-
-    Note
-    ----
-    We will here append to the file.
-
+    Args:
+        filename: Path to the file to write to.
+        pos: The positions to write.
+        vel: The velocities to write.
+        names: Atom names to write.
+        box: The box dimensions/vectors
+        step: If the `step` is given, then the step number is
+            written to the header.
+        append: Determines if we append (if True) or overwrite (if False)
+            if the `filename` file exists.
     """
     npart = len(pos)
     if names is None:
@@ -374,22 +327,15 @@ def convert_snapshot(
 ) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
     """Convert a XYZ snapshot to numpy arrays.
 
-    Parameters
-    ----------
-    snapshot : dict
-        The dict containing a snapshot read from a XYZ-file.
+    Args:
+        snapshot: The dict containing a snapshot read from a XYZ-file.
 
-    Returns
-    -------
-    box : numpy.array, 1D
-        The box dimensions if we manage to read it.
-    xyz : numpy.array
-        The positions.
-    vel : numpy.array
-        The velocities.
-    names : list of strings
-        The atom names found in the file.
-
+    Returns:
+        A tuple containing:
+            - The box dimensions if we manage to read it.
+            - The positions.
+            - The velocities.
+            - The atom names found in the file.
     """
     names = snapshot["atomname"]
     box = snapshot.get("box", None)
@@ -409,25 +355,22 @@ def look_for_input_files(
     required_files: dict[str, str] | dict[str, Path],
     extra_files: list[str] | list[Path] | None = None,
 ) -> dict[str, Any]:
-    """Check that required files for external engines are present.
+    """Check that required files for a MD engines are present.
 
-    It will first search for the default files.
-    If not present, it will search for the files with the
-    same extension. In this search,
-    if there are no files or multiple files for a required
-    extension, the function will raise an Error.
+    It will first search for the default files. If not present,
+    it will search for the files with the same extension.
+    In this search, if there are no files or multiple files for
+    a required extension, the function will raise an Error.
     There might also be optional files which are not required, but
     might be passed in here. If these are not present we will
     not fail, but delete the reference to this file.
 
-    Parameters
-    ----------
-    input_path : string
-        The path to the folder where the input files are stored.
-    required_files : dict of strings
-        These are the file names types of the required files.
-    extra_files : list of strings, optional
-        These are the file names of the extra files.
+    Args:
+        input_path: Path to the directory where the input files are
+            stored.
+        required_files: These are the file names (and types as given by
+            their extensions) of the required files.
+        extra_files: These are the file names of the extra files.
 
     Returns
     -------
