@@ -60,28 +60,17 @@ REGEXP_BACKUP = re.compile(r"\.bak-\d$")
 class SectionNode:
     """A class representing a section in the CP2K input.
 
-    Attributes
-    ----------
-    title : string
-        The title of the section
-    parent : string
-        The parent section if this node represents a
-        sub-section.
-    settings : list of strings
-        The setting(s) for this particular node.
-    data : string
-        A section of settings if the node defines several
-        settings.
-    children : set of objects like :py:class:`.SectionNode`
-        A set with the sub-sections of this section.
-    level : integer
-        An integer to remember how far down this node is.
-        E.g. if the level is 2, this node is a sub-sub-section.
-        This is used for printing.
-    parents : list of strings or None
-        A list representing the path from the node to the top
-        section.
-
+    Attributes:
+        title: The title of the section
+        parent: The parent section if this node represents a sub-section.
+        settings: The setting(s) for this particular node.
+        data: A section of settings if the node defines several settings.
+        children: A set with the sub-sections of this section.
+        level: An integer to remember how far down this node is.
+            E.g., if the level is 2, this node is a sub-sub-section.
+            This is used for printing.
+        parents: A list representing the path from the node to the top
+            section.
     """
 
     def __init__(
@@ -93,17 +82,11 @@ class SectionNode:
     ):
         """Initialise a node.
 
-        Parameters
-        ----------
-        title : string
-            The title of the section.
-        parent : object like :py:class:`.SectionNode`
-            The parent if this section is a sub-section.
-        settings : list of strings
-            The settings defined in this section.
-        data : list of strings, optional
-            A section of settings.
-
+        Args:
+            title: The title of the section.
+            parent: The parent, if this section is a sub-section.
+            settings: The settings defined in this section.
+            data: A section of settings.
         """
         self.title = title
         self.parent = parent
@@ -133,18 +116,12 @@ class SectionNode:
 def dfs_print(node: SectionNode, visited: set[SectionNode]) -> list[str]:
     """Walk through the nodes and print out text.
 
-    Parameters
-    ----------
-    node : object like :py:class:`.SectionNode`
-        The object representing a C2PK section.
-    visited : set of objects like :py:class:`.SectionNode`
-        The set contains the nodes we have already visited.
+    Args:
+        node: The object representing a C2PK section.
+        visited: The set contains the nodes we have already visited.
 
-    Returns
-    -------
-    out : list of strings
-        These strings represent the CP2K input file.
-
+    Returns:
+        A list of strings, representing the CP2K input file.
     """
     out = []
     pre = " " * (2 * node.level)
@@ -195,16 +172,11 @@ def set_parents(listofnodes: list[SectionNode]) -> dict[str, SectionNode]:
 def read_cp2k_input(filename: str | Path) -> list[SectionNode]:
     """Read a CP2K input file.
 
-    Parameters
-    ----------
-    filename : string
-        The file to open and read.
+    Args:
+        filename: Path to the file to read.
 
-    Returns
-    -------
-    nodes : list of objects like :py:class:`.SectionNode`
-        The root section nodes found in the file.
-
+    Returns:
+        nodes: The root section nodes found in the file.
     """
     nodes: list[SectionNode] = []
     current_node: SectionNode | None = None
@@ -278,23 +250,15 @@ def update_node(
 
     If the node does not exist, it will be created.
 
-    Parameters
-    ----------
-    target : string
-        The target node, on form root->section->subsection
-    settings : list of strings
-        The settings for the node.
-    data : list of strings or dict
-        The data for the node.
-    node_ref : dict of :py:class:`.SectionNode`
-        A dict of all nodes in the tree.
-    nodes : list of :py:class:`.SectionNode`
-        The root nodes.
-    replace : boolean, optional
-        If this is True and if the nodes have some data, the already
-        existing data will be ignored. We also assume that the data
-        is already formatted.
-
+    Args:
+        target: The target node, on form root->section->subsection
+        settings: The settings for the node.
+        data: The data for the node.
+        node_ref: A dictionary of all nodes in the tree.
+        nodes: The root nodes.
+        replace: If this is True and if the nodes have some data,
+            the already existing data will be ignored. We also assume
+            that the data is already formatted.
     """
     if target not in node_ref:  # add node
         # TODO: remove decommented try-except construction later
@@ -339,15 +303,10 @@ def remove_node(
 ) -> None:
     """Remove a node (and it's children) from the tree.
 
-    Parameters
-    ----------
-    target : string
-        The target node, on form root->section->subcection.
-    node_ref : dict
-        A dict with all the nodes.
-    root_nodes : list of objects like :py:class:`.SectionNode`
-        The root nodes.
-
+    Args:
+        target: The target node, on form root->section->subcection.
+        node_ref: A dict with all the nodes.
+        root_nodes: The root nodes.
     """
     to_del = node_ref.pop(target, None)
     if to_del is None:
@@ -384,17 +343,11 @@ def update_cp2k_input(
 ) -> None:
     """Read a template input and create a new CP2K input.
 
-    Parameters
-    ----------
-    template : string
-        The CP2K input file we use as a template.
-    output : string
-        The CP2K input file we will create.
-    update : dict, optional
-        The settings we will update.
-    remove : list of strings, optional
-        The nodes we will remove.
-
+    Args:
+        template: The CP2K input file we use as a template.
+        output: The CP2K input file we will create.
+        update: The settings we will update.
+        remove: The nodes we will remove.
     """
     nodes = read_cp2k_input(template)
     node_ref = set_parents(nodes)
@@ -435,18 +388,14 @@ def read_box_data(
 ) -> tuple[np.ndarray | None, list[bool]]:
     """Read the box data.
 
-    Parameters
-    ----------
-    box_data : list of strings
-        The settings for the SUBSYS->CELL section.
+    Args:
+        box_data: The settings for the SUBSYS->CELL section.
 
-    Returns
-    -------
-    out[0] : numpy.array, 1D
-        The box vectors, in the correct order.
-    out[1] : list of booleans
-        The periodic boundary setting for each dimension.
-
+    Returns:
+        A tuple containing:
+        - The box vectors, in the correct order as a 1D numpy.array
+        - The periodic boundary setting for each dimension as
+            a list of booleans.
     """
     vectors = ("A", "B", "C", "ABC", "ALPHA_BETA_GAMMA")
     strings = ("PERIODIC",)
@@ -489,16 +438,11 @@ def read_box_data(
 def read_cp2k_energy(energy_file: str | Path) -> dict[str, np.ndarray]:
     """Read and return CP2K energies.
 
-    Parameters
-    ----------
-    energy_file : string
-        The input file to read.
+    Args:
+        energy_file: The path to the input file to read.
 
-    Returns
-    -------
-    out : dict
+    Returns:
         This dict contains the energy terms read from the CP2K energy file.
-
     """
     data = np.genfromtxt(energy_file, invalid_raise=False)
     energy = {}
@@ -507,7 +451,7 @@ def read_cp2k_energy(energy_file: str | Path) -> dict[str, np.ndarray]:
             energy[key] = data[:, i]
         except IndexError:
             logger.warning(
-                "Could not read energy term %s from CP2kfile %s",
+                "Could not read energy term %s from CP2K file %s",
                 key,
                 energy_file,
             )
@@ -521,24 +465,19 @@ def read_cp2k_restart(
 ) -> tuple[list[str], np.ndarray, np.ndarray, np.ndarray | None, list[bool]]:
     """Read some info from a CP2K restart file.
 
-    Parameters
-    ----------
-    restart_file : string
-        The file to read.
+    Args:
+        restart_file: Path to the file to read.
 
-    Returns
-    -------
-    atoms: ?
-    pos : numpy.array
-        The positions.
-    vel : numpy.array
-        The velocities.
-    box_size : numpy.array
-        The box vectors.
-    periodic : list of booleans
-        For each dimension, the list entry is True if periodic
-        boundaries should be applied.
-
+    Returns:
+        A tuple containing:
+            - The name of the atoms in the system.
+            - The positions of the atoms in the system.
+            - The velocities of the atoms in the system.
+            - The box size and dimensions.
+            - The periodic settings for the box dimensions. This is
+              a list of booleans and if an item is True, then periodic
+              boundary conditions should be applied to the corresponding
+              dimension.
     """
     nodes = read_cp2k_input(restart_file)
     node_ref = set_parents(nodes)
@@ -562,19 +501,15 @@ def read_cp2k_box(
 ) -> tuple[np.ndarray | None, list[bool]]:
     """Read the box from a CP2K file.
 
-    Parameters
-    ----------
-    inputfile : string
-        The file we will read from.
+    Args:
+        inputfile: Path to the file to read from.
 
-    Returns
-    -------
-    out[0] : numpy.array
-        The box vectors.
-    out[1] : list of booleans
-        For each dimension, the list entry is True if periodic
-        boundaries should be applied.
-
+    Returns:
+        A tuple containing:
+            - The box vectors.
+            - A list with settings (True/False) for periodic boundary
+              conditions. If the list entry is True, periodic
+              boundaries should be applied to the corresponding dimension.
     """
     nodes = read_cp2k_input(inputfile)
     node_ref = set_parents(nodes)
@@ -599,6 +534,9 @@ def guess_particle_mass(particle_no: int, particle_type: str) -> float:
             for output to the logger.
         particle_type: The particle type as a string. This
             should be an element from the periodic table.
+
+    Returns:
+        The guessed particle mass as a float.
     """
     logger.info(
         (
@@ -612,13 +550,13 @@ def guess_particle_mass(particle_no: int, particle_type: str) -> float:
     if mass is None:
         particle_mass = 1822.8884858012982
         logger.info(
-            ("-> Could not find mass. " "Assuming %f (internal units)"),
+            "-> Could not find mass. Assuming %f (internal units)",
             particle_mass,
         )
     else:
         particle_mass = 1822.8884858012982 * mass
         logger.info(
-            ("-> Using a mass of %f g/mol " "(%f in internal units)"),
+            "-> Using a mass of %f g/mol (%f in internal units)",
             mass,
             particle_mass,
         )
@@ -630,20 +568,14 @@ def kinetic_energy(
 ) -> tuple[float, np.ndarray]:
     """Obtain the kinetic energy for given velocities and masses.
 
-    Parameters
-    ----------
-    vel : numpy.array
-        The velocities
-    mass : numpy.array
-        The masses. This is assumed to be a column vector.
+    Args:
+        vel: The velocities
+        mass: The masses as a column vector.
 
-    Returns
-    -------
-    out[0] : float
-        The kinetic energy
-    out[1] : numpy.array
-        The kinetic energy tensor.
-
+    Returns:
+        A tuple containing:
+            - The kinetic energy.
+            - The kinetic energy tensor.
     """
     mom = vel * mass
     if len(mass) == 1:
@@ -690,27 +622,16 @@ def write_for_run_vel(
     Further, we here assume that we start from a given xyz file and
     we also explicitly give the velocities here.
 
-    Parameters
-    ----------
-    infile : string
-        The input template to use.
-    outfile : string
-        The file to create.
-    timestep : float
-        The time-step to use for the simulation.
-    nsteps : integer
-        The number of InfRETIS steps to perform.
-    subcycles : integer
-        The number of sub-cycles to perform.
-    posfile : string
-        The (base)name for the input file to read positions from.
-    vel : numpy.array
-        The velocities to set in the input.
-    name : string, optional
-        A name for the CP2K project.
-    print_freq : integer, optional
-        How often we should print to the trajectory file.
-
+    Args:
+        infile: Path to the input template to use.
+        outfile: Path to the input file to create.
+        timestep: The time step to use for the simulation.
+        nsteps: The number of InfRETIS steps to perform.
+        subcycles: The number of sub-cycles to perform.
+        posfile: The (base)name for the input file to read positions from.
+        vel: The velocities to set in the input.
+        name: A name for the CP2K project.
+        print_freq: How often we should print to the trajectory file.
     """
     if print_freq is None:
         print_freq = subcycles
@@ -750,25 +671,16 @@ def write_for_run_vel(
 
 
 class CP2KEngine(EngineBase):
-    """
-    A class for interfacing CP2K.
+    """A class defining the interface to CP2K.
 
-    This class defines the interface to CP2K.
-
-    Attributes
-    ----------
-    cp2k : string
-        The command for executing CP2K.
-    input_path : string
-        The directory where the input files are stored.
-    timestep : float
-        The time step used in the CP2K MD simulation.
-    subcycles : integer
-        The number of steps each CP2K run is composed of.
-    rgen : object like :py:class:`.RandomGenerator`
-        An object we use to set seeds for velocity generation.
-    extra_files : list
-        List of extra files which may be required to run CP2K.
+    Attributes:
+        cp2k: The command for executing CP2K.
+        input_path: The directory where the input files are stored.
+        timestep: The time step used in the CP2K MD simulation.
+        subcycles: The number of steps each CP2K run is composed of.
+        rgen: An object we use to set seeds for velocity generation.
+        extra_files: List of extra files which may be required to run CP2K.
+        sleep: A time in seconds, used to wait for files to be ready.
 
     """
 
@@ -780,29 +692,19 @@ class CP2KEngine(EngineBase):
         subcycles: int,
         extra_files: list[str] | None = None,
         exe_path: str = os.path.abspath("."),
-        seed: int = 0,
         sleep: float = 0.1,
     ):
-        """Set up the CP2K engine.
+        """Set up the CP2K MD engine.
 
         Parameters
         ----------
-        cp2k : string
-            The CP2K executable.
-        input_path : string
-            The path to where the input files are stored.
-        timestep : float
-            The time step used in the CP2K simulation.
-        subcycles : integer
-            The number of steps each CP2K run is composed of.
-        extra_files : list
-            List of extra files which may be required to run CP2K.
-        seed : integer, optional
-            A seed for the random number generator.
-        extra_files : list
-            List of extra files which may be required to run CP2K.
-        exe_path: string, optional
-            The path on which the engine is executed
+            cp2k: The CP2K executable.
+            input_path: The path to the directory containing CP2K input files.
+            timestep: The time step used in the CP2K simulation.
+            subcycles: The number of steps each CP2K run is composed of.
+            extra_files: List of extra files which may be required to run CP2K.
+            exe_path: The path on which the engine is executed
+            sleep: A time in seconds, used to wait for files to be ready.
 
         """
         super().__init__("CP2K external engine", timestep, subcycles)
@@ -824,9 +726,7 @@ class CP2KEngine(EngineBase):
 
         # add mass, temperature and unit information to engine
         # which is needed for velocity modification
-        pos, vel, box, atoms = self._read_configuration(
-            self.input_files["conf"]
-        )
+        _, _, _, atoms = self._read_configuration(self.input_files["conf"])
         mass = []
         if atoms is not None:
             mass = [
@@ -844,7 +744,7 @@ class CP2KEngine(EngineBase):
             if "temperature" in data.lower():
                 self.temperature = float(data.split()[-1])
         if self.temperature is None:
-            logger.info("No temperature specified in cp2k input. Using 300 K.")
+            logger.info("No temperature specified in CP2K input. Using 300 K.")
             self.temperature = 300.0
         self.kb = 3.16681534e-6  # hartree
         self.beta = 1 / (self.temperature * self.kb)
@@ -863,22 +763,16 @@ class CP2KEngine(EngineBase):
                     self.extra_files.append(fname)
 
     def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
-        """
-        Extract a frame from a trajectory file.
+        """Extract a frame from a trajectory file.
 
         This method is used by `self.dump_config` when we are
         dumping from a trajectory file. It is not used if we are
         dumping from a single config file.
 
-        Parameters
-        ----------
-        traj_file : string
-            The trajectory file to dump from.
-        idx : integer
-            The frame number we look for.
-        out_file : string
-            The file to dump to.
-
+        Args:
+            traj_file: Path to the trajectory file to dump from.
+            idx: The frame number we look for.
+            out_file: Path to the file to dump to.
         """
         for i, snapshot in enumerate(read_xyz_file(traj_file)):
             if i == idx:
@@ -911,42 +805,23 @@ class CP2KEngine(EngineBase):
         state of the system.
 
         Note that the on-the-fly reading of data is currently only applicable
-        for NVT simulations, as no box information is read from cp2k.
+        for NVT simulations, as no box information is read from CP2K.
 
-        Parameters
-        ----------
-        name : string
-            A name to use for the trajectory we are generating.
-        path : object like :py:class:`.PathBase`
-            This is the path we use to fill in phase-space points.
-        ensemble : dict
-            It contains the simulations info:
+        Args:
+            name: A name to use for the trajectory we are generating.
+            path: This is the path we use to fill in phase-space points.
+            system: The phase point to use as a starting point.
+            ens_set: Settings for the ensembles.
+            msg_file: An object we use for writing out messages that are useful
+                for inspecting the status of the current propagation.
+            reverse: If True, the system will be propagated backward in time.
 
-            * `system` : object like :py:class:`.System`
-              The system to act on.
-            * `engine` : object like :py:class:`.EngineBase`
-              This is the integrator that is used to propagate the system
-              in time.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The class used for calculating the order parameters.
-            * `interfaces` : list of floats
-              These defines the interfaces for which we will check the
-              crossing(s).
-
-        msg_file : object like :py:class:`.FileIO`
-            An object we use for writing out messages that are useful
-            for inspecting the status of the current propagation.
-        reverse : boolean, optional
-            If True, the system will be propagated backward in time.
-
-        Returns
-        -------
-        success : boolean
-            This is True if we generated an acceptable path.
-        status : string
-            A text description of the current status of the
-            propagation.
-
+        Returns:
+            A tuple containing:
+                - True if we generated an acceptable path, False, otherwise.
+                - A text description of the status of the propagation. Can
+                  be used to interpret the reason for the path not being
+                  acceptable.
         """
         status = f"propagating with CP2K (reverse = {reverse})"
         interfaces = ens_set["interfaces"]
@@ -1139,14 +1014,7 @@ class CP2KEngine(EngineBase):
         return success, status
 
     def add_input_files(self, dirname: str) -> None:
-        """Add required input files to a given directory.
-
-        Parameters
-        ----------
-        dirname : string
-            The full path to where we want to add the files.
-
-        """
+        """Add required CP2K input files to the given directory."""
         for files in self.extra_files:
             basename = os.path.basename(files)
             dest = os.path.join(dirname, basename)
@@ -1171,27 +1039,17 @@ class CP2KEngine(EngineBase):
     def _read_configuration(
         filename: str | Path,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
-        """
-        Read CP2K output configuration.
+        """Read a CP2K output configuration from a file.
 
-        This method is used when we calculate the order parameter.
+        Args:
+            filename: Path to the file to read.
 
-        Parameters
-        ----------
-        filename : string
-            The file to read the configuration from.
-
-        Returns
-        -------
-        xyz : numpy.array
-            The positions.
-        vel : numpy.array
-            The velocities.
-        box : numpy.array
-            The box dimensions if we manage to read it.
-        names : list of strings
-            The atom names found in the file.
-
+        Returns:
+            A tuple containing:
+                - The positions.
+                - The velocities.
+                - The box dimensions if we manage to read it.
+                - The atom names found in the file.
         """
         for snapshot in read_xyz_file(filename):
             box, xyz, vel, names = convert_snapshot(snapshot)
@@ -1206,14 +1064,11 @@ class CP2KEngine(EngineBase):
     def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocity in a given snapshot.
 
-        Parameters
-        ----------
-        filename : string
-            The configuration to reverse velocities in.
-        outfile : string
-            The output file for storing the configuration with
-            reversed velocities.
-
+        Args:
+            filename: Path to the file containing the configuration to
+                reverse velocities in.
+            outfile: Path to file for storing the configuration with
+                reversed velocities.
         """
         xyz, vel, box, names = self._read_configuration(filename)
         write_xyz_trajectory(
@@ -1224,6 +1079,17 @@ class CP2KEngine(EngineBase):
         self, system: System, vel_settings: dict[str, Any]
     ) -> tuple[float, float]:
         """Modify the velocities of all particles.
+
+        Args:
+            system: The system with the configuration to modify
+                velocities in.
+            vel_settings: A dictionary containing the settings
+                for modifying the velocities.
+
+        Returns:
+            A tuple containing:
+                - The change in the kinetic energy.
+                - The new kinetic energy.
 
         Note:
             CP2K removes the center of mass motion by default.
@@ -1267,9 +1133,7 @@ class CP2KEngine(EngineBase):
             raise NotImplementedError(
                 "Option 'rescale_energy' is not implemented for CP2K yet."
             )
-        conf_out = os.path.join(
-            self.exe_dir, "{}.{}".format("genvel", self.ext)
-        )
+        conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
         write_xyz_trajectory(conf_out, xyz, vel, atoms, box, append=False)
         kin_new = kinetic_energy(vel, mass)[0]
         system.config = (conf_out, 0)
