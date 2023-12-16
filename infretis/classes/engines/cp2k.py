@@ -696,8 +696,7 @@ class CP2KEngine(EngineBase):
     ):
         """Set up the CP2K MD engine.
 
-        Parameters
-        ----------
+        Args:
             cp2k: The CP2K executable.
             input_path: The path to the directory containing CP2K input files.
             timestep: The time step used in the CP2K simulation.
@@ -705,7 +704,6 @@ class CP2KEngine(EngineBase):
             extra_files: List of extra files which may be required to run CP2K.
             exe_path: The path on which the engine is executed
             sleep: A time in seconds, used to wait for files to be ready.
-
         """
         super().__init__("CP2K external engine", timestep, subcycles)
         self.ext = "xyz"
@@ -734,7 +732,7 @@ class CP2KEngine(EngineBase):
             ]
         self.mass = np.reshape(mass, (len(mass), 1))
 
-        # read temperature from cp2k input, defaults to 300
+        # read temperature from CP2K input, defaults to 300
         self.temperature = None
         section = "MOTION->MD"
         nodes = read_cp2k_input(self.input_files["template"])
@@ -865,7 +863,7 @@ class CP2KEngine(EngineBase):
         wave_file = os.path.join(self.exe_dir, out_files["wfn"])
         pwave_file = os.path.join(self.exe_dir, "previous.wfn")
 
-        # cp2k runner
+        # CP2K runner
         logger.debug("Executing CP2K %s: %s", name, "run.inp")
         cmd = self.cp2k + ["-i", "run.inp"]
         cwd = self.exe_dir
@@ -902,7 +900,7 @@ class CP2KEngine(EngineBase):
                     logger.debug("CP2K execution stopped")
                     break
 
-            # cp2k may have finished after last checking files
+            # CP2K may have finished after last checking files
             # or it may have crashed without writing the files
             if exe.poll() is None or exe.returncode == 0:
                 pos_reader = ReadAndProcessOnTheFly(
@@ -911,10 +909,10 @@ class CP2KEngine(EngineBase):
                 vel_reader = ReadAndProcessOnTheFly(
                     out_files["vel"], xyz_reader
                 )
-                # start reading on the fly as cp2k is still running
+                # start reading on the fly as CP2K is still running
                 # if it stops, perform one more iteration to read
                 # the remaining content in the files. Note that we assume here
-                # that cp2k writes in blocks of frames, and never partially
+                # that CP2K writes in blocks of frames, and never partially
                 # finished frames.
                 iterations_after_stop = 0
                 step_nr = 0
@@ -963,7 +961,7 @@ class CP2KEngine(EngineBase):
 
                         step_nr += 1
                     sleep(self.sleep)
-                    # if cp2k finished, we run one more loop
+                    # if CP2K finished, we run one more loop
                     if exe.poll() is not None and iterations_after_stop <= 1:
                         iterations_after_stop += 1
 
