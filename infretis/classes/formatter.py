@@ -1,3 +1,4 @@
+"""Handle formatting of files."""
 from __future__ import annotations
 
 import logging
@@ -38,6 +39,12 @@ def _read_line_data(
             trailing spaces have been removed.
         line_parser: A method for parsing a single line.
 
+    Returns:
+        A tuple containing:
+            - The line read.
+            - A boolean flag, True if data was read successfully.
+            - The number of columns read. If this is -1 the line
+                was malformed.
     """
     if line_parser is None:
         # Just return data without any parsing:
@@ -67,22 +74,17 @@ def read_some_lines(
     block is found. A special string (`block_label`) is assumed to
     identify the start of blocks.
 
-    Parameters
-    ----------
-    filename : string
-        This is the name/path of the file to open and read.
-    line_parser : function, optional
-        This is a function which knows how to translate a given line
-        to a desired internal format. If not given, a simple float
-        will be used.
-    block_label : string, optional
-        This string is used to identify blocks.
+    Args:
+        filename: This is the name/path of the file to open and read.
+        line_parser: This is a function which knows how to translate
+            a given line to a desired internal format. If not given,
+            a simple `float()` will be used.
+        block_label: This string is used to identify blocks.
 
-    Yields
-    ------
-    data : list
-        The data read from the file, arranged in dicts.
-
+    Yields:
+        The data read from the file, arranged in a dictionary.
+        The dictionary has a key for comments and a key for the
+        data.
     """
     ncol = -1  # The number of columns
     new_block: dict[str, Any] = {"comment": [], "data": []}
@@ -136,7 +138,6 @@ def _make_header(labels: list[str], width: list[int], spacing: int = 1) -> str:
 
     Returns
         A header for the table.
-
     """
     heading = []
     for i, col in enumerate(labels):
@@ -154,20 +155,15 @@ def _make_header(labels: list[str], width: list[int], spacing: int = 1) -> str:
 
 
 class OutputFormatter:
-    """A generic class for formatting output from PyRETIS.
+    """A generic class for formatting output.
 
-    Attributes
-    ----------
-    name : string
-        A string which identifies the formatter.
-    header : string
-        A header (or table heading) with information about the
-        output data.
-    print_header : boolean
-        Determines if we are to print the header or not. This is useful
-        for classes making use of the formatter to determine if they
-        should write out the header or not.
-
+    Attributes:
+        name: A string which identifies the formatter.
+        header: A string representing the header (or table heading)
+            with information about the output data.
+        print_header: If True, the header is printed. This is useful
+            for classes making use of the formatter to determine if
+            they should write out the header or not.
     """
 
     _FMT = "{}"
@@ -175,13 +171,9 @@ class OutputFormatter:
     def __init__(self, name: str, header: dict[str, Any] | None = None):
         """Initialise the formatter.
 
-        Parameters
-        ----------
-        name : string
-            A string which identifies the output type of this formatter.
-        header : dict, optional
-            The header for the output data
-
+        Args:
+            name: A string that identifies the output type of this formatter.
+            header: A dictionary representing the header for the output data.
         """
         self.name = name
         self._header = "infretis output"
@@ -211,15 +203,9 @@ class OutputFormatter:
     def format(self, step: int, data: Any) -> Iterable[str]:
         """Use the formatter to generate output.
 
-        Parameters
-        ----------
-        step : integer
-            This is assumed to be the current step number for
-            generating the output.
-        data : list, dict or similar
-            This is the data we are to format. Here we assume that
-            this is something we can iterate over.
-
+        Args:
+            step: The current step number for generating the output.
+            data: The data to format; assumed to be iterable.
         """
         out = [f"{step}"]
         for i in data:
@@ -228,22 +214,17 @@ class OutputFormatter:
 
     @staticmethod
     def parse(line: str) -> list[int] | list[float] | list[str]:
-        """Parse formatted data.
+        """Parse formatted data to numbers.
 
         This method is intended to be the "inverse" of the :py:meth:`.format`
-        method. In this particular case, we assume that we read floats from
-        columns in a file. One input line corresponds to a "row" of data.
+        method. It assume that we read floats from columns in a file.
+        One input line corresponds to a "row" of data.
 
-        Parameters
-        ----------
-        line : string
-            The string we will parse.
+        Args:
+            line: The string we will parse.
 
-        Returns
-        -------
-        out : list of floats
+        Returns:
             The parsed input data.
-
         """
         return [
             int(col) if i == 0 else float(col)
@@ -253,28 +234,19 @@ class OutputFormatter:
     def load(self, filename: str) -> Iterable[dict[str, Any]]:
         """Read generic data from a file.
 
-        Since this class defines how the data is formatted it is also
-        convenient to have methods for reading the data defined here.
         This method will read entire blocks of data from a file into
-        memory. This will be slow for large files and this method
-        could be converted to also yield the individual "rows" of
-        the blocks, rather than the full blocks themselves.
+        memory. This will be slow for large files.
 
-        Parameters
-        ----------
-        filename : string
-            The path/file name of the file we want to open.
+        Args:
+            filename: The path to the file to read.
 
-        Yields
-        ------
-        data : list of tuples of int
-            This is the data contained in the file. The columns are the
-            step number, interface number and direction.
+        Yields:
+            This is the data contained in the file. It is return as
+            a dictionary where the key `"data"` contains the data
+            read.
 
-        See Also
-        --------
-        :py:func:`.read_some_lines`.
-
+        See Also:
+            :py:func:`.read_some_lines`.
         """
         for blocks in read_some_lines(filename, self.parse):
             data_dict = {"comment": blocks["comment"], "data": blocks["data"]}
@@ -307,24 +279,19 @@ class OrderFormatter(OutputFormatter):
     ORDER_FMT = ["{:>10d}", "{:>12.6f}"]
 
     def __init__(self, name: str = "OrderFormatter"):
-        """Initialise a `OrderFormatter` formatter."""
+        """Initialise the formatter."""
         header = {"labels": ["Time", "Orderp"], "width": [10, 12]}
         super().__init__(name, header=header)
 
     def format_data(self, step: int, orderdata: list[float]) -> str:
         """Format order parameter data.
 
-        Parameters
-        ----------
-        step : int
-            This is the current step number.
-        orderdata : list of floats
-            These are the order parameters.
+        Args:
+            step: This is the current step number.
+            orderdata: These are the order parameters to format.
 
-        Yields
-        ------
-        out : string
-            The strings to be written.
+        Yields:
+            The formatted data as a string.
 
         """
         towrite = [self.ORDER_FMT[0].format(step)]
@@ -338,30 +305,7 @@ class OrderFormatter(OutputFormatter):
         yield self.format_data(step, data)
 
     def load(self, filename: str) -> Iterable[dict[str, Any]]:
-        """Read order parameter data from a file.
-
-        Since this class defines how the data is formatted it is also
-        convenient to have methods for reading the data defined here.
-        This method will read entire blocks of data from a file into
-        memory. This will be slow for large files and this method
-        could be converted to also yield the individual "rows" of
-        the blocks, rather than the full blocks themselves.
-
-        Parameters
-        ----------
-        filename : string
-            The path/file name of the file we want to open.
-
-        Yields
-        ------
-        data_dict : dict
-            This is the order parameter data in the file.
-
-        See Also
-        --------
-        :py:func:`.read_some_lines`.
-
-        """
+        """Read order parameter data from the given file."""
         for blocks in read_some_lines(filename, self.parse):
             data_dict = {
                 "comment": blocks["comment"],
@@ -374,28 +318,21 @@ class OrderPathFormatter(OrderFormatter):
     """A class for formatting order parameter data for paths."""
 
     def __init__(self) -> None:
-        """Initialise."""
+        """Initialise the formatter."""
         super().__init__(name="OrderPathFormatter")
         self.print_header = False
 
     def format(self, step: int, data: list[Any]) -> Iterable[str]:
-        """Format the order parameter data from a path.
+        """Format the order parameter dat for a path.
 
-        Parameters
-        ----------
-        step : int
-            The cycle number we are creating output for.
-        data : tuple or list
-            Here, data[0] contains a object
-            like :py:class:`.PathBase` which is the path we are
-            creating output for. data[1] contains the status for
-            this path.
+        Args:
+            step: The cycle number we are creating output for.
+            data: A tuple on the form `(Path, status)` where `Path` is
+                the :py:class:`.PathBase` to extract order parameters for
+                and `status` is the string representing the status of the path.
 
-        Yields
-        ------
-        out : string
-            The strings to be written.
-
+        Yields:
+            The formatted order parameters.
         """
         path, status = data[0], data[1]
         if not path:  # E.g. when null-moves are False.
@@ -410,17 +347,10 @@ class OrderPathFormatter(OrderFormatter):
 class OutputBase(metaclass=ABCMeta):
     """A generic class for handling output.
 
-    Attributes
-    ----------
-    formatter : object like py:class:`.OutputFormatter`
-        The object responsible for formatting output.
-    target : string
-        Determines where the target for the output, for
-        instance "screen" or "file".
-    first_write : boolean
-        Determines if we have written something yet, or
-        if this is the first write.
-
+    Attributes:
+        formatter: The object responsible for formatting output.
+        first_write: Determines if we have written something yet, or
+            if this is the first write.
     """
 
     def __init__(self, formatter: OutputFormatter):
@@ -431,13 +361,9 @@ class OutputBase(metaclass=ABCMeta):
     def output(self, step: int, data: list[Any]) -> Any:
         """Use the formatter to write data to the file.
 
-        Parameters
-        ----------
-        step : int
-            The current step number.
-        data : list
-            The data we are going to output.
-
+        Args:
+            step: The current step number.
+            data: The data we are going to format and write.
         """
         if self.first_write and self.formatter.print_header:
             self.first_write = False
@@ -449,18 +375,12 @@ class OutputBase(metaclass=ABCMeta):
     def write(self, towrite: str, end: str = "\n") -> bool:
         """Write a string to the output defined by this class.
 
-        Parameters
-        ----------
-        towrite : string
-            The string to write.
-        end : string, optional
-            A "terminator" for the given string.
+        Parameters:
+            towrite: The string to write.
+            end: A "terminator" for the given string.
 
-        Returns
-        -------
-        status : boolean
+        Returns:
             True if we managed to write, False otherwise.
-
         """
 
     def formatter_info(self) -> str:
@@ -470,34 +390,26 @@ class OutputBase(metaclass=ABCMeta):
         return "No formatter defined"
 
     def __str__(self) -> str:
-        """Return basic info."""
+        """Return basic info about the formatter."""
         return f"{self.__class__.__name__}\n\t* Formatter: {self.formatter}"
 
 
 class FileIO(OutputBase):
     """A generic class for handling IO with files.
 
-    This class defines how PyRETIS stores and reads data.
-    Formatting is handled by an object like :py:class:`.OutputFormatter`
+    This should define how InfRETIS is handling input and output.
 
-    Attributes
-    ----------
-    filename : string
-        Name (e.g. path) to the file to read or write.
-    file_mode : string
-        Specifies the mode in which the file is opened.
-    backup : boolean
-        Determines the behavior if we want to write to a file
-        that is already existing.
-    fileh : object like :py:class:`io.IOBase`
-        The file handle we are interacting with.
-    last_flush : object like :py:class:`datetime.datetime`
-        The previous time for flushing to the file.
-    FILE_FLUSH : integer
-        The interval for flushing to the file. That is, we will
-        flush if the time since the last flush is larger than this
-        value. Note that this is only checked in relation to writing.
-
+    Attributes:
+        filename: Path to the file to read or write.
+        file_mode: Specifies the mode in which the file is opened.
+        backup: If False, overwrite existing files. If True, backup
+            existing files before writing.
+        fileh: The file handle we are interacting with.
+        last_flush: The previous time for flushing to the file.
+        FILE_FLUSH: The interval (in seconds) for flushing to the file.
+            That is, we will flush if the time since the last flush is
+            larger than this value. This is only checked in relation to
+            writing.
     """
 
     target = "file"
@@ -510,20 +422,13 @@ class FileIO(OutputBase):
         formatter: OutputFormatter,
         backup: bool = True,
     ):
-        """Set up the file object.
+        """Set up the FileIO object.
 
-        Parameters
-        ----------
-        filename : string
-            The path to the file to open or read.
-        file_mode : string
-            Specifies the mode for opening the file.
-        formatter : object like py:class:`.OutputFormatter`
-            The object responsible for formatting output.
-        backup : boolean, optional
-            Defines how we handle cases where we write to a
-            file which is already existing.
-
+        Args:
+            filename: The path to the file to open or read.
+            file_mode: Specifies the mode for opening the file.
+            formatter: The object responsible for formatting output.
+            backup: If True, create backup files. Otherwise, overwrite.
         """
         super().__init__(formatter)
         self.filename = filename
@@ -557,10 +462,7 @@ class FileIO(OutputBase):
         return self.fileh
 
     def open_file_write(self) -> IO[Any] | None:
-        """Open a file for writing.
-
-        In this method, we also handle the possible backup settings.
-        """
+        """Open a file for writing and handle backup."""
         if self.file_mode[0] not in ("a", "w"):
             raise ValueError(
                 f'Inconsistent file mode "{self.file_mode}" ' "for writing"
@@ -604,19 +506,13 @@ class FileIO(OutputBase):
     def write(self, towrite: str, end: str = "\n") -> bool:
         """Write a string to the file.
 
-        Parameters
-        ----------
-        towrite : string
-            The string to output to the file.
-        end : string, optional
-            Appended to `towrite` when writing, can be used to print a
-            new line after the input `towrite`.
+        Args:
+            towrite: The string to output to the file.
+            end: A string appended to `towrite` when writing.
+                Can be used to print a new line after the input `towrite`.
 
-        Returns
-        -------
-        status : boolean
+        Returns:
             True if we managed to write, False otherwise.
-
         """
         status = False
         if towrite is None:
@@ -695,7 +591,7 @@ class FileIO(OutputBase):
         return next(self.fileh)
 
     def __str__(self) -> str:
-        """Return basic info."""
+        """Return info about this class as a string."""
         msg = [f'FileIO (file: "{self.filename}")']
         if self.fileh is not None and not self.fileh.closed:
             msg += ["\t* File is open"]
@@ -705,7 +601,7 @@ class FileIO(OutputBase):
 
 
 class OrderFile(FileIO):
-    """A class for handling PyRETIS order parameter files."""
+    """A class for handling order parameter files."""
 
     def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the order file with correct formatter."""
@@ -713,7 +609,7 @@ class OrderFile(FileIO):
 
 
 class OrderPathFile(FileIO):
-    """A class for handling PyRETIS order parameter path files."""
+    """A class for handling order parameter path files."""
 
     def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the order path file with correct formatter."""
@@ -723,7 +619,7 @@ class OrderPathFile(FileIO):
 
 
 class EnergyFormatter(OutputFormatter):
-    """A class for formatting energy data from PyRETIS.
+    """A class for formatting energy data.
 
     This class handles formatting of energy data.
     The data is formatted in 5 columns:
@@ -737,7 +633,6 @@ class EnergyFormatter(OutputFormatter):
     4) Total energy, should equal the sum of the two previous columns.
 
     5) Temperature.
-
     """
 
     # Format for the energy files:
@@ -755,18 +650,12 @@ class EnergyFormatter(OutputFormatter):
     def apply_format(self, step: int, energy: Any) -> str:
         """Apply the energy format.
 
-        Parameters
-        ----------
-        step : int
-            The current simulation step.
-        energy : dict
-            A dict with energy terms to format.
+        Args:
+            step: The current simulation step.
+            energy: A dictionary with energy terms to format.
 
-        Returns
-        -------
-        out : string
+        Returns:
             A string with the formatted energy data.
-
         """
         towrite = [self.ENERGY_FMT[0].format(step)]
         for i, key in enumerate(self.ENERGY_TERMS):
@@ -784,18 +673,13 @@ class EnergyFormatter(OutputFormatter):
     def load(self, filename: str) -> Iterable[dict[str, Any]]:
         """Load entire energy blocks into memory.
 
-        Parameters
-        ----------
-        filename : string
-            The path/file name of the file we want to open.
+        Args:
+            filename: The path to the file to open.
 
-        Yields
-        ------
-        data_dict : dict
-            This is the energy data read from the file, stored in
-            a dict. This is for convenience so that each energy term
-            can be accessed by `data_dict['data'][key]`.
-
+        Yields:
+            The energy data read from the file, stored in a dictionary.
+            This is for convenience so that each energy term can be accessed
+            using keys on the form: `data_dict["data"][key]`.
         """
         for blocks in read_some_lines(filename, line_parser=self.parse):
             data = np.array(blocks["data"])
@@ -823,20 +707,14 @@ class EnergyPathFormatter(EnergyFormatter):
     def format(self, step: int, data: Any) -> Iterable[str]:
         """Format the order parameter data from a path.
 
-        Parameters
-        ----------
-        step : int
-            The cycle number we are creating output for.
-        data : tuple
-            Here we assume that ``data[0]`` contains an object
-            like :py:class:`.PathBase` and that ``data[1]`` is a
-            string with the status for the path.
+        Args:
+            step: The cycle number we are creating output for.
+            data: A tuple containing the path (as an object like
+                :py:class:`.PathBase`) as the first element and a string
+                with the status for the path as the second element.
 
-        Yields
-        ------
-        out : string
+        Yields:
             The strings to be written.
-
         """
         path, status = data[0], data[1]
         if not path:  # when nullmoves = False
@@ -852,7 +730,7 @@ class EnergyPathFormatter(EnergyFormatter):
 
 
 class EnergyFile(FileIO):
-    """A class for handling PyRETIS energy files."""
+    """A class for handling energy files."""
 
     def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the file object and attach the energy formatter."""
@@ -860,7 +738,7 @@ class EnergyFile(FileIO):
 
 
 class EnergyPathFile(FileIO):
-    """A class for handling PyRETIS energy path files."""
+    """A class for handling energy path files."""
 
     def __init__(self, filename: str, file_mode: str, backup: bool = True):
         """Create the file object and attach the energy formatter."""
@@ -870,19 +748,13 @@ class EnergyPathFile(FileIO):
 
 
 class PathExtFormatter(OutputFormatter):
-    """A class for formatting external trajectories.
+    """A class for formatting trajectories.
 
-    The external trajectories as stored as files and this path
-    formatter includes the location of these files.
-
-    Attributes
-    ----------
-    FMT : string
-        The string to use for the formatting.
-
+    The trajectories as stored as files and this formatter
+    creates a file that includes the location to these files.
     """
 
-    FMT = "{:>10}  {:>20s}  {:>10}  {:>5}"
+    FMT = "{:>10}  {:>20s}  {:>10}  {:>5}"  # For formatting the paths.
 
     def __init__(self):
         """Initialise the PathExtFormatter formatter."""
@@ -898,20 +770,14 @@ class PathExtFormatter(OutputFormatter):
     def format(self, step: int, data: list[Any]) -> Iterable[str]:
         """Format path data for external paths.
 
-        Parameters
-        ----------
-        step : integer
-            The current simulation step.
-        data : list
-            Here, ``data[0]`` is assumed to be an object like
-            :py:class:`.Path`` and ``data[1]`` a string containing the
-            status of this path.
+        Args:
+            step: The current simulation step.
+            data : A tuple where `data[0]` is assumed to be the path
+                (as an object like :py:class:`.Path`) and `data[1]`
+                a string containing the status of this path.
 
-        Yields
-        ------
-        out : string
+        Yields:
             The trajectory as references to files.
-
         """
         path, status = data[0], data[1]
         if not path:  # E.g. when null-moves are False.
@@ -928,19 +794,7 @@ class PathExtFormatter(OutputFormatter):
 
     @staticmethod
     def parse(line: str) -> list[str]:
-        """Parse the line data by splitting text on spaces.
-
-        Parameters
-        ----------
-        line : string
-            The line to parse.
-
-        Returns
-        -------
-        out : list
-            The columns of data.
-
-        """
+        """Parse the line data by splitting the given text on spaces."""
         return [i for i in line.split()]
 
 
@@ -955,7 +809,7 @@ class PathExtFile(FileIO):
 
 
 class FormattersEntry(TypedDict):
-    """To store formatters and output files."""
+    """To store formatters and output files together."""
 
     fmt: OutputFormatter  # The formatter to use.
     file: str  # The file to write.
@@ -964,26 +818,18 @@ class FormattersEntry(TypedDict):
 class PathStorage(OutputBase):
     """A class for handling storage of external trajectories.
 
-    Attributes
-    ----------
-    target : string
-        Determines the target for this output class. Here it will
-        be a file archive (i.e. a directory based collection of
-        files).
-    archive_acc : string
-        Basename for the archive with accepted trajectories.
-    archive_rej : string
-        Basename for the archive with rejected trajectories.
-    archive_traj : string
-        Basename for a sub-folder containing the actual files
-        for a trajectory.
-    formatters : dict
-        This dict contains the formatters for writing path data,
-        with default filenames used for them.
-    out_dir_fmt : string
-        A format to use for creating directories within the archive.
-        This one is applied to the step number for the output.
-
+    Attributes:
+        target: Determines the target for this output class.
+            Here it will be a file archive (i.e., a directory
+            based collection of files).
+        archive_acc: Basename for the archive with accepted trajectories.
+        archive_rej: Basename for the archive with rejected trajectories.
+        archive_traj: Basename for a sub-folder containing the actual files
+            for a trajectory.
+        formatters: This dict contains the formatters for writing path data,
+            with default filenames used for them.
+        out_dir_fmt: A format to use for creating directories within the
+            archive. This one is applied to the step number for the output.
     """
 
     target = "file-archive"
@@ -1000,11 +846,10 @@ class PathStorage(OutputBase):
     def __init__(self):
         """Set up the storage.
 
-        Note that we here do not pass any formatters to the parent
-        class. This is because this class is less flexible and
-        only intended to do one thing - write path data for external
-        trajectories.
-
+        Note:
+            No formatters are passed to the parent class. This is because
+            this class is less flexible and only intended to do one
+            thing: write path data for external trajectories.
         """
         formatter = OutputFormatter("empty formatter", header=None)
         super().__init__(formatter)
@@ -1014,35 +859,20 @@ class PathStorage(OutputBase):
     ) -> list[tuple[str, str]]:
         """Write the output files for energy, path and order parameter.
 
-        Parameters
-        ----------
-        step : integer
-            The current simulation step.
-        data : list
-            Here, ``data[0]`` is assumed to be an object like
-            :py:class:`.Path` and `data[1]`` a string containing the
-            status of this path.
-        target_dir : string
-            The path to where we archive the files.
+        Args:
+            step: The current simulation step.
+            data: A tuple containing:
+                - The path as an object like :py:class:`.Path`.
+                - A string string containing the status of this path.
+            target_dir: The path to where we archive the files.
 
-        Returns
-        -------
-        files : list of tuple of strings
-            These are the files created. The tuple contains the files as
-            a full path and a relative path (to the given
-            target directory). The form is
-            ``files[i] = (full_path[i], relative_path[i])``.
-            The relative path is useful for organizing internally in
-            archives.
-
+        Returns:
+            The files created as a list of tuples. Each tuple contain:
+                - The full path to the file.
+                - A relative path to the file. The relative path is useful
+                  for organizing internally in archives.
         """
-        (
-            path,
-            status,
-        ) = (
-            data[0],
-            data[1],
-        )
+        path, status = data[0], data[1]
         files = []
         for key, val in self.formatters.items():
             logger.debug("Storing: %s", key)
@@ -1063,20 +893,13 @@ class PathStorage(OutputBase):
     ) -> InfPath:
         """Copy a path to a given target directory.
 
-        Parameters
-        ----------
-        path : object like :py:class:`.PathBase`
-            This is the path object we are going to copy.
-        target_dir : string
-            The location where we are copying the path to.
-        prefix : string, optional
-            To give a prefix to the name of copied files.
+        Args:
+            path: The path to copy.
+            target_dir: The location where we are copying the path to.
+            prefix: A prefix for the file names of copied files.
 
-        Returns
-        -------
-        out : object like py:class:`.PathBase`
+        Returns:
             A copy of the input path.
-
         """
         path_copy = path.copy()
         new_pos, source = _generate_file_names(
@@ -1099,21 +922,13 @@ class PathStorage(OutputBase):
     def output(self, step: int, data: Any) -> InfPath:
         """Format the path data and store the path.
 
-        Parameters
-        ----------
-        step : integer
-            The current simulation step.
-        data : list
-            Here, ``data[0]`` is assumed to be an object like
-            :py:class:`.Path`, ``data[1]`` a string containing the
-            status of this path and ``data[2]`` the path ensemble for
-            which the path was generated.
+        Args:
+            step: The current simulation step.
+            data: A dictionary containing the path and the directory to
+                write to.
 
-        Returns
-        -------
-        files : list of tuples of strings
-            The files added to the archive.
-
+        Returns:
+            A copy of the path (moved to the new directory).
         """
         # path_ensemble = data
         # path = path_ensemble.last_path
@@ -1155,37 +970,28 @@ class PathStorage(OutputBase):
         return f"{self.__class__.__name__} - archive writer."
 
 
-def get_log_formatter(level: int) -> PyretisLogFormatter:
+def get_log_formatter(level: int) -> LogFormatter:
     """Select a log format based on a given level.
 
     Here, it is just used to get a slightly more verbose format for
     the debug level.
 
-    Parameters
-    ----------
-    level : integer
-        This integer defines the log level.
+    Args:
+        level: This integer defines the log level.
 
-    Returns
-    -------
-    out : object like :py:class:`logging.Formatter`
+    Returns:
         An object that can be used as a formatter for a logger.
-
     """
     if level <= logging.DEBUG:
-        return PyretisLogFormatter(LOG_DEBUG_FMT)
-    return PyretisLogFormatter(LOG_FMT)
+        return LogFormatter(LOG_DEBUG_FMT)
+    return LogFormatter(LOG_FMT)
 
 
-class PyretisLogFormatter(logging.Formatter):  # pragma: no cover
-    """Hard-coded formatter for the PyRETIS log file.
-
-    This formatter will just adjust multi-line messages to have some
-    indentation.
-    """
+class LogFormatter(logging.Formatter):  # pragma: no cover
+    """Hard-coded formatter for the log file."""
 
     def format(self, record):
-        """Apply the PyRETIS log format."""
+        """Apply the log format."""
         out = logging.Formatter.format(self, record)
         return out
 
@@ -1193,25 +999,18 @@ class PyretisLogFormatter(logging.Formatter):  # pragma: no cover
 def _generate_file_names(
     path: InfPath, target_dir: str, prefix: str | None = None
 ) -> tuple[list[tuple[str, int]], dict[str, str]]:
-    """Generate new file names for moving copying paths.
+    """Generate new file names for moving or copying paths.
 
-    Parameters
-    ----------
-    path : object like :py:class:`.PathBase`
-        This is the path object we are going to store.
-    target_dir : string
-        The location where we are moving the path to.
-    prefix : string, optional
-        The prefix can be used to prefix the name of the files.
+    Args:
+        path: The path object we are going to store.
+        target_dir: The location where we are moving the path to.
+        prefix: The prefix can be used to prefix the name of the files.
 
-    Returns
-    -------
-    out[0] : list
-        A list with new file names.
-    out[1] : dict
-        A dict which defines the unique "source -> destination" for
-        copy/move operations.
-
+    Returns:
+        A tuple containing:
+            - A list with new file names.
+            - A dict which defines the unique "source -> destination" for
+              the copy/move operations.
     """
     source = {}
     new_pos = []
