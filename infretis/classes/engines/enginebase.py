@@ -28,28 +28,22 @@ logger.addHandler(logging.NullHandler())
 class EngineBase(metaclass=ABCMeta):
     """Abstract base class for engines.
 
-    The engines perform molecular dynamics (or Monte Carlo) and they
-    are assumed to act on a system. Typically they will integrate
-    Newtons equation of motion in time for that system.
+    The engines perform molecular dynamics and they are assumed to act
+    on a system.
 
-    Attributes
-    ----------
-    description : string
-        Short string description of the engine. Used for printing
-        information about the integrator.
-    exe_dir : string
-        A directory where the engine is going to be executed.
-    needs_order : boolean
-        Determines if the engine needs an internal order parameter
-        or not. If not, it is assumed that the order parameter is
-        calculated by the engine.
-
+    Attributes:
+        description: Short string description of the engine.
+            Used for printing information about the integrator.
+        exe_dir: A directory where the engine is going to be executed.
+        needs_order: Determines if the engine needs an internal
+            order parameter or not. If not, it is assumed that the
+            order parameter is calculated by the engine.
     """
 
     needs_order: bool = True
 
     def __init__(self, description: str, timestep: float, subcycles: int):
-        """Just add the description."""
+        """Initialize the engine."""
         self.description: str = description
         self._exe_dir: str = "."
         self.timestep: float = timestep
@@ -83,22 +77,16 @@ class EngineBase(metaclass=ABCMeta):
     def add_to_path(
         path: InfPath, phase_point: System, left: float, right: float
     ) -> tuple[str, bool, bool, bool]:
-        """
-        Add a phase point and perform some checks.
+        """Add a phase point and perform some checks.
 
-        This method is intended to be used by the propagate methods.
+        This method is intended to be used by the propagate methods
+        to determine if the propagation should end or not.
 
-        Parameters
-        ----------
-        path : object like :py:class:`.Path`
-            The path to add to.
-        phase_point : object like py:class:`.System`
-            The phase point to add to the path.
-        left : float
-            The left interface.
-        right : float
-            The right interface.
-
+        Args:
+            path: The path to add the phase point to.
+            phase_point: The phase point to add to the path.
+            left: The left interface.
+            right: The right interface.
         """
         status = "Running propagate..."
         success = False
@@ -131,46 +119,21 @@ class EngineBase(metaclass=ABCMeta):
     ) -> tuple[float, float]:
         """Modify the velocities of the current state.
 
-        Parameters
-        ----------
-        ensemble: dict
-            It contains all the runners:
+        Args:
+            ensemble: The system to modify the velocity of.
+            vel_settings: A dictionary containing the parameters
+                for setting the velocity. How the settings are
+                used will be defined in the specific engies.
 
-            * `path` : object like :py:class:`.PathBase`
-              This is the path we use to fill in phase-space points.
-              We are here not returning a new path - this since we want
-              to delegate the creation of the path (type) to the method
-              that is running `propagate`.
-
-        vel_settings: dict
-            It contains all the info for the velocity:
-
-            * `sigma_v` : numpy.array, optional
-              These values can be used to set a standard deviation (one
-              for each particle) for the generated velocities.
-            * `aimless` : boolean, optional
-              Determines if we should do aimless shooting or not.
-            * `zero_momentum` : boolean, optional
-              If True, we reset the linear momentum to zero after
-              generating.
-            * `rescale or rescale_energy` : float, optional
-              In some NVE simulations, we may wish to re-scale the
-              energy to a fixed value. If `rescale` is a float > 0,
-              we will re-scale the energy (after modification of
-              the velocities) to match the given float.
-
-        Returns
-        -------
-        dek : float
-            The change in the kinetic energy.
-        kin_new : float
-            The new kinetic energy.
-
+        Returns:
+            A tuple containing:
+                - The change in the kinetic energy.
+                - The new kinetic energy.
         """
 
     @abstractmethod
     def set_mdrun(self, md_items: dict[str, Any]) -> None:
-        """Sets exe_dir and what worker terminal command to be run."""
+        """Set exe_dir and worker terminal command to be run."""
 
     def calculate_order(
         self,
@@ -179,37 +142,21 @@ class EngineBase(metaclass=ABCMeta):
         vel: np.ndarray | None = None,
         box: np.ndarray | None = None,
     ) -> list[float]:
-        """
-        Calculate order parameter from configuration in a file.
+        """Calculate the order parameter of the current system.
 
         Note, if ``xyz``, ``vel`` or ``box`` are given, we will
         **NOT** read positions, velocity and box information from the
-        current configuration file.
+        current configuration file. This can be used in case we
+        have already read these elsewhere.
 
-        Parameters
-        ----------
-        ensemble : dict
-            It contains:
+        Args:
+            system: The current state of the system we are investigating.
+            xyz: The positions to use (to override the system's positions).
+            vel: The velocities to use (to override the system's velocities).
+            box: The current box vectors (to override the system's box).
 
-            * `system` : object like :py:class:`.System`
-              This is the system that contains the particles we are
-              investigating
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-
-        xyz : numpy.array, optional
-            The positions to use, in case we have already read them
-            somewhere else. We will then not attempt to read them again.
-        vel : numpy.array, optional
-            The velocities to use, in case we already have read them.
-        box : numpy.array, optional
-            The current box vectors, in case we already have read them.
-
-        Returns
-        -------
-        out : list of floats
+        Returns:
             The calculated order parameter(s).
-
         """
         # Convert system into an internal representation:
         if any((xyz is None, vel is None, box is None)):
@@ -232,27 +179,21 @@ class EngineBase(metaclass=ABCMeta):
     def dump_phasepoint(
         self, phasepoint: System, deffnm: str = "conf"
     ) -> None:
-        """Just dump the frame from a system object."""
+        """Dump the current configuration from a system object to a file."""
         pos_file = self.dump_config(phasepoint.config, deffnm=deffnm)
         phasepoint.set_pos((pos_file, 0))
 
     def _name_output(self, basename: str) -> str:
-        """
-        Create a file name for the output file.
+        """Create a file name for the output file.
 
         This method is used when we dump a configuration to add
-        the correct extension for GROMACS (either gro or g96).
+        the correct extension.
 
-        Parameters
-        ----------
-        basename : string
-            The base name to give to the file.
+        Args:
+            basename: The base name to give to the file.
 
-        Returns
-        -------
-        out : string
-            A file name with an extension.
-
+        Returns:
+            A file name with the correct extension.
         """
         out_file = f"{basename}.{self.ext}"
         return os.path.join(self.exe_dir, out_file)
@@ -262,23 +203,17 @@ class EngineBase(metaclass=ABCMeta):
     ) -> str:
         """Extract configuration frame from a system if needed.
 
-        Parameters
-        ----------
-        config : tuple
-            The configuration given as (filename, index).
-        deffnm : string, optional
-            The base name for the file we dump to.
+        Args:
+            config: The configuration given as (filename, index).
+            deffnm: The base name for the file we dump to.
 
-        Returns
-        -------
-        out : string
+        Returns:
             The file name we dumped to. If we did not in fact dump, this is
             because the system contains a single frame and we can use it
             directly. Then we return simply this file name.
 
-        Note
-        ----
-        If the velocities should be reversed, this is handled elsewhere.
+        Note:
+            If the velocities should be reversed, this is handled elsewhere.
 
         """
         out_file = os.path.join(self.exe_dir, self._name_output(deffnm))
@@ -292,26 +227,21 @@ class EngineBase(metaclass=ABCMeta):
         return out_file
 
     def dump_frame(self, system: System, deffnm: str = "conf") -> str:
-        """Just dump the frame from a system object."""
+        """Dump the frame from a system object."""
         return self.dump_config(system.config, deffnm=deffnm)
 
     @abstractmethod
     def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """Extract a frame from a trajectory file.
 
-        Parameters
-        ----------
-        traj_file : string
-            The trajectory file to open.
-        idx : integer
-            The frame number we look for.
-        out_file : string
-            The file to dump to.
-
+        Args:
+            traj_file: Path to the trajectory file to open.
+            idx: The frame number to dump.
+            out_file: Path to the file to dump to.
         """
 
     def clean_up(self) -> None:
-        """Will remove all files from the current directory."""
+        """Remove all files from the current directory."""
         dirname = self.exe_dir
         logger.debug('Running engine clean-up in "%s"', dirname)
         files = [item.name for item in os.scandir(dirname) if item.is_file()]
@@ -325,41 +255,27 @@ class EngineBase(metaclass=ABCMeta):
         system: System,
         reverse: bool = False,
     ) -> tuple[bool, str]:
-        """
-        Propagate the equations of motion with the external code.
+        """Propagate the equations of motion with the external code.
 
         This method will explicitly do the common set-up, before
         calling more specialised code for doing the actual propagation.
 
-        Parameters
-        ----------
-        path : object like :py:class:`.Path`
-            This is the path we use to fill in phase-space points.
-            We are here not returning a new path - this since we want
-            to delegate the creation of the path to the method
-            that is running `propagate`.
-        ensemble: dict
-            It contains:
+        Args:
+            path: This is the path we use to fill in phase-space points.
+                We are here not returning a new path - this since we want
+                to delegate the creation of the path to the method
+                that is running `propagate`.
+            ens_set: The set of dictionaries containing the information
+                about the simulation.
+            reverse: If True, the system will be propagated backward in time.
+                Otherwise, it will be propagated forward in time.
 
-            * `system` : object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-            * `interfaces` : list of floats
-              These interfaces define the stopping criterion.
-
-        reverse : boolean, optional
-            If True, the system will be propagated backward in time.
-
-        Returns
-        -------
-        success : boolean
-            This is True if we generated an acceptable path.
-        status : string
-            A text description of the current status of the propagation.
-
+        Returns:
+            A tuple containing:
+                - True if the enerated path can be accepted. False otherwise.
+                - A text description of the current status of the propagation.
+                  This can be used to interpret the cases where the generated
+                  path is not acceptable.
         """
         logger.debug('Running propagate with: "%s"', self.description)
 
@@ -401,7 +317,7 @@ class EngineBase(metaclass=ABCMeta):
 
         # Update system to point to the configuration file:
         system.set_pos((initial_conf, 0))
-        system.set_vel(reverse)
+        system.vel_rev = reverse
         # Propagate from this point:
         # msg_file.write(f'# Interfaces: {ensemble["interfaces"]}')
         success, status = self._propagate_from(
@@ -422,45 +338,27 @@ class EngineBase(metaclass=ABCMeta):
         msg_file: FileIO,
         reverse: bool = False,
     ) -> tuple[bool, str]:
-        """
-        Run the actual propagation using the specific engine.
+        """Execute the actual propagation with the MD engine.
 
-        This method is called after :py:meth:`.propagate`. And we
-        assume that the necessary preparations before the actual
-        propagation (e.g. dumping of the configuration etc.) is
-        handled in that method.
+        This method is called from :py:meth:`.propagate` which
+        handles the preparations for the propagation.
 
-        Parameters
-        ----------
-        name : string
-            A name to use for the trajectory we are generating.
-        path : object like :py:class:`.PathBase`
-            This is the path we use to fill in phase-space points.
-        ensemble: dict
-            It contains:
+        Args:
+            name: A name to use for the trajectory we are generating.
+            path: This is the path we use to fill in phase-space points.
+            system: The initial state of the propagation.
+            ensemble: Dictionary with simulation settings.
+            msg_file: An object we use for writing out messages that are
+                useful for inspecting the status of MD execution.
+            reverse: If True, the system will be propagated backward in time.
+                Otherwise, it will be propagated forward in time.
 
-            * `system` : object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-            * `interfaces` : list of floats
-              These interfaces define the stopping criterion.
-
-        msg_file : object like :py:class:`.FileIO`
-            An object we use for writing out messages that are useful
-            for inspecting the status of the current propagation.
-        reverse : boolean, optional
-            If True, the system will be propagated backward in time.
-
-        Returns
-        -------
-        success : boolean
-            This is True if we generated an acceptable path.
-        status : string
-            A text description of the current status of the propagation.
-
+        Returns:
+            A tuple containing:
+                - True if the enerated path can be accepted. False otherwise.
+                - A text description of the current status of the propagation.
+                  This can be used to interpret the cases where the generated
+                  path is not acceptable.
         """
 
     @staticmethod
@@ -485,13 +383,14 @@ class EngineBase(metaclass=ABCMeta):
         """Read output configuration from external software.
 
         Args:
-            filename: The file to open and read a configuration from.
+            filename: Path to the file read a configuration from.
 
         Returns:
-            numpy.array: The positions found in the given filename.
-            numpy.array: The velocities found in the given filename.
-            numpy.array: The dimensions of the simulation box.
-            list[str]: Atom labels (if found).
+            A tuple containing:
+                - The positions read.
+                - The velocities read.
+                - The dimensions of the simulation box.
+                - Atom labels (if found).
 
         """
 
@@ -499,13 +398,9 @@ class EngineBase(metaclass=ABCMeta):
     def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocities in a given snapshot.
 
-        Parameters
-        ----------
-        filename : string
-            Input file with velocities.
-        outfile : string
-            File to write with reversed velocities.
-
+        Args:
+            filename: Path to the file to reverse velocities in.
+            outfile: Path to file to write with reversed velocities.
         """
 
     @staticmethod
@@ -515,25 +410,19 @@ class EngineBase(metaclass=ABCMeta):
         settings: dict[str, Any],
         delim: str = "=",
     ) -> None:
-        """
-        Modify input file for external software.
+        """Modify input file for external software.
 
         Here we assume that the input file has a syntax consisting of
         ``keyword = setting``. We will only replace settings for
         the keywords we find in the file that is also inside the
         ``settings`` dictionary.
 
-        Parameters
-        ----------
-        sourcefile : string
-            The path of the file to use for creating the output.
-        outputfile : string
-            The path of the file to write.
-        settings : dict
-            A dictionary with settings to write.
-        delim : string, optional
-            The delimiter used for separation keywords from settings.
-
+        Args:
+            sourcefile: Path to file to use as a template for creating
+                the modified input file.
+            outputfile: Path to the file to write input settings to.
+            settings: A dictionary with settings to write.
+            delim: The delimiter used for separation keywords from settings.
         """
         reg = re.compile(rf"(.*?){delim}")
         written = set()
@@ -559,30 +448,21 @@ class EngineBase(metaclass=ABCMeta):
     def _read_input_settings(
         sourcefile: str, delim: str = "="
     ) -> dict[str, Any]:
-        """
-        Read input settings for simulation input files.
+        """Read input settings for simulation input files.
 
         Here we assume that the input file has a syntax consisting of
-        ``keyword = setting``, where ``=`` can be any string given
-        in the input parameter ``delim``.
+        `keyword = setting`, where `=` can be any string given
+        in the input parameter `delim`.
 
-        Parameters
-        ----------
-        sourcefile : string
-            The path of the file to use for creating the output.
-        delim : string, optional
-            The delimiter used for separation keywords from settings.
+        Args:
+            sourcefile: The path of the file read settings from.
+            delim: The delimiter used for separation keywords from settings.
 
-        Returns
-        -------
-        settings : dict of strings
-            The settings found in the file.
+        Returns:
+            settings: The settings found in the file.
 
-        Note
-        ----
-        Important: We are here assuming that there will *ONLY* be one
-        keyword per line.
-
+        Note:
+            This method assumes **only one keyword per line**.
         """
         reg = re.compile(rf"(.*?){delim}")
         settings = {}
@@ -600,8 +480,7 @@ class EngineBase(metaclass=ABCMeta):
         cwd: str | None = None,
         inputs: bytes | None = None,
     ) -> int:
-        """
-        Execute an external command for the engine.
+        """Execute an external command for the engine.
 
         We are here executing a command and then waiting until it
         finishes. The standard out and standard error are piped to
@@ -609,22 +488,15 @@ class EngineBase(metaclass=ABCMeta):
         command fails. This method returns the return code of the
         issued command.
 
-        Parameters
-        ----------
-        cmd : list of strings
-            The command to execute.
-        cwd : string or None, optional
-            The current working directory to set for the command.
-        inputs : bytes or None, optional
-            Additional inputs to give to the command. These are not
-            arguments but more akin to keystrokes etc. that the external
-            command may take.
+        Args:
+            cmd: The command to execute.
+            cwd: The current working directory to set for the command.
+            inputs: Additional inputs to give to the command. These are not
+                arguments but more akin to keystrokes etc. that the external
+                command may take.
 
-        Returns
-        -------
-        out : int
+        Returns:
             The return code of the issued command.
-
         """
         cmd2 = " ".join(cmd)
         logger.debug("Executing: %s", cmd2)
@@ -702,13 +574,9 @@ class EngineBase(metaclass=ABCMeta):
     def _remove_files(self, dirname: str, files: list[str]) -> None:
         """Remove files from a directory.
 
-        Parameters
-        ----------
-        dirname : string
-            Where we are removing.
-        files : list of strings
-            A list with files to remove.
-
+        Args:
+            dirname: Path to the directory to remove files from.
+            files: A list with files to remove.
         """
         for i in files:
             self._removefile(os.path.join(dirname, i))
@@ -769,14 +637,10 @@ class EngineBase(metaclass=ABCMeta):
             )
 
     def restart_info(self) -> dict[str, str]:
-        """General method.
-
-        Returns the info to allow an engine exact restart.
+        """Return info for storing the state of the engine.
 
         Returns
-        -------
-        info : dict
-            Contains all the updated simulation settings and counters.
+            info: The information needed to create the engine again.
 
         """
         info = {"description": self.description}
@@ -785,12 +649,10 @@ class EngineBase(metaclass=ABCMeta):
     def load_restart_info(self, info: dict[str, str] | None = None) -> None:
         """Load restart information.
 
-        Parameters
-        ----------
-        info : dict
-            The dictionary with the restart information, should be
-            similar to the dict produced by :py:func:`.restart_info`.
-
+        Args:
+            info: The dictionary with the restart information. The
+                dictionary returned by :py:func:`.restart_info`
+                should contain all information needed here.
         """
         if info is not None:
             self.description = info["description"]
@@ -806,19 +668,15 @@ class EngineBase(metaclass=ABCMeta):
         beta: float,
         sigma_v: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray | None]:
-        """Draw numbers from a Gaussian distribution.
+        """Draw velocities from a Gaussian distribution.
 
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            This is used to determine the shape (number of particles
-            and dimensionality) and requires veloctities.
-        engine : object like :py:class:`.Engine`
-            This is used to determine the temperature parameter(s)
-        sigma_v : numpy.array, optional
-            The standard deviation in velocity, one for each particle.
-            If it's not given it will be estimated.
-
+        Args:
+            vel: The input velocities to modify.
+            mass: The mass of the particles to generate for.
+            beta: The value of Boltzmanns constant.
+            sigma_v: The standard deviation to use for drawing
+                velocities. One for each particle. It will be
+                estimated if not explicitly given.
         """
         # TODO: Check why cp2k and turtlemd uses this differently.
         if (
