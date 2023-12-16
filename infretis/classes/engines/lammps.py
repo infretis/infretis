@@ -39,7 +39,7 @@ def write_lammpstrj(
     """Write a LAMMPS trajectory frame in .lammpstrj format.
 
     This method assumes a dump format from LAMMPS of:
-    `dump id name x y z vx vy vz`.
+    `dump id type x y z vx vy vz`.
 
     Args:
         outfile: Path to the file to write.
