@@ -722,10 +722,10 @@ def prepare_shooting_point(
     ) = engine.modify_velocities(
         shpt_copy,
         {
-            "sigma_v": ens_set.get("sigma_v", False),
-            "aimless": ens_set.get("aimless", True),
-            "zero_momentum": ens_set.get("zero_momentum", True),
-            "rescale": ens_set.get("rescale_energy", False),
+            "sigma_v": ens_set["tis_set"].get("sigma_v", False),
+            "aimless": ens_set["tis_set"].get("aimless", True),
+            "zero_momentum": ens_set["tis_set"].get("zero_momentum", True),
+            "rescale": ens_set["tis_set"].get("rescale_energy", False),
         },
     )
     orderp = engine.calculate_order(shpt_copy)
