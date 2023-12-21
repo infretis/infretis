@@ -481,6 +481,7 @@ def wire_fencing(
         "maxlength": DEFAULT_MAXLEN,
         "ens_name": ens_set["ens_name"],
         "start_cond": ens_set["start_cond"],
+        "tis_set": ens_set["tis_set"],
     }
 
     succ_seg = 0
