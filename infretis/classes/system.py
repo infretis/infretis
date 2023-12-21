@@ -1,4 +1,6 @@
 """Defines the snapshot system class."""
+from __future__ import annotations
+
 import logging
 from copy import copy
 
@@ -9,50 +11,29 @@ logger.addHandler(logging.NullHandler())
 
 
 class System:
-    """System class."""
+    """Define the representation of System snapshots.
 
-    config: tuple[None, None] = (None, None)
-    order: list[float] | None = None
-    pos: np.ndarray = np.zeros(0)
+    The system is intended for sharing the current configuration (of a
+    frame in a path) between different methods.
+    """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initiate class."""
+        self.config: tuple[str, int] = ("", -1)
+        self.order: list[float] = [-float("nan")]
+        self.pos: np.ndarray = np.zeros(0)
         self.vel: np.ndarray = np.zeros(0)
         self.vel_rev: bool = False
         self.ekin: float | None = None
         self.vpot: float | None = None
-        self.box: np.ndarray = np.zeros((3, 3))
+        self.box: np.ndarray | None = np.zeros((3, 3))
+        self.temperature: dict[str, float] = {}
 
-    def copy(self):
-        """Return a copy of the system.
-
-        This copy is useful for storing snapshots obtained during
-        a simulation.
-
-        Returns
-        -------
-        out : object like :py:class:`.System`
-            A copy of the system.
-
-        """
+    def copy(self) -> System:
+        """Return a copy of this system."""
         system_copy = copy(self)
         return system_copy
 
-    def set_pos(self, pos):
+    def set_pos(self, pos: tuple[str, int]) -> None:
         """Set positions for the particles."""
         self.config = (pos[0], pos[1])
-
-    def set_vel(self, rev_vel):
-        """Set velocities for the particles.
-
-        Here we store information which tells if the
-        velocities should be reversed or not.
-
-        Parameters
-        ----------
-        rev_vel : boolean
-            The velocities to set. If True, the velocities should
-            be reversed before used.
-
-        """
-        self.vel_rev = rev_vel

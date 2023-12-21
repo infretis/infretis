@@ -1,6 +1,10 @@
+"""Helper methods for MD engines."""
 import logging
 import math
 import os
+from collections.abc import Callable, Iterator
+from pathlib import Path
+from typing import IO, Any
 
 import numpy as np
 
@@ -98,47 +102,40 @@ _XYZ_BIG_FMT = "{:5s}" + 3 * " {:15.9f}"
 _XYZ_BIG_VEL_FMT = _XYZ_BIG_FMT + 3 * " {:15.9f}"
 
 
-def _cos(angle):
-    """Return cosine of an angle.
+def _cos(angle: float) -> float:
+    """Return cosine of an angle in degrees.
 
-    We also check if the angle is close to 90.0 and if so, we return
-    a zero.
+    Note:
+        If the angle is close to 90.0 we return 0.0.
 
-    Parameters
-    ----------
-    angle : float
-        The angle in degrees.
+    Args:
+        angle: The angle in degrees.
 
-    Returns
-    -------
-    out : float
+    Returns:
         The cosine of the angle.
-
     """
     if math.isclose(angle, 90.0):
         return 0.0
     return math.cos(math.radians(angle))
 
 
-def box_vector_angles(length, alpha, beta, gamma):
-    """Obtain the box matrix from given lengths and angles.
+def box_vector_angles(
+    length: np.ndarray, alpha: float, beta: float, gamma: float
+) -> np.ndarray:
+    """Return the box matrix from given lengths and angles.
 
-    Parameters
-    ----------
-    length : numpy.array
-        1D array, the box-lengths on form ``[a, b, c]``.
-    alpha : float
-        The alpha angle, in degrees.
-    beta : float
-        The beta angle, in degrees.
-    gamma : float
-        The gamma angle, in degrees.
+    Args:
+        length: The box lengths as a 1D array.
+        alpha: The alpha angle, in degrees.
+        beta: The beta angle, in degrees.
+        gamma: The gamma angle, in degrees.
 
-    Returns
-    -------
-    out : numpy.array, 2D
+    Returns:
         The (upper triangular) box matrix.
 
+    Note:
+        The angles and box lengths follow the convention from
+        LAMMPS (https://docs.lammps.org/Howto_triclinic.html).
     """
     box_matrix = np.zeros((3, 3))
     cos_alpha = _cos(alpha)
@@ -157,57 +154,49 @@ def box_vector_angles(length, alpha, beta, gamma):
     return box_matrix
 
 
-def box_matrix_to_list(matrix, full=False):
-    """Return a list representation of the box matrix.
+def box_matrix_to_list(
+    matrix: np.ndarray, full: bool = False
+) -> np.ndarray | None:
+    """Flatten a box matrix to a list.
 
-    This method ensures correct ordering of the elements for PyRETIS:
-    ``xx, yy, zz, xy, xz, yx, yz, zx, zy``.
+    This method flattens and orders a box matrix to the following order:
+    `xx, yy, zz, xy, xz, yx, yz, zx, zy`.
 
-    Parameters
-    ----------
-    matrix : numpy.array
-        A matrix (2D) representing the box.
-    full : boolean, optional
-        Return a full set of parameters (9) if set to True. If False,
-        and we need 3 or fewer parameters (i.e. the other 6 are zero)
-        we will only return the 3 non-zero ones.
+    Args:
+        matrix: A matrix (2D) representing the box.
+        full: If True, this method returns the full set of 9 parameters.
+            If False, only the diagonal elements will be returned.
 
-    Returns
-    -------
-    out : list
-        A list with the box-parametres.
-
+    Returns:
+        A list with the box parameters.
     """
     if matrix is None:
         return None
     if np.count_nonzero(matrix) <= 3 and not full:
-        return [matrix[0, 0], matrix[1, 1], matrix[2, 2]]
-    return [
-        matrix[0, 0],
-        matrix[1, 1],
-        matrix[2, 2],
-        matrix[0, 1],
-        matrix[0, 2],
-        matrix[1, 0],
-        matrix[1, 2],
-        matrix[2, 0],
-        matrix[2, 1],
-    ]
+        return np.array([matrix[0, 0], matrix[1, 1], matrix[2, 2]])
+    return np.array(
+        [
+            matrix[0, 0],
+            matrix[1, 1],
+            matrix[2, 2],
+            matrix[0, 1],
+            matrix[0, 2],
+            matrix[1, 0],
+            matrix[1, 2],
+            matrix[2, 0],
+            matrix[2, 1],
+        ]
+    )
 
 
-def get_box_from_header(header):
+def get_box_from_header(header: str) -> np.ndarray | None:
     """Get box lengths from a text header.
 
-    Parameters
-    ----------
-    header : string
-        Header from which we will extract the box.
+    Args:
+        header: Text from which we will extract the box information.
 
-    Returns
-    -------
-    out : numpy.array or None
+    Returns:
         The box lengths.
-
     """
     low = header.lower()
     if low.find("box:") != -1:
@@ -216,25 +205,22 @@ def get_box_from_header(header):
     return None
 
 
-def read_txt_snapshots(filename, data_keys=None):
+def read_txt_snapshots(
+    filename: str | Path, data_keys: tuple[str, ...] | None = None
+) -> Iterator[dict[str, Any]]:
     """Read snapshots from a text file.
 
-    Parameters
-    ----------
-    filename : string
-        The file to read from.
-    data_keys : tuple of strings, optional
-        This tuple determines the data we are to read. It can
-        be of type ``('atomname', 'x', 'y', 'z', ...)``.
+    Args:
+        filename: Path to the file to read snapshots from.
+        data_keys: A tuple representing the data we are to read,
+            typically on the form: ('atomname', 'x', 'y', 'z', ...)`.
 
-    Yields
-    ------
-    out : dict
-        A dictionary with the snapshot.
-
+    Yields:
+        A dictionary with the snapshot. The keys are the given
+            `data_keys` and the values contain the corresponding data.
     """
     lines_to_read = 0
-    snapshot = None
+    snapshot: dict[str, Any] = {}
     if data_keys is None:
         data_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
     read_header = False
@@ -246,7 +232,7 @@ def read_txt_snapshots(filename, data_keys=None):
                 read_header = False
                 continue
             if lines_to_read == 0:  # new snapshot
-                if snapshot is not None:
+                if snapshot:
                     yield snapshot
                 try:
                     lines_to_read = int(lines.strip())
@@ -254,87 +240,64 @@ def read_txt_snapshots(filename, data_keys=None):
                     logger.error("Error in the input file %s", filename)
                     raise
                 read_header = True
-                snapshot = None
+                snapshot = {}
             else:
                 lines_to_read -= 1
                 data = lines.strip().split()
                 for i, (val, key) in enumerate(zip(data, data_keys)):
-                    if i == 0:
-                        value = val.strip()
-                    else:
-                        value = float(val)
+                    value = val.strip() if i == 0 else float(val)
                     try:
                         snapshot[key].append(value)
                     except KeyError:
                         snapshot[key] = [value]
-    if snapshot is not None:
+    if snapshot:
         yield snapshot
 
 
-def read_xyz_file(filename):
+def read_xyz_file(filename: str | Path) -> Iterator[dict[str, Any]]:
     """Read files in XYZ format.
 
     This method will read a XYZ file and yield the different snapshots
     found in the file.
 
-    Parameters
-    ----------
-    filename : string
-        The file to open.
+    Args:
+        filename: Path to the file to open.
 
-    Yields
-    ------
-    out : dict
-        This dict contains the snapshot.
-
-    Examples
-    --------
-    >>> from pyretis.inout.formats.xyz import read_xyz_file
-    >>> for snapshot in read_xyz_file('traj.xyz'):
-    ...     print(snapshot['x'][0])
-
-    Note
-    ----
-    The positions will **NOT** be converted to a specified set of units.
-
+    Yields:
+        A dictionary containing the snapshot.
     """
     xyz_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
     yield from read_txt_snapshots(filename, data_keys=xyz_keys)
 
 
 def write_xyz_trajectory(
-    filename, pos, vel, names, box, step=None, append=True
-):
-    """Write XYZ snapshot to a trajectory.
+    filename: str,
+    pos: np.ndarray,
+    vel: np.ndarray,
+    names: list[str] | None,
+    box: np.ndarray | None,
+    step: int | None = None,
+    append: bool = True,
+) -> None:
+    """Write a XYZ snapshot to a trajectory file.
 
     This is intended as a lightweight alternative for just
     dumping snapshots to a trajectory file.
 
-    Parameters
-    ----------
-    filename : string
-        The file name to dump to.
-    pos : numpy.array
-        The positions we are to write.
-    vel : numpy.array
-        The velocities we are to write.
-    names : list of strings
-        Atom names to write.
-    box : numpy.array
-        The box dimensions/vectors
-    step : integer, optional
-        If the ``step`` is given, then the step number is
-        written to the header.
-    append : boolean, optional
-        Determines if we append or overwrite an existing file.
-
-    Note
-    ----
-    We will here append to the file.
-
+    Args:
+        filename: Path to the file to write to.
+        pos: The positions to write.
+        vel: The velocities to write.
+        names: Atom names to write.
+        box: The box dimensions/vectors
+        step: If the `step` is given, then the step number is
+            written to the header.
+        append: Determines if we append (if True) or overwrite (if False)
+            if the `filename` file exists.
     """
     npart = len(pos)
-
+    if names is None:
+        names = ["X"] * npart
     filemode = "a" if append else "w"
     with open(filename, filemode, encoding="utf-8") as output_file:
         output_file.write(f"{npart}\n")
@@ -359,25 +322,20 @@ def write_xyz_trajectory(
             output_file.write(f"{line}\n")
 
 
-def convert_snapshot(snapshot):
+def convert_snapshot(
+    snapshot: dict[str, Any]
+) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
     """Convert a XYZ snapshot to numpy arrays.
 
-    Parameters
-    ----------
-    snapshot : dict
-        The dict containing a snapshot read from a XYZ-file.
+    Args:
+        snapshot: The dict containing a snapshot read from a XYZ-file.
 
-    Returns
-    -------
-    box : numpy.array, 1D
-        The box dimensions if we manage to read it.
-    xyz : numpy.array
-        The positions.
-    vel : numpy.array
-        The velocities.
-    names : list of strings
-        The atom names found in the file.
-
+    Returns:
+        A tuple containing:
+            - The box dimensions if we manage to read it.
+            - The positions.
+            - The velocities.
+            - The atom names found in the file.
     """
     names = snapshot["atomname"]
     box = snapshot.get("box", None)
@@ -392,26 +350,27 @@ def convert_snapshot(snapshot):
     return box, xyz, vel, names
 
 
-def look_for_input_files(input_path, required_files, extra_files=None):
-    """Check that required files for external engines are present.
+def look_for_input_files(
+    input_path: str | Path,
+    required_files: dict[str, str] | dict[str, Path],
+    extra_files: list[str] | list[Path] | None = None,
+) -> dict[str, Any]:
+    """Check that required files for a MD engines are present.
 
-    It will first search for the default files.
-    If not present, it will search for the files with the
-    same extension. In this search,
-    if there are no files or multiple files for a required
-    extension, the function will raise an Error.
+    It will first search for the default files. If not present,
+    it will search for the files with the same extension.
+    In this search, if there are no files or multiple files for
+    a required extension, the function will raise an Error.
     There might also be optional files which are not required, but
     might be passed in here. If these are not present we will
     not fail, but delete the reference to this file.
 
-    Parameters
-    ----------
-    input_path : string
-        The path to the folder where the input files are stored.
-    required_files : dict of strings
-        These are the file names types of the required files.
-    extra_files : list of strings, optional
-        These are the file names of the extra files.
+    Args:
+        input_path: Path to the directory where the input files are
+            stored.
+        required_files: These are the file names (and types as given by
+            their extensions) of the required files.
+        extra_files: These are the file names of the extra files.
 
     Returns
     -------
@@ -419,16 +378,15 @@ def look_for_input_files(input_path, required_files, extra_files=None):
         The paths to the required and extra files we found.
 
     """
-    if not os.path.isdir(input_path):
-        msg = f"Input path folder {input_path} not existing"
+    input_path = Path(input_path)
+    if not input_path.is_dir():
+        msg = f"Input path folder {str(input_path)} not existing"
         raise ValueError(msg)
 
     # Get the list of files in the input_path folder
-    files_in_input_path = [
-        i.name for i in os.scandir(input_path) if i.is_file()
-    ]
+    files_in_input_path = [i.name for i in input_path.iterdir() if i.is_file()]
 
-    input_files = {}
+    input_files: dict[str, Any] = {}
     # Check if the required files are present
     for file_type, file_to_check in required_files.items():
         req_ext = os.path.splitext(file_to_check)[1][1:].lower()
@@ -447,9 +405,7 @@ def look_for_input_files(input_path, required_files, extra_files=None):
             # Since we are guessing the correct files, give an error if
             # multiple entries are possible.
             if file_counter == 1:
-                input_files[file_type] = os.path.join(
-                    input_path, selected_file
-                )
+                input_files[file_type] = input_path / selected_file
                 logger.warning(
                     f"using {input_files[file_type]} "
                     + f'as "{file_type}" file'
@@ -469,14 +425,16 @@ def look_for_input_files(input_path, required_files, extra_files=None):
             else:
                 msg = f"Extra file {file_to_check} not present in {input_path}"
                 logger.info(msg)
-
     return input_files
 
 
 class ReadAndProcessOnTheFly:
-    """Read from an open fileobject on the fly and do some processing on
-    new data that is written to it. Files should be opened using a 'with open'
-    statement to be sure that they are closed.
+    """Read and process from an open fileobject on the fly.
+
+    This method will read from an open fileobject on the fly,
+    and do some processing on new data that is written to the file.
+    Files should be opened using a 'with open' statement to be sure
+    that they are closed.
 
     To do
     use with open in here. Point at current pos and read N finished blocks. Put
@@ -484,31 +442,42 @@ class ReadAndProcessOnTheFly:
     at last whole ready block read and return [] or the ready frames.
     """
 
-    def __init__(self, file_path, processing_function, read_mode="r"):
+    def __init__(
+        self,
+        file_path: str | Path,
+        processing_function: Callable[..., Any],
+        read_mode: str = "r",
+    ):
+        """Create the reader object."""
         self.file_path = file_path
         self.processing_function = processing_function
         self.current_position = 0
-        self.file_object = None
+        self.file_object: IO[Any] | None = None
         self.read_mode = read_mode
 
-    def read_and_process_content(self):
+    def read_and_process_content(self) -> Any:
+        """Read and process content from a file."""
         # we may open at a time where the file
         # is currently not open for reading
         try:
             with open(self.file_path, self.read_mode) as self.file_object:
                 self.file_object.seek(self.current_position)
                 self.previous_position = self.current_position
-                trajectory = self.processing_function(self)
-                return trajectory
+                return self.processing_function(self)
         except FileNotFoundError:
             return []
 
 
-def xyz_reader(reader_class):
+def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
+    """Read XYZ-files on the fly."""
     # trajectory of ready frames to be returned
-    trajectory = []
+    trajectory: list[np.ndarray] = []
     # holder for storing frame coordinates
-    frame_coordinates = []
+    frame_coordinates: list[list[float]] = []
+    block_size = 0
+    N_atoms = 0
+    if reader_class.file_object is None:
+        return trajectory
     for i, line in enumerate(reader_class.file_object.readlines()):
         spl = line.split()
         if i == 0 and spl:
@@ -516,8 +485,8 @@ def xyz_reader(reader_class):
             block_size = N_atoms + 2  # 2 header lines
         # if we are not in the atom nr or header block
         if i % block_size > 1:
-            # if there arent enough values to iterate through
-            # return the (posibly empty) ready trajectory frames
+            # if there aren't enough values to iterate through
+            # return the (possibly empty) ready trajectory frames
             if len(spl) != 4:
                 reader_class.current_position = reader_class.previous_position
                 return trajectory
@@ -533,7 +502,9 @@ def xyz_reader(reader_class):
     return trajectory
 
 
-def lammpstrj_reader(reader_class):
+def lammpstrj_reader(
+    reader_class: ReadAndProcessOnTheFly,
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """
     Return the coordinates, velocities and box bounds from a trajectory.
 
@@ -557,12 +528,17 @@ def lammpstrj_reader(reader_class):
     """
     # the ready frames to be returned
     # which will be a list of np.arrays
-    trajectory = []
+    trajectory: list[np.ndarray] = []
     # the corresponding box dimensions to be returned
-    box = []
+    box: list[np.ndarray] = []
+    box_snapshot = np.zeros(1)
     # the number of lines each snapshot takes in the trajectory
     # It is a placeholder for now
     block_size = 4
+    N_atoms = 0
+    coordinate_snapshot = np.zeros(1)
+    if reader_class.file_object is None:
+        return trajectory, box
     for i, line in enumerate(reader_class.file_object.readlines()):
         spl = line.split()
         if i == 3 and spl:
@@ -582,7 +558,7 @@ def lammpstrj_reader(reader_class):
                 reader_class.current_position = reader_class.previous_position
                 return trajectory, box
             else:
-                # we may have either 2 or 3 colums in box output
+                # we may have either 2 or 3 columns in box output
                 box_snapshot[line_nr - 5] = spl + [0] * (3 - n_box_cols)
         # we are in the atoms block
         elif line_nr >= 9:

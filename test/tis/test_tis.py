@@ -8,7 +8,7 @@ from rgen import MockRandomGenerator
 
 from infretis.classes.engines.engineparts import read_xyz_file
 from infretis.classes.engines.factory import create_engine
-from infretis.classes.engines.turtlemd import TurtleMDEngine
+from infretis.classes.engines.turtlemdengine import TurtleMDEngine
 from infretis.classes.orderparameter import create_orderparameters
 
 # from infretis.classes.path import Path, restart_path

@@ -1,4 +1,6 @@
 """Base engine class."""
+from __future__ import annotations
+
 import logging
 import os
 import re
@@ -6,10 +8,18 @@ import shlex
 import shutil
 import subprocess
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from infretis.classes.formatter import FileIO
+from infretis.classes.formatter import FileIO, OutputFormatter
+
+if TYPE_CHECKING:  # pragma: no cover
+    from infretis.classes.orderparameter import OrderParameter
+    from infretis.classes.path import Path as InfPath
+    from infretis.classes.system import System
+
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -18,44 +28,37 @@ logger.addHandler(logging.NullHandler())
 class EngineBase(metaclass=ABCMeta):
     """Abstract base class for engines.
 
-    The engines perform molecular dynamics (or Monte Carlo) and they
-    are assumed to act on a system. Typically they will integrate
-    Newtons equation of motion in time for that system.
+    The engines perform molecular dynamics and they are assumed to act
+    on a system.
 
-    Attributes
-    ----------
-    description : string
-        Short string description of the engine. Used for printing
-        information about the integrator.
-    exe_dir : string
-        A directory where the engine is going to be executed.
-    needs_order : boolean
-        Determines if the engine needs an internal order parameter
-        or not. If not, it is assumed that the order parameter is
-        calculated by the engine.
-
+    Attributes:
+        description: Short string description of the engine.
+            Used for printing information about the integrator.
+        exe_dir: A directory where the engine is going to be executed.
+        needs_order: Determines if the engine needs an internal
+            order parameter or not. If not, it is assumed that the
+            order parameter is calculated by the engine.
     """
 
-    needs_order = True
-    engine_type = None
+    needs_order: bool = True
 
-    def __init__(self, description, timestep, subcycles):
-        """Just add the description."""
-        self.description = description
-        self._exe_dir = None
-        self.timestep = timestep
-        self.subcycles = subcycles
-        self.ext = "xyz"
-        self.input_files = {}
-        self.order_function = None
+    def __init__(self, description: str, timestep: float, subcycles: int):
+        """Initialize the engine."""
+        self.description: str = description
+        self._exe_dir: str = "."
+        self.timestep: float = timestep
+        self.subcycles: int = subcycles
+        self.ext: str = "xyz"
+        self.input_files: dict[str, str | Path] = {}
+        self.order_function: OrderParameter | None = None
 
     @property
-    def exe_dir(self):
+    def exe_dir(self) -> str:
         """Return the directory we are currently using."""
         return self._exe_dir
 
     @exe_dir.setter
-    def exe_dir(self, exe_dir):
+    def exe_dir(self, exe_dir: str) -> None:
         """Set the directory for executing."""
         self._exe_dir = exe_dir
         if exe_dir is not None:
@@ -70,46 +73,20 @@ class EngineBase(metaclass=ABCMeta):
                     exe_dir,
                 )
 
-    def integration_step(self):
-        """
-        Perform a single time step of the integration.
-
-        For external engines, it does not make much sense to run single
-        steps unless we absolutely have to. We therefore just fail here.
-        I.e. the external engines are not intended for performing pure
-        MD simulations.
-
-        If it's absolutely needed, there is a :py:meth:`self.step()`
-        method which can be used, for instance in the initialisation.
-
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            A system to run the integration step on.
-
-        """
-        msg = 'External engine does **NOT** support "integration_step()"!'
-        logger.error(msg)
-        raise NotImplementedError(msg)
-
     @staticmethod
-    def add_to_path(path, phase_point, left, right):
-        """
-        Add a phase point and perform some checks.
+    def add_to_path(
+        path: InfPath, phase_point: System, left: float, right: float
+    ) -> tuple[str, bool, bool, bool]:
+        """Add a phase point and perform some checks.
 
-        This method is intended to be used by the propagate methods.
+        This method is intended to be used by the propagate methods
+        to determine if the propagation should end or not.
 
-        Parameters
-        ----------
-        path : object like :py:class:`.PathBase`
-            The path to add to.
-        phase_point : object like py:class:`.System`
-            The phase point to add to the path.
-        left : float
-            The left interface.
-        right : float
-            The right interface.
-
+        Args:
+            path: The path to add the phase point to.
+            phase_point: The phase point to add to the path.
+            left: The left interface.
+            right: The right interface.
         """
         status = "Running propagate..."
         success = False
@@ -137,148 +114,106 @@ class EngineBase(metaclass=ABCMeta):
         return status, success, stop, add
 
     @abstractmethod
-    def modify_velocities(self, ensemble, vel_settings):
+    def modify_velocities(
+        self, ensemble: System, vel_settings: dict[str, Any]
+    ) -> tuple[float, float]:
         """Modify the velocities of the current state.
 
-        Parameters
-        ----------
-        ensemble: dict
-            It contains all the runners:
+        Args:
+            ensemble: The system to modify the velocity of.
+            vel_settings: A dictionary containing the parameters
+                for setting the velocity. How the settings are
+                used will be defined in the specific engies.
 
-            * `path` : object like :py:class:`.PathBase`
-              This is the path we use to fill in phase-space points.
-              We are here not returning a new path - this since we want
-              to delegate the creation of the path (type) to the method
-              that is running `propagate`.
-
-        vel_settings: dict
-            It contains all the info for the velocity:
-
-            * `sigma_v` : numpy.array, optional
-              These values can be used to set a standard deviation (one
-              for each particle) for the generated velocities.
-            * `aimless` : boolean, optional
-              Determines if we should do aimless shooting or not.
-            * `zero_momentum` : boolean, optional
-              If True, we reset the linear momentum to zero after
-              generating.
-            * `rescale or rescale_energy` : float, optional
-              In some NVE simulations, we may wish to re-scale the
-              energy to a fixed value. If `rescale` is a float > 0,
-              we will re-scale the energy (after modification of
-              the velocities) to match the given float.
-
-        Returns
-        -------
-        dek : float
-            The change in the kinetic energy.
-        kin_new : float
-            The new kinetic energy.
-
+        Returns:
+            A tuple containing:
+                - The change in the kinetic energy.
+                - The new kinetic energy.
         """
-        return
 
     @abstractmethod
-    def set_mdrun(self, config, md_items):
-        """Sets the worker terminal command to be run"""
-        return
+    def set_mdrun(self, md_items: dict[str, Any]) -> None:
+        """Set exe_dir and worker terminal command to be run."""
 
-    def calculate_order(self, system, xyz=None, vel=None, box=None):
-        """
-        Calculate order parameter from configuration in a file.
+    def calculate_order(
+        self,
+        system: System,
+        xyz: np.ndarray | None = None,
+        vel: np.ndarray | None = None,
+        box: np.ndarray | None = None,
+    ) -> list[float]:
+        """Calculate the order parameter of the current system.
 
         Note, if ``xyz``, ``vel`` or ``box`` are given, we will
         **NOT** read positions, velocity and box information from the
-        current configuration file.
+        current configuration file. This can be used in case we
+        have already read these elsewhere.
 
-        Parameters
-        ----------
-        ensemble : dict
-            It contains:
+        Args:
+            system: The current state of the system we are investigating.
+            xyz: The positions to use (to override the system's positions).
+            vel: The velocities to use (to override the system's velocities).
+            box: The current box vectors (to override the system's box).
 
-            * `system` : object like :py:class:`.System`
-              This is the system that contains the particles we are
-              investigating
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-
-        xyz : numpy.array, optional
-            The positions to use, in case we have already read them
-            somewhere else. We will then not attempt to read them again.
-        vel : numpy.array, optional
-            The velocities to use, in case we already have read them.
-        box : numpy.array, optional
-            The current box vectors, in case we already have read them.
-
-        Returns
-        -------
-        out : list of floats
+        Returns:
             The calculated order parameter(s).
-
         """
         # Convert system into an internal representation:
         if any((xyz is None, vel is None, box is None)):
             out = self._read_configuration(system.config[0])
-            box = out[0]
-            xyz = out[1]
-            vel = out[2]
-        system.pos = xyz
-        if system.vel_rev:
-            if vel is not None:
-                system.vel = -1.0 * vel
-        else:
-            system.vel = vel
+            xyz = out[0]
+            vel = out[1]
+            box = out[2]
+        if xyz is not None:
+            system.pos = xyz
+        if vel is not None:
+            system.vel = vel * -1.0 if system.vel_rev else vel
 
         # system.update_box(box)
-        system.box = box
+        if box is not None:
+            system.box = box
+        if self.order_function is None:
+            raise ValueError("Order parameter is not defined!")
         return self.order_function.calculate(system)
 
-    def dump_phasepoint(self, phasepoint, deffnm="conf"):
-        """Just dump the frame from a system object."""
+    def dump_phasepoint(
+        self, phasepoint: System, deffnm: str = "conf"
+    ) -> None:
+        """Dump the current configuration from a system object to a file."""
         pos_file = self.dump_config(phasepoint.config, deffnm=deffnm)
-        phasepoint.set_pos((pos_file, None))
+        phasepoint.set_pos((pos_file, 0))
 
-    def _name_output(self, basename):
-        """
-        Create a file name for the output file.
+    def _name_output(self, basename: str) -> str:
+        """Create a file name for the output file.
 
         This method is used when we dump a configuration to add
-        the correct extension for GROMACS (either gro or g96).
+        the correct extension.
 
-        Parameters
-        ----------
-        basename : string
-            The base name to give to the file.
+        Args:
+            basename: The base name to give to the file.
 
-        Returns
-        -------
-        out : string
-            A file name with an extension.
-
+        Returns:
+            A file name with the correct extension.
         """
         out_file = f"{basename}.{self.ext}"
         return os.path.join(self.exe_dir, out_file)
 
-    def dump_config(self, config, deffnm="conf"):
+    def dump_config(
+        self, config: tuple[str, int], deffnm: str = "conf"
+    ) -> str:
         """Extract configuration frame from a system if needed.
 
-        Parameters
-        ----------
-        config : tuple
-            The configuration given as (filename, index).
-        deffnm : string, optional
-            The base name for the file we dump to.
+        Args:
+            config: The configuration given as (filename, index).
+            deffnm: The base name for the file we dump to.
 
-        Returns
-        -------
-        out : string
+        Returns:
             The file name we dumped to. If we did not in fact dump, this is
             because the system contains a single frame and we can use it
             directly. Then we return simply this file name.
 
-        Note
-        ----
-        If the velocities should be reversed, this is handled elsewhere.
+        Note:
+            If the velocities should be reversed, this is handled elsewhere.
 
         """
         out_file = os.path.join(self.exe_dir, self._name_output(deffnm))
@@ -291,70 +226,56 @@ class EngineBase(metaclass=ABCMeta):
             self._extract_frame(pos_file, idx, out_file)
         return out_file
 
-    def dump_frame(self, system, deffnm="conf"):
-        """Just dump the frame from a system object."""
+    def dump_frame(self, system: System, deffnm: str = "conf") -> str:
+        """Dump the frame from a system object."""
         return self.dump_config(system.config, deffnm=deffnm)
 
     @abstractmethod
-    def _extract_frame(self, traj_file, idx, out_file):
+    def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """Extract a frame from a trajectory file.
 
-        Parameters
-        ----------
-        traj_file : string
-            The trajectory file to open.
-        idx : integer
-            The frame number we look for.
-        out_file : string
-            The file to dump to.
-
+        Args:
+            traj_file: Path to the trajectory file to open.
+            idx: The frame number to dump.
+            out_file: Path to the file to dump to.
         """
-        return
 
-    def clean_up(self):
-        """Will remove all files from the current directory."""
+    def clean_up(self) -> None:
+        """Remove all files from the current directory."""
         dirname = self.exe_dir
         logger.debug('Running engine clean-up in "%s"', dirname)
         files = [item.name for item in os.scandir(dirname) if item.is_file()]
         if dirname is not None:
             self._remove_files(dirname, files)
 
-    def propagate(self, path, ens_set, system, reverse=False):
-        """
-        Propagate the equations of motion with the external code.
+    def propagate(
+        self,
+        path: InfPath,
+        ens_set: dict[str, Any],
+        system: System,
+        reverse: bool = False,
+    ) -> tuple[bool, str]:
+        """Propagate the equations of motion with the external code.
 
         This method will explicitly do the common set-up, before
         calling more specialised code for doing the actual propagation.
 
-        Parameters
-        ----------
-        path : object like :py:class:`.PathBase`
-            This is the path we use to fill in phase-space points.
-            We are here not returning a new path - this since we want
-            to delegate the creation of the path to the method
-            that is running `propagate`.
-        ensemble: dict
-            It contains:
+        Args:
+            path: This is the path we use to fill in phase-space points.
+                We are here not returning a new path - this since we want
+                to delegate the creation of the path to the method
+                that is running `propagate`.
+            ens_set: The set of dictionaries containing the information
+                about the simulation.
+            reverse: If True, the system will be propagated backward in time.
+                Otherwise, it will be propagated forward in time.
 
-            * `system` : object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-            * `interfaces` : list of floats
-              These interfaces define the stopping criterion.
-
-        reverse : boolean, optional
-            If True, the system will be propagated backward in time.
-
-        Returns
-        -------
-        success : boolean
-            This is True if we generated an acceptable path.
-        status : string
-            A text description of the current status of the propagation.
-
+        Returns:
+            A tuple containing:
+                - True if the enerated path can be accepted. False otherwise.
+                - A text description of the current status of the propagation.
+                  This can be used to interpret the cases where the generated
+                  path is not acceptable.
         """
         logger.debug('Running propagate with: "%s"', self.description)
 
@@ -369,7 +290,9 @@ class EngineBase(metaclass=ABCMeta):
         # Also create a message file for inspecting progress:
         msg_file_name = os.path.join(self.exe_dir, f"msg-{name}.txt")
         logger.debug("Writing propagation progress to: %s", msg_file_name)
-        msg_file = FileIO(msg_file_name, "w", None, backup=False)
+        msg_file = FileIO(
+            msg_file_name, "w", OutputFormatter("MSG_File"), backup=False
+        )
         msg_file.open()
         msg_file.write(f"# Preparing propagation with {self.description}")
         msg_file.write(f"# Trajectory label: {name}")
@@ -393,8 +316,8 @@ class EngineBase(metaclass=ABCMeta):
         msg_file.write(f"# Initial config: {initial_conf}")
 
         # Update system to point to the configuration file:
-        system.set_pos((initial_conf, None))
-        system.set_vel(reverse)
+        system.set_pos((initial_conf, 0))
+        system.vel_rev = reverse
         # Propagate from this point:
         # msg_file.write(f'# Interfaces: {ensemble["interfaces"]}')
         success, status = self._propagate_from(
@@ -406,51 +329,40 @@ class EngineBase(metaclass=ABCMeta):
         return success, status
 
     @abstractmethod
-    def _propagate_from(self, name, path, ensemble, msg_file, reverse=False):
+    def _propagate_from(
+        self,
+        name: str,
+        path: InfPath,
+        system: System,
+        ensemble: dict[str, Any],
+        msg_file: FileIO,
+        reverse: bool = False,
+    ) -> tuple[bool, str]:
+        """Execute the actual propagation with the MD engine.
+
+        This method is called from :py:meth:`.propagate` which
+        handles the preparations for the propagation.
+
+        Args:
+            name: A name to use for the trajectory we are generating.
+            path: This is the path we use to fill in phase-space points.
+            system: The initial state of the propagation.
+            ensemble: Dictionary with simulation settings.
+            msg_file: An object we use for writing out messages that are
+                useful for inspecting the status of MD execution.
+            reverse: If True, the system will be propagated backward in time.
+                Otherwise, it will be propagated forward in time.
+
+        Returns:
+            A tuple containing:
+                - True if the enerated path can be accepted. False otherwise.
+                - A text description of the current status of the propagation.
+                  This can be used to interpret the cases where the generated
+                  path is not acceptable.
         """
-        Run the actual propagation using the specific engine.
-
-        This method is called after :py:meth:`.propagate`. And we
-        assume that the necessary preparations before the actual
-        propagation (e.g. dumping of the configuration etc.) is
-        handled in that method.
-
-        Parameters
-        ----------
-        name : string
-            A name to use for the trajectory we are generating.
-        path : object like :py:class:`.PathBase`
-            This is the path we use to fill in phase-space points.
-        ensemble: dict
-            It contains:
-
-            * `system` : object like :py:class:`.System`
-              The system object gives the initial state for the
-              integration. The initial state is stored and the system is
-              reset to the initial state when the integration is done.
-            * `order_function` : object like :py:class:`.OrderParameter`
-              The object used for calculating the order parameter.
-            * `interfaces` : list of floats
-              These interfaces define the stopping criterion.
-
-        msg_file : object like :py:class:`.FileIO`
-            An object we use for writing out messages that are useful
-            for inspecting the status of the current propagation.
-        reverse : boolean, optional
-            If True, the system will be propagated backward in time.
-
-        Returns
-        -------
-        success : boolean
-            This is True if we generated an acceptable path.
-        status : string
-            A text description of the current status of the propagation.
-
-        """
-        return
 
     @staticmethod
-    def snapshot_to_system(system, snapshot):
+    def snapshot_to_system(system: System, snapshot: dict[str, Any]) -> System:
         """Convert a snapshot to a system object."""
         system_copy = system.copy()
         system_copy.order = snapshot.get("order", None)
@@ -465,61 +377,52 @@ class EngineBase(metaclass=ABCMeta):
         return system_copy
 
     @abstractmethod
-    def _read_configuration(self, filename):
+    def _read_configuration(
+        self, filename: str
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
         """Read output configuration from external software.
 
-        Parameters
-        ----------
-        filename : string
-            The file to open and read a configuration from.
+        Args:
+            filename: Path to the file read a configuration from.
 
-        Returns
-        -------
-        out[0] : numpy.array
-            The dimensions of the simulation box.
-        out[1] : numpy.array
-            The positions found in the given filename.
-        out[2] : numpy.array
-            The velocities found in the given filename.
+        Returns:
+            A tuple containing:
+                - The positions read.
+                - The velocities read.
+                - The dimensions of the simulation box.
+                - Atom labels (if found).
 
         """
-        return
 
     @abstractmethod
-    def _reverse_velocities(self, filename, outfile):
+    def _reverse_velocities(self, filename: str, outfile: str) -> None:
         """Reverse velocities in a given snapshot.
 
-        Parameters
-        ----------
-        filename : string
-            Input file with velocities.
-        outfile : string
-            File to write with reversed velocities.
-
+        Args:
+            filename: Path to the file to reverse velocities in.
+            outfile: Path to file to write with reversed velocities.
         """
-        return
 
     @staticmethod
-    def _modify_input(sourcefile, outputfile, settings, delim="="):
-        """
-        Modify input file for external software.
+    def _modify_input(
+        sourcefile: str | Path,
+        outputfile: str | Path,
+        settings: dict[str, Any],
+        delim: str = "=",
+    ) -> None:
+        """Modify input file for external software.
 
         Here we assume that the input file has a syntax consisting of
         ``keyword = setting``. We will only replace settings for
         the keywords we find in the file that is also inside the
         ``settings`` dictionary.
 
-        Parameters
-        ----------
-        sourcefile : string
-            The path of the file to use for creating the output.
-        outputfile : string
-            The path of the file to write.
-        settings : dict
-            A dictionary with settings to write.
-        delim : string, optional
-            The delimiter used for separation keywords from settings.
-
+        Args:
+            sourcefile: Path to file to use as a template for creating
+                the modified input file.
+            outputfile: Path to the file to write input settings to.
+            settings: A dictionary with settings to write.
+            delim: The delimiter used for separation keywords from settings.
         """
         reg = re.compile(rf"(.*?){delim}")
         written = set()
@@ -528,10 +431,10 @@ class EngineBase(metaclass=ABCMeta):
         ) as outfile:
             for line in infile:
                 to_write = line
-                key = reg.match(line)
-                if key:
-                    keyword = "".join([key.group(1), delim])
-                    keyword_strip = key.group(1).strip()
+                match = reg.match(line)
+                if match:
+                    keyword = "".join([match.group(1), delim])
+                    keyword_strip = match.group(1).strip()
                     if keyword_strip in settings:
                         to_write = f"{keyword} {settings[keyword_strip]}\n"
                     written.add(keyword_strip)
@@ -542,31 +445,24 @@ class EngineBase(metaclass=ABCMeta):
                     outfile.write(f"{key} {delim} {value}\n")
 
     @staticmethod
-    def _read_input_settings(sourcefile, delim="="):
-        """
-        Read input settings for simulation input files.
+    def _read_input_settings(
+        sourcefile: str, delim: str = "="
+    ) -> dict[str, Any]:
+        """Read input settings for simulation input files.
 
         Here we assume that the input file has a syntax consisting of
-        ``keyword = setting``, where ``=`` can be any string given
-        in the input parameter ``delim``.
+        `keyword = setting`, where `=` can be any string given
+        in the input parameter `delim`.
 
-        Parameters
-        ----------
-        sourcefile : string
-            The path of the file to use for creating the output.
-        delim : string, optional
-            The delimiter used for separation keywords from settings.
+        Args:
+            sourcefile: The path of the file read settings from.
+            delim: The delimiter used for separation keywords from settings.
 
-        Returns
-        -------
-        settings : dict of strings
-            The settings found in the file.
+        Returns:
+            settings: The settings found in the file.
 
-        Note
-        ----
-        Important: We are here assuming that there will *ONLY* be one
-        keyword per line.
-
+        Note:
+            This method assumes **only one keyword per line**.
         """
         reg = re.compile(rf"(.*?){delim}")
         settings = {}
@@ -578,9 +474,13 @@ class EngineBase(metaclass=ABCMeta):
                     settings[keyword_strip] = line.split(delim)[1].strip()
         return settings
 
-    def execute_command(self, cmd, cwd=None, inputs=None):
-        """
-        Execute an external command for the engine.
+    def execute_command(
+        self,
+        cmd: list[str],
+        cwd: str | None = None,
+        inputs: bytes | None = None,
+    ) -> int:
+        """Execute an external command for the engine.
 
         We are here executing a command and then waiting until it
         finishes. The standard out and standard error are piped to
@@ -588,22 +488,15 @@ class EngineBase(metaclass=ABCMeta):
         command fails. This method returns the return code of the
         issued command.
 
-        Parameters
-        ----------
-        cmd : list of strings
-            The command to execute.
-        cwd : string or None, optional
-            The current working directory to set for the command.
-        inputs : bytes or None, optional
-            Additional inputs to give to the command. These are not
-            arguments but more akin to keystrokes etc. that the external
-            command may take.
+        Args:
+            cmd: The command to execute.
+            cwd: The current working directory to set for the command.
+            inputs: Additional inputs to give to the command. These are not
+                arguments but more akin to keystrokes etc. that the external
+                command may take.
 
-        Returns
-        -------
-        out : int
+        Returns:
             The return code of the issued command.
-
         """
         cmd2 = " ".join(cmd)
         logger.debug("Executing: %s", cmd2)
@@ -658,41 +551,37 @@ class EngineBase(metaclass=ABCMeta):
         return return_code
 
     @staticmethod
-    def _movefile(source, dest):
+    def _movefile(source: str, dest: str) -> None:
         """Move file from source to destination."""
         logger.debug("Moving: %s -> %s", source, dest)
         shutil.move(source, dest)
 
     @staticmethod
-    def _copyfile(source, dest):
+    def _copyfile(source: str, dest: str) -> None:
         """Copy file from source to destination."""
         logger.debug("Copy: %s -> %s", source, dest)
         shutil.copyfile(source, dest)
 
     @staticmethod
-    def _removefile(filename):
+    def _removefile(filename: str | Path) -> None:
         """Remove a given file if it exist."""
         try:
-            os.remove(filename)
+            Path(filename).unlink(missing_ok=True)
             logger.debug("Removing: %s", filename)
         except OSError:
             logger.debug("Could not remove: %s", filename)
 
-    def _remove_files(self, dirname, files):
+    def _remove_files(self, dirname: str, files: list[str]) -> None:
         """Remove files from a directory.
 
-        Parameters
-        ----------
-        dirname : string
-            Where we are removing.
-        files : list of strings
-            A list with files to remove.
-
+        Args:
+            dirname: Path to the directory to remove files from.
+            files: A list with files to remove.
         """
         for i in files:
             self._removefile(os.path.join(dirname, i))
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """Check if two engines are equal."""
         if self.__class__ != other.__class__:
             logger.debug("%s and %s.__class__ differ", self, other)
@@ -734,12 +623,12 @@ class EngineBase(metaclass=ABCMeta):
 
         return True
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         """Check if two engines are not equal."""
         return not self == other
 
     @classmethod
-    def can_use_order_function(cls, order_function):
+    def can_use_order_function(cls, order_function: OrderParameter) -> None:
         """Fail if the engine can't be used with an empty order parameter."""
         if order_function is None and cls.needs_order:
             raise ValueError(
@@ -747,60 +636,60 @@ class EngineBase(metaclass=ABCMeta):
                 "engine *does* require it."
             )
 
-    def restart_info(self):
-        """General method.
-
-        Returns the info to allow an engine exact restart.
+    def restart_info(self) -> dict[str, str]:
+        """Return info for storing the state of the engine.
 
         Returns
-        -------
-        info : dict
-            Contains all the updated simulation settings and counters.
+            info: The information needed to create the engine again.
 
         """
         info = {"description": self.description}
-
         return info
 
-    def load_restart_info(self, info=None):
+    def load_restart_info(self, info: dict[str, str] | None = None) -> None:
         """Load restart information.
 
-        Parameters
-        ----------
-        info : dict
-            The dictionary with the restart information, should be
-            similar to the dict produced by :py:func:`.restart_info`.
-
+        Args:
+            info: The dictionary with the restart information. The
+                dictionary returned by :py:func:`.restart_info`
+                should contain all information needed here.
         """
-        self.description = info.get("description")
+        if info is not None:
+            self.description = info["description"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the string description of the integrator."""
         return self.description
 
-    def draw_maxwellian_velocities(self, vel, mass, beta, sigma_v=None):
-        """Draw numbers from a Gaussian distribution.
+    def draw_maxwellian_velocities(
+        self,
+        vel: np.ndarray,
+        mass: np.ndarray,
+        beta: float,
+        sigma_v: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray | None]:
+        """Draw velocities from a Gaussian distribution.
 
-        Parameters
-        ----------
-        system : object like :py:class:`.System`
-            This is used to determine the shape (number of particles
-            and dimensionality) and requires veloctities.
-        engine : object like :py:class:`.Engine`
-            This is used to determine the temperature parameter(s)
-        sigma_v : numpy.array, optional
-            The standard deviation in velocity, one for each particle.
-            If it's not given it will be estimated.
-
+        Args:
+            vel: The input velocities to modify.
+            mass: The mass of the particles to generate for.
+            beta: The value of Boltzmanns constant.
+            sigma_v: The standard deviation to use for drawing
+                velocities. One for each particle. It will be
+                estimated if not explicitly given.
         """
-        if not sigma_v or sigma_v < 0.0:
+        # TODO: Check why cp2k and turtlemd uses this differently.
+        if (
+            not sigma_v or sigma_v < 0.0
+        ):  # TODO: The check < 0.0 is not correct for an array.
             kbt = 1.0 / beta
             sigma_v = np.sqrt(kbt * (1 / mass))
 
         npart, dim = vel.shape
         ### probably need a check that we have rgen.. and move this
         ### somewhere maybe.
-        vel = self.rgen.normal(loc=0.0, scale=sigma_v, size=(npart, dim))
+        if hasattr(self, "rgen"):  # TODO: Not a good solution:
+            vel = self.rgen.normal(loc=0.0, scale=sigma_v, size=(npart, dim))
         return vel, sigma_v
 
 

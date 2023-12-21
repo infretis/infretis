@@ -1,0 +1,48 @@
+name: Spelling Check
+
+on:
+  pull_request:
+    paths:
+      - '**.py'
+      - '**.md'
+  push:
+    branches:
+      - main
+    paths:
+      - '**.py'
+      - '**.md'
+  workflow_dispatch:
+
+jobs:
+  check-spelling:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v3
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: "Install codespell"
+        run: pip install codespell
+
+      - name: "Get changed files"
+        id: changed-files
+        uses: tj-actions/changed-files@v40
+
+      - name: "Run codespell on changed files"
+        run: |
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            if [[ "$file" == *.py || "$file" == *.md ]]; then
+              echo "Checking: $file"
+              spell_output=$(codespell "$file" 2>&1) || true
+              if [ -n "$spell_output" ]; then
+                  echo "::warning file=$file::$spell_output"
+              fi
+            else
+                echo "Skipping: $file (not .py or .md)"
+            fi
+          done
