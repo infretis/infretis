@@ -59,7 +59,6 @@ ignore_missing_imports = true
 
 [tool.poetry.scripts]
 infretisrun = "infretis.bin:infretisrun"
-infretisanalyze = "infretis.bin:infretisanalyze"
 
 [tool.pytest.ini_options]
 markers = [
