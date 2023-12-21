@@ -678,7 +678,6 @@ class CP2KEngine(EngineBase):
         input_path: The directory where the input files are stored.
         timestep: The time step used in the CP2K MD simulation.
         subcycles: The number of steps each CP2K run is composed of.
-        rgen: An object we use to set seeds for velocity generation.
         extra_files: List of extra files which may be required to run CP2K.
         sleep: A time in seconds, used to wait for files to be ready.
 
