@@ -600,4 +600,4 @@ class LAMMPSEngine(EngineBase):
 
     def set_mdrun(self, md_items: dict[str, Any]) -> None:
         """Set the executional directory for workers."""
-        self.exe_dir = md_items["w_folder"]
+        self.exe_dir = md_items["exe_dir"]
