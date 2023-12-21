@@ -26,7 +26,7 @@ n_jumps = 3
 
 [engine]
 class = 'lammps'
-engine = 'lmp'
+engine = 'lammps'
 timestep = 0.2
 input_path = 'lammps_input'
 lmp = 'lmp_mpi'
