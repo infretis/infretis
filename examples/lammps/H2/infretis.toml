@@ -1,27 +1,26 @@
 # infretis config
 
 [dask]
-workers = 1
+workers = 4
 wmdrun = ['0',
 	  '0',
 	  '0',
 	  '0',]
 
 [simulation]
-interfaces = [ 3.45, 12.0]
-steps = 5000
+interfaces = [ 3.45, 3.625, 3.777, 3.922, 4.068, 4.224, 4.399, 4.612, 4.915, 12.0]
+steps = 1000
 seed = 0
 load_dir = 'load'
-shooting_moves = ['sh','sh']
+shooting_moves = ['sh','sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
 
 
 [simulation.tis_set]
 maxlength = 2000
-aimless = true
 allowmaxlength = false
-zero_momentum = false # we do not remove momentum by default in lammps
-rescale_energy = false
+zero_momentum = true # we do not remove momentum by default in lammps
 n_jumps = 3
+interface_cap = 5.4
 
 [engine]
 class = 'lammps'
@@ -45,4 +44,4 @@ energy-file = 1
 trajectory-file = 1
 screen = 1
 pattern = false
-delete_old = true
+delete_old = false

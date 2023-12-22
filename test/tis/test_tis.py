@@ -57,10 +57,8 @@ def return_ensset() -> dict():
         "interfaces": (-0.99, -0.3, 1.0),
         "tis_set": {
             "maxlength": 2000,
-            "aimless": True,
             "allowmaxlength": False,
             "zero_momentum": False,
-            "rescale_energy": False,
             "n_jumps": 4,
         },
         "mc_move": "sh",
