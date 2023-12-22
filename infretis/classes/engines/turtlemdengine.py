@@ -313,8 +313,7 @@ class TurtleMDEngine(EngineBase):
     def modify_velocities(
         self, system: System, vel_settings: dict[str, Any]
     ) -> tuple[float, float]:
-        """Modify the velocities of all particles by drawing random velocities
-        from a Boltzmann distribution.
+        """Modify the velocities of all particles.
 
         Args:
             system: The system whose particle velocities are to be modified.
