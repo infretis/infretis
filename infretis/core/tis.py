@@ -1,3 +1,4 @@
+"""Transition interface sampling methods."""
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,11 @@ ENGINES: dict = {}
 
 
 def def_globals(config):
+    """Define global engine and orderparameter variables for each worker.
+
+    Args:
+        config: Dictionary with engine settings.
+    """
     global ENGINES
     ENGINES = create_engines(config)
     create_orderparameters(ENGINES, config)
@@ -723,10 +729,7 @@ def prepare_shooting_point(
     ) = engine.modify_velocities(
         shpt_copy,
         {
-            "sigma_v": ens_set["tis_set"].get("sigma_v", False),
-            "aimless": ens_set["tis_set"].get("aimless", True),
-            "zero_momentum": ens_set["tis_set"].get("zero_momentum", True),
-            "rescale": ens_set["tis_set"].get("rescale_energy", False),
+            "zero_momentum": ens_set["tis_set"].get("zero_momentum", False),
         },
     )
     orderp = engine.calculate_order(shpt_copy)
@@ -740,7 +743,6 @@ def check_kick(
     trial_path: InfPath,
     rgen: Generator,
     dek: float,
-    aimless: bool = True,
 ) -> bool:
     """Check the modification of the shooting point.
 
@@ -755,13 +757,12 @@ def check_kick(
         rgen: A random generator used to check if we accept the
             shooting point based on the change in kinetic energy.
         dek: The change in kinetic energy when modifying the velocities.
-        aimless: Specifies if the shooting is aimless (True).
 
     Returns:
         True if the modification was acceptable.
 
     """
-    # 1) Check if the kick was too violent:
+    # Check if the kick was too violent:
     left, _, right = interfaces
     if not left <= shooting_point.order[0] < right:
         # Shooting point was velocity dependent and was kicked outside
@@ -769,14 +770,6 @@ def check_kick(
         trial_path.append(shooting_point)
         trial_path.status = "KOB"
         return False
-    # 2) If the kick is not aimless, we check if we reject it or not:
-    if not aimless:
-        accept_kick = metropolis_accept_reject(rgen, shooting_point, dek)
-        # If one wish to implement a bias call, this can be done here.
-        if not accept_kick:
-            trial_path.append(shooting_point)
-            trial_path.status = "MCR"  # Momenta Change Rejection.
-            return False
     return True
 
 
