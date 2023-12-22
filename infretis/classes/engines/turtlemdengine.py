@@ -189,7 +189,7 @@ class TurtleMDEngine(EngineBase):
         if hasattr(self, "rgen"):
             seed = self.rgen.integers(0, 1e9)
         else:
-            seed = 42
+            raise ValueError("Missing random generator!")
         tmd_simulation = MDSimulation(
             system=tmd_system,
             integrator=self.integrator(

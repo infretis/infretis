@@ -374,6 +374,10 @@ class LAMMPSEngine(EngineBase):
         traj_file = os.path.join(self.exe_dir, f"{name}.{self.ext}")
         msg_file.write(f"# Trajectory file is: {traj_file}")
         # the settings we need to write in the lammps input
+        if hasattr(self, "rgen"):
+            seed = self.rgen.integers(0, 1e7)
+        else:
+            raise ValueError("Missing random generator!")
         input_settings = {
             "infretis_timestep": self.timestep,
             "infretis_nsteps": path.maxlen * self.subcycles,
@@ -382,7 +386,7 @@ class LAMMPSEngine(EngineBase):
             "infretis_name": name,
             "infretis_lammpsdata": self.input_files["data"],
             "infretis_temperature": self.temperature,
-            "infretis_seed": self.rgen.integers(1e7),
+            "infretis_seed": seed,
         }
         # write the file run.input from lammps input template
         run_input = os.path.join(self.exe_dir, "run.inp")
