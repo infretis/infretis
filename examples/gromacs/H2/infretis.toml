@@ -19,6 +19,8 @@ shooting_moves = ['sh','sh','wf','wf','wf','wf','wf','wf','wf','wf']
 maxlength = 2000
 allowmaxlength = false
 zero_momentum = true # momentum true
+n_jumps = 3
+interface_cap = 0.54
 temperature = 300
 
 
@@ -45,3 +47,4 @@ energy-file = 1
 trajectory-file = -1
 screen = 1
 pattern = 1
+delete_old = True
