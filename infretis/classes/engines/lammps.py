@@ -542,13 +542,23 @@ class LAMMPSEngine(EngineBase):
     def modify_velocities(
         self, system: System, vel_settings: dict[str, Any]
     ) -> tuple[float, float]:
-        """Draw random velocities from a gaussian distribution.
+        """Modify the velocities of all particles by drawing random velocities
+        from a Boltzmann distribution.
 
-        The new velocities are written to a new configuration. This is
-        basically a shortened copy from the CP2K engine.
+        Args:
+            system: The system whose particle velocities are to be modified.
+            vel_settings: A dict containing
+                'zero_momentum': boolean, if true we reset the linear momentum
+                  to zero after generating velocities internally.
+
+        Returns:
+            A tuple containing:
+                - dek: The change in kinetic energy as a result of
+                    the velocity modification.
+                - kin_new: The new kinetic energy of the system.
 
         Note:
-            This method does **not** take care of constraints.
+            This method does **not** take care of constraints yes.
         """
         mass = self.mass
         beta = self.beta
@@ -562,31 +572,15 @@ class LAMMPSEngine(EngineBase):
         pos = self.dump_frame(system)
         id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
         kin_old = kinetic_energy(vel, mass)[0]
-
-        rescale = vel_settings.get(
-            "rescale_energy", vel_settings.get("rescale")
-        )
-        if rescale is not None and rescale is not False:
-            msgtxt = "LAMMPS engine does not support energy re-scaleing."
-            logger.error(msgtxt)
-            raise NotImplementedError(msgtxt)
-
-        if vel_settings.get("aimless", False):
-            vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
-        else:
-            dvel, _ = self.draw_maxwellian_velocities(
-                vel, mass, beta, sigma_v=vel_settings["sigma_v"]
-            )
-            vel += dvel
+        vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
+        # convert to correct units
         vel /= scale
         # reset momentum is not the default in LAMMPS
         if vel_settings.get("zero_momentum", False):
             vel = reset_momentum(vel, mass)
 
         conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
-
         write_lammpstrj(conf_out, id_type, xyz, vel, box)
-
         kin_new = kinetic_energy(vel, mass)[0]
         system.config = (conf_out, 0)
         system.ekin = kin_new

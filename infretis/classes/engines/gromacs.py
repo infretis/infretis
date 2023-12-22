@@ -714,54 +714,29 @@ class GromacsEngine(EngineBase):
         """Modify the velocities of the current state.
 
         Args:
-            system: The system to modify the velocities in.
-
-            vel_settings: A dict with:
-                * `sigma_v`: numpy.array, optional
-                  These values can be used to set a standard deviation (one
-                  for each particle) for the generated velocities.
-                * `aimless`: boolean, optional
-                  Determines if we should do aimless shooting or not.
-                * `zero_momentum`: boolean, optional
-                  If True, we reset the linear momentum to zero after
-                  generating.
-                * `rescale or rescale_energy`: float, optional
-                  In some NVE simulations, we may wish to re-scale the
-                  energy to a fixed value. If `rescale` is a float > 0,
-                  we will re-scale the energy (after modification of
-                  the velocities) to match the given float.
+            system: The system whose particle velocities are to be modified.
+            vel_settings: A dict containing
+                'zero_momentum': boolean, if true we reset the linear momentum
+                  to zero after generating velocities internally.
 
         Returns:
             A tuple containing:
-                - The change in the kinetic energy.
-                - The new kinetic energy.
+                - dek: The change in kinetic energy as a result of
+                    the velocity modification.
+                - kin_new: The new kinetic energy of the system.
         """
-        dek = 0.0
-        kin_old = 0.0
-        kin_new = 0.0
-        rescale = vel_settings.get(
-            "rescale_energy", vel_settings.get("rescale")
-        )  # TODO: Are these two settings the same?
-        if rescale is not None and rescale is not False and rescale > 0:
-            msgtxt = "GROMACS engine does not support energy re-scale."
-            logger.error(msgtxt)
-            raise NotImplementedError(msgtxt)
         if system.ekin is not None:
             kin_old = system.ekin
-        if vel_settings.get("aimless", False):
-            pos = self.dump_frame(system)
-            posvel, energy = self._prepare_shooting_point(pos)
-            kin_new = energy["kinetic en."][-1]
-            system.set_pos((posvel, 0))
-            system.vel_rev = False
-            system.ekin = kin_new
-            system.vpot = energy["potential"][-1]
-        else:  # Soft velocity change, from a Gaussian distribution:
-            msgtxt = "GROMACS engine only support aimless shooting!"
-            logger.error(msgtxt)
-            raise NotImplementedError(msgtxt)
-        if vel_settings.get("zero_momentum", False):
-            pass
+
+        if vel_settings.get("zero_momentum", True) is False:
+            raise ValueError("Gromacs doesn't support zero_momentum = False!")
+        pos = self.dump_frame(system)
+        posvel, energy = self._prepare_shooting_point(pos)
+        kin_new = energy["kinetic en."][-1]
+        system.set_pos((posvel, 0))
+        system.vel_rev = False
+        system.ekin = kin_new
+        system.vpot = energy["potential"][-1]
         if kin_old is None or kin_new is None:
             dek = float("inf")
             logger.debug(

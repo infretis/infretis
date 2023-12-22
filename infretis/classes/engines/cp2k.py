@@ -1075,61 +1075,39 @@ class CP2KEngine(EngineBase):
     def modify_velocities(
         self, system: System, vel_settings: dict[str, Any]
     ) -> tuple[float, float]:
-        """Modify the velocities of all particles.
+        """Modify the velocities of all particles by drawing random velocities
+        from a Boltzmann distribution.
 
         Args:
-            system: The system with the configuration to modify
-                velocities in.
-            vel_settings: A dictionary containing the settings
-                for modifying the velocities.
+            system: The system whose particle velocities are to be modified.
+            vel_settings: A dict containing
+                'zero_momentum': boolean, if true we reset the linear momentum
+                  to zero after generating velocities internally.
 
         Returns:
             A tuple containing:
-                - The change in the kinetic energy.
-                - The new kinetic energy.
+                - dek: The change in kinetic energy as a result of
+                    the velocity modification.
+                - kin_new: The new kinetic energy of the system.
 
         Note:
-            CP2K removes the center of mass motion by default.
-            We need to rescale the momentum to zero by default.
+            CP2K removes the center of mass motion by default,
+            so we set the momentum to zero by default here.
+            This method does **not** take care of constraints.
         """
         mass = self.mass
         beta = self.beta
-        rescale = vel_settings.get(
-            "rescale_energy", vel_settings.get("rescale")
-        )
         pos = self.dump_frame(system)
         xyz, vel, box, atoms = self._read_configuration(pos)
-        # system.pos = xyz
+        kin_old = kinetic_energy(vel, mass)[0]
+        # TO DO: Is this check neccessary?
         if box is None:
             box, _ = read_cp2k_box(self.input_files["template"])
-        # to-do: retrieve system.vpot from previous energy file.
-        if None not in ((rescale, system.vpot)) and rescale is not False:
-            print("Rescale")
-            if rescale > 0:
-                kin_old = rescale - system.vpot
-                do_rescale = True
-            else:
-                print("Warning")
-                logger.warning("Ignored re-scale 6.2%f < 0.0.", rescale)
-                return 0.0, kinetic_energy(vel, mass)[0]
-        else:
-            kin_old = kinetic_energy(vel, mass)[0]
-            do_rescale = False
-        if vel_settings.get("aimless", False):
-            vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
-        else:
-            dvel, _ = self.draw_maxwellian_velocities(
-                vel, mass, beta, sigma_v=vel_settings["sigma_v"]
-            )
-            vel += dvel
-        # make reset momentum the default
+        vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
+        # reset momentum by default in cp2k
         if vel_settings.get("zero_momentum", True):
             vel = reset_momentum(vel, mass)
-        if do_rescale:
-            # system.rescale_velocities(rescale, external=True)
-            raise NotImplementedError(
-                "Option 'rescale_energy' is not implemented for CP2K yet."
-            )
+
         conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
         write_xyz_trajectory(conf_out, xyz, vel, atoms, box, append=False)
         kin_new = kinetic_energy(vel, mass)[0]
