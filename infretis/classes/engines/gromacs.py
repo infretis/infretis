@@ -725,8 +725,7 @@ class GromacsEngine(EngineBase):
                     the velocity modification.
                 - kin_new: The new kinetic energy of the system.
         """
-        if system.ekin is not None:
-            kin_old = system.ekin
+        kin_old = system.ekin
 
         if vel_settings.get("zero_momentum", True) is False:
             raise ValueError("Gromacs doesn't support zero_momentum = False!")
