@@ -38,6 +38,7 @@ jobs:
           ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
           for file in "$ALL_CHANGED_FILES"; do
+            echo "$file was changed"
             if [[ "$file" == *.py || "$file" == *.md ]]; then
               echo "Checking: $file"
               spell_output=$(codespell "$file" 2>&1) || true
