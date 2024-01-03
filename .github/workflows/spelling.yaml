@@ -37,7 +37,8 @@ jobs:
         env:
           ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
-          for file in "$ALL_CHANGED_FILES"; do
+          IFS=' ' read -r -a files_array <<< "$ALL_CHANGED_FILES"
+          for file in "${files_array[@]}"; do
             echo "$file was changed"
             if [[ "$file" == *.py || "$file" == *.md ]]; then
               echo "Checking: $file"
