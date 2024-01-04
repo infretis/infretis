@@ -728,9 +728,7 @@ def prepare_shooting_point(
         _,
     ) = engine.modify_velocities(
         shpt_copy,
-        {
-            "zero_momentum": ens_set["tis_set"].get("zero_momentum", False),
-        },
+        ens_set["tis_set"],
     )
     orderp = engine.calculate_order(shpt_copy)
     shpt_copy.order = orderp
