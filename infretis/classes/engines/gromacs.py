@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     box_matrix_to_list,
@@ -177,6 +178,9 @@ class GromacsEngine(EngineBase):
             settings["nstvout"] = 0
         if not write_force:
             settings["nstfout"] = 0
+
+        # Add boltzmann constant
+        self.kb = 0.0083144621  # kJ/(K*mol)
 
         # Create the .mdp file name:
         self.input_files["input"] = os.path.join(
@@ -718,6 +722,12 @@ class GromacsEngine(EngineBase):
             vel_settings: A dict containing
                 'zero_momentum': boolean, if true we reset the linear momentum
                   to zero after generating velocities internally.
+                'infretis_genvel': boolen, if true we generate the velocities
+                  internally by drawing random numbers from a maxwell-boltzmann
+                  distribution. Mostly used for testing purposes.
+                'mass': list, the particles masses when generating velocities
+                  internally.
+
 
         Returns:
             A tuple containing:
@@ -726,16 +736,36 @@ class GromacsEngine(EngineBase):
                 - kin_new: The new kinetic energy of the system.
         """
         kin_old = system.ekin
-
-        if vel_settings.get("zero_momentum", True) is False:
-            raise ValueError("Gromacs doesn't support zero_momentum = False!")
         pos = self.dump_frame(system)
-        posvel, energy = self._prepare_shooting_point(pos)
-        kin_new = energy["kinetic en."][-1]
-        system.set_pos((posvel, 0))
-        system.vel_rev = False
-        system.ekin = kin_new
-        system.vpot = energy["potential"][-1]
+        # generate velocities with gromacs
+        if not vel_settings.get("infretis_genvel", False):
+            if vel_settings.get("zero_momentum", True) is False:
+                msg = (
+                    "Velocitiy generation with gromacs "
+                    "doesn't support zero_momentum = False!"
+                )
+                raise ValueError(msg)
+            posvel, energy = self._prepare_shooting_point(pos)
+            kin_new = energy["kinetic en."][-1]
+            system.set_pos((posvel, 0))
+            system.vel_rev = False
+            system.ekin = kin_new
+            system.vpot = energy["potential"][-1]
+
+        # generate velocities by drawing random numbers
+        else:
+            mass = np.reshape(vel_settings["mass"], (-1, 1))
+            beta = 1 / (vel_settings["temperature"] * self.kb)
+            txt, xyz, vel, _ = read_gromos96_file(pos)
+            vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
+            if vel_settings.get("zero_momentum", False):
+                vel = reset_momentum(vel, mass)
+            conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
+            write_gromos96_file(conf_out, txt, xyz, vel)
+            kin_new = kinetic_energy(vel, mass)[0]
+            system.config = (conf_out, 0)
+            system.ekin = kin_new
+
         if kin_old is None or kin_new is None:
             dek = float("inf")
             logger.debug(
@@ -745,6 +775,7 @@ class GromacsEngine(EngineBase):
             )
         else:
             dek = kin_new - kin_old
+
         return dek, kin_new
 
 
