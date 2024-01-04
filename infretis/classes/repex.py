@@ -256,6 +256,7 @@ class REPEX_state:
                 "cp2k",
                 "turtlemd",
                 "lammps",
+                "gmx",
             ):
                 md_items["picked"][ens_num]["rgen-eng"] = self.rgen.spawn(1)[0]
 
