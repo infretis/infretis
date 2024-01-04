@@ -310,7 +310,6 @@ class LAMMPSEngine(EngineBase):
         input_path: str | Path,
         timestep: float,
         subcycles: int,
-        temperature: float,
         exe_path: Path = Path(".").resolve(),
         sleep: float = 0.1,
     ):
@@ -323,8 +322,6 @@ class LAMMPSEngine(EngineBase):
             timestep: The MD time step to use for LAMMPS.
             subcycles: The number of subcycles to use for each
                 InfRetis step.
-            temperature: The temperature the simulation is
-                performed at.
             exe_path: The path to the directory where `input_path` is,
                 in case `input_path` is a relative path.
             sleep: A time in seconds used for waiting between attempts to read
@@ -345,8 +342,6 @@ class LAMMPSEngine(EngineBase):
         self.mass = get_atom_masses(self.input_files["data"])
         self.n_atoms = self.mass.shape[0]
         self.kb = 1.987204259e-3  # kcal/(mol*K)
-        self.temperature = temperature
-        self.beta = 1 / (self.kb * self.temperature)
 
     def _propagate_from(
         self,
@@ -560,7 +555,7 @@ class LAMMPSEngine(EngineBase):
             This method does **not** take care of constraints.
         """
         mass = self.mass
-        beta = self.beta
+        beta = 1 / (self.kb * vel_settings["temperature"])
         # energy is in units kcal/mol which we want to convert
         # to units (g/mol)*Å^2/fs (units of m*v^2), the velocity
         # units of lammps.
