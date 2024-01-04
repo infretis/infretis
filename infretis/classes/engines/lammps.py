@@ -385,7 +385,7 @@ class LAMMPSEngine(EngineBase):
             "infretis_initconf": initial_conf,
             "infretis_name": name,
             "infretis_lammpsdata": self.input_files["data"],
-            "infretis_temperature": self.temperature,
+            "infretis_temperature": ens_set["tis_set"]["temperature"],
             "infretis_seed": seed,
         }
         # write the file run.input from lammps input template
@@ -557,7 +557,7 @@ class LAMMPSEngine(EngineBase):
                 - kin_new: The new kinetic energy of the system.
 
         Note:
-            This method does **not** take care of constraints yes.
+            This method does **not** take care of constraints.
         """
         mass = self.mass
         beta = self.beta
