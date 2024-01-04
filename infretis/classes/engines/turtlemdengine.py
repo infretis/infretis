@@ -101,7 +101,20 @@ class TurtleMDEngine(EngineBase):
         self.integrator = INTEGRATOR_MAPS[integrator["class"].lower()]
         self.integrator_settings = integrator["settings"]
         potential_class = POTENTIAL_MAPS[potential["class"].lower()]
-        self.potential = [potential_class(**potential["settings"])]
+
+        # if lennard-jones potential we need to set some parameters
+        if potential["class"].lower() == "lennardjones":
+            # first remove 'parameters' key
+            lj_params = potential["settings"].pop("parameters")
+            for key in lj_params:
+                # turn str into int since .toml cannot read int keys
+                lj_params[int(key)] = lj_params.pop(key)
+            # initiate LJ potential
+            self.potential = [potential_class(**potential["settings"])]
+            # set parameters of the LJ potential
+            self.potential[0].set_parameters(lj_params)
+        else:
+            self.potential = [potential_class(**potential["settings"])]
 
         if integrator["class"].lower() in [
             "langevininertia",
@@ -113,7 +126,7 @@ class TurtleMDEngine(EngineBase):
 
         self.dim = self.potential[0].dim
 
-        self.mass = np.array(particles["mass"])
+        self.mass = np.reshape(particles["mass"], (-1, 1))
         self.names = particles["name"]
 
         self.particles = TParticles(dim=self.dim)
