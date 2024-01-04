@@ -9,7 +9,7 @@ wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 
 [simulation]
 interfaces = [0.345, 0.3625, 0.3777, 0.3922, 0.4068, 0.4224, 0.4399, 0.4612, 0.4915, 1.200]
-steps = 40000
+steps = 20
 seed = 0
 load_dir = 'load'
 shooting_moves = ['sh','sh','wf','wf','wf','wf','wf','wf','wf','wf']
@@ -22,6 +22,8 @@ zero_momentum = true # momentum true
 n_jumps = 3
 interface_cap = 0.54
 temperature = 300
+gmx_genvel = false
+mass = [1.008, 1.008]
 
 
 [engine]
@@ -47,4 +49,4 @@ energy-file = 1
 trajectory-file = -1
 screen = 1
 pattern = 1
-delete_old = True
+delete_old = true
