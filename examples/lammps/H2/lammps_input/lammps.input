@@ -21,7 +21,7 @@ read_data ${lammpsdata} # add
 read_dump ${initconf} 0 x y z vx vy vz box yes # add
 
 fix 1 all nve
-fix 2 all langevin ${temperature} ${temperature} 100.0 ${seed}
+fix 2 all langevin ${temperature} ${temperature} 500.0 ${seed}
 
 thermo ${subcycles}
 thermo_style custom step ke pe etotal temp
