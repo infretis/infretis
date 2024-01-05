@@ -757,6 +757,9 @@ class GromacsEngine(EngineBase):
             mass = np.reshape(vel_settings["mass"], (-1, 1))
             beta = 1 / (vel_settings["temperature"] * self.kb)
             txt, xyz, vel, _ = read_gromos96_file(pos)
+            if not txt["VELOCITY"]:
+                print(f"{pos} did not contain velocity information.")
+                txt["VELOCITY"] = txt["POSITION"]
             vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
             if vel_settings.get("zero_momentum", False):
                 vel = reset_momentum(vel, mass)
