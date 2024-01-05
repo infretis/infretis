@@ -38,7 +38,7 @@ subcycles = 10
 [engine.integrator]
 class = 'LangevinInertia'
 [engine.integrator.settings]
-gamma = 0.1
+gamma = 10
 beta = 0.4009078751268027 # 1/(boltzmann*T)
 
 [engine.potential]
