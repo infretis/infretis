@@ -690,7 +690,7 @@ class CP2KEngine(EngineBase):
         timestep: float,
         subcycles: int,
         extra_files: list[str] | None = None,
-        exe_path: str = os.path.abspath("."),
+        exe_path: str | Path = Path(".").resolve(),
         sleep: float = 0.1,
     ):
         """Set up the CP2K MD engine.
@@ -711,7 +711,7 @@ class CP2KEngine(EngineBase):
         self.sleep = sleep
         logger.info("Command for execution of CP2K: %s", " ".join(self.cp2k))
         # Store input path:
-        self.input_path = os.path.join(exe_path, input_path)
+        self.input_path = exe_path / input_path
         # Set the defaults input files:
         default_files = {
             "conf": f"initial.{self.ext}",
