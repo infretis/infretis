@@ -103,15 +103,15 @@ class TurtleMDEngine(EngineBase):
         potential_class = POTENTIAL_MAPS[potential["class"].lower()]
 
         # if lennard-jones potential we need to set some parameters
+        # after the the class is initiated
         if potential["class"].lower() == "lennardjones":
-            # first remove 'parameters' key
-            lj_params = potential["settings"].pop("parameters")
-            for key in lj_params:
+            lj_params = {}
+            for key in potential["settings"]["parameters"]:
                 # turn str into int since .toml cannot read int keys
-                lj_params[int(key)] = lj_params.pop(key)
-            # initiate LJ potential
-            self.potential = [potential_class(**potential["settings"])]
-            # set parameters of the LJ potential
+                lj_params[int(key)] = potential["settings"]["parameters"][key]
+            # initiate LJ potential class
+            self.potential = [potential_class()]
+            # set the parameters of the LJ potential
             self.potential[0].set_parameters(lj_params)
         else:
             self.potential = [potential_class(**potential["settings"])]

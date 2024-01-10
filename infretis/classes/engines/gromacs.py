@@ -725,7 +725,7 @@ class GromacsEngine(EngineBase):
                 'infretis_genvel': boolen, if true we generate the velocities
                   internally by drawing random numbers from a maxwell-boltzmann
                   distribution. Mostly used for testing purposes.
-                'mass': list, the particles masses when generating velocities
+                'mass': list, the particle masses when generating velocities
                   internally.
 
 
