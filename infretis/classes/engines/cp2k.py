@@ -711,7 +711,7 @@ class CP2KEngine(EngineBase):
         self.sleep = sleep
         logger.info("Command for execution of CP2K: %s", " ".join(self.cp2k))
         # Store input path:
-        self.input_path = exe_path / input_path
+        self.input_path = Path(exe_path) / input_path
         # Set the defaults input files:
         default_files = {
             "conf": f"initial.{self.ext}",
