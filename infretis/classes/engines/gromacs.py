@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     box_matrix_to_list,
@@ -177,6 +178,9 @@ class GromacsEngine(EngineBase):
             settings["nstvout"] = 0
         if not write_force:
             settings["nstfout"] = 0
+
+        # Add boltzmann constant
+        self.kb = 0.0083144621  # kJ/(K*mol)
 
         # Create the .mdp file name:
         self.input_files["input"] = os.path.join(
@@ -714,54 +718,57 @@ class GromacsEngine(EngineBase):
         """Modify the velocities of the current state.
 
         Args:
-            system: The system to modify the velocities in.
+            system: The system whose particle velocities are to be modified.
+            vel_settings: A dict containing
+                'zero_momentum': boolean, if true we reset the linear momentum
+                  to zero after generating velocities internally.
+                'infretis_genvel': boolen, if true we generate the velocities
+                  internally by drawing random numbers from a maxwell-boltzmann
+                  distribution. Mostly used for testing purposes.
+                'mass': list, the particle masses when generating velocities
+                  internally.
 
-            vel_settings: A dict with:
-                * `sigma_v`: numpy.array, optional
-                  These values can be used to set a standard deviation (one
-                  for each particle) for the generated velocities.
-                * `aimless`: boolean, optional
-                  Determines if we should do aimless shooting or not.
-                * `zero_momentum`: boolean, optional
-                  If True, we reset the linear momentum to zero after
-                  generating.
-                * `rescale or rescale_energy`: float, optional
-                  In some NVE simulations, we may wish to re-scale the
-                  energy to a fixed value. If `rescale` is a float > 0,
-                  we will re-scale the energy (after modification of
-                  the velocities) to match the given float.
 
         Returns:
             A tuple containing:
-                - The change in the kinetic energy.
-                - The new kinetic energy.
+                - dek: The change in kinetic energy as a result of
+                    the velocity modification.
+                - kin_new: The new kinetic energy of the system.
         """
-        dek = 0.0
-        kin_old = 0.0
-        kin_new = 0.0
-        rescale = vel_settings.get(
-            "rescale_energy", vel_settings.get("rescale")
-        )  # TODO: Are these two settings the same?
-        if rescale is not None and rescale is not False and rescale > 0:
-            msgtxt = "GROMACS engine does not support energy re-scale."
-            logger.error(msgtxt)
-            raise NotImplementedError(msgtxt)
-        if system.ekin is not None:
-            kin_old = system.ekin
-        if vel_settings.get("aimless", False):
-            pos = self.dump_frame(system)
+        kin_old = system.ekin
+        pos = self.dump_frame(system)
+        # generate velocities with gromacs
+        if not vel_settings.get("infretis_genvel", False):
+            if vel_settings.get("zero_momentum", True) is False:
+                msg = (
+                    "Velocitiy generation with gromacs "
+                    "doesn't support zero_momentum = False!"
+                )
+                raise ValueError(msg)
             posvel, energy = self._prepare_shooting_point(pos)
             kin_new = energy["kinetic en."][-1]
             system.set_pos((posvel, 0))
             system.vel_rev = False
             system.ekin = kin_new
             system.vpot = energy["potential"][-1]
-        else:  # Soft velocity change, from a Gaussian distribution:
-            msgtxt = "GROMACS engine only support aimless shooting!"
-            logger.error(msgtxt)
-            raise NotImplementedError(msgtxt)
-        if vel_settings.get("zero_momentum", False):
-            pass
+
+        # generate velocities by drawing random numbers
+        else:
+            mass = np.reshape(vel_settings["mass"], (-1, 1))
+            beta = 1 / (vel_settings["temperature"] * self.kb)
+            txt, xyz, vel, _ = read_gromos96_file(pos)
+            if not txt["VELOCITY"]:
+                print(f"{pos} did not contain velocity information.")
+                txt["VELOCITY"] = txt["POSITION"]
+            vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
+            if vel_settings.get("zero_momentum", False):
+                vel = reset_momentum(vel, mass)
+            conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
+            write_gromos96_file(conf_out, txt, xyz, vel)
+            kin_new = kinetic_energy(vel, mass)[0]
+            system.config = (conf_out, 0)
+            system.ekin = kin_new
+
         if kin_old is None or kin_new is None:
             dek = float("inf")
             logger.debug(
@@ -771,6 +778,7 @@ class GromacsEngine(EngineBase):
             )
         else:
             dek = kin_new - kin_old
+
         return dek, kin_new
 
 

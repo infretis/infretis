@@ -263,6 +263,8 @@ class REPEX_state:
             if md_items["picked"][ens_num]["eng_name"] in (
                 "cp2k",
                 "turtlemd",
+                "lammps",
+                "gmx",
             ):
                 md_items["picked"][ens_num]["rgen-eng"] = self.rgen.spawn(1)[0]
 

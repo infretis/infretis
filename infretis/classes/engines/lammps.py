@@ -310,7 +310,6 @@ class LAMMPSEngine(EngineBase):
         input_path: str | Path,
         timestep: float,
         subcycles: int,
-        temperature: float,
         exe_path: Path = Path(".").resolve(),
         sleep: float = 0.1,
     ):
@@ -323,8 +322,6 @@ class LAMMPSEngine(EngineBase):
             timestep: The MD time step to use for LAMMPS.
             subcycles: The number of subcycles to use for each
                 InfRetis step.
-            temperature: The temperature the simulation is
-                performed at.
             exe_path: The path to the directory where `input_path` is,
                 in case `input_path` is a relative path.
             sleep: A time in seconds used for waiting between attempts to read
@@ -345,8 +342,6 @@ class LAMMPSEngine(EngineBase):
         self.mass = get_atom_masses(self.input_files["data"])
         self.n_atoms = self.mass.shape[0]
         self.kb = 1.987204259e-3  # kcal/(mol*K)
-        self.temperature = temperature
-        self.beta = 1 / (self.kb * self.temperature)
 
     def _propagate_from(
         self,
@@ -374,6 +369,10 @@ class LAMMPSEngine(EngineBase):
         traj_file = os.path.join(self.exe_dir, f"{name}.{self.ext}")
         msg_file.write(f"# Trajectory file is: {traj_file}")
         # the settings we need to write in the lammps input
+        if hasattr(self, "rgen"):
+            seed = self.rgen.integers(0, 1e7)
+        else:
+            raise ValueError("Missing random generator!")
         input_settings = {
             "infretis_timestep": self.timestep,
             "infretis_nsteps": path.maxlen * self.subcycles,
@@ -381,7 +380,8 @@ class LAMMPSEngine(EngineBase):
             "infretis_initconf": initial_conf,
             "infretis_name": name,
             "infretis_lammpsdata": self.input_files["data"],
-            "infretis_temperature": self.temperature,
+            "infretis_temperature": ens_set["tis_set"]["temperature"],
+            "infretis_seed": seed,
         }
         # write the file run.input from lammps input template
         run_input = os.path.join(self.exe_dir, "run.inp")
@@ -537,16 +537,25 @@ class LAMMPSEngine(EngineBase):
     def modify_velocities(
         self, system: System, vel_settings: dict[str, Any]
     ) -> tuple[float, float]:
-        """Draw random velocities from a gaussian distribution.
+        """Modify the velocities of all particles.
 
-        The new velocities are written to a new configuration. This is
-        basically a shortened copy from the CP2K engine.
+        Args:
+            system: The system whose particle velocities are to be modified.
+            vel_settings: A dict containing
+                'zero_momentum': boolean, if true we reset the linear momentum
+                  to zero after generating velocities internally.
+
+        Returns:
+            A tuple containing:
+                - dek: The change in kinetic energy as a result of
+                    the velocity modification.
+                - kin_new: The new kinetic energy of the system.
 
         Note:
             This method does **not** take care of constraints.
         """
         mass = self.mass
-        beta = self.beta
+        beta = 1 / (self.kb * vel_settings["temperature"])
         # energy is in units kcal/mol which we want to convert
         # to units (g/mol)*Å^2/fs (units of m*v^2), the velocity
         # units of lammps.
@@ -557,23 +566,15 @@ class LAMMPSEngine(EngineBase):
         pos = self.dump_frame(system)
         id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
         kin_old = kinetic_energy(vel, mass)[0]
-
-        if vel_settings.get("aimless", False):
-            vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
-        else:
-            dvel, _ = self.draw_maxwellian_velocities(
-                vel, mass, beta, sigma_v=vel_settings["sigma_v"]
-            )
-            vel += dvel
+        vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
+        # convert to correct units
         vel /= scale
         # reset momentum is not the default in LAMMPS
         if vel_settings.get("zero_momentum", False):
             vel = reset_momentum(vel, mass)
 
         conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
-
         write_lammpstrj(conf_out, id_type, xyz, vel, box)
-
         kin_new = kinetic_energy(vel, mass)[0]
         system.config = (conf_out, 0)
         system.ekin = kin_new
@@ -590,4 +591,4 @@ class LAMMPSEngine(EngineBase):
 
     def set_mdrun(self, md_items: dict[str, Any]) -> None:
         """Set the executional directory for workers."""
-        self.exe_dir = md_items["w_folder"]
+        self.exe_dir = md_items["exe_dir"]
