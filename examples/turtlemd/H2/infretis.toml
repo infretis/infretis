@@ -1,0 +1,72 @@
+# infretis config
+
+[dask]
+workers = 4
+wmdrun = ['not used',
+	  'not used',
+	  'not used',
+	  'not used',
+	  'not used',
+	  'not used',
+	  'not used',
+	  'not used',]
+
+[simulation]
+interfaces = [0.345, 0.3625, 0.3777, 0.3922, 0.4068, 0.4224, 0.4399, 0.4612, 0.4915, 1.200]
+steps = 20000
+seed = 1
+load_dir = 'load'
+shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
+
+
+[simulation.tis_set]
+maxlength = 2000
+allowmaxlength = false
+zero_momentum = true # momentum true
+n_jumps = 3
+interface_cap = 0.54
+
+
+[engine]
+class = 'turtlemd'
+engine = 'turtlemd'
+timestep = 0.0002
+temperature = 300
+boltzmann = 0.0083144621 # kJ/(K*mol)
+subcycles = 10
+
+[engine.integrator]
+class = 'LangevinInertia'
+[engine.integrator.settings]
+gamma = 10
+beta = 0.4009078751268027 # 1/(boltzmann*T)
+
+[engine.potential]
+class = 'LennardJones'
+[engine.potential.settings]
+parameters = {1={"sigma"=0.3, "epsilon"= 25.0, "rcut"= 1.2}}
+
+[engine.particles]
+mass = [1.008, 1.008]
+name = ['H', 'H']
+pos = [[0.0, 0.0, 0.0], [0.4, 0.0, 0.0]]
+
+[engine.box]
+periodic = [true, true, true]
+low = [0, 0, 0]
+high = [3, 3, 3]
+
+[orderparameter]
+class = 'Distance'
+index = [0, 1]
+periodic = true
+
+[output]
+backup = 'backup'
+data_dir = "./"
+order-file = -1
+energy-file = -1
+trajectory-file = -1
+screen = 1
+pattern = false
+delete_old = true

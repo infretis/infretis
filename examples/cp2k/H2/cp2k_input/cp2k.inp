@@ -1,0 +1,81 @@
+#  CP2K_INPUT / MOTION / CONSTRAINT / FIXED_ATOMS
+# fix atom 1
+# fix atom 2 XY
+&GLOBAL
+  PROJECT MD
+  RUN_TYPE MD
+  PRINT_LEVEL SILENT
+&END GLOBAL
+
+&MOTION
+   &MD
+      ENSEMBLE LANGEVIN
+      STEPS 100
+      TIMESTEP 0.2
+      TEMPERATURE 300
+      &LANGEVIN
+         GAMMA 0.01
+         NOISY_GAMMA 0
+         SHADOW_GAMMA 0
+      &END LANGEVIN
+   &END MD
+  &PRINT
+  &RESTART
+    FILENAME RESTART
+    BACKUP_COPIES 0
+    &EACH
+      MD la
+    &END EACH
+  &END RESTART
+  &VELOCITIES
+    &EACH
+      MD lala
+    &END EACH
+  &END VELOCITIES
+    &TRAJECTORY
+      &EACH
+        MD lalala
+      &END EACH
+    &END TRAJECTORY
+  &END PRINT
+&END MOTION
+
+&FORCE_EVAL
+   METHOD FIST
+   &MM
+    &FORCEFIELD
+      &CHARGE             #charge of the MM atoms
+        ATOM H           #Defines the atomic kind of the charge
+        CHARGE 0.0        #Defines the charge of the MM atom in electron charge unit
+      &END
+      &NONBONDED
+              &LENNARD-JONES
+                 ATOMS H H
+                 SIGMA [angstrom] 3.0
+                 RCUT [angstrom] 12.0
+                 EPSILON [kjmol] 25.0
+              &END
+      &END
+    IGNORE_MISSING_CRITICAL_PARAMS
+    &END FORCEFIELD
+    &POISSON              # Poisson solver
+      &EWALD
+        EWALD_TYPE none
+      &END EWALD
+    &END POISSON
+   &END MM
+   &SUBSYS
+    &CELL
+      ABC  30.00 30.00 30.00
+      ANGLES 90 90 90
+    &END CELL
+      &TOPOLOGY
+              # COORD_FILE_NAME ./initial.xyz
+              # COORD_FILE_FORMAT XYZ
+      &END TOPOLOGY
+  &END SUBSYS
+  &PRINT
+    &FORCES OFF
+    &END FORCES
+  &END PRINT
+&END FORCE_EVAL
