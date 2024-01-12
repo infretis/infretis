@@ -31,8 +31,7 @@ from infretis.setup import setup_config
 
 
 def write_conf(engine, filename, distance, outfile):
-    """Write a configuration file for the H2-system such that
-    distance between the two atoms is equal to `distance`."""
+    """Write a configuration file for the H2 example with a given distance."""
     xyz, vel, box, names = engine._read_configuration(filename)
     xyz *= 0
     xyz[0, 0] = distance
