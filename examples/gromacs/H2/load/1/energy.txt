@@ -1,7 +1,0 @@
-# Cycle: 80, status: ACC, move: ('sh', 0.34501710063245594, 1, 1)
-#     Time      Potential        Kinetic
-         0     -24.645790       0.219000            nan            nan
-         1     -24.515896       0.089116            nan            nan
-         2     -24.457539       0.030732            nan            nan
-         3     -24.487553       0.060719            nan            nan
-         4     -24.597383       0.170522            nan            nan
