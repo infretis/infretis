@@ -162,7 +162,7 @@ Fire off `mdrun`. This should take a couple of minutes.
 As you may have guessed by now, a good order parameter for the transition we want to study is the $\theta$ angle. To calculate the angle during the MD run, open `infretis.toml` and replace the indices with the ones you wrote down earlier. You can then recalculate the order parameter using:
 
 ```bash
-python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-order.txt
+inft recalculate_order -trr md.trr -toml infretis.toml -out md-order.txt
 
 ```
 Plot the $\theta$ values (column 1) vs time (column 0) from the MD run using e.g. gnuplot.
