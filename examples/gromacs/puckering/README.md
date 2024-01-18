@@ -62,6 +62,9 @@ cd -
 git clone https://github.com/openforcefield/openff-models.git
 cd openff-models
 python -m pip install -e .
+cd -
+git clone https://github.com/infretis/inftools.git
+python -m pip install -e .
 cd ~
 git clone https://github.com/infretis/infretis.git
 cd infretis
@@ -111,19 +114,17 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 Optimize the structure and export it as `mol.sdf` in the `~/infretis/examples/gromacs/puckering/` folder (the .sdf format contains  coordinate, element, and bond order information).
 
-Navigate to the `scripts` directory.
-
-Check that you indeed are in the chair conformation with the given indices by using the `check-indices.py` script, which calculates the $\theta$ and $\phi$ values. Run
+Check that you indeed are in the chair conformation with the given indices by using the `check-indices` script contained in our `inftools` program, which calculates the $\theta$ and $\phi$ values. Run
 ```bash
-python check-indices.py -sdf ../mol.sdf -idx 2 5 11 8 1 0
+inft check_indices -sdf ../mol.sdf -idx 2 5 11 8 1 0
 ```
 but replace the indices with the ones you found. You should obtain a  $\theta$ value between $0-15^{\circ}$.
 
 Finally, run the following commands:
 
 ```bash
-python generate-openff-topology.py ../mol.sdf
-cd ../gromacs_input
+inft generate_openff_topology -sdf mol.sdf
+cd gromacs_input
 gmx solvate -cs spc216.gro -cp mol.gro -p topol.top -o conf.g96
 cd ..
 
@@ -197,13 +198,13 @@ Navigate to the `step3_infretis` directory and modify the `infretis.toml` as fol
 
 We can cut out some paths with low order parameter values from the MD simulation by running:
 ```bash
-python ../scripts/initial-path-from-md.py -trr ../step2_md_run/md.trr -toml infretis.toml -order ../step2_md_run/md-order.txt
+inft initial_path_from_md -trr ../step2_md_run/md.trr -toml infretis.toml -order ../step2_md_run/md-order.txt
 
 ```
-You should now have created a `load` folder containing the paths and order parameter values for the two ensembles $[0^-]$ and $[0^+]$. Plot the order parameters for these two paths. The script `plot-order.py` does this for you, and we will use it repeatedly in the following steps.
+You should now have created a `load` folder containing the paths and order parameter values for the two ensembles $[0^-]$ and $[0^+]$. Plot the order parameters for these two paths. The script `plot_order` inftool-program does this for you, and we will use it repeatedly in the following steps.
 
 ```bash
-python ../scripts/plot-order.py -toml infretis.toml -traj load/
+inft plot_order -toml infretis.toml -traj load/
 
 ```
 
@@ -224,7 +225,7 @@ We will now do the following iteratively (similar to the procedure in GIF above)
 
 ```bash
 # NOTE: Replace runx with the name of the most recent run folder (run0 if this is your first run)
-python ../scripts/initial-path-from-iretis.py -traj runx -toml infretis.toml # generates a new load/ folder
+inft initial_path_from_iretis -traj runx -toml infretis.toml # generates a new load/ folder
 
 ```
 * Run a new ∞RETIS simulation
@@ -237,14 +238,14 @@ The following analysis is performed within the `step3_infretis` folder.
 ## The transition mechanism
 We can say something about the mechanism of the complete $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition of your molecule if we assume that the second barrier from the equator to the south pole is negligible. The final configuration of your reactive paths would then be the transition state of the whole $^4\text{C}_1 \rightarrow ^1\text{C}_4$ transition. This may be a crude approximation, and we could test it by running another path simulation.
 
-Plot the $\phi$ vs. $\theta$ values of the trajectories using the `-xy 2 1` option in `plot-order.py`. Looking at the reactive trajectories, what is/are the preferred route(s) from $^4\text{C}_1$ to $^1\text{C}_4$?
+Plot the $\phi$ vs. $\theta$ values of the trajectories using the `-xy 2 1` option in `plot_order`. Looking at the reactive trajectories, what is/are the preferred route(s) from $^4\text{C}_1$ to $^1\text{C}_4$?
 
 If you want, you can confirm this by visualizing some of the reactive trajectories. The following command removes the solvent, centers your molecule, and reorders the trajectories output from ∞RETIS:
 
 ```bash
 # replace 'nr' with the path number of some trajectory you want to visualize
 nr=46
-python ../scripts/concatenate.py -path load/${nr} -tpr ../gromacs_input/topol.tpr -out path${nr}.xyz
+inft concatenate -path load/${nr} -tpr ../gromacs_input/topol.tpr -out path${nr}.xyz
 ```
 Now you get a file `path${nr}.xyz`that you can visualize in Avogadro.
 
@@ -253,7 +254,7 @@ Now you get a file `path${nr}.xyz`that you can visualize in Avogadro.
 When you approach a reasonable number of paths in your simulation you can start analyzing the output. The following script calculates the rate, along with some other properties such as the crossing probability and error estimates.
 
 ```bash
-python ../wham/Wham_Pcross.py -toml infretis.toml -data infretis_data.txt
+inft wham -toml infretis.toml -data infretis_data.txt
 ```
 The running average of the rate is written to the `runav_rate.txt` file, with the value in the fourth column giving the best estimate for the rate.
 You can plot it in `gnuplot`
