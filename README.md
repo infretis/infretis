@@ -4,11 +4,19 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 
-## Installation 
+## Installation
 
 1. Clone the repository
 2. (Optional) Create a virtual environment
 3. Install with:
-   ```bash   
+   ```bash
    python -m pip install -e .
    ```
+
+## Usage
+
+Check out the ([puckering example](https://github.com/infretis/examples/gromacs/)), which takes
+you trough the whole path-sampling workflow.
+<p align="center">
+<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="30%" height="30%">
+</p>
