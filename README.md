@@ -14,9 +14,10 @@
    ```
 
 ## Usage
+Interested in using &infin;RETIS? 
 
-Check out the ([puckering example](https://github.com/infretis/examples/gromacs/)), which takes
-you trough the whole path-sampling workflow.
-<p align="center">
-<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="30%" height="30%">
+Check out the [puckering example](examples/gromacs/puckering/) which takes
+you through the whole modeling workflow!
+<p align="left">
+<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="20%" height="20%">
 </p>
