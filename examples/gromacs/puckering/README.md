@@ -114,7 +114,7 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 Optimize the structure and export it as `mol.sdf` in the `~/infretis/examples/gromacs/puckering/` folder (the .sdf format contains  coordinate, element, and bond order information).
 
-Check that you indeed are in the chair conformation with the given indices by using the `check-indices` script contained in our `inftools` program, which calculates the $\theta$ and $\phi$ values. Run
+Check that you indeed are in the chair conformation with the given indices by using the `check_indices` script contained in our [inftools](/infretis/inftools/) program, which calculates the $\theta$ and $\phi$ values. Run
 ```bash
 inft check_indices -sdf mol.sdf -idx 2 5 11 8 1 0
 ```
