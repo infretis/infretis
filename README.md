@@ -48,17 +48,20 @@ We have provided several examples to help you get started with ∞RETIS:
 If you use ∞RETIS in your research, please cite our paper:
 [Highly Parallelizable Path Sampling with Minimal Rejections Using Asynchronous Replica Exchange and Infinite Swaps](link-to-your-article)
 
-``latex
-@article{,
-	title = {}
-	volume = {},
-	doi = {},
-	journal = {},
-	author = {},
-	year = {},
-	pages = {},
+To cite ∞RETIS in your work, please use the following BibTeX entry:
+
+```bibtex
+@article{YourArticle2024,
+  title={Title of the Article},
+  author={Author, A. and Contributor, B.},
+  journal={Journal Name},
+  volume={42},
+  number={3},
+  pages={123-456},
+  year={2024},
+  publisher={Publisher}
 }
-``
+```
 
 ## License
 
