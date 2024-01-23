@@ -29,7 +29,10 @@ We are also in the process of preparing a detailed paper specifically about this
 pip install infretis
 ```
 
-Note: ∞RETIS does not handle the installation of MD programs.
+⚠️ **Note**: ∞RETIS does not manage the installation of external MD programs. Users are responsible for installing and configuring these programs independently.
+
+
+
 
 ## Examples
 
