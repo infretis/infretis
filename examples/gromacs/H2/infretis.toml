@@ -22,8 +22,8 @@ zero_momentum = true # momentum true
 n_jumps = 3
 interface_cap = 0.54
 temperature = 300
-gmx_genvel = false
-mass = [1.008, 1.008]
+infretis_genvel = true # generate velocities with infretis
+mass = [1.008, 1.008] # then we also need to give masses
 
 
 [engine]

@@ -17,10 +17,8 @@ shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'w
 
 [simulation.tis_set]
 maxlength = 2000
-aimless = true
 allowmaxlength = false
 zero_momentum = true # momentum true
-rescale_energy = false
 temperature = 300
 high_accept = true
 n_jumps = 2
