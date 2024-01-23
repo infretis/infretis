@@ -8,27 +8,29 @@ wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 3 -pin on',]
 
 [simulation]
-interfaces = [0.345 , 0.355, 0.375, 0.415, 0.495, 0.560, 0.65, 1.200]
-steps = 40000
+interfaces = [0.345, 0.3625, 0.3777, 0.3922, 0.4068, 0.4224, 0.4399, 0.4612, 0.4915, 1.200]
+steps = 20
 seed = 0
 load_dir = 'load'
-shooting_moves = ['sh','sh','sh','sh','sh','sh','sh','sh']
+shooting_moves = ['sh','sh','wf','wf','wf','wf','wf','wf','wf','wf']
 
 
 [simulation.tis_set]
 maxlength = 2000
-aimless = true
 allowmaxlength = false
 zero_momentum = true # momentum true
-rescale_energy = false
+n_jumps = 3
+interface_cap = 0.54
 temperature = 300
+gmx_genvel = false
+mass = [1.008, 1.008]
 
 
 [engine]
 class = 'gromacs'
 engine = 'gmx'
 timestep = 0.0002
-mdrun = 'gmx'
+mdrun = 'gmx mdrun'
 gmx_format = 'g96'
 input_path = 'gromacs_input'
 gmx = 'gmx'
@@ -47,3 +49,4 @@ energy-file = 1
 trajectory-file = -1
 screen = 1
 pattern = 1
+delete_old = true

@@ -690,6 +690,8 @@ class EngineBase(metaclass=ABCMeta):
         ### somewhere maybe.
         if hasattr(self, "rgen"):  # TODO: Not a good solution:
             vel = self.rgen.normal(loc=0.0, scale=sigma_v, size=(npart, dim))
+        else:
+            raise ValueError("Did not find random generator!!")
         return vel, sigma_v
 
 

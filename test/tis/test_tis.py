@@ -57,10 +57,8 @@ def return_ensset() -> dict():
         "interfaces": (-0.99, -0.3, 1.0),
         "tis_set": {
             "maxlength": 2000,
-            "aimless": True,
             "allowmaxlength": False,
             "zero_momentum": False,
-            "rescale_energy": False,
             "n_jumps": 4,
         },
         "mc_move": "sh",
@@ -198,12 +196,14 @@ def test_prepare_shooting_point(tmp_path: PosixPath) -> None:
     Args:
         tmp_path: Input trajectory.
     """
-    _, turtle = create_ensdic_and_engine()
+    ens_set, turtle = create_ensdic_and_engine()
     f1 = tmp_path / "temp"
     f1.mkdir()
     turtle.exe_dir = f1
 
-    shpt_copy, idx, dek = prepare_shooting_point(INP_PATH, turtle.rgen, turtle)
+    shpt_copy, idx, dek = prepare_shooting_point(
+        INP_PATH, turtle.rgen, turtle, ens_set
+    )
     shpt_xyz = list(read_xyz_file(shpt_copy.config[0]))
     path_xyz = list(read_xyz_file(INP_PATH.phasepoints[0].config[0]))
     assert os.path.isfile(shpt_copy.config[0])
