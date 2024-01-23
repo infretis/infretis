@@ -19,5 +19,5 @@ Interested in using &infin;RETIS?
 Check out the [puckering example](examples/gromacs/puckering/) which takes
 you through the whole modeling workflow!
 <p align="left">
-<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="20%" height="20%">
+<img src="https://github.com/infretis/infretis/blob/molmod_exercise5/examples/gromacs/puckering/graphics/puckering.gif" width="30%" height="30%">
 </p>

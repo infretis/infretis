@@ -114,7 +114,7 @@ where _idx1_ and _idx4_ are the indices of the atoms 1 and 4, and we move clockw
 
 Optimize the structure and export it as `mol.sdf` in the `~/infretis/examples/gromacs/puckering/` folder (the .sdf format contains  coordinate, element, and bond order information).
 
-Check that you indeed are in the chair conformation with the given indices by using the `check-indices` script contained in our `inftools` program, which calculates the $\theta$ and $\phi$ values. Run
+Check that you indeed are in the chair conformation with the given indices using the `check_indices` script contained in our [inftools](/infretis/inftools/) package (this was installed earlier), which calculates the $\theta$ and $\phi$ values. Run
 ```bash
 inft check_indices -sdf mol.sdf -idx 2 5 11 8 1 0
 ```
@@ -162,7 +162,7 @@ Fire off `mdrun`. This should take a couple of minutes.
 As you may have guessed by now, a good order parameter for the transition we want to study is the $\theta$ angle. To calculate the angle during the MD run, open `infretis.toml` and replace the indices with the ones you wrote down earlier. You can then recalculate the order parameter using:
 
 ```bash
-python ../scripts/recalculate-order.py -trr md.trr -toml infretis.toml -out md-order.txt
+inft recalculate_order -trr md.trr -toml infretis.toml -out md-order.txt
 
 ```
 Plot the $\theta$ values (column 1) vs time (column 0) from the MD run using e.g. gnuplot.
@@ -216,8 +216,8 @@ infretisrun -i infretis.toml
 
 We will now do the following iteratively (similar to the procedure in GIF above):
 
-* Plot the order parameter of all accepted paths (use the `plot-order.py` script on the `load/` folder). Do you see a reactive path?
-* In this plot, identify the maximum order parameter of the highest path. The position of the next interface should be slightly below this value (e.g. $0.5^{\circ}$ below this maximum). If you didn't reach any higher values, double the number of `steps in` `restart.toml` and run `infretisrun -i restart.toml`. Then start again from the top with the plotting.
+* Plot the order parameter of all accepted paths (use the `plot_order` tool on the `load/` folder). Do you see a reactive path?
+* In this plot, identify the maximum order parameter of the highest path. The position of the next interface should be slightly below this value (e.g. $0.5^{\circ}$ below this maximum). If you didn't reach any higher values, double the number of `steps` in `restart.toml` and run `infretisrun -i restart.toml`. Then start again from the top with the plotting.
 * Add this value to your list of interfaces in `infretis.toml` such that the values are sorted (don't change the $\lambda_0=10^{\circ}$ and $\lambda_N=90^{\circ}$ interfaces).
 * Increase the number of `steps` in `infretis.toml` by 10.
 * Rename the `load/` folder (so we don't overwrite it) to e.g. `run0`, or `run1`,`run2`, etc. if it exists
