@@ -23,7 +23,7 @@ We are also in the process of preparing a detailed paper specifically about this
 
 
 ## Installation
-∞RETIS can be installed via pip:
+∞RETIS can be installed via [pip](https://pypi.org/project/infretis/):
 
 ```bash
 pip install infretis
