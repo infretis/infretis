@@ -453,7 +453,7 @@ class Puckering(OrderParameter):
 
     def calculate(self, system: System) -> list[float]:
         """Calculate the puckering angle."""
-        pos = system.pos[self.index]
+        pos = system.pos[list(self.index)]
         if self.periodic and system.box is not None:
             box = np.array(system.box[:3])
             # make 6-ring whole around atom 0
