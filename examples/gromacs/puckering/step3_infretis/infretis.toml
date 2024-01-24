@@ -1,44 +1,42 @@
 # infretis config
 
 [dask]
-workers = 4
+workers = 1
 wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 1 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 2 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 3 -pin on',]
 
 [simulation]
-interfaces = [0.345, 0.3625, 0.3777, 0.3922, 0.4068, 0.4224, 0.4399, 0.4612, 0.4915, 1.200]
+interfaces = []
+
 steps = 20
 seed = 0
 load_dir = 'load'
-shooting_moves = ['sh','sh','wf','wf','wf','wf','wf','wf','wf','wf']
-
+shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
 
 [simulation.tis_set]
 maxlength = 2000
 allowmaxlength = false
 zero_momentum = true # momentum true
-n_jumps = 3
-interface_cap = 0.54
 temperature = 300
-infretis_genvel = true # generate velocities with infretis
-mass = [1.008, 1.008] # then we also need to give masses
-
+high_accept = true
+n_jumps = 2
+interface_cap = 70.0
 
 [engine]
 class = 'gromacs'
 engine = 'gmx'
-timestep = 0.0002
-mdrun = 'gmx mdrun'
+timestep = 0.002
+mdrun = 'gmx'
 gmx_format = 'g96'
-input_path = 'gromacs_input'
+input_path = '../gromacs_input'
 gmx = 'gmx'
-subcycles = 10
+subcycles = 3
 
 [orderparameter]
-class = 'Distance'
-index = [ 0, 1]
+class = 'puckering'
+index = []
 periodic = true
 
 [output]
@@ -49,4 +47,3 @@ energy-file = 1
 trajectory-file = -1
 screen = 1
 pattern = 1
-delete_old = true
