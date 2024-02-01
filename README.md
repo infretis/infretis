@@ -38,10 +38,9 @@ pip install infretis
 
 We have provided several examples to help you get started with ∞RETIS:
 
-* [Link to Example 1]
-* [Link to Example 2]
-* [Additional examples or documentation]
-
+* [sugar puckering](/examples/gromacs/puckering/), which is an in-depth tutorial
+* [chignolin unfolding](https://github.com/infretis/infentory/tree/main/chignolin)
+* .. and much more available on the [infentory](https://github.com/infretis/infentory/) repository!
 
 ## Contributing
 
