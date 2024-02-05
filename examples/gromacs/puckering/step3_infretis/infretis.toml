@@ -1,7 +1,9 @@
 # infretis config
 
 [dask]
-workers = 1
+workers = 1 # number of workers
+
+# each worker gets its own mdrun command
 wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 1 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 2 -pin on',
@@ -10,40 +12,39 @@ wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 [simulation]
 interfaces = []
 
-steps = 20
+steps = 20 # number of infretis steps to perform
 seed = 0
-load_dir = 'load'
+load_dir = 'load' # directory to load paths
+
+# shooting moves in the various ensembles, which should have the same length as interfaces
+# sh: regular shooting, wf: wirefencing
 shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
 
 [simulation.tis_set]
-maxlength = 2000
-allowmaxlength = false
-zero_momentum = true # momentum true
-temperature = 300
-high_accept = true
-n_jumps = 2
-interface_cap = 70.0
+maxlength = 2000 # maximum path length (NB! this should never be reached )
+allowmaxlength = false  # do not allow paths to exceed maxlength when shooting from load paths
+zero_momentum = true # remove the center of mass motion when generating vels, done by gromacs by default
+temperature = 300 # velocities are generated at this temperature
+high_accept = true # we do want high-acceptance
+n_jumps = 2 # number of wirefencing jumps
+interface_cap = 70.0 # wirefencing interface cap
 
 [engine]
 class = 'gromacs'
 engine = 'gmx'
-timestep = 0.002
-mdrun = 'gmx'
-gmx_format = 'g96'
-input_path = '../gromacs_input'
-gmx = 'gmx'
-subcycles = 3
+timestep = 0.002 # md timestep
+gmx_format = 'g96' # only g96 is supported for gromacs
+input_path = '../gromacs_input' # path to topolofy files
+gmx = 'gmx' # gromacs executable, may also be gmx_mpi, gmx_2023.3, etc.
+subcycles = 3 # number of MD steps for each infretis step
 
 [orderparameter]
 class = 'puckering'
 index = []
-periodic = true
+periodic = true # correct atomic positions for periodic boundary conditions
 
 [output]
-backup = 'backup'
-data_dir = "./"
-order-file = 1
-energy-file = 1
-trajectory-file = -1
-screen = 1
-pattern = 1
+data_dir = "./" # where to store infretis_data.txt
+screen = 1 # how often to print to sim.log
+pattern = 1 # how often we print info of which worker is in which ensemble at any time to pattern.txt
+delete_old = false # keep all old accepted trajectories (e.g. .trr or .xyz files) for analysis, beware of storage
