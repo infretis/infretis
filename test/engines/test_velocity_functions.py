@@ -54,9 +54,7 @@ def return_gromacs_engine():
     """Set up a gromacs engine for the H2 system."""
     gromacs_input_path = HERE / "../../examples/gromacs/H2/gromacs_input"
     # set`gmx = echo` here because __init__ calls `gmx` with subprocess
-    engine = GromacsEngine(
-        "echo", "foobar", gromacs_input_path.resolve(), 0, 0
-    )
+    engine = GromacsEngine("echo", gromacs_input_path.resolve(), 0, 0)
     engine.vel_settings = {
         "zero_momentum": True,
         "temperature": 300,
