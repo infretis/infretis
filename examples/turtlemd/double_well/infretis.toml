@@ -63,7 +63,6 @@ periodic = false
 module = 'orderp.py'
 
 [output]
-[output]
 data_dir = "./" # where to store infretis_data.txt
 screen = 1 # how often to print to sim.log
 pattern = false # how often we print info of which worker is in which ensemble at any time to pattern.txt
