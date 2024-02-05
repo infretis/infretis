@@ -889,6 +889,7 @@ class CP2KEngine(EngineBase):
                 stderr=ferr,
                 shell=False,
                 cwd=cwd,
+                preexec_fn=os.setsid,
             )
             # wait for trajectories to appear
             while not os.path.exists(out_files["pos"]) or not os.path.exists(
@@ -947,7 +948,9 @@ class CP2KEngine(EngineBase):
                             # process may have terminated since we last checked
                             if exe.poll() is None:
                                 logger.debug("Terminating CP2K execution")
-                                os.kill(exe.pid, signal.SIGTERM)
+                                os.killpg(os.getpgid(exe.pid), signal.SIGTERM)
+                                # wait for process to die, necessary for mpi
+                                exe.wait(timeout=360)
                             logger.debug(
                                 "CP2K propagation ended at %i. Reason: %s",
                                 step_nr,
