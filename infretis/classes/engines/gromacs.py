@@ -79,10 +79,6 @@ class GromacsEngine(EngineBase):
 
     Attributes:
         gmx: The command for executing GROMACS.
-        mdrun: The command for executing GROMACS mdrun.
-        mdrun_c: The command for executing GROMACS mdrun when
-            continuing a simulation. This is derived from
-            the `mdrun` command.
         maxwarn: Setting for the GROMACS `grompp -maxwarn` option.
         gmx_format: This string selects the output format for GROMACS.
             Currently, only `"g96"` is supported.
@@ -93,7 +89,6 @@ class GromacsEngine(EngineBase):
     def __init__(
         self,
         gmx: str,
-        mdrun: str,
         input_path: str | Path,
         timestep: float,
         subcycles: int,
@@ -107,7 +102,6 @@ class GromacsEngine(EngineBase):
 
         Args:
             gmx: The GROMACS executable.
-            mdrun: The GROMACS mdrun executable.
             input_path: The absolute path to where the input files are stored.
             timestep: The time step used in the GROMACS MD simulation.
             subcycles: The number of steps each GROMACS MD run is composed of.
@@ -128,10 +122,6 @@ class GromacsEngine(EngineBase):
             raise ValueError(msg)
         # Define the GROMACS GMX command:
         self.gmx = gmx
-        # Define GROMACS GMX MDRUN commands:
-        self.mdrun = mdrun + " -s {} -deffnm {} -c {}"
-        # This is for continuation of a GROMACS simulation:
-        self.mdrun_c = mdrun + " -s {} -cpi {} -append -deffnm {} -c {}"
         self.ext_time = self.timestep * self.subcycles
         self.maxwarn = maxwarn
         # Define the energy terms, these are hard-coded, but

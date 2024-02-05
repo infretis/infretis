@@ -30,10 +30,9 @@ mass = [1.008, 1.008] # then we also need to give masses
 class = 'gromacs'
 engine = 'gmx'
 timestep = 0.0002
-mdrun = 'gmx mdrun'
 gmx_format = 'g96'
 input_path = 'gromacs_input'
-gmx = 'gmx'
+gmx = 'gmx' # gromacs executable, may also be gmx_mpi, gmx_2023.3, etc.
 subcycles = 10
 
 [orderparameter]
@@ -42,11 +41,7 @@ index = [ 0, 1]
 periodic = true
 
 [output]
-backup = 'backup'
-data_dir = "./"
-order-file = 1
-energy-file = 1
-trajectory-file = -1
-screen = 1
-pattern = 1
-delete_old = true
+data_dir = "./" # where to store infretis_data.txt
+screen = 1 # how often to print to sim.log
+pattern = 1 # how often we print info of which worker is in which ensemble at any time to pattern.txt
+delete_old = true # delete old accepted trajectories (e.g. .trr or .xyz files)
