@@ -63,11 +63,8 @@ periodic = false
 module = 'orderp.py'
 
 [output]
-backup = 'backup'
-data_dir = "./"
-order-file = -1
-energy-file = -1
-trajectory-file = -1
-screen = 1
-pattern = false
-delete_old = true
+[output]
+data_dir = "./" # where to store infretis_data.txt
+screen = 1 # how often to print to sim.log
+pattern = false # how often we print info of which worker is in which ensemble at any time to pattern.txt
+delete_old = true # delete old accepted trajectories (e.g. .trr or .xyz files)
