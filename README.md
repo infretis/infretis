@@ -42,8 +42,6 @@ We have provided several examples to help you get started with ∞RETIS:
 * [chignolin unfolding](https://github.com/infretis/infentory/tree/main/chignolin)
 * .. and much more available on the [infentory](https://github.com/infretis/infentory/) repository!
 
-## Contributing
-
 
 ## Citation
 
