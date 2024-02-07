@@ -69,9 +69,3 @@ To cite ∞RETIS in your work, please use the following BibTeX entry:
 ## License
 
 ∞RETIS is licensed under the MIT License. Please see the file [`LICENSE`](LICENSE)
-
-## Contact
-
-## Acknowledgements
-
-Acknowledge any contributors, funding sources, or institutions that played a significant role in the development of ∞RETIS.
