@@ -69,7 +69,6 @@ cd ~
 git clone https://github.com/infretis/infretis.git
 cd infretis
 python -m pip install -e .
-git checkout molmod_exercise5
 cd examples/gromacs/puckering/
 echo "All done! We will perform the exercise from this folder."
 
