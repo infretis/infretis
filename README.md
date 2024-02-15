@@ -26,7 +26,11 @@ We are also in the process of preparing a detailed paper specifically about this
 ∞RETIS can be installed via [pip](https://pypi.org/project/infretis/):
 
 ```bash
-pip install git+https://github.com/infretis/infretis.git@main
+pip install infretis
+```
+🚧👷 The latest development version can be installed with:
+```bash
+python -m pip install git+https://github.com/infretis/infretis.git@main
 ```
 
 ⚠️ **Note**: ∞RETIS does not manage the installation of external MD programs. Users are responsible for installing and configuring these programs independently.
