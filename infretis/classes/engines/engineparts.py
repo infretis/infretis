@@ -478,7 +478,7 @@ def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
     N_atoms = 0
     if reader_class.file_object is None:
         return trajectory
-    for i, line in enumerate(reader_class.file_object.readlines()):
+    for i, line in enumerate(iter(reader_class.file_object.readline, "")):
         spl = line.split()
         if i == 0 and spl:
             N_atoms = int(spl[0])
@@ -539,7 +539,7 @@ def lammpstrj_reader(
     coordinate_snapshot = np.zeros(1)
     if reader_class.file_object is None:
         return trajectory, box
-    for i, line in enumerate(reader_class.file_object.readlines()):
+    for i, line in enumerate(iter(reader_class.file_object.readline, "")):
         spl = line.split()
         if i == 3 and spl:
             N_atoms = int(spl[0])
