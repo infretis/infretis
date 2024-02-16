@@ -1049,3 +1049,162 @@ def high_acc_swap(
         return True, "ACC"  # Accepted
 
     return False, "HAS"  # Rejected
+
+
+def quantis_swap_zero(picked):
+    """Quantis zero swap.
+
+    Start with getting the energies for the points to be swapped
+    at the two levels of theory. Do this by integrating one step in
+    each ensemble, and at the same time check the one-step crossing
+    condition
+
+    TODO: we may want to relax the single step crossing condition this
+    which turns it into a retis_swap_zero with the energy rejection step.
+    We may want to also run quantis with retis_swap_zero without any
+    extra steps, just use the crude approximation, e.g. for equilibration
+
+    The metropolis acceptance rule based on the energy differences is defined
+    by these energies (see Gluing potential energy surfaces):
+
+        V1 <- V_hi
+        V0 <- V_lo
+        old_path0.phasepoints[-2].vpot <- V0(r_lo)
+        old_path1.phasepoints[0].vpot <- V1(r_hi)
+        tmp_path1.phasepoints[0].vpot <- V1(r_lo)
+        tmp_path0.phasepoints[0].vpot <- V0(r_hi)
+        deltaV <- V(r_lo) - V(r_hi)
+    """
+    ens_set0 = picked[-1]["ens"]
+    ens_set1 = picked[0]["ens"]
+    engine0 = picked[-1]["engine"]  # ENGINES[picked[-1]["eng_name"]]
+    engine1 = picked[0]["engine"]  # ENGINES[picked[0]["eng_name"]]
+    old_path0 = picked[-1]["traj"]
+    old_path1 = picked[0]["traj"]
+    maxlen0 = ens_set0.get("maxlength", DEFAULT_MAXLEN)
+    maxlen1 = ens_set1.get("maxlength", DEFAULT_MAXLEN)
+
+    [ens_set0["mc_move"], ens_set1["mc_move"]]
+    intf_w = [list(ens_set0["interfaces"]), list(ens_set1["interfaces"])]
+
+    for i, mc_move in enumerate([ens_set0["tis_set"], ens_set1["tis_set"]]):
+        intf_w[i][2] = mc_move.get("interface_cap", intf_w[i][2])
+
+    # perform some checks
+    allowed = (
+        old_path0.get_end_point(
+            ens_set0["interfaces"][0], ens_set0["interfaces"][-1]
+        )
+        == "R"
+    )
+
+    if not allowed:
+        print("Not allowed")
+        return 0
+
+    print("Quantis swapping [0^-] <-> [0^+]")
+
+    shooting_point0 = old_path1.phasepoints[0].copy()
+    shooting_point1 = old_path0.phasepoints[-2].copy()
+
+    if any([shooting_point0.vpot, shooting_point1.vpot]) is None:
+        msg = (
+            "Shooting point in [0-] or [0+] did not contain energies!"
+            " This can happend when using a load path for the quantis swap"
+        )
+        raise ValueError(msg)
+
+    # we only want to integrate one step
+    tmp_path0 = old_path1.empty_path(maxlen=2)
+    tmp_path1 = old_path0.empty_path(maxlen=2)
+
+    print("Propagating one step in [0^-]")
+    print(f"Initial point for [0-] is: {shooting_point0.order}")
+    # both paths start at the left interface
+    # so we need the [0-] ensemble settings
+    _, termination_reason = engine0.propagate(
+        tmp_path0, ens_set0, shooting_point0
+    )
+    if tmp_path0.get_end_point(ens_set0["interfaces"][-1]) != "R":
+        msg = (
+            "Error in one-step crossing propagation for new [0-] path."
+            f" {termination_reason}."
+        )
+        status = "QS0"
+        tmp_path0.status = status
+        tmp_path1.status = status
+        return False, [tmp_path0, tmp_path1], status
+
+    print("Propagating one step in [0^+]")
+    print(f"Initial point for [0+] is: {shooting_point1.order}")
+    _, termination_reason = engine1.propagate(
+        tmp_path1, ens_set0, shooting_point1
+    )
+    if tmp_path1.get_end_point(ens_set0["interfaces"][-1]) != "R":
+        msg = (
+            "Error in one-step crossing propagation for new [0+] path."
+            f" {termination_reason}."
+        )
+        status = "QS1"
+        tmp_path1.status = status
+        tmp_path1.status = status
+        return False, [tmp_path0, tmp_path1], status
+
+    deltaV0 = old_path0.phasepoints[-2].vpot - tmp_path0.phasepoints[0].vpot
+    deltaV1 = tmp_path1.phasepoints[0].vpot - old_path1.phasepoints[0].vpot
+
+    pacc = min(1.0, np.exp(deltaV0 * engine0.beta - deltaV1 * engine1.beta))
+    rand = 0.5  # TODO: what random number generator should we use ...
+    if rand <= pacc:
+        print(
+            f"The acceptance rule based on energies checks out! Pacc = {pacc}"
+        )
+    else:
+        status = "QEA"
+        tmp_path0.status = status
+        tmp_path1.status = status
+        return False, [tmp_path1, tmp_path1], status
+
+    new_path0 = tmp_path0.empty_path(maxlen=maxlen0 - 1)
+    _, termination_reason = engine0.propagate(
+        new_path0, ens_set0, shooting_point0, reverse=True
+    )
+
+    new_path0 = paste_paths(new_path0, tmp_path0)
+    if new_path0.length == maxlen0:
+        new_path0.status = "BTX"
+    elif new_path0.length < 3:
+        new_path0.status = "BTS"
+    elif (
+        "L" not in set(ens_set0["start_cond"])
+        and "L" in new_path0.check_interfaces(ens_set0["interfaces"])[:2]
+    ):
+        new_path0.status = "0-L"
+    else:
+        new_path0.status = "ACC"
+
+    shooting_point1 = tmp_path1.phasepoints[-1].copy()
+    new_path1 = tmp_path1.empty_path(maxlen=maxlen1 - 1)
+    _, termination_reason = engine1.propagate(
+        new_path1, ens_set1, shooting_point1
+    )
+
+    new_path1 = paste_paths(tmp_path1.reverse(None, rev_v=False), new_path1)
+
+    if new_path1.length >= maxlen1:
+        new_path1.status = "FTX"
+    elif new_path1.length < 3:
+        new_path1.status = "FTS"
+    else:
+        new_path1.status = "ACC"
+
+    accept = new_path0.status == "ACC" and new_path1.status == "ACC"
+    status = (
+        "ACC"
+        if accept
+        else (
+            new_path0.status if new_path0.status != "ACC" else new_path1.status
+        )
+    )
+
+    return accept, [new_path0, new_path1], status
