@@ -1081,70 +1081,78 @@ def quantis_swap_zero(picked):
     engine1 = picked[0]["engine"]  # ENGINES[picked[0]["eng_name"]]
     old_path0 = picked[-1]["traj"]
     old_path1 = picked[0]["traj"]
-    maxlen0 = ens_set0.get("maxlength", DEFAULT_MAXLEN)
-    maxlen1 = ens_set1.get("maxlength", DEFAULT_MAXLEN)
-
-    [ens_set0["mc_move"], ens_set1["mc_move"]]
-    intf_w = [list(ens_set0["interfaces"]), list(ens_set1["interfaces"])]
-
-    for i, mc_move in enumerate([ens_set0["tis_set"], ens_set1["tis_set"]]):
-        intf_w[i][2] = mc_move.get("interface_cap", intf_w[i][2])
-
-    # perform some checks
-    allowed = (
-        old_path0.get_end_point(
-            ens_set0["interfaces"][0], ens_set0["interfaces"][-1]
-        )
-        == "R"
-    )
-
-    if not allowed:
-        print("Not allowed")
-        return 0
+    # TODO: is maxlength in ens_set or ens_set["tis_set"]???
+    maxlen0 = ens_set0["tis_set"]["maxlength"]
+    maxlen1 = ens_set1["tis_set"]["maxlength"]
+    lambda0 = ens_set0["interfaces"][-1]
 
     print("Quantis swapping [0^-] <-> [0^+]")
 
     shooting_point0 = old_path1.phasepoints[0].copy()
     shooting_point1 = old_path0.phasepoints[-2].copy()
 
-    if any([shooting_point0.vpot, shooting_point1.vpot]) is None:
-        msg = (
-            "Shooting point in [0-] or [0+] did not contain energies!"
-            " This can happend when using a load path for the quantis swap"
-        )
-        raise ValueError(msg)
-
-    # we only want to integrate one step
+    # we only want to integrate one step first, so maxlen = 2
     tmp_path0 = old_path1.empty_path(maxlen=2)
     tmp_path1 = old_path0.empty_path(maxlen=2)
 
-    print("Propagating one step in [0^-]")
-    print(f"Initial point for [0-] is: {shooting_point0.order}")
-    # both paths start at the left interface
-    # so we need the [0-] ensemble settings
-    _, termination_reason = engine0.propagate(
-        tmp_path0, ens_set0, shooting_point0
-    )
-    if tmp_path0.get_end_point(ens_set0["interfaces"][-1]) != "R":
-        msg = (
-            "Error in one-step crossing propagation for new [0-] path."
-            f" {termination_reason}."
+    # check that we have energies in the two paths
+    if any([shooting_point0.vpot, shooting_point1.vpot]) is None:
+        message = (
+            "Vpot [0-]: {shooting_point0.vpot}"
+            " Vpot [0+] {shooting_point1.vpot}"
+            " Shooting point in [0-] or [0+] did not contain energies!"
+            " This can happend when using a load path for a quantis swap"
         )
-        status = "QS0"
+        logger.debug(message)
+        status = "QNE"
+        tmp_path0.status = status
+        tmp_path1.status = status
+        logger.debug(message)
+        return False, [tmp_path0, tmp_path1], status
+
+    # check that we actually start at the left side of interface0
+    # before beginning the propagation
+    start_cond0 = shooting_point0.get_end_point(lambda0)
+    start_cond1 = shooting_point1.get_end_point(lambda0)
+    if start_cond0 != "L" or start_cond1 != "L":
+        message = (
+            f"{start_cond0} {start_cond1} != L L! "
+            "One or both of the shooting points do not start on the left side "
+            "of lambda0."
+        )
+        logger.debug(message)
+        status = "QLL"
+        # add shooting points for debugging purposes
+        tmp_path0.append(shooting_point0)
+        tmp_path1.append(shooting_point1)
         tmp_path0.status = status
         tmp_path1.status = status
         return False, [tmp_path0, tmp_path1], status
 
+    print("Propagating one step in [0^-]")
+    print(f"Initial point for [0-] is: {shooting_point0.order}")
+    _, msg = engine0.propagate(tmp_path0, ens_set0, shooting_point0)
+    if tmp_path0.get_end_point(lambda0) != "R":
+        message = (
+            "Error in one-step crossing propagation for new [0-] path."
+            f" Reason: {msg}."
+        )
+        logger.debug(message)
+        status = "QS0"
+        tmp_path0.status = status
+        tmp_path1.status = status
+        tmp_path1.append(shooting_point1)
+        return False, [tmp_path0, tmp_path1], status
+
     print("Propagating one step in [0^+]")
     print(f"Initial point for [0+] is: {shooting_point1.order}")
-    _, termination_reason = engine1.propagate(
-        tmp_path1, ens_set0, shooting_point1
-    )
-    if tmp_path1.get_end_point(ens_set0["interfaces"][-1]) != "R":
-        msg = (
+    _, msg = engine1.propagate(tmp_path1, ens_set0, shooting_point1)
+    if tmp_path1.get_end_point(lambda0) != "R":
+        message = (
             "Error in one-step crossing propagation for new [0+] path."
-            f" {termination_reason}."
+            f" Reason: {msg}."
         )
+        logger.debug(message)
         status = "QS1"
         tmp_path1.status = status
         tmp_path1.status = status
@@ -1154,7 +1162,9 @@ def quantis_swap_zero(picked):
     deltaV1 = tmp_path1.phasepoints[0].vpot - old_path1.phasepoints[0].vpot
 
     pacc = min(1.0, np.exp(deltaV0 * engine0.beta - deltaV1 * engine1.beta))
-    rand = 0.5  # TODO: what random number generator should we use ...
+    rand = ens_set0[
+        "rgen"
+    ].random()  # TODO: what random number generator should we use ...
     if rand <= pacc:
         print(
             f"The acceptance rule based on energies checks out! Pacc = {pacc}"
@@ -1166,7 +1176,7 @@ def quantis_swap_zero(picked):
         return False, [tmp_path1, tmp_path1], status
 
     new_path0 = tmp_path0.empty_path(maxlen=maxlen0 - 1)
-    _, termination_reason = engine0.propagate(
+    _, msg = engine0.propagate(
         new_path0, ens_set0, shooting_point0, reverse=True
     )
 
@@ -1185,9 +1195,7 @@ def quantis_swap_zero(picked):
 
     shooting_point1 = tmp_path1.phasepoints[-1].copy()
     new_path1 = tmp_path1.empty_path(maxlen=maxlen1 - 1)
-    _, termination_reason = engine1.propagate(
-        new_path1, ens_set1, shooting_point1
-    )
+    _, msg = engine1.propagate(new_path1, ens_set1, shooting_point1)
 
     new_path1 = paste_paths(tmp_path1.reverse(None, rev_v=False), new_path1)
 
@@ -1199,6 +1207,7 @@ def quantis_swap_zero(picked):
         new_path1.status = "ACC"
 
     accept = new_path0.status == "ACC" and new_path1.status == "ACC"
+
     status = (
         "ACC"
         if accept
