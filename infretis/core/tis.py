@@ -1112,8 +1112,8 @@ def quantis_swap_zero(picked):
 
     # check that we actually start at the left side of interface0
     # before beginning the propagation
-    start_cond0 = shooting_point0.get_end_point(lambda0)
-    start_cond1 = shooting_point1.get_end_point(lambda0)
+    start_cond0 = "L" if shooting_point0.order[0] < lambda0 else "R"
+    start_cond1 = "L" if shooting_point1.order[0] < lambda0 else "R"
     if start_cond0 != "L" or start_cond1 != "L":
         message = (
             f"{start_cond0} {start_cond1} != L L! "
@@ -1166,13 +1166,15 @@ def quantis_swap_zero(picked):
         "rgen"
     ].random()  # TODO: what random number generator should we use ...
     if rand <= pacc:
-        print(
+        logger.debug(
             f"The acceptance rule based on energies checks out! Pacc = {pacc}"
         )
     else:
         status = "QEA"
         tmp_path0.status = status
         tmp_path1.status = status
+        msg = f"Random nr {rand} > pacc {pacc}! Rejecting zero swap."
+        logger.debug(msg)
         return False, [tmp_path1, tmp_path1], status
 
     new_path0 = tmp_path0.empty_path(maxlen=maxlen0 - 1)

@@ -2,9 +2,9 @@ from pathlib import PosixPath
 
 import numpy as np
 
-from infretis.classes.repex import REPEX_state
+from infretis.classes.path import Path as InfPath
 from infretis.classes.system import System
-from infretis.setup import setup_config
+from infretis.core.tis import quantis_swap_zero
 
 HERE = PosixPath(__file__).resolve().parent
 
@@ -13,35 +13,48 @@ class MockEngine:
     """A mockengine that generates fake paths with a given status."""
 
     # assume interfaces = [2, 4]
-    def __init__(self):
-        self.status = "QS0"
+    def __init__(self, status="QS0"):
+        self.status = status
         self.beta = 1.0
         self.rgen = np.random.default_rng()
         self.trajs = {
+            # single step crossing error for new path 0
             "QS0": [
                 {
-                    "order": [1.0, 1.5, 1.9],
-                    "vpot": [0.0, 0.0, 0.0],
-                    "out": (False, ""),
+                    "order": [
+                        1.0,
+                        1.5,
+                    ],
+                    "vpot": [
+                        0.0,
+                        0.0,
+                    ],
+                    "return": (False, ""),
                 }
             ],
+            # single step crossing error for new path 1
             "QS1": [
-                {"order": [1.0, 2.1], "vpot": [0.0, 0.0], "out": (True, "")},
+                {
+                    "order": [1.0, 2.1],
+                    "vpot": [0.0, 0.0],
+                    "return": (True, ""),
+                },
                 {
                     "order": [1.0, 1.5, 1.9],
                     "vpot": [0.0, 0.0, 0.0],
-                    "out": (False, ""),
+                    "return": (False, ""),
                 },
             ],
-            "QSE": [
+            # swap is rejected because the energy acceptance rule is not met
+            "QEA": [
                 {
                     "order": [1.0, 2.1],
-                    "vpot": [999.0, 0.0],
+                    "vpot": [9999.0, 0.0],
                     "return": (True, ""),
                 },
                 {
                     "order": [1.0, 2.1],
-                    "vpot": [-999.0, 0.0],
+                    "vpot": [9999.0, 0.0],
                     "return": (True, ""),
                 },
             ],
@@ -53,50 +66,52 @@ class MockEngine:
         traj = self.trajs[self.status].pop(0)
         for order, vpot in zip(traj["order"], traj["vpot"]):
             system = System()
-            system.order = order
+            system.order = [order]
             system.vpot = vpot
             system.vel_rev = reverse
             path.append(system)
-        return traj["out"]
+        return traj["return"]
 
 
-# def test_quantis_swap_zero(tmp_path: PosixPath):
-#    os.chdir(tmp_dir)
+def test_quantis_swap_zero():
+    """Make some fake paths and check that we catch all error cases."""
+    # the old paths we want to swap
+    path0 = InfPath()
+    for order in [2.5, 1.0, 2.5]:
+        system = System()
+        system.order = [order]
+        system.vpot = 0.0
+        path0.append(system)
 
-example_folder = (HERE / "../../examples/turtlemd/H2/").resolve()
-initial_configuration = example_folder / "conf.xyz"
-toml = str((example_folder / "infretis.toml").resolve())
+    path1 = InfPath()
+    for order in [1.0, 2.5, 1.0]:
+        system = System()
+        system.order = [order]
+        system.vpot = 0.0
+        path1.append(system)
 
-# setup
-config = setup_config(toml)
-state = REPEX_state(config, minus=True)
-state.initiate_ensembles()
-ens_set0 = {
-    "interfaces": (0.345, 0.345, 1.2),
-    "tis_set": {
-        "maxlength": 2000,
-        "allowmaxlength": False,
-        "zero_momentum": True,
-        "n_jumps": 3,
-        "interface_cap": 0.54,
-    },
-    "mc_move": "sh",
-    "eng_name": "turtlemd",
-    "ens_name": "001",
-    "start_cond": "L",
-}
+    for true_status in ["QS0", "QS1", "QEA"]:
+        engine = MockEngine(status=true_status)
 
-ens_set1 = {
-    "interfaces": (-np.inf, 0.345, 0.345),
-    "tis_set": {
-        "maxlength": 2000,
-        "allowmaxlength": False,
-        "zero_momentum": True,
-        "n_jumps": 3,
-        "interface_cap": 0.54,
-    },
-    "mc_move": "sh",
-    "eng_name": "turtlemd",
-    "ens_name": "000",
-    "start_cond": "R",
-}
+        picked = {
+            -1: {
+                "ens": {
+                    "interfaces": (-np.inf, 2.0, 2.0),
+                    "tis_set": {"maxlength": 100},
+                    "rgen": np.random.default_rng(),
+                },
+                "engine": engine,
+                "traj": path0,
+            },
+            0: {
+                "ens": {
+                    "interfaces": (2.0, 2.0, 4.0),
+                    "tis_set": {"maxlength": 100},
+                    "rgen": np.random.default_rng(),
+                },
+                "engine": engine,
+                "traj": path1,
+            },
+        }
+        success, [new_path0, new_path1], status = quantis_swap_zero(picked)
+        assert status == true_status
