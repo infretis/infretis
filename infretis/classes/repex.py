@@ -259,14 +259,8 @@ class REPEX_state:
                 md_items["picked"][ens_num]["wmdrun"] = self.config["dask"][
                     "wmdrun"
                 ][md_items["pin"]]
-            # spawn rgen for {cp2k, turtlemd}
-            if md_items["picked"][ens_num]["eng_name"] in (
-                "cp2k",
-                "turtlemd",
-                "lammps",
-                "gmx",
-            ):
-                md_items["picked"][ens_num]["rgen-eng"] = self.rgen.spawn(1)[0]
+            # spawn rgen for all engines
+            md_items["picked"][ens_num]["rgen-eng"] = self.rgen.spawn(1)[0]
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:
@@ -1063,6 +1057,12 @@ class REPEX_state:
                 "ens_name": f"{i:03d}",
                 "start_cond": "R" if i == 0 else "L",
             }
+
+        # quantis stuff
+        if self.config["simulation"]["tis_set"]["quantis"]:
+            for i in range(1, len(ens_intfs)):
+                pensembles[i]["eng_name"] += "2"
+
         self.ensembles = pensembles
 
 

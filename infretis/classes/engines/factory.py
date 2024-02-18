@@ -50,6 +50,17 @@ def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
     engine = create_engine(config)
     logtxt = f'Created engine "{engine}" from settings.'
     logger.info(logtxt)
+    # quantis stuff
+    if config["simulation"]["tis_set"]["quantis"]:
+        if "engine2" not in config.keys():
+            msg = "quantis = true but engine2 was not specified in the .toml"
+            raise ValueError(msg)
+        engine2 = create_engine({"engine": config["engine2"]})
+        return {
+            config["engine"]["engine"]: engine,
+            config["engine2"]["engine"] + "2": engine2,
+        }
+
     return {config["engine"]["engine"]: engine}
 
 
