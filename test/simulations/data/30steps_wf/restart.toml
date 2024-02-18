@@ -41,6 +41,7 @@ maxlength = 2000
 allowmaxlength = false
 zero_momentum = false
 n_jumps = 6
+quantis = false
 
 [engine]
 class = "turtlemd"
