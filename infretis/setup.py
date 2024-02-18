@@ -128,6 +128,11 @@ def setup_config(inp="infretis.toml", re_inp="restart.toml"):
         if config["output"].get("pattern", False):
             config["output"]["pattern_file"] = os.path.join("pattern.txt")
 
+    # quantis stuff
+    config["simulation"]["tis_set"]["quantis"] = config["simulation"][
+        "tis_set"
+    ].get("quantis", False)
+
     return config
 
 
