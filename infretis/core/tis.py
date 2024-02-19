@@ -1055,33 +1055,54 @@ def high_acc_swap(
 
 
 def quantis_swap_zero(picked):
-    """Quantis zero swap.
+    """Perform a Quantis swap between the [0-] and [0+] ensembles.
 
-    Start with getting the energies for the points to be swapped
-    at the two levels of theory. Do this by integrating one step in
-    each ensemble, and at the same time check the one-step crossing
-    condition
+    Args:
+        picked: A dictionary mapping the ensemble indices to their
+            settings, including the move, current path and engine.
 
-    TODO: implement option to mix engines in [eninge] and [engine2].
-    quantis only works properly with the same engine in all ensembles.
+    Returns:
+        A tuple containing:
+            - True if the path can be accepted, False otherwise.
+            - The generated paths.
+            - A string representing the status of the paths.
+    Note:
+        The quantis swap is similar to a retis zero swap, except that the [0-]
+        and [0+] ensembles are treated at two different levels of theory. To
+        obey detailed balance we need to check if the energy differences
+        between configurations to be swapped are in accord with the metropolis
+        acceptance rule. The metropolis acceptance rule is defined by the
+        following energies:
 
-    TODO: we may want to relax the single step crossing condition this
-    which turns it into a retis_swap_zero with the energy rejection step.
-    We may want to also run quantis with retis_swap_zero without any
-    extra steps, just use the crude approximation, e.g. for equilibration
-
-    TODO: check that we don't do wf in zero ensembles earlier than here.
-
-    The metropolis acceptance rule based on the energy differences is defined
-    by these energies (see Gluing potential energy surfaces):
-
-        V1 <- V_hi
-        V0 <- V_lo
-        old_path0.phasepoints[-2].vpot <- V0(r_lo)
-        old_path1.phasepoints[0].vpot <- V1(r_hi)
-        tmp_path1.phasepoints[0].vpot <- V1(r_lo)
-        tmp_path0.phasepoints[0].vpot <- V0(r_hi)
+        old_path0.phasepoints[-2].vpot <- V_lo(r_lo)
+        old_path1.phasepoints[0].vpot <- V_hi(r_hi)
+        tmp_path1.phasepoints[0].vpot <- V_hi(r_lo)
+        tmp_path0.phasepoints[0].vpot <- V_lo(r_hi)
         deltaV <- V(r_lo) - V(r_hi)
+        pacc = exp(-(beta_lo*deltaV_lo - beta_hi*deltaV_hi))
+
+        The quantis swap can be viewed as a generalization of the retis zero
+        swap; when the two levels of theroy are identical, the energy
+        differences become zero, and the acceptance probability is unity.
+
+        We start by integrating one step in each ensemble. This gives us
+        the energy of the configuration at the different level of theory,
+        which is the 0th step, but also lets us check that we crosse lambda0
+        in one step, which is a condition that must be met. We could also
+        start with evaluating the energy acceptance/rejection by running a
+        0-step integration (which is also time consuming) and then run 1 step
+        and check the crossing. However, this would mean restarting twice and
+        may be slower due to wavefunction guesses, so we do it the other way
+        around.
+
+    Todo:
+        * Implement the option to mix engines in [eninge] and [engine2], as
+        quantis now only works properly with the same engine in all ensembles
+        due to different units and file formats being used. For example, to
+        extract a  configuration from [0+] into [0-] requires some processing.
+        * Add options to relax crossing condition and energy acceptance rule
+        * Check that we don't do 'wf' in zero ensembles earlier than here.
+
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
@@ -1089,25 +1110,22 @@ def quantis_swap_zero(picked):
     engine1 = ENGINES[picked[0]["eng_name"]]
     old_path0 = picked[-1]["traj"]
     old_path1 = picked[0]["traj"]
-    # TODO: is maxlength in ens_set or ens_set["tis_set"]???
     maxlen0 = ens_set0["tis_set"]["maxlength"]
     maxlen1 = ens_set1["tis_set"]["maxlength"]
     lambda0 = ens_set0["interfaces"][-1]
 
-    if "wf" in [ens_set0["mc_move"], ens_set1["mc_move"]]:
-        raise NotImplementedError(
-            "Quantis + 'wf' in [0-] or [0+] is not implemented"
-        )
-
     logger.info("Quantis swapping [0^-] <-> [0^+]")
+
+    if "wf" in [ens_set0["mc_move"], ens_set1["mc_move"]]:
+        logger.warning("Quantis with 'wf' in [0-] or [0+] is not implemented")
+        logger.warning("Continuing with regular shooting.")
 
     shooting_point0 = old_path1.phasepoints[0].copy()
     shooting_point1 = old_path0.phasepoints[-2].copy()
 
-    # we only want to integrate one step first, so maxlen = 2
     tmp_path0 = old_path1.empty_path(maxlen=2)
     tmp_path1 = old_path0.empty_path(maxlen=2)
-    # store some information
+    # add some information in case we return early
     tmp_path0.generated = ("q+", shooting_point0.order[0], 0, 0)
     tmp_path1.generated = (
         "q-",
@@ -1170,6 +1188,7 @@ def quantis_swap_zero(picked):
         tmp_path1.status = status
         return False, [tmp_path0, tmp_path1], status
 
+    # now we check the energy acceptance rule
     deltaV0 = old_path0.phasepoints[-2].vpot - tmp_path0.phasepoints[0].vpot
     deltaV1 = tmp_path1.phasepoints[0].vpot - old_path1.phasepoints[0].vpot
 
@@ -1189,8 +1208,8 @@ def quantis_swap_zero(picked):
     _, msg = engine0.propagate(
         new_path0, ens_set0, shooting_point0, reverse=True
     )
+    new_path0 = paste_paths(new_path0, tmp_path0, maxlen=maxlen0)
 
-    new_path0 = paste_paths(new_path0, tmp_path0)
     # finished with path0, now do some checks
     if new_path0.length >= maxlen0:
         new_path0.status = "BTX"
@@ -1211,8 +1230,10 @@ def quantis_swap_zero(picked):
     new_path1 = tmp_path1.empty_path(maxlen=maxlen1 - 1)
     logger.info("Continuing ropagation in [0+]")
     _, msg = engine1.propagate(new_path1, ens_set1, shooting_point1)
+    new_path1 = paste_paths(
+        tmp_path1.reverse(None, rev_v=False), new_path1, maxlen=maxlen1
+    )
 
-    new_path1 = paste_paths(tmp_path1.reverse(None, rev_v=False), new_path1)
     # finished with path1, now do some checks
     if new_path1.length >= maxlen1:
         new_path1.status = "FTX"
