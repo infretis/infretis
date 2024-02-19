@@ -1105,7 +1105,7 @@ def quantis_swap_zero(picked):
         due to different units and file formats being used. For example, to
         extract a  configuration from [0+] into [0-] requires some processing.
         * Add options to relax crossing condition and energy acceptance rule
-        * Check that we don't do 'wf' in zero ensembles earlier than here.
+        * Option to do 'wf' or nah?
 
     """
     ens_set0 = picked[-1]["ens"]
@@ -1121,6 +1121,7 @@ def quantis_swap_zero(picked):
     logger.info("Quantis swapping [0^-] <-> [0^+]")
 
     if "wf" in [ens_set0["mc_move"], ens_set1["mc_move"]]:
+        print("bananasplit")
         logger.warning("Quantis with 'wf' in [0-] or [0+] is not implemented")
         logger.warning("Continuing with regular shooting.")
 
@@ -1169,6 +1170,7 @@ def quantis_swap_zero(picked):
         tmp_path1.status = status
         return False, [tmp_path0, tmp_path1], status
 
+    # propagate one step in [0-] and check the crossing condition
     logger.info("Propagating one step in [0-]")
     logger.info(f"Initial point for [0-] is: {shooting_point0.order}")
     _, msg = engine0.propagate(tmp_path0, ens_set0, shooting_point0)
@@ -1181,6 +1183,7 @@ def quantis_swap_zero(picked):
         tmp_path1.append(shooting_point1)
         return False, [tmp_path0, tmp_path1], status
 
+    # propagate one step in [0+] and check the crossing condition
     logger.info("Propagating one step in [0+]")
     logger.info(f"Initial point for [0+] is: {shooting_point1.order}")
     _, msg = engine1.propagate(tmp_path1, ens_set0, shooting_point1)
@@ -1207,6 +1210,8 @@ def quantis_swap_zero(picked):
         logger.info(f"Random nr {rand} > pacc {pacc}! Rejecting zero swap.")
         return False, [tmp_path1, tmp_path1], status
 
+    # The energy check out, now complete the two paths. We start with
+    # backward propagation in [0-]
     logger.info("Propagating backwards in [0-]")
     new_path0 = tmp_path0.empty_path(maxlen=maxlen0 - 1)
     _, msg = engine0.propagate(
@@ -1230,6 +1235,7 @@ def quantis_swap_zero(picked):
     if new_path0.status != "ACC":
         return False, [new_path0, tmp_path1], new_path0.status
 
+    # Finally, propagate the [0+] path
     shooting_point1 = tmp_path1.phasepoints[-1].copy()
     new_path1 = tmp_path1.empty_path(maxlen=maxlen1 - 1)
     logger.info("Continuing ropagation in [0+]")
