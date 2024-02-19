@@ -1057,6 +1057,38 @@ def high_acc_swap(
 def quantis_swap_zero(picked):
     """Perform a Quantis swap between the [0-] and [0+] ensembles.
 
+    The quantis swap is similar to a retis zero swap, except that the [0-]
+    and [0+] ensembles are treated at two different levels of theory. To
+    obey detailed balance we need to check if the energy differences
+    between configurations to be swapped are in accord with the metropolis
+    acceptance rule. The metropolis acceptance rule is defined by the
+    following energies:
+
+    old_path0.phasepoints[-2].vpot <- V_lo(r_lo)
+    old_path1.phasepoints[0].vpot <- V_hi(r_hi)
+    tmp_path1.phasepoints[0].vpot <- V_hi(r_lo)
+    tmp_path0.phasepoints[0].vpot <- V_lo(r_hi)
+    deltaV <- V(r_lo) - V(r_hi)
+    pacc = exp(-(beta_lo*deltaV_lo - beta_hi*deltaV_hi))
+
+    The quantis swap can be viewed as a generalization of the retis zero
+    swap; when the two levels of theroy are identical, the energy
+    differences become zero, and the acceptance probability is unity.
+
+    We start by integrating one step in each ensemble. This gives us
+    the energy of the configuration at the different level of theory,
+    which is the 0th step, but also lets us check that we crosse lambda0
+    in one step, which is a condition that must be met. We could also
+    start with evaluating the energy acceptance/rejection by running a
+    0-step integration (which is also time consuming) and then run 1 step
+    and check the crossing. However, this would mean restarting twice and
+    may be slower due to wavefunction guesses, so we do it the other way
+    around.
+
+    The method is described in detail in:
+        Lervik, A., & van Erp, T. S. (2015). Gluing potential energy surfaces
+        with rare event simulations [https://doi.org/10.1021/acs.jctc.5b00012]
+
     Args:
         picked: A dictionary mapping the ensemble indices to their
             settings, including the move, current path and engine.
@@ -1066,34 +1098,6 @@ def quantis_swap_zero(picked):
             - True if the path can be accepted, False otherwise.
             - The generated paths.
             - A string representing the status of the paths.
-    Note:
-        The quantis swap is similar to a retis zero swap, except that the [0-]
-        and [0+] ensembles are treated at two different levels of theory. To
-        obey detailed balance we need to check if the energy differences
-        between configurations to be swapped are in accord with the metropolis
-        acceptance rule. The metropolis acceptance rule is defined by the
-        following energies:
-
-        old_path0.phasepoints[-2].vpot <- V_lo(r_lo)
-        old_path1.phasepoints[0].vpot <- V_hi(r_hi)
-        tmp_path1.phasepoints[0].vpot <- V_hi(r_lo)
-        tmp_path0.phasepoints[0].vpot <- V_lo(r_hi)
-        deltaV <- V(r_lo) - V(r_hi)
-        pacc = exp(-(beta_lo*deltaV_lo - beta_hi*deltaV_hi))
-
-        The quantis swap can be viewed as a generalization of the retis zero
-        swap; when the two levels of theroy are identical, the energy
-        differences become zero, and the acceptance probability is unity.
-
-        We start by integrating one step in each ensemble. This gives us
-        the energy of the configuration at the different level of theory,
-        which is the 0th step, but also lets us check that we crosse lambda0
-        in one step, which is a condition that must be met. We could also
-        start with evaluating the energy acceptance/rejection by running a
-        0-step integration (which is also time consuming) and then run 1 step
-        and check the crossing. However, this would mean restarting twice and
-        may be slower due to wavefunction guesses, so we do it the other way
-        around.
 
     Todo:
         * Implement the option to mix engines in [eninge] and [engine2], as
