@@ -351,12 +351,14 @@ def shoot(
     # We should now generate trajectories, but first check how long
     # it should be (if the path comes from a load, it is assumed to not
     # respect the detail balance anyway):
-    if path.get_move() == "ld" or ens_set.get("allowmaxlength", False):
-        maxlen = ens_set.get("maxlength", DEFAULT_MAXLEN)
+    if path.get_move() == "ld" or ens_set["tis_set"].get(
+        "allowmaxlength", False
+    ):
+        maxlen = ens_set["tis_set"].get("maxlength", DEFAULT_MAXLEN)
     else:
         maxlen = min(
             int((path.length - 2) / ens_set["rgen"].random()) + 2,
-            ens_set.get("maxlength", DEFAULT_MAXLEN),
+            ens_set["tis_set"].get("maxlength", DEFAULT_MAXLEN),
         )
     # Since the forward path must be at least one step, the maximum
     # length for the backward path is maxlen-1.
@@ -396,7 +398,7 @@ def shoot(
         path_back,
         path_forw,
         overlap=True,
-        maxlen=ens_set.get("maxlength", DEFAULT_MAXLEN),
+        maxlen=ens_set["tis_set"].get("maxlength", DEFAULT_MAXLEN),
     )
 
     # Also update information about the shooting:
@@ -414,7 +416,9 @@ def shoot(
         # the maximum length given in the TIS settings. Thus we only
         # need to check this here, i.e. when given that the backward
         # was successful and the forward not:
-        if trial_path.length == ens_set.get("maxlength", DEFAULT_MAXLEN):
+        if trial_path.length == ens_set["tis_set"].get(
+            "maxlength", DEFAULT_MAXLEN
+        ):
             trial_path.status = "FTX"  # exceeds "memory".
         return False, trial_path, trial_path.status
 
@@ -485,12 +489,14 @@ def wire_fencing(
     sub_ens = {
         "interfaces": wf_int,
         "rgen": ens_set["rgen"],
-        "allowmaxlength": True,
-        "maxlength": DEFAULT_MAXLEN,
         "ens_name": ens_set["ens_name"],
         "start_cond": ens_set["start_cond"],
         "tis_set": ens_set["tis_set"],
     }
+    sub_ens["tis_set"]["allowmaxlength"] = True
+    sub_ens["tis_set"]["maxlength"] = ens_set["tis_set"].get(
+        ["maxlength"], DEFAULT_MAXLEN
+    )
 
     succ_seg = 0
     for i in range(ens_set["tis_set"].get("n_jumps", 2)):
@@ -682,7 +688,10 @@ def shoot_backwards(
         trial_path.status = "BTL"  # BTL = backward trajectory too long.
         # Add the failed path to trial path for analysis:
         trial_path += path_back
-        if path_back.length >= ens_set.get("maxlength", DEFAULT_MAXLEN) - 1:
+        if (
+            path_back.length
+            >= ens_set["tis_set"].get("maxlength", DEFAULT_MAXLEN) - 1
+        ):
             # BTX is backward trajectory longer than maximum memory.
             trial_path.status = "BTX"
         return False
@@ -826,8 +835,8 @@ def retis_swap_zero(
     engine1 = engine
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
-    maxlen0 = ens_set0.get("maxlength", DEFAULT_MAXLEN)
-    maxlen1 = ens_set1.get("maxlength", DEFAULT_MAXLEN)
+    maxlen0 = ens_set0["tis_set"].get("maxlength", DEFAULT_MAXLEN)
+    maxlen1 = ens_set1["tis_set"].get("maxlength", DEFAULT_MAXLEN)
 
     ens_moves = [ens_set0["mc_move"], ens_set1["mc_move"]]
     intf_w = [list(ens_set0["interfaces"]), list(ens_set1["interfaces"])]
