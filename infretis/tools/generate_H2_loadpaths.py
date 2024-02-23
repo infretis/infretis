@@ -80,8 +80,8 @@ def create_initial_paths():
         # some ensemble setup
         ensemble = state.ensembles[ens_name]
         ensemble["rgen"] = np.random.default_rng()
-        ensemble["allowmaxlength"] = True
-        ensemble["maxlength"] = 2000
+        ensemble["tis_set"]["allowmaxlength"] = True
+        ensemble["tis_set"]["maxlength"] = 2000
 
         # set up a temporary path to start from
         path = InfPath(maxlen=2000)
