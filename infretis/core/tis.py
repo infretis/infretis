@@ -10,7 +10,7 @@ import numpy as np
 
 from infretis.classes.engines.factory import create_engines
 from infretis.classes.orderparameter import create_orderparameters
-from infretis.classes.path import DEFAULT_MAXLEN, paste_paths
+from infretis.classes.path import paste_paths
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -245,15 +245,14 @@ def wirefence_weight_and_pick(
         for ipath in path_arr:
             sum_frames += ipath[2]
             if sum_frames / n_frames >= subpath_select:
-                new_segment = path.empty_path()
+                new_segment = path.empty_path(maxlen=path.maxlen)
                 for j in range(ipath[0], ipath[1] + 1):
                     new_segment.append(path.phasepoints[j])
-                new_segment.maxlen = path.maxlen
                 new_segment.status = path.status
                 new_segment.time_origin = path.time_origin
                 new_segment.generated = "ct"
                 return n_frames, new_segment
-    return n_frames, path.empty_path()
+    return n_frames, path.empty_path(maxlen=path.maxlen)
 
 
 def select_shoot(
@@ -328,7 +327,8 @@ def shoot(
 
     """
     interfaces = ens_set["interfaces"]
-    trial_path = path.empty_path()  # The trial path we will generate.
+    # the trial path we will generate
+    trial_path = path.empty_path(maxlen=ens_set["tis_set"]["maxlength"])
     if shooting_point is None:
         shooting_point, idx, dek = prepare_shooting_point(
             path, ens_set["rgen"], engine, ens_set
@@ -354,11 +354,11 @@ def shoot(
     if path.get_move() == "ld" or ens_set["tis_set"].get(
         "allowmaxlength", False
     ):
-        maxlen = ens_set["tis_set"].get("maxlength", DEFAULT_MAXLEN)
+        maxlen = ens_set["tis_set"]["maxlength"]
     else:
         maxlen = min(
             int((path.length - 2) / ens_set["rgen"].random()) + 2,
-            ens_set["tis_set"].get("maxlength", DEFAULT_MAXLEN),
+            ens_set["tis_set"]["maxlength"],
         )
     # Since the forward path must be at least one step, the maximum
     # length for the backward path is maxlen-1.
@@ -398,7 +398,7 @@ def shoot(
         path_back,
         path_forw,
         overlap=True,
-        maxlen=ens_set["tis_set"].get("maxlength", DEFAULT_MAXLEN),
+        maxlen=ens_set["tis_set"]["maxlength"],
     )
 
     # Also update information about the shooting:
@@ -416,9 +416,7 @@ def shoot(
         # the maximum length given in the TIS settings. Thus we only
         # need to check this here, i.e. when given that the backward
         # was successful and the forward not:
-        if trial_path.length == ens_set["tis_set"].get(
-            "maxlength", DEFAULT_MAXLEN
-        ):
+        if trial_path.length == ens_set["tis_set"]["maxlength"]:
             trial_path.status = "FTX"  # exceeds "memory".
         return False, trial_path, trial_path.status
 
@@ -493,13 +491,8 @@ def wire_fencing(
         "start_cond": ens_set["start_cond"],
         "tis_set": ens_set["tis_set"],
     }
-    print("\n\n\npre", sub_ens)
     sub_ens["tis_set"]["allowmaxlength"] = True
-    sub_ens["tis_set"]["maxlength"] = ens_set["tis_set"].get(
-        "maxlength", DEFAULT_MAXLEN
-    )
-    print("post", sub_ens)
-    print("=" * 50)
+    sub_ens["tis_set"]["maxlength"] = ens_set["tis_set"]["maxlength"]
 
     succ_seg = 0
     for i in range(ens_set["tis_set"].get("n_jumps", 2)):
@@ -691,10 +684,7 @@ def shoot_backwards(
         trial_path.status = "BTL"  # BTL = backward trajectory too long.
         # Add the failed path to trial path for analysis:
         trial_path += path_back
-        if (
-            path_back.length
-            >= ens_set["tis_set"].get("maxlength", DEFAULT_MAXLEN) - 1
-        ):
+        if path_back.length >= ens_set["tis_set"]["maxlength"] - 1:
             # BTX is backward trajectory longer than maximum memory.
             trial_path.status = "BTX"
         return False
@@ -838,8 +828,8 @@ def retis_swap_zero(
     engine1 = engine
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
-    maxlen0 = ens_set0["tis_set"].get("maxlength", DEFAULT_MAXLEN)
-    maxlen1 = ens_set1["tis_set"].get("maxlength", DEFAULT_MAXLEN)
+    maxlen0 = ens_set0["tis_set"]["maxlength"]
+    maxlen1 = ens_set1["tis_set"]["maxlength"]
 
     ens_moves = [ens_set0["mc_move"], ens_set1["mc_move"]]
     intf_w = [list(ens_set0["interfaces"]), list(ens_set1["interfaces"])]
