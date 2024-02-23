@@ -494,10 +494,13 @@ def wire_fencing(
         "start_cond": ens_set["start_cond"],
         "tis_set": ens_set["tis_set"],
     }
+    print("\n\n\npre", sub_ens)
     sub_ens["tis_set"]["allowmaxlength"] = True
     sub_ens["tis_set"]["maxlength"] = ens_set["tis_set"].get(
-        ["maxlength"], DEFAULT_MAXLEN
+        "maxlength", DEFAULT_MAXLEN
     )
+    print("post", sub_ens)
+    print("=" * 50)
 
     succ_seg = 0
     for i in range(ens_set["tis_set"].get("n_jumps", 2)):
@@ -1124,8 +1127,8 @@ def quantis_swap_zero(picked):
     engine1 = ENGINES[picked[0]["eng_name"]]
     old_path0 = picked[-1]["traj"]
     old_path1 = picked[0]["traj"]
-    maxlen0 = ens_set0["tis_set"].get(["maxlength"], DEFAULT_MAXLEN)
-    maxlen1 = ens_set1["tis_set"].get(["maxlength"], DEFAULT_MAXLEN)
+    maxlen0 = ens_set0["tis_set"].get("maxlength", DEFAULT_MAXLEN)
+    maxlen1 = ens_set1["tis_set"].get("maxlength", DEFAULT_MAXLEN)
     lambda0 = ens_set0["interfaces"][-1]
 
     logger.info("Quantis swapping [0^-] <-> [0^+]")
