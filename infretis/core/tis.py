@@ -1106,6 +1106,7 @@ def quantis_swap_zero(picked):
         extract a  configuration from [0+] into [0-] requires some processing.
         * Add options to relax crossing condition and energy acceptance rule
         * Option to do 'wf' or nah?
+        * allowmaxlength not needed in zero_swap?
 
     """
     ens_set0 = picked[-1]["ens"]
@@ -1121,7 +1122,6 @@ def quantis_swap_zero(picked):
     logger.info("Quantis swapping [0^-] <-> [0^+]")
 
     if "wf" in [ens_set0["mc_move"], ens_set1["mc_move"]]:
-        print("bananasplit")
         logger.warning("Quantis with 'wf' in [0-] or [0+] is not implemented")
         logger.warning("Continuing with regular shooting.")
 
@@ -1157,12 +1157,12 @@ def quantis_swap_zero(picked):
     start_cond0 = "L" if shooting_point0.order[0] < lambda0 else "R"
     start_cond1 = "L" if shooting_point1.order[0] < lambda0 else "R"
     if start_cond0 != "L" or start_cond1 != "L":
-        message = (
-            f"{start_cond0} {start_cond1} != L L! "
-            "One or both of the shooting points do not start on the left side "
-            "of lambda0."
+        logger.warning(f"{start_cond0} {start_cond1} != L L!")
+        logger.warning(
+            "One or both of the shooting points do not start on"
+            " the left side of lambda0."
         )
-        logger.info(message)
+        logger.warning("This should not happen in a stable simulation.")
         status = "QLL"
         tmp_path0.append(shooting_point0)
         tmp_path1.append(shooting_point1)
@@ -1174,6 +1174,7 @@ def quantis_swap_zero(picked):
     logger.info("Propagating one step in [0-]")
     logger.info(f"Initial point for [0-] is: {shooting_point0.order}")
     _, msg = engine0.propagate(tmp_path0, ens_set0, shooting_point0)
+
     if tmp_path0.get_end_point(lambda0) != "R":
         logger.info("One-step crossing condition failed for new [0-] path.")
         logger.info(f"Reason: {msg}")
@@ -1187,6 +1188,7 @@ def quantis_swap_zero(picked):
     logger.info("Propagating one step in [0+]")
     logger.info(f"Initial point for [0+] is: {shooting_point1.order}")
     _, msg = engine1.propagate(tmp_path1, ens_set0, shooting_point1)
+
     if tmp_path1.get_end_point(lambda0) != "R":
         logger.info("One-step crossing condition failed for new [0+] path.")
         logger.info("Reason: {msg}")
@@ -1196,9 +1198,14 @@ def quantis_swap_zero(picked):
         return False, [tmp_path0, tmp_path1], status
 
     # now we check the energy acceptance rule
-    deltaV0 = old_path0.phasepoints[-2].vpot - tmp_path0.phasepoints[0].vpot
-    deltaV1 = tmp_path1.phasepoints[0].vpot - old_path1.phasepoints[0].vpot
-
+    V0_r0 = old_path0.phasepoints[-2].vpot
+    V0_r1 = tmp_path0.phasepoints[0].vpot
+    V1_r1 = old_path1.phasepoints[0].vpot
+    V1_r0 = tmp_path1.phasepoints[0].vpot
+    logger.info(f"V0r0 {V0_r0:.4e} V0r1 {V0_r1:.4e} dV0 {V0_r0 - V0_r1:.4e}")
+    logger.info(f"V1r0 {V1_r0:.4e} V1r1 {V1_r1:.4e} dV1 {V1_r0 - V1_r1:.4e}")
+    deltaV0 = V0_r0 - V0_r1
+    deltaV1 = V1_r0 - V1_r1
     pacc = min(1.0, np.exp(deltaV0 * engine0.beta - deltaV1 * engine1.beta))
     rand = ens_set0["rgen"].random()
     if rand <= pacc:
@@ -1210,13 +1217,34 @@ def quantis_swap_zero(picked):
         logger.info(f"Random nr {rand} > pacc {pacc}! Rejecting zero swap.")
         return False, [tmp_path1, tmp_path1], status
 
-    # The energy check out, now complete the two paths. We start with
-    # backward propagation in [0-]
-    logger.info("Propagating backwards in [0-]")
+    # The energies check out, now complete the two paths.
+    # We start with backward propagation in [0-]
+
+    shooting_point0 = tmp_path0.phasepoints[0].copy()
     new_path0 = tmp_path0.empty_path(maxlen=maxlen0 - 1)
+
+    # check that we actually start on the correct side of the interface
+    start_cond0 = "L" if shooting_point0.order[0] < lambda0 else "R"
+    if start_cond1 != "L":
+        logger.warning("The phasepoint from [0-] from L is now on R side!")
+        logger.warning("This should not happen!")
+        status = "QR*"
+        tmp_path0.status = status
+        tmp_path1.status = status
+        new_path0.append(shooting_point0)
+        return False, [new_path0, tmp_path1], status
+
+    logger.info("Propagating backwards in [0-]")
     _, msg = engine0.propagate(
-        new_path0, ens_set0, shooting_point0, reverse=True
+        new_path0,
+        ens_set0,
+        shooting_point0,
+        reverse=True,
     )
+
+    # obtain the final full path in [0-]:
+    # append the one-step path 'tmp_path0' (which is the end point)
+    # to the rest of the 'new_path0', which was propagated in reverse
     new_path0 = paste_paths(new_path0, tmp_path0, maxlen=maxlen0)
 
     # finished with path0, now do some checks
@@ -1238,14 +1266,30 @@ def quantis_swap_zero(picked):
     # Finally, propagate the [0+] path
     shooting_point1 = tmp_path1.phasepoints[-1].copy()
     new_path1 = tmp_path1.empty_path(maxlen=maxlen1 - 1)
+
+    # but check that we actually start on the correct side of the interface
+    start_cond1 = "L" if shooting_point1.order[0] < lambda0 else "R"
+    if start_cond1 != "R":
+        logger.warning("The phasepoint from [0+] from R is now on L side!")
+        logger.warning("This should not happen!")
+        status = "QLR"
+        new_path0.status = status
+        new_path1.status = status
+        new_path1.append(shooting_point1)
+        return False, [new_path0, new_path1], status
+
     logger.info("Continuing ropagation in [0+]")
     _, msg = engine1.propagate(new_path1, ens_set1, shooting_point1)
+
+    # obtain the final full path in [0+]:
+    # append 'new_path1' to the one-step path 'tmp_path1'
+    # with paste_path using this party-trick
     new_path1 = paste_paths(
         tmp_path1.reverse(None, rev_v=False), new_path1, maxlen=maxlen1
     )
 
-    # finished with path1, now do some checks
-    if new_path1.length >= maxlen1:
+    # finished with path1, now do some extra checks
+    if new_path1.length == maxlen1 and new_path1.get_end_point:
         new_path1.status = "FTX"
     elif new_path1.length < 3:
         new_path1.status = "FTS"
