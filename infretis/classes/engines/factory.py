@@ -5,7 +5,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from infretis.classes.engines.cp2k import CP2KEngine
-from infretis.classes.engines.gromacs import GromacsEngine
+from infretis.classes.engines.gromacs import GromacsEngine, GromacsEngine1
 from infretis.classes.engines.lammps import LAMMPSEngine
 from infretis.classes.engines.turtlemdengine import TurtleMDEngine
 from infretis.core.core import create_external, generic_factory
@@ -30,6 +30,7 @@ def create_engine(settings: dict[str, Any]) -> EngineBase | None:
     """
     engine_map = {
         "gromacs": {"class": GromacsEngine},
+        "gromacs1": {"class": GromacsEngine1},
         "cp2k": {"class": CP2KEngine},
         "turtlemd": {"class": TurtleMDEngine},
         "lammps": {"class": LAMMPSEngine},

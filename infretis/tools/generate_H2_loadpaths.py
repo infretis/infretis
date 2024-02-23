@@ -35,7 +35,7 @@ def write_conf(engine, filename, distance, outfile):
     xyz, vel, box, names = engine._read_configuration(filename)
     xyz *= 0
     xyz[0, 0] = distance
-    if engine.name == "gromacs":
+    if engine.name == "gromacs" or engine.name == "gromacs1":
         txt, _, _, _ = read_gromos96_file(filename)
         write_gromos96_file(outfile, txt, xyz, vel)
     elif engine.name in ["cp2k", "turtlemd"]:

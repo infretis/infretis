@@ -772,6 +772,117 @@ class GromacsEngine(EngineBase):
         return dek, kin_new
 
 
+class GromacsEngine1(GromacsEngine):
+    def __init__(
+        self,
+        gmx: str,
+        input_path: str | Path,
+        timestep: float,
+        subcycles: int,
+        exe_path: str | Path = Path(".").resolve(),
+        maxwarn: int = 0,
+        gmx_format: str = "g96",
+        write_vel: bool = True,
+        write_force: bool = False,
+    ):
+        super().__init__(
+            gmx,
+            input_path,
+            timestep,
+            subcycles,
+            exe_path=exe_path,
+            maxwarn=maxwarn,
+            gmx_format=gmx_format,
+            write_vel=write_vel,
+            write_force=write_force,
+        )
+
+    def _propagate_from(
+        self, name, path, system, ens_set, msg_file, reverse=False
+    ):
+        """
+        Propagate from.
+        """
+        status = f"propagating with GROMACS (reverse = {reverse})"
+        logger.debug(status)
+        success = False
+        interfaces = ens_set["interfaces"]
+        left, _, right = interfaces
+        # Dumping of the initial config were done by the parent, here
+        # we will just use it:
+        initial_conf = system.config[0]
+        # Get the current order parameter:
+        order = self.calculate_order(system)
+        msg_file.write(
+            f'# Initial order parameter: {" ".join([str(i) for i in order])}'
+        )
+        # In some cases, we don't really have to perform a step as the
+        # initial config might be left/right of the interface in
+        # question. Here, we will perform a step anyway. This is to be
+        # sure that we obtain energies and also a trajectory segment.
+        # Note that all the energies are obtained after we are done
+        # with the integration from the .edr file of the trajectory.
+        msg_file.write("# Running grompp and mdrun (initial step).")
+        out_files = self._execute_grompp_and_mdrun(initial_conf, name)
+        # Define name of some files:
+        tpr_file = out_files["tpr"]
+        cpt_file = out_files["cpt"]
+        traj_file = os.path.join(self.exe_dir, out_files["trr"])
+        msg_file.write(f"# Trajectory file is: {traj_file}")
+        conf_abs = os.path.join(self.exe_dir, out_files["conf"])
+        # Note: The order parameter is calculated AT THE END of each iteration.
+        msg_file.write("# Starting GROMACS.")
+        msg_file.write("# Step order parameter cv1 cv2 ...")
+        for i in range(path.maxlen):
+            msg_file.write(f'{i} {" ".join([str(j) for j in order])}')
+            # We first add the previous phase point, and then we propagate.
+            snapshot = {
+                "order": order,
+                "config": (traj_file, i),
+                "vel_rev": reverse,
+            }
+            phase_point = self.snapshot_to_system(system, snapshot)
+            status, success, stop, _ = self.add_to_path(
+                path, phase_point, left, right
+            )
+            if stop:
+                logger.debug(
+                    "GROMACS propagation ended at %i. Reason: %s", i, status
+                )
+                break
+            if i == 0:
+                # This step was performed before entering the main loop.
+                pass
+            elif i > 0:
+                out_extnd = self._extend_and_execute_mdrun(
+                    tpr_file, cpt_file, name
+                )
+                out_files.update(out_extnd)
+            # Calculate the order parameter using the current system:
+            system.vel_rev = reverse
+            system.set_pos((conf_abs, None))
+            order = self.calculate_order(system)
+            # We now have the order parameter, for GROMACS just remove the
+            # config file to avoid the GROMACS #conf_abs# backup clutter:
+            self._removefile(conf_abs)
+            msg_file.flush()
+        logger.debug("GROMACS propagation done, obtaining energies")
+        msg_file.write("# Propagation done.")
+        msg_file.write(f'# Reading energies from: {out_files["edr"]}')
+        msg_file.flush()
+        energy = self.get_energies(out_files["edr"])
+        path.update_energies(energy["kinetic en."], energy["potential"])
+        logger.debug("Removing GROMACS output after propagate.")
+        remove = [
+            val
+            for key, val in out_files.items()
+            if key not in ("trr", "gro", "g96")
+        ]
+        self._remove_files(self.exe_dir, remove)
+        self._remove_gromacs_backup_files(self.exe_dir)
+        return success, status
+
+
 class GromacsRunner:
     """A helper class for running GROMACS.
 
