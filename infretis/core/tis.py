@@ -1056,22 +1056,36 @@ def high_acc_swap(
     return False, "HAS"  # Rejected
 
 
-def quantis_swap_zero(picked):
+def quantis_swap_zero(
+    picked: dict[int, Any],
+) -> tuple[bool, list[InfPath], str]:
     """Perform a Quantis swap between the [0-] and [0+] ensembles.
+
+    Args:
+        picked: A dictionary mapping the ensemble indices to their
+            settings, including the move, the paths to be swapped,
+            and the engine(s).
+
+    Returns:
+        A tuple containing:
+            - True if the path can be accepted, False otherwise.
+            - The generated paths.
+            - A string representing the status of the paths.
+
 
     The quantis swap is similar to a retis zero swap, except that the [0-]
     and [0+] ensembles are treated at two different levels of theory. To
-    obey detailed balance we need to check if the energy differences
-    between configurations to be swapped are in accord with the metropolis
+    obey detailed balance, we need to check if the energy differences
+    between the configurations to be swapped are in accord with the metropolis
     acceptance rule. The metropolis acceptance rule is defined by the
     following energies:
 
-    old_path0.phasepoints[-2].vpot <- V_lo(r_lo)
-    old_path1.phasepoints[0].vpot <- V_hi(r_hi)
-    tmp_path1.phasepoints[0].vpot <- V_hi(r_lo)
-    tmp_path0.phasepoints[0].vpot <- V_lo(r_hi)
-    deltaV <- V(r_lo) - V(r_hi)
-    pacc = exp(-(beta_lo*deltaV_lo - beta_hi*deltaV_hi))
+        old_path0.phasepoints[-2].vpot <- V_lo(r_lo)
+        old_path1.phasepoints[0].vpot <- V_hi(r_hi)
+        tmp_path1.phasepoints[0].vpot <- V_hi(r_lo)
+        tmp_path0.phasepoints[0].vpot <- V_lo(r_hi)
+        deltaV <- V(r_lo) - V(r_hi)
+        pacc = exp(-(beta_lo*deltaV_lo - beta_hi*deltaV_hi))
 
     The quantis swap can be viewed as a generalization of the retis zero
     swap; when the two levels of theroy are identical, the energy
@@ -1090,16 +1104,6 @@ def quantis_swap_zero(picked):
     The method is described in detail in:
         Lervik, A., & van Erp, T. S. (2015). Gluing potential energy surfaces
         with rare event simulations [https://doi.org/10.1021/acs.jctc.5b00012]
-
-    Args:
-        picked: A dictionary mapping the ensemble indices to their
-            settings, including the move, current path and engine.
-
-    Returns:
-        A tuple containing:
-            - True if the path can be accepted, False otherwise.
-            - The generated paths.
-            - A string representing the status of the paths.
 
     Todo:
         * Implement the option to mix engines in [eninge] and [engine2], as
@@ -1284,7 +1288,6 @@ def quantis_swap_zero(picked):
 
     # obtain the final full path in [0+]:
     # append 'new_path1' to the one-step path 'tmp_path1'
-    # with paste_path using this party-trick
     new_path1 = paste_paths(
         tmp_path1.reverse(None, rev_v=False), new_path1, maxlen=maxlen1
     )
