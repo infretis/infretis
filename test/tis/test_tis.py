@@ -1,5 +1,6 @@
 """Test methods for doing TIS."""
 import os
+from collections.abc import Callable
 from pathlib import PosixPath
 
 import numpy as np
@@ -295,7 +296,7 @@ def test_prepare_shooting_point(tmp_path: PosixPath) -> None:
             assert shpt_xyz[0][key] == path_xyz[idx][key]
 
 
-def test_quantis_swap_zero_messages():
+def test_quantis_swap_zero_messages() -> None:
     """Make some fake paths and check that we catch all errors."""
     # the old paths we want to swap
     path0 = Path()
@@ -350,7 +351,9 @@ def test_quantis_swap_zero_messages():
     [retis_swap_zero, quantis_swap_zero],
 )
 @pytest.mark.heavy
-def test_zero_swaps(tmp_path, zero_swap_move):
+def test_zero_swaps(
+    tmp_path: PosixPath, zero_swap_move: Callable[[dict], ...]
+) -> None:
     """Check that three consecutive zero swaps 1, 2 and 3 gives back the
     original path at swap 2, and that the paths obtained from swap 1 and 3
     are identical as well (for both ensembles [0-] and [0+]).
