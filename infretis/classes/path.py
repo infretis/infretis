@@ -271,9 +271,8 @@ class Path:
                 phasepoint.order = order_function.calculate(phasepoint)
         return new_path
 
-    def empty_path(self, **kwargs) -> Path:
+    def empty_path(self, maxlen=DEFAULT_MAXLEN, **kwargs) -> Path:
         """Return an empty path of same class as the current one."""
-        maxlen = kwargs.get("maxlen")
         time_origin = kwargs.get("time_origin", 0)
         return self.__class__(maxlen=maxlen, time_origin=time_origin)
 
