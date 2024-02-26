@@ -7,13 +7,14 @@ import numpy as np
 import pytest
 from rgen import MockRandomGenerator
 
+from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import read_xyz_file
 from infretis.classes.engines.factory import create_engine
-from infretis.classes.engines.turtlemdengine import TurtleMDEngine
 from infretis.classes.orderparameter import create_orderparameters
+from infretis.classes.path import Path as InfPath
 
 # from infretis.classes.path import Path, restart_path
-from infretis.classes.path import Path, load_path
+from infretis.classes.path import load_path
 from infretis.classes.system import System
 from infretis.core.tis import (
     ENGINES,
@@ -105,7 +106,7 @@ class MockEngine:
         return traj["out"]
 
 
-def return_engset() -> dict():
+def return_engset() -> dict:
     eng_set = {
         "class": "turtlemd",
         "engine": "turtlemd",
@@ -127,7 +128,7 @@ def return_engset() -> dict():
     return eng_set
 
 
-def return_ensset() -> dict():
+def return_ensset() -> dict:
     ens_set = {
         "interfaces": (-0.99, -0.3, 1.0),
         "tis_set": {
@@ -145,7 +146,7 @@ def return_ensset() -> dict():
     return ens_set
 
 
-def create_ensdic_and_engine() -> (dict(), TurtleMDEngine):
+def create_ensdic_and_engine() -> tuple[dict, EngineBase]:
     eng_set = return_engset()
     ens_set = return_ensset()
     turtle = create_engine({"engine": eng_set})
@@ -155,7 +156,7 @@ def create_ensdic_and_engine() -> (dict(), TurtleMDEngine):
     return ens_set, turtle
 
 
-def check_smooth(path: Path) -> tuple:
+def check_smooth(path: InfPath) -> tuple:
     """Inspect whether a path is smooth or not.
 
     Args:
@@ -174,7 +175,7 @@ def check_smooth(path: Path) -> tuple:
     return smooth, smooth <= 1.0
 
 
-def create_traj_from_list(op_list: list) -> Path:
+def create_traj_from_list(op_list: list[float]) -> InfPath:
     toy_path = INP_PATH.empty_path()
     for op in op_list:
         copy = INP_PATH.phasepoints[0].copy()
@@ -194,7 +195,7 @@ def test_shooting(tmp_path: PosixPath) -> None:
     ens_set, turtle = create_ensdic_and_engine()
     f1 = tmp_path / "temp"
     f1.mkdir()
-    turtle.exe_dir = f1
+    turtle.exe_dir = str(f1)
     turtle.rgen = ens_set["rgen"]
     print("lion", INP_PATH.generated)
     success, trial_seg, status = shoot(ens_set, INP_PATH, turtle)
@@ -217,7 +218,7 @@ def test_wirefencing(tmp_path: PosixPath) -> None:
     ens_set["mc_move"] = "wf"
     f1 = tmp_path / "temp"
     f1.mkdir()
-    turtle.exe_dir = f1
+    turtle.exe_dir = str(f1)
     turtle.rgen = ens_set["rgen"]
 
     success, trial_seg, status = wire_fencing(ens_set, INP_PATH, turtle)
@@ -243,24 +244,25 @@ def test_compute_weight_wf(tmp_path: PosixPath) -> None:
     f1 = tmp_path / "temp"
     f1.mkdir()
 
-    interfaces = (0.0, 1.0, 2.0)  # A, i, cap
+    interfaces = [0.0, 1.0, 2.0]  # A, i, cap
     # line shape:
-    toy_path = create_traj_from_list([-1, 1.5, 1.5, 1.5, 1.5, 1.5, -1])
+    toy_path = create_traj_from_list([-1.0, 1.5, 1.5, 1.5, 1.5, 1.5, -1.0])
+    print(toy_path)
     weight = compute_weight(toy_path, interfaces, "wf")
     assert weight == 5
 
     # above cap line shape:
-    toy_path = create_traj_from_list([-1, 2.5, 2.5, 2.5, 2.5, 2.5, -1])
+    toy_path = create_traj_from_list([-1.0, 2.5, 2.5, 2.5, 2.5, 2.5, -1.0])
     weight = compute_weight(toy_path, interfaces, "wf")
     assert weight == 0
 
     # M shape:
-    toy_path = create_traj_from_list([-1, 1.5, 2.5, 1.5, 2.5, 1.5, -1])
+    toy_path = create_traj_from_list([-1.0, 1.5, 2.5, 1.5, 2.5, 1.5, -1.0])
     weight = compute_weight(toy_path, interfaces, "wf")
     assert weight == 2
 
     # stretched M shape:
-    toy_path = create_traj_from_list([-1, 1.5, 2.5, 1.5, 2.5, 0.5, -1])
+    toy_path = create_traj_from_list([-1.0, 1.5, 2.5, 1.5, 2.5, 0.5, -1.0])
     weight = compute_weight(toy_path, interfaces, "wf")
     assert weight == 1
 
@@ -274,7 +276,7 @@ def test_prepare_shooting_point(tmp_path: PosixPath) -> None:
     ens_set, turtle = create_ensdic_and_engine()
     f1 = tmp_path / "temp"
     f1.mkdir()
-    turtle.exe_dir = f1
+    turtle.exe_dir = str(f1)
 
     shpt_copy, idx, dek = prepare_shooting_point(
         INP_PATH, turtle.rgen, turtle, ens_set
@@ -299,14 +301,14 @@ def test_prepare_shooting_point(tmp_path: PosixPath) -> None:
 def test_quantis_swap_zero_messages() -> None:
     """Make some fake paths and check that we catch all errors."""
     # the old paths we want to swap
-    path0 = Path()
+    path0 = InfPath()
     for order in [2.5, 1.0, 2.5]:
         system = System()
         system.order = [order]
         system.vpot = 0.0
         path0.append(system)
 
-    path1 = Path()
+    path1 = InfPath()
     for order in [1.0, 2.5, 1.0]:
         system = System()
         system.order = [order]
@@ -352,7 +354,10 @@ def test_quantis_swap_zero_messages() -> None:
 )
 @pytest.mark.heavy
 def test_zero_swaps(
-    tmp_path: PosixPath, zero_swap_move: Callable[[dict], ...]
+    tmp_path: PosixPath,
+    zero_swap_move: Callable[
+        [dict], tuple[bool, tuple[InfPath, InfPath], str]
+    ],
 ) -> None:
     """Check that three consecutive zero swaps 1, 2 and 3 gives back the
     original path at swap 2, and that the paths obtained from swap 1 and 3
@@ -375,7 +380,7 @@ def test_zero_swaps(
     ens_set1["rgen"] = np.random.default_rng(seed=123)
     turtle.rgen = np.random.default_rng(seed=123)
     turtle.integrator_settings = {"beta": 1e12, "gamma": 1e-5}
-    turtle.exe_dir = tmp_dir
+    turtle.exe_dir = str(tmp_dir)
 
     ENGINES["turtlemd"] = turtle
     picked = {
@@ -386,7 +391,7 @@ def test_zero_swaps(
     # we need to shoot here because we don't have velocities in the load paths
     # so the single step crossing would fail
     success, old_path0, status = shoot(
-        ens_set0, INP_PATH0, turtle, start_cond="R"
+        ens_set0, INP_PATH0, turtle, start_cond=("R",)
     )
     success, old_path1, status = shoot(ens_set1, INP_PATH1, turtle)
 
