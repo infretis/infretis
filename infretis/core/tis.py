@@ -20,7 +20,8 @@ ENGINES: dict = {}
 
 def def_globals(config):
     global ENGINES
-    ENGINES = create_engines(config)
+    for i in range(config["dask"]["workers"]):
+        ENGINES[i] = create_engines(config)[config["engine"]["engine"]]
     create_orderparameters(ENGINES, config)
 
 
@@ -77,7 +78,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
     # set mdrun, rng, clean_up
     for ens_num in md_items["ens_nums"]:
         pens = md_items["picked"][ens_num]
-        engine = ENGINES[pens["eng_name"]]
+        engine = ENGINES[md_items["pin"]]
         engine.set_mdrun(pens)
         if "rgen-eng" in pens:
             engine.rgen = pens["rgen-eng"]
@@ -85,7 +86,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
 
     # perform the hw move:
     picked = md_items["picked"]
-    _, trials, status = select_shoot(picked)
+    _, trials, status = select_shoot(picked, engine)
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -250,7 +251,9 @@ def wirefence_weight_and_pick(
 
 
 def select_shoot(
-    picked: dict[int, Any], start_cond: tuple[str, ...] = ("L",)
+    picked: dict[int, Any],
+    engine: EngineBase,
+    start_cond: tuple[str, ...] = ("L",),
 ) -> tuple[bool, list[InfPath], str]:
     """Select shooting move and generate a new path.
 
@@ -275,7 +278,6 @@ def select_shoot(
 
     if len(picked) == 1:
         pens = next(iter(picked.values()))
-        engine = ENGINES[pens["eng_name"]]
         ens_set, path = (pens[i] for i in ["ens", "traj"])
         move = ens_set["mc_move"]
         logger.info(
@@ -288,7 +290,7 @@ def select_shoot(
         )
         new_paths = [new_path]
     else:
-        accept, new_paths, status = retis_swap_zero(picked)
+        accept, new_paths, status = retis_swap_zero(picked, engine)
 
     logger.info(f"Move was {accept} with status {status}\n")
     return accept, new_paths, status
@@ -781,6 +783,7 @@ def check_kick(
 
 def retis_swap_zero(
     picked: dict[int, Any],
+    engine: EngineBase,
 ) -> tuple[bool, list[InfPath], str]:
     """Perform the RETIS swapping for `[0^-] <-> [0^+]` swaps.
 
@@ -827,8 +830,8 @@ def retis_swap_zero(
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = ENGINES[picked[-1]["eng_name"]]
-    engine1 = ENGINES[picked[0]["eng_name"]]
+    engine0 = engine
+    engine1 = engine
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
     maxlen0 = ens_set0.get("maxlength", DEFAULT_MAXLEN)
