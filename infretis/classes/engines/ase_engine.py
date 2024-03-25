@@ -23,8 +23,6 @@ logger.addHandler(logging.NullHandler())
 
 
 class ASEEngine(EngineBase):
-    # TODO: Why are calculations performed twice?
-    # see flare code
     def __init__(
         self,
         timestep: float,
