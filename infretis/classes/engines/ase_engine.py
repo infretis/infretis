@@ -23,7 +23,7 @@ logger.addHandler(logging.NullHandler())
 
 
 class ASEEngine(EngineBase):
-    #TODO: Why are calculations performed twice?
+    # TODO: Why are calculations performed twice?
     # see flare code
     def __init__(
         self,
@@ -101,6 +101,8 @@ class ASEEngine(EngineBase):
         atoms.set_calculator(self.calc)
         # TODO: check order, here we first calcualte the forces of init conf
         # and then continue to the main loop. Is this correct?
+        # This way the forces are set in self.calc.results from
+        # the given initial configuration
         self.calc.calculate(atoms)
         step_nr = 0
         ekin = []
@@ -137,7 +139,7 @@ class ASEEngine(EngineBase):
                         "ASE propagation ended at {step_nr}. Reason: {status}",
                     )
                     break
-            dyn.step()
+            dyn.step(forces=self.calc.results["forces"])
             step_nr += 1
 
         msg_file.write("# Propagation done.")
