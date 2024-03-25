@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from infretis.classes.engines.ase_engine import ASEEngine
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.gromacs import GromacsEngine
 from infretis.classes.engines.lammps import LAMMPSEngine
@@ -33,6 +34,7 @@ def create_engine(settings: dict[str, Any]) -> EngineBase | None:
         "cp2k": {"class": CP2KEngine},
         "turtlemd": {"class": TurtleMDEngine},
         "lammps": {"class": LAMMPSEngine},
+        "ase": {"class": ASEEngine},
     }
 
     if settings["engine"]["class"].lower() not in engine_map:
