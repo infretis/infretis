@@ -23,6 +23,8 @@ logger.addHandler(logging.NullHandler())
 
 
 class ASEEngine(EngineBase):
+    #TODO: Why are calculations performed twice?
+    # see flare code
     def __init__(
         self,
         timestep: float,
@@ -97,6 +99,9 @@ class ASEEngine(EngineBase):
         msg_file.write(f"# Trajectory file is: {traj_file}")
         dyn = self.Integrator(atoms, **self.integrator_settings)
         atoms.set_calculator(self.calc)
+        # TODO: check order, here we first calcualte the forces of init conf
+        # and then continue to the main loop. Is this correct?
+        self.calc.calculate(atoms)
         step_nr = 0
         ekin = []
         vpot = []
