@@ -43,8 +43,7 @@ class ASEEngine(EngineBase):
         # TODO: make this non-manual
         # by reading in from .toml or .py?
         read(self.input_path / "initial.traj")
-        Calc = create_external(calculator_settings, "ase", ["calculate"])
-        self.calc = Calc(timestep, temperature)
+        self.calc = create_external(calculator_settings, "ase", ["calculate"])
         self.Integrator = Langevin
         self.integrator_settings = {
             "timestep": self.timestep * units.fs,
