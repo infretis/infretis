@@ -110,9 +110,13 @@ class ASEEngine(EngineBase):
         for i in range(self.subcycles * path.maxlen):
             if (i) % (self.subcycles) == 0:
                 # Maybe use Trajectory here instead of write()
-                traj.write(atoms)
                 ekin.append(atoms.get_kinetic_energy())
-                vpot.append(atoms.get_potential_energy())
+                vpot.append(self.calc.results["energy"])
+                # NOTE: Writing atoms removes all results from
+                # the calculator (and therefore atoms)!
+                # So we store forces here
+                forces = self.calc.results["forces"]
+                traj.write(atoms)
                 order = self.calculate_order(
                     system,
                     xyz=atoms.positions,
@@ -137,8 +141,9 @@ class ASEEngine(EngineBase):
                         "ASE propagation ended at {step_nr}. Reason: {status}",
                     )
                     break
-            dyn.step(forces=self.calc.results["forces"])
-            step_nr += 1
+                print(f"STEP {step_nr} {traj_file}", flush = True)
+                step_nr += 1
+            dyn.step(forces=forces)
 
         msg_file.write("# Propagation done.")
         traj.close()
