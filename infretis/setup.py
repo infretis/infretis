@@ -60,7 +60,7 @@ def setup_dask(state):
 
     # setup individual worker logs
     for i in range(state.workers):
-        client.submit(set_worker_logger, i)
+        client.submit(set_worker_logger, workers=i)
 
     return client, futures
 
@@ -164,7 +164,7 @@ def setup_logger(inp="sim.log"):
     logger.addHandler(fileh)
 
 
-def set_worker_logger(i):
+def set_worker_logger():
     """Set logger for each worker."""
     # for each worker
     pin = get_worker().name
