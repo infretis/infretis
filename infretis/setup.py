@@ -44,7 +44,7 @@ def setup_internal(config):
 
 
 def setup_dask(state):
-    """Setup dask classes."""
+    """Set up dask classes."""
     # isolate each worker
     dask.config.set({"distributed.scheduler.work-stealing": False})
 
@@ -66,7 +66,7 @@ def setup_dask(state):
 
 
 def setup_config(inp="infretis.toml", re_inp="restart.toml"):
-    """Setup dict from *toml file."""
+    """Set up dict from *toml file."""
     # sets up the dict from *toml file.
 
     # load input:
