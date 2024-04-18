@@ -313,7 +313,6 @@ class REPEX_state:
                 list(valid) + [0 for _ in range(self.n - self._offset)]
             )
         ens += self._offset
-        # print('dog a', ens, valid, traj.path_number, traj.length)
         assert valid[ens] != 0
         # invalidate last prob
         self._last_prob = None
@@ -399,7 +398,7 @@ class REPEX_state:
         save_loc = os.path.join("./", save_loc, "infretis.restart")
         with open(save_loc, "rb") as infile:
             seed_state = pickle.load(infile)
-        print("flower", seed_state["seed"], minus)
+        # print("flower", seed_state["seed"], minus)
         n_children_spawned = seed_state["seed"].n_children_spawned - minus
         seed_sequence = np.random.SeedSequence(
             entropy=0, n_children_spawned=n_children_spawned
@@ -758,7 +757,7 @@ class REPEX_state:
             locked_ep.append(
                 ([int(tup0 + self._offset) for tup0 in tup[0]], tup[1])
             )
-        print("tulip", self.locked_paths(), locked_ep, self.locked)
+        # print("tulip", self.locked_paths(), locked_ep, self.locked)
         self.config["current"]["locked"] = locked_ep
 
         # save accumulative fracs
@@ -854,7 +853,7 @@ class REPEX_state:
         logger.info(" -- |\t" + "".join("--" for _ in range(self.n + 14)))
 
         locks = self.locked_paths()
-        print("bubu", locks)
+        # print("bubu", locks)
         oil = False
         for idx, live in enumerate(self.live_paths()):
             if live not in locks:
