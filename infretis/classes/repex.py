@@ -366,18 +366,6 @@ class REPEX_state:
         ]
         return locks
 
-    # def save_rgen(self):
-    #     """Save numpy random generator state."""
-    #     save_loc = self.config["simulation"].get("save_loc", "./")
-    #     save_loc = os.path.join("./", save_loc, "infretis.restart")
-    #     # seed keeps track of number of children spawned
-    #     seed_state = {
-    #         "seed": self.rgen.bit_generator.seed_seq,
-    #         "state": self.rgen.bit_generator.state,
-    #     }
-    #     with open(save_loc, "wb") as outfile:
-    #         pickle.dump(seed_state, outfile)
-
     def set_rgen(self, minus=0):
         """Set numpy random generator state from restart."""
         n_children_spawned = self.cstep - minus
@@ -403,7 +391,6 @@ class REPEX_state:
             # should probably add a check for stopping when all workers
             # are free to close the while loop, but for now when
             # cstep >= tsteps we return false.
-            # self.save_rgen()
             self.print_end()
             self.write_toml()
             logger.info("date: " + datetime.now().strftime(DATE_FORMAT))
@@ -975,7 +962,6 @@ class REPEX_state:
         if self.printing():
             self.print_shooted(md_items, pn_news)
         # save for possible restart
-        # self.save_rgen()
         self.write_toml()
 
         return md_items
