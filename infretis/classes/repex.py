@@ -115,7 +115,7 @@ class REPEX_state:
 
     @property
     def data_dir(self):
-        """Retrive pattern_file from config dict."""
+        """Retrieve pattern_file from config dict."""
         return self.config["output"]["data_dir"]
 
     @property
