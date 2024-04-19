@@ -175,11 +175,10 @@ class REPEX_state:
             self.print_pick(ens_nums, pat_nums, self.cworker)
         picked = {}
 
-        # This is one of the two places self.rgen should spawn child rng.
-        rgen_child = self.rgen.spawn(1)[0]
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
             ens_pick = self.ensembles[ens_num + 1]
-            ens_pick["rgen"] = rgen_child.spawn(1)[0]
+            # This is one of the two places self.rgen should spawn child rng.
+            ens_pick["rgen"] = self.rgen.spawn(1)[0]
             logger.info("child " + str(ens_pick["rgen"].random()))
             picked[ens_num] = {
                 "ens": ens_pick,
@@ -223,11 +222,10 @@ class REPEX_state:
             self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
         picked = {}
 
-        # This is one of the two places self.rgen should spawn child rng.
-        rgen_child = self.rgen.spawn(1)[0]
         for ens_num, inp_traj in zip(enss, trajs):
             ens_pick = self.ensembles[ens_num + 1]
-            ens_pick["rgen"] = rgen_child.spawn(1)[0]
+            # This is one of the two places self.rgen should spawn child rng.
+            ens_pick["rgen"] = self.rgen.spawn(1)[0]
             logger.info("child " + str(ens_pick["rgen"].random()))
             picked[ens_num] = {
                 "ens": ens_pick,
