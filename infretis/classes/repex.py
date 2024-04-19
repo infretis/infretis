@@ -41,7 +41,7 @@ class REPEX_state:
         self.config = config
         # set rng
         if "restarted_from" in config["current"]:
-            self.set_rgen()
+            self.set_rgen(minus=self.workers - 1)
         else:
             self.rgen = default_rng(seed=config.get("seed", 0))
 
@@ -61,7 +61,8 @@ class REPEX_state:
         self.zeroswap = 0.5
 
         # detect any locked ens-path pairs exist pre start
-        self.locked0 = self.locked
+        self.locked0 = list(self.config["current"].get("locked", []))
+        self.locked = []
 
         # determines the number of initiation loops to do.
         self.toinitiate = self.workers
@@ -114,7 +115,7 @@ class REPEX_state:
 
     @property
     def data_dir(self):
-        """Retrive pattern_file from config dict."""
+        """Retrieve pattern_file from config dict."""
         return self.config["output"]["data_dir"]
 
     @property
@@ -131,11 +132,6 @@ class REPEX_state:
     def interfaces(self):
         """Retrieve interfaces from config dict."""
         return self.config["simulation"]["interfaces"]
-
-    @property
-    def locked(self):
-        """Retrieve locked from config dict."""
-        return list(self.config["current"].get("locked", []))
 
     @property
     def workers(self):
@@ -177,11 +173,12 @@ class REPEX_state:
         self.locked.append((list(ens_nums), pat_nums))
         if self.printing():
             self.print_pick(ens_nums, pat_nums, self.cworker)
-
         picked = {}
+
+        child_rng = self.rgen.spawn(1)[0]
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
             ens_pick = self.ensembles[ens_num + 1]
-            ens_pick["rgen"] = self.rgen.spawn(1)[0]
+            ens_pick["rgen"] = child_rng.spawn(1)[0]
             picked[ens_num] = {
                 "ens": ens_pick,
                 "traj": inp_traj,
@@ -204,12 +201,16 @@ class REPEX_state:
         In case a crash, we pick lock locked from previous simulation.
         """
         if not self.locked0:
+            if "restarted_from" in self.config["current"]:
+                # get the same pick() as pre-restart. Need to set it again
+                # because current self.rgen was used for calculating self.prob.
+                self.set_rgen()
             return self.pick()
-        self.locked0.pop()
-        logger.info("pick locked!")
+
         enss = []
         trajs = []
-        enss0, trajs0 = self.locked.pop()
+        enss0, trajs0 = self.locked0.pop(0)
+        logger.info("pick locked!")
         for ens, traj in zip(enss0, trajs0):
             enss.append(ens - self._offset)
             traj_idx = self.live_paths().index(int(traj))
@@ -219,13 +220,16 @@ class REPEX_state:
         if self.printing():
             self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
         picked = {}
+
+        child_rng = self.rgen.spawn(1)[0]
         for ens_num, inp_traj in zip(enss, trajs):
-            self.ensembles[ens_num]["rgen"] = self.rgen.spawn(1)[0]
+            ens_pick = self.ensembles[ens_num + 1]
+            ens_pick["rgen"] = child_rng.spawn(1)[0]
             picked[ens_num] = {
-                "ens": self.ensembles[ens_num],
+                "ens": ens_pick,
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
-                "ens_name": self.ensembles[ens_num]["ens_name"],
+                "eng_name": ens_pick["eng_name"],
             }
         return picked
 
@@ -266,7 +270,8 @@ class REPEX_state:
                 "lammps",
                 "gmx",
             ):
-                md_items["picked"][ens_num]["rgen-eng"] = self.rgen.spawn(1)[0]
+                ens_rgen = md_items["picked"][ens_num]["ens"]["rgen"]
+                md_items["picked"][ens_num]["rgen-eng"] = ens_rgen.spawn(1)[0]
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:
@@ -295,7 +300,6 @@ class REPEX_state:
                 list(valid) + [0 for _ in range(self.n - self._offset)]
             )
         ens += self._offset
-        # print('dog a', ens, valid, traj.path_number, traj.length)
         assert valid[ens] != 0
         # invalidate last prob
         self._last_prob = None
@@ -375,13 +379,17 @@ class REPEX_state:
         with open(save_loc, "wb") as outfile:
             pickle.dump(seed_state, outfile)
 
-    def set_rgen(self):
+    def set_rgen(self, minus=0):
         """Set numpy random generator state from restart."""
         save_loc = self.config["simulation"].get("save_loc", "./")
         save_loc = os.path.join("./", save_loc, "infretis.restart")
         with open(save_loc, "rb") as infile:
             seed_state = pickle.load(infile)
-        self.rgen = default_rng(seed_state["seed"])
+        n_children_spawned = seed_state["seed"].n_children_spawned - minus
+        seed_sequence = np.random.SeedSequence(
+            entropy=0, n_children_spawned=n_children_spawned
+        )
+        self.rgen = default_rng(seed_sequence)
         self.rgen.bit_generator.state = seed_state["state"]
 
     def loop(self):
@@ -726,7 +734,7 @@ class REPEX_state:
 
         return total / num_loops
 
-    def write_toml(self, ens_sel=(), input_traj=()):
+    def write_toml(self):
         """Toml writer."""
         self.config["current"]["active"] = self.live_paths()
         locked_ep = []
