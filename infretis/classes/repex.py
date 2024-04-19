@@ -1,7 +1,6 @@
 """Defines the main REPEX class for path handling and permanent calc."""
 import logging
 import os
-import pickle
 import sys
 import time
 from datetime import datetime
@@ -367,30 +366,26 @@ class REPEX_state:
         ]
         return locks
 
-    def save_rgen(self):
-        """Save numpy random generator state."""
-        save_loc = self.config["simulation"].get("save_loc", "./")
-        save_loc = os.path.join("./", save_loc, "infretis.restart")
-        # seed keeps track of number of children spawned
-        seed_state = {
-            "seed": self.rgen.bit_generator.seed_seq,
-            "state": self.rgen.bit_generator.state,
-        }
-        with open(save_loc, "wb") as outfile:
-            pickle.dump(seed_state, outfile)
+    # def save_rgen(self):
+    #     """Save numpy random generator state."""
+    #     save_loc = self.config["simulation"].get("save_loc", "./")
+    #     save_loc = os.path.join("./", save_loc, "infretis.restart")
+    #     # seed keeps track of number of children spawned
+    #     seed_state = {
+    #         "seed": self.rgen.bit_generator.seed_seq,
+    #         "state": self.rgen.bit_generator.state,
+    #     }
+    #     with open(save_loc, "wb") as outfile:
+    #         pickle.dump(seed_state, outfile)
 
     def set_rgen(self, minus=0):
         """Set numpy random generator state from restart."""
-        save_loc = self.config["simulation"].get("save_loc", "./")
-        save_loc = os.path.join("./", save_loc, "infretis.restart")
-        with open(save_loc, "rb") as infile:
-            seed_state = pickle.load(infile)
-        n_children_spawned = seed_state["seed"].n_children_spawned - minus
+        n_children_spawned = self.cstep - minus
         seed_sequence = np.random.SeedSequence(
             entropy=0, n_children_spawned=n_children_spawned
         )
         self.rgen = default_rng(seed_sequence)
-        self.rgen.bit_generator.state = seed_state["state"]
+        self.rgen.bit_generator.state = self.config["current"]["rng_state"]
 
     def loop(self):
         """Check and iterate loop."""
@@ -408,7 +403,7 @@ class REPEX_state:
             # should probably add a check for stopping when all workers
             # are free to close the while loop, but for now when
             # cstep >= tsteps we return false.
-            self.save_rgen()
+            # self.save_rgen()
             self.print_end()
             self.write_toml()
             logger.info("date: " + datetime.now().strftime(DATE_FORMAT))
@@ -507,7 +502,7 @@ class REPEX_state:
 
         equal = equal_minus and equal_pos
 
-        out = np.zeros(shape=sorted_non_locked.shape, dtype="float128")
+        out = np.zeros(shape=sorted_non_locked.shape, dtype="float")
         if equal:
             # All trajectories have equal weights, run fast algorithm
             # run_fast
@@ -587,8 +582,8 @@ class REPEX_state:
 
     def quick_prob(self, arr):
         """Quick P matrix calculation for specific W matrix."""
-        total_traj_prob = np.ones(shape=arr.shape[0], dtype="float128")
-        out_mat = np.zeros(shape=arr.shape, dtype="float128")
+        total_traj_prob = np.ones(shape=arr.shape[0], dtype="float")
+        out_mat = np.zeros(shape=arr.shape, dtype="float")
         working_mat = np.where(arr != 0, 1, 0)  # convert non-zero numbers to 1
 
         for i, column in enumerate(working_mat.T[::-1]):
@@ -606,8 +601,8 @@ class REPEX_state:
         """Quick P matrix calculation for specific W matrix."""
         # TODO: DEBUG CODE
         # ONLY HERE TO DEBUG THE OTHER METHODS
-        total_traj_prob = np.ones(shape=arr.shape[0], dtype="float128")
-        out_mat = np.zeros(shape=arr.shape, dtype="float128")
+        total_traj_prob = np.ones(shape=arr.shape[0], dtype="float")
+        out_mat = np.zeros(shape=arr.shape, dtype="float")
 
         force_arr = arr.copy()
         # Force everything to be identical
@@ -625,7 +620,7 @@ class REPEX_state:
 
     def permanent_prob(self, arr):
         """P matrix calculation for specific W matrix."""
-        out = np.zeros(shape=arr.shape, dtype="float128")
+        out = np.zeros(shape=arr.shape, dtype="float")
         # Don't overwrite input arr
         scaled_arr = arr.copy()
         n = len(scaled_arr)
@@ -648,7 +643,7 @@ class REPEX_state:
 
     def random_prob(self, arr, n=10_000):
         """P matrix calculation for specific W matrix."""
-        out = np.eye(len(arr), dtype="float128")
+        out = np.eye(len(arr), dtype="float")
         current_state = np.eye(len(arr))
         choices = len(arr) // 2
         even = choices * 2 == len(arr)
@@ -708,7 +703,7 @@ class REPEX_state:
             else:
                 return -1
 
-        row_comb = np.sum(M, axis=0, dtype="float128")
+        row_comb = np.sum(M, axis=0, dtype="float")
         n = len(M)
 
         total = 0
@@ -743,6 +738,7 @@ class REPEX_state:
                 ([int(tup0 + self._offset) for tup0 in tup[0]], tup[1])
             )
         self.config["current"]["locked"] = locked_ep
+        self.config["current"]["rng_state"] = self.rgen.bit_generator.state
 
         # save accumulative fracs
         self.config["current"]["frac"] = {}
@@ -920,7 +916,7 @@ class REPEX_state:
                 }
                 out_traj = self.pstore.output(self.cstep, data)
                 self.traj_data[traj_num] = {
-                    "frac": np.zeros(self.n, dtype="float128"),
+                    "frac": np.zeros(self.n, dtype="float"),
                     "max_op": out_traj.ordermax,
                     "min_op": out_traj.ordermin,
                     "length": out_traj.length,
@@ -979,7 +975,7 @@ class REPEX_state:
         if self.printing():
             self.print_shooted(md_items, pn_news)
         # save for possible restart
-        self.save_rgen()
+        # self.save_rgen()
         self.write_toml()
 
         return md_items
@@ -1012,7 +1008,7 @@ class REPEX_state:
                 "length": paths[i + 1].length,
                 "adress": paths[i + 1].adress,
                 "weights": paths[i + 1].weights,
-                "frac": np.array(frac, dtype="float128"),
+                "frac": np.array(frac, dtype="float"),
             }
         # add minus path:
         paths[0].weights = (1.0,)
@@ -1030,7 +1026,7 @@ class REPEX_state:
             "length": paths[0].length,
             "weights": paths[0].weights,
             "adress": paths[0].adress,
-            "frac": np.array(frac, dtype="float128"),
+            "frac": np.array(frac, dtype="float"),
         }
 
     def pattern_header(self):
