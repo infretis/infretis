@@ -173,14 +173,9 @@ class REPEX_state:
         self.locked.append((list(ens_nums), pat_nums))
         if self.printing():
             self.print_pick(ens_nums, pat_nums, self.cworker)
-
         picked = {}
 
         # This is one of the two places self.rgen should spawn child rng.
-        childs = self.rgen.bit_generator.seed_seq.n_children_spawned
-        logger.info(
-            "rand_state " + str(childs) + " " + str(self.rgen.random())
-        )
         rgen_child = self.rgen.spawn(1)[0]
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
             ens_pick = self.ensembles[ens_num + 1]
@@ -228,10 +223,6 @@ class REPEX_state:
             self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
         picked = {}
 
-        childs = self.rgen.bit_generator.seed_seq.n_children_spawned
-        logger.info(
-            "rand_state " + str(childs) + " " + str(self.rgen.random())
-        )
         # This is one of the two places self.rgen should spawn child rng.
         rgen_child = self.rgen.spawn(1)[0]
         for ens_num, inp_traj in zip(enss, trajs):
@@ -398,12 +389,10 @@ class REPEX_state:
         save_loc = os.path.join("./", save_loc, "infretis.restart")
         with open(save_loc, "rb") as infile:
             seed_state = pickle.load(infile)
-        # print("flower", seed_state["seed"], minus)
         n_children_spawned = seed_state["seed"].n_children_spawned - minus
         seed_sequence = np.random.SeedSequence(
             entropy=0, n_children_spawned=n_children_spawned
         )
-        # self.rgen = default_rng(seed_state["seed"])
         self.rgen = default_rng(seed_sequence)
         self.rgen.bit_generator.state = seed_state["state"]
 
@@ -757,7 +746,6 @@ class REPEX_state:
             locked_ep.append(
                 ([int(tup0 + self._offset) for tup0 in tup[0]], tup[1])
             )
-        # print("tulip", self.locked_paths(), locked_ep, self.locked)
         self.config["current"]["locked"] = locked_ep
 
         # save accumulative fracs
@@ -853,7 +841,6 @@ class REPEX_state:
         logger.info(" -- |\t" + "".join("--" for _ in range(self.n + 14)))
 
         locks = self.locked_paths()
-        # print("bubu", locks)
         oil = False
         for idx, live in enumerate(self.live_paths()):
             if live not in locks:
