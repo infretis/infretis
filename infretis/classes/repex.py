@@ -177,9 +177,7 @@ class REPEX_state:
 
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
             ens_pick = self.ensembles[ens_num + 1]
-            # This is one of the two places self.rgen should spawn child rng.
             ens_pick["rgen"] = self.rgen.spawn(1)[0]
-            logger.info("child " + str(ens_pick["rgen"].random()))
             picked[ens_num] = {
                 "ens": ens_pick,
                 "traj": inp_traj,
@@ -224,9 +222,7 @@ class REPEX_state:
 
         for ens_num, inp_traj in zip(enss, trajs):
             ens_pick = self.ensembles[ens_num + 1]
-            # This is one of the two places self.rgen should spawn child rng.
             ens_pick["rgen"] = self.rgen.spawn(1)[0]
-            logger.info("child " + str(ens_pick["rgen"].random()))
             picked[ens_num] = {
                 "ens": ens_pick,
                 "traj": inp_traj,

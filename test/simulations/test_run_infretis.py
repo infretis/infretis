@@ -144,3 +144,8 @@ def test_restart_multiple_w(tmp_path: PosixPath) -> None:
     winfo2 = read_simlogw("sim.log", workers, restart=True)
     for work1, work2 in zip(winfo1, winfo2):
         assert work1 == work2
+
+    # check that we have 4 worker.logs
+    dirs = os.listdir(".")
+    for i in range(workers):
+        assert f"worker{i}.log" in dirs
