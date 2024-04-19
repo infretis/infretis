@@ -209,3 +209,12 @@ size = 8
     "0.0",
     "0.0",
 ]
+
+[current.rng_state]
+bit_generator = "PCG64"
+has_uint32 = 0
+uinteger = 0
+
+[current.rng_state.state]
+state = 276937304969521971854545303600510771084
+inc = 87136372517582989555478159403783844777
