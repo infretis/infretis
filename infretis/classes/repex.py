@@ -175,9 +175,10 @@ class REPEX_state:
             self.print_pick(ens_nums, pat_nums, self.cworker)
         picked = {}
 
+        child_rng = self.rgen.spawn(1)[0]
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
             ens_pick = self.ensembles[ens_num + 1]
-            ens_pick["rgen"] = self.rgen.spawn(1)[0]
+            ens_pick["rgen"] = child_rng.spawn(1)[0]
             picked[ens_num] = {
                 "ens": ens_pick,
                 "traj": inp_traj,
@@ -220,9 +221,10 @@ class REPEX_state:
             self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
         picked = {}
 
+        child_rng = self.rgen.spawn(1)[0]
         for ens_num, inp_traj in zip(enss, trajs):
             ens_pick = self.ensembles[ens_num + 1]
-            ens_pick["rgen"] = self.rgen.spawn(1)[0]
+            ens_pick["rgen"] = child_rng.spawn(1)[0]
             picked[ens_num] = {
                 "ens": ens_pick,
                 "traj": inp_traj,
