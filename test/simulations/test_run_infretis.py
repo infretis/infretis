@@ -12,6 +12,7 @@ import tomli_w
 
 
 def get_diff_data(inp1, inp2):
+    "Check the difference between two infretis_data.txt files in a simple way."
     diffps, diffms = [], []
     with open(inp1) as left, open(inp2) as right:
         diffs = difflib.unified_diff(left.readlines(), right.readlines(), n=0)
