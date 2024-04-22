@@ -118,10 +118,6 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
         tomli_w.dump(config, f)
 
     success = os.system("infretisrun -i infretis.toml >| out.txt")
-    items = [
-        ("infretis_data_1.txt", "infretis_data.txt"),
-        ("restart.toml", "restart.toml"),
-    ]
     assert (
         get_diff_data(
             "infretis_data_1.txt",
