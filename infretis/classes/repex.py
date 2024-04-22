@@ -1,7 +1,6 @@
 """Defines the main REPEX class for path handling and permanent calc."""
 import logging
 import os
-import pickle
 import sys
 import time
 from datetime import datetime
@@ -367,30 +366,14 @@ class REPEX_state:
         ]
         return locks
 
-    def save_rgen(self):
-        """Save numpy random generator state."""
-        save_loc = self.config["simulation"].get("save_loc", "./")
-        save_loc = os.path.join("./", save_loc, "infretis.restart")
-        # seed keeps track of number of children spawned
-        seed_state = {
-            "seed": self.rgen.bit_generator.seed_seq,
-            "state": self.rgen.bit_generator.state,
-        }
-        with open(save_loc, "wb") as outfile:
-            pickle.dump(seed_state, outfile)
-
     def set_rgen(self, minus=0):
         """Set numpy random generator state from restart."""
-        save_loc = self.config["simulation"].get("save_loc", "./")
-        save_loc = os.path.join("./", save_loc, "infretis.restart")
-        with open(save_loc, "rb") as infile:
-            seed_state = pickle.load(infile)
-        n_children_spawned = seed_state["seed"].n_children_spawned - minus
+        n_children_spawned = self.cstep - minus
         seed_sequence = np.random.SeedSequence(
             entropy=0, n_children_spawned=n_children_spawned
         )
         self.rgen = default_rng(seed_sequence)
-        self.rgen.bit_generator.state = seed_state["state"]
+        self.rgen.bit_generator.state = self.config["current"]["rng_state"]
 
     def loop(self):
         """Check and iterate loop."""
@@ -408,7 +391,6 @@ class REPEX_state:
             # should probably add a check for stopping when all workers
             # are free to close the while loop, but for now when
             # cstep >= tsteps we return false.
-            self.save_rgen()
             self.print_end()
             self.write_toml()
             logger.info("date: " + datetime.now().strftime(DATE_FORMAT))
@@ -743,6 +725,7 @@ class REPEX_state:
                 ([int(tup0 + self._offset) for tup0 in tup[0]], tup[1])
             )
         self.config["current"]["locked"] = locked_ep
+        self.config["current"]["rng_state"] = self.rgen.bit_generator.state
 
         # save accumulative fracs
         self.config["current"]["frac"] = {}
@@ -979,7 +962,6 @@ class REPEX_state:
         if self.printing():
             self.print_shooted(md_items, pn_news)
         # save for possible restart
-        self.save_rgen()
         self.write_toml()
 
         return md_items
