@@ -121,7 +121,7 @@ def test_restart_multiple_w(tmp_path: PosixPath) -> None:
     # start 4w 5s simulation
     try:
         check_output(
-            ["infretisrun", "-i", "infretis.toml"], stderr=STDOUT, timeout=3
+            ["infretisrun", "-i", "infretis.toml"], stderr=STDOUT, timeout=5
         )
     except Exception:
         pass
