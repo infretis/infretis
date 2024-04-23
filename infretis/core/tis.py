@@ -1106,6 +1106,9 @@ def quantis_swap_zero(
         extract a  configuration from [0+] into [0-] requires some processing.
         * Add options to relax crossing condition and energy acceptance rule
         * Option to do 'wf' or nah?
+        * After performing a swap, another swap that happens before any moves
+        in the ensembles [0-] and [0+] are performed, we get back the original
+        paths. Should avoid zero swap if this is the case (see retis_swap_0)
 
     """
     ens_set0 = picked[-1]["ens"]
