@@ -1,4 +1,5 @@
 """Test methods for doing TIS."""
+import difflib
 import filecmp
 import os
 import shutil
@@ -8,6 +9,22 @@ from subprocess import STDOUT, check_output
 import pytest
 import tomli
 import tomli_w
+
+
+def get_diff_data(inp1, inp2):
+    "Check the difference between two infretis_data.txt files in a simple way."
+    diffps, diffms = [], []
+    with open(inp1) as left, open(inp2) as right:
+        diffs = difflib.unified_diff(left.readlines(), right.readlines(), n=0)
+        for diff in diffs:  # difference is empty if no differences
+            if "+\t" in diff[:2]:
+                diffps.append(sum([int(i) for i in diff if i.isdigit()]))
+            if "-\t" in diff[:2]:
+                diffms.append(sum([int(i) for i in diff if i.isdigit()]))
+    diffnum = 0
+    for diffp, diffm in zip(diffps, diffms):
+        diffnum += abs(diffp - diffm)
+    return diffnum
 
 
 def read_simlogw(inp, workers=4, restart=False):
@@ -92,6 +109,32 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     # nb: technically num_files == 24, but due to restarts pn_olds get reset.
     num_files = len(os.listdir("load"))
     assert num_files < 40
+
+    # run 30 steps without restart
+    with open("infretis.toml", mode="rb") as f:
+        config = tomli.load(f)
+        config["simulation"]["steps"] = 30
+        config["output"]["delete_old_all"] = False
+    with open("infretis.toml", "wb") as f:
+        tomli_w.dump(config, f)
+
+    success = os.system("infretisrun -i infretis.toml >| out.txt")
+    assert (
+        get_diff_data(
+            "infretis_data_1.txt",
+            f"{basepath}/data/30steps_wf/infretis_data.txt",
+        )
+        < 5
+    )
+    with open("restart.toml", mode="rb") as f:
+        config = tomli.load(f)
+        config["output"]["data_file"] = "./infretis_data.txt"
+        config["output"]["delete_old_all"] = True
+    with open("restart.toml", "wb") as f:
+        tomli_w.dump(config, f)
+    assert filecmp.cmp(
+        "./restart.toml", f"{basepath}/data/30steps_wf/restart.toml"
+    )
 
 
 @pytest.mark.heavy

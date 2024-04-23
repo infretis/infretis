@@ -40,7 +40,7 @@ class REPEX_state:
         self.config = config
         # set rng
         if "restarted_from" in config["current"]:
-            self.set_rgen(minus=self.workers - 1)
+            self.set_rgen()
         else:
             self.rgen = default_rng(seed=config.get("seed", 0))
 
@@ -366,11 +366,10 @@ class REPEX_state:
         ]
         return locks
 
-    def set_rgen(self, minus=0):
+    def set_rgen(self):
         """Set numpy random generator state from restart."""
-        n_children_spawned = self.cstep - minus
         seed_sequence = np.random.SeedSequence(
-            entropy=0, n_children_spawned=n_children_spawned
+            entropy=0, n_children_spawned=self.cstep
         )
         self.rgen = default_rng(seed_sequence)
         self.rgen.bit_generator.state = self.config["current"]["rng_state"]
