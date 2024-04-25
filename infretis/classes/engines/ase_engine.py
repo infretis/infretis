@@ -42,7 +42,6 @@ class ASEEngine(EngineBase):
 
         # TODO: make this non-manual
         # by reading in from .toml or .py?
-        read(self.input_path / "initial.traj")
         self.calc = create_external(calculator_settings, "ase", ["calculate"])
         self.Integrator = Langevin
         self.integrator_settings = {
@@ -111,12 +110,14 @@ class ASEEngine(EngineBase):
             if (i) % (self.subcycles) == 0:
                 # Maybe use Trajectory here instead of write()
                 ekin.append(atoms.get_kinetic_energy())
+                energy = self.calc.results["energy"]
+                forces = self.calc.results["forces"]
+                stress = self.calc.results["stress"]
                 vpot.append(self.calc.results["energy"])
                 # NOTE: Writing atoms removes all results from
                 # the calculator (and therefore atoms)!
                 # So we store forces here
-                forces = self.calc.results["forces"]
-                traj.write(atoms)
+                traj.write(atoms, forces = forces, energy = energy, stress = stress)
                 order = self.calculate_order(
                     system,
                     xyz=atoms.positions,
