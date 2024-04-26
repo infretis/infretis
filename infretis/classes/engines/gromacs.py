@@ -1338,12 +1338,12 @@ def read_trr_file(
                     data = None
                 yield header, data
             except EOFError:
-                return None, None
+                return
             except struct.error:
                 logger.warning(
                     "Could not read a frame from the TRR file. Aborting!"
                 )
-                return None, None
+                return
 
 
 def read_matrix(
