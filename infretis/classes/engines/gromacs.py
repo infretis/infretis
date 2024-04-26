@@ -1325,7 +1325,10 @@ def read_trr_data(
 
 def read_trr_file(
     filename: str, read_data: bool = True
-) -> Iterator[tuple[dict[str, Any], dict[str, np.ndarray] | None]]:
+) -> (
+    Iterator[tuple[dict[str, Any], dict[str, np.ndarray] | None]]
+    | tuple[None, None]
+):
     """Yield frames from a TRR file."""
     with open(filename, "rb") as infile:
         while True:
@@ -1338,12 +1341,12 @@ def read_trr_file(
                     data = None
                 yield header, data
             except EOFError:
-                return
+                return None, None
             except struct.error:
                 logger.warning(
                     "Could not read a frame from the TRR file. Aborting!"
                 )
-                return
+                return None, None
 
 
 def read_matrix(
