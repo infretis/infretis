@@ -142,7 +142,6 @@ class ASEEngine(EngineBase):
                         "ASE propagation ended at {step_nr}. Reason: {status}",
                     )
                     break
-                print(f"STEP {step_nr} {traj_file}", flush = True)
                 step_nr += 1
             dyn.step(forces=forces)
 
