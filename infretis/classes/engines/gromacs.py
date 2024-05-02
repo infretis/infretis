@@ -1325,7 +1325,10 @@ def read_trr_data(
 
 def read_trr_file(
     filename: str, read_data: bool = True
-) -> Iterator[tuple[dict[str, Any], dict[str, np.ndarray] | None]]:
+) -> (
+    Iterator[tuple[dict[str, Any], dict[str, np.ndarray] | None]]
+    | tuple[None, None]
+):
     """Yield frames from a TRR file."""
     with open(filename, "rb") as infile:
         while True:
