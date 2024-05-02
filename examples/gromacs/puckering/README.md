@@ -64,6 +64,7 @@ cd openff-models
 python -m pip install -e .
 cd -
 git clone https://github.com/infretis/inftools.git
+cd inftools
 python -m pip install -e .
 cd ~
 git clone https://github.com/infretis/infretis.git
