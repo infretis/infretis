@@ -81,6 +81,7 @@ class ASEEngine(EngineBase):
 
         initial_conf = system.config[0]
         atoms = read(initial_conf)
+        # TODO: Fix box stuff, now it only takes lengths andn ot angles
         order = self.calculate_order(
             system,
             xyz=atoms.positions,
@@ -96,7 +97,13 @@ class ASEEngine(EngineBase):
         msg_file.write(f"# Trajectory file is: {traj_file}")
         dyn = self.Integrator(atoms, **self.integrator_settings)
         atoms.set_calculator(self.calc)
-        # TODO: check order, here we first calcualte the forces of init conf
+        # we give the ase atoms object the system and order
+        # information in case it is needed during force calculations
+        # using e.g. force mixing with quantis. Can't give it directly
+        # as atoms.order because OP is only calculated every subcycles
+        atoms.system = system
+        atoms.calculate_order = self.calculate_order
+        # TODO: check order, here we first calculate the forces of init conf
         # and then continue to the main loop. Is this correct?
         # This way the forces are set in self.calc.results from
         # the given initial configuration
@@ -108,7 +115,6 @@ class ASEEngine(EngineBase):
         # such that frame 0 is also written
         for i in range(self.subcycles * path.maxlen):
             if (i) % (self.subcycles) == 0:
-                # Maybe use Trajectory here instead of write()
                 ekin.append(atoms.get_kinetic_energy())
                 energy = self.calc.results["energy"]
                 forces = self.calc.results["forces"]
@@ -116,8 +122,7 @@ class ASEEngine(EngineBase):
                 vpot.append(self.calc.results["energy"])
                 # NOTE: Writing atoms removes all results from
                 # the calculator (and therefore atoms)!
-                # So we store forces here
-                traj.write(atoms, forces = forces, energy = energy, stress = stress)
+                traj.write(atoms, forces=forces, energy=energy, stress=stress)
                 order = self.calculate_order(
                     system,
                     xyz=atoms.positions,
@@ -139,7 +144,8 @@ class ASEEngine(EngineBase):
 
                 if stop:
                     logger.info(
-                        "ASE propagation ended at {step_nr}. Reason: {status}",
+                        f"ASE propagation ended at \
+                                {step_nr}. Reason: {status}",
                     )
                     break
                 step_nr += 1
