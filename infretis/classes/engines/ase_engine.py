@@ -144,8 +144,8 @@ class ASEEngine(EngineBase):
 
                 if stop:
                     logger.info(
-                        f"ASE propagation ended at \
-                                {step_nr}. Reason: {status}",
+                        "ASE propagation ended at "
+                        f"step {step_nr}. Reason: {status}",
                     )
                     break
                 step_nr += 1
