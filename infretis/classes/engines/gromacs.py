@@ -9,7 +9,7 @@ import signal
 import struct
 import subprocess
 from pathlib import Path
-from time import sleep
+from time import sleep, time
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -97,6 +97,7 @@ class GromacsEngine(EngineBase):
         gmx_format: str = "g96",
         write_vel: bool = True,
         write_force: bool = False,
+        time_limit: float = np.inf,
     ):
         """Set up the GROMACS engine.
 
@@ -111,6 +112,9 @@ class GromacsEngine(EngineBase):
             gmx_format: The format used for GROMACS configurations.
             write_vel: Determines if GROMACS should write velocities or not.
             write_force: Determines if GROMACS should write forces or not.
+            time_limit: pause the gromacs execution after this many seconods,
+                then continue after the order parameter calculation catches up.
+                Usefull when order parameter calculation is slow.
         """
         super().__init__("GROMACS engine zamn", timestep, subcycles)
         self.ext = gmx_format
@@ -209,6 +213,11 @@ class GromacsEngine(EngineBase):
             self.input_path, out_files["tpr"]
         )
         logger.info('GROMACS ".tpr" created: %s', self.input_files["tpr"])
+        self.time_limit = time_limit
+        if self.time_limit < 0:
+            raise ValueError("Time limit cannot be less than zero!")
+        if self.time_limit != np.inf:
+            logger.info(f"Using a GROMACS time limit of {self.time_limit} s")
 
     @staticmethod
     def select_energy_terms(terms: str = "path") -> bytes:
@@ -566,7 +575,9 @@ class GromacsEngine(EngineBase):
         msg_file.write(f"# Trajectory file is: {trr_file}")
         msg_file.write("# Starting GROMACS.")
         msg_file.write("# Step order parameter cv1 cv2 ...")
-        with GromacsRunner(cmd, trr_file, edr_file, self.exe_dir) as gro:
+        with GromacsRunner(
+            cmd, trr_file, edr_file, self.exe_dir, self.time_limit
+        ) as gro:
             for i, data in enumerate(gro.get_gromacs_frames()):
                 # Update the configuration file:
                 system.set_pos((trr_file, i))
@@ -912,7 +923,12 @@ class GromacsRunner:
     SLEEP: float = 0.1
 
     def __init__(
-        self, cmd: list[str], trr_file: str, edr_file: str, exe_dir: str
+        self,
+        cmd: list[str],
+        trr_file: str,
+        edr_file: str,
+        exe_dir: str,
+        time_limit: float,
     ):
         """Set the GROMACS command and the files we need.
 
@@ -931,6 +947,9 @@ class GromacsRunner:
         self.bytes_read: int = 0
         self.ino: int = 0
         self.stop_read: bool = True
+        self.is_paused: bool = False
+        self.start_time: float = time()
+        self.time_limit: float = time_limit
         self.data_size: int = 0
         self.header_size: int = 0
         self.stdout_name: str | None = None
@@ -990,6 +1009,11 @@ class GromacsRunner:
         header = None
         new_bytes = 0
         while not self.stop_read:
+            # check if we pause the runnger
+            self.run_time = time() - self.start_time
+            if self.run_time > self.time_limit and not self.is_paused:
+                self.running.send_signal(signal.SIGSTOP)
+                self.is_paused = True
             poll = self.check_poll()
             if poll is not None:
                 # GROMACS is done, read remaining data.
@@ -1055,15 +1079,32 @@ class GromacsRunner:
                                 if data is None:
                                     # Data is not ready, just wait:
                                     sleep(self.SLEEP)
+                                    if self.is_paused:
+                                        print("continuing 1061")
+                                        self.running.send_signal(
+                                            signal.SIGCONT
+                                        )
+                                        self.start_time = time()
+                                        self.is_paused = False
                                 else:
                                     self.bytes_read += new_bytes
                                     yield data
                             else:
                                 # Data is not ready, just wait:
                                 sleep(self.SLEEP)
+                                if self.is_paused:
+                                    print("continuing 1073")
+                                    self.running.send_signal(signal.SIGCONT)
+                                    self.start_time = time()
+                                    self.is_paused = False
                 else:
                     # Header was not ready, just wait before trying again.
                     sleep(self.SLEEP)
+                    if self.is_paused:
+                        print("continuing 1082")
+                        self.running.send_signal(signal.SIGCONT)
+                        self.start_time = time()
+                        self.is_paused = False
 
     def close(self) -> None:
         """Close the file, in case that is explicitly needed."""
@@ -1090,8 +1131,13 @@ class GromacsRunner:
             if self.running.returncode is None:
                 logger.debug("Terminating GROMACS execution")
                 os.killpg(os.getpgid(self.running.pid), signal.SIGTERM)
+                # add this if not the paused signal
+                # doesn't register the sigterm
+                if self.is_paused:
+                    self.running.send_signal(signal.SIGCONT)
 
             self.running.wait(timeout=360)
+
         self.stop_read = True
         self.close()  # Close the TRR file.
 
