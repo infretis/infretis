@@ -29,6 +29,7 @@ class ASEEngine(EngineBase):
         temperature: float,
         subcycles: int,
         input_path: str,
+        fixcm: bool,
         calculator_settings: str,
         exe_path: str | Path = Path(".").resolve(),
     ):
@@ -47,8 +48,10 @@ class ASEEngine(EngineBase):
         self.integrator_settings = {
             "timestep": self.timestep * units.fs,
             "temperature_K": self.temperature,
-            "friction": 0.01 * units.fs,
+            "friction": 0.1 * units.fs,
+            "fixcm": fixcm,
         }
+        print(fixcm)
 
     def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         traj = Trajectory(traj_file)
