@@ -899,6 +899,9 @@ class REPEX_state:
                     "dir": os.path.join(
                         os.getcwd(), self.config["simulation"]["load_dir"]
                     ),
+                    "wdir": os.path.join(
+                        os.getcwd(), f"worker{md_items['pin']}"
+                    ),
                 }
                 out_traj = self.pstore.output(self.cstep, data)
                 self.traj_data[traj_num] = {

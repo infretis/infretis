@@ -948,6 +948,11 @@ class PathStorage(OutputBase):
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
         _ = self.output_path_files(step, [path, "ACC"], archive_path)
+        efiles = [i for i in os.listdir(data["wdir"]) if ".edr" in i]
+        for efile in efiles:
+            src = os.path.join(data["wdir"], efile)
+            shutil.move(src, traj_dir)
+
         path = self._move_path(path, traj_dir)
         return path
 
