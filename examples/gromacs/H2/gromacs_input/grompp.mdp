@@ -1,4 +1,4 @@
-integrator              = sd
+integrator              = sd ; LGTM
 nsteps                  = 10000
 dt                      = 0.0002
 
