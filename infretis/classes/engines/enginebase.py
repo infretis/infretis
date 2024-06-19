@@ -446,7 +446,7 @@ class EngineBase(metaclass=ABCMeta):
 
     @staticmethod
     def _read_input_settings(
-        sourcefile: str, delim: str = "="
+        sourcefile: str | Path, delim: str = "="
     ) -> dict[str, Any]:
         """Read input settings for simulation input files.
 
