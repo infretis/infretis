@@ -74,14 +74,14 @@ def initiate_instance(klass: type[Any], settings: dict[str, Any]) -> Any:
     mod = klass.__module__
     if not args:
         if not kwargs:
-            logger.debug(msg, name, mod, "without arguments.")
+            logger.info(msg, name, mod, "without arguments.")
             return klass()
-        logger.debug(msg, name, mod, "with keyword arguments.")
+        logger.info(msg, name, mod, "with keyword arguments.")
         return klass(**kwargs)
     if not kwargs:
-        logger.debug(msg, name, mod, "with positional arguments.")
+        logger.info(msg, name, mod, "with positional arguments.")
         return klass(*args)
-    logger.debug(msg, name, mod, "with positional and keyword arguments.")
+    logger.info(msg, name, mod, "with positional and keyword arguments.")
     return klass(*args, **kwargs)
 
 
@@ -283,7 +283,7 @@ def import_from(module_path: str, function_name: str) -> Any:
         module = util.module_from_spec(spec)  # type: ignore[arg-type]
         spec.loader.exec_module(module)  # type: ignore[union-attr]
         sys.modules[module_name] = module
-        logger.debug("Imported module: %s", module)
+        logger.info("Imported module: %s", module)
         return getattr(module, function_name)
     except (OSError, ImportError):
         msg = f"Could not import module: {module_path}"

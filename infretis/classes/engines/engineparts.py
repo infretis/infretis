@@ -392,7 +392,7 @@ def look_for_input_files(
         req_ext = os.path.splitext(file_to_check)[1][1:].lower()
         if file_to_check in files_in_input_path:
             input_files[file_type] = os.path.join(input_path, file_to_check)
-            logger.debug("%s input: %s", file_type, input_files[file_type])
+            logger.info("%s input: %s", file_type, input_files[file_type])
         else:
             # If not present, let's try to explore the folder by extension
             file_counter = 0

@@ -775,7 +775,7 @@ class CP2KEngine(EngineBase):
             if i == idx:
                 box, xyz, vel, names = convert_snapshot(snapshot)
                 if os.path.isfile(out_file):
-                    logger.debug("CP2K will overwrite %s", out_file)
+                    logger.info("CP2K will overwrite %s", out_file)
                 write_xyz_trajectory(
                     out_file, xyz, vel, names, box, append=False
                 )
@@ -822,10 +822,10 @@ class CP2KEngine(EngineBase):
         """
         status = f"propagating with CP2K (reverse = {reverse})"
         interfaces = ens_set["interfaces"]
-        logger.debug(status)
+        logger.info(status)
         success = False
         left, _, right = interfaces
-        logger.debug("Adding input files for CP2K")
+        logger.info("Adding input files for CP2K")
         # First, copy the required input files:
         self.add_input_files(self.exe_dir)
         # Get positions and velocities from the input file.
@@ -863,13 +863,13 @@ class CP2KEngine(EngineBase):
         pwave_file = os.path.join(self.exe_dir, "previous.wfn")
 
         # CP2K runner
-        logger.debug("Executing CP2K %s: %s", name, "run.inp")
+        logger.info("Executing CP2K %s: %s", name, "run.inp")
         cmd = self.cp2k + ["-i", "run.inp"]
         cwd = self.exe_dir
         inputs = None
         # from external.exe_command
         cmd2 = " ".join(cmd)
-        logger.debug("Executing: %s", cmd2)
+        logger.info("Executing: %s", cmd2)
 
         out_name = "stdout.txt"
         err_name = "stderr.txt"
@@ -897,7 +897,7 @@ class CP2KEngine(EngineBase):
             ):
                 sleep(self.sleep)
                 if exe.poll() is not None:
-                    logger.debug("CP2K execution stopped")
+                    logger.info("CP2K execution stopped")
                     break
 
             # CP2K may have finished after last checking files
@@ -947,11 +947,11 @@ class CP2KEngine(EngineBase):
                         if stop:
                             # process may have terminated since we last checked
                             if exe.poll() is None:
-                                logger.debug("Terminating CP2K execution")
+                                logger.info("Terminating CP2K execution")
                                 os.killpg(os.getpgid(exe.pid), signal.SIGTERM)
                                 # wait for process to die, necessary for mpi
                                 exe.wait(timeout=360)
-                            logger.debug(
+                            logger.info(
                                 "CP2K propagation ended at %i. Reason: %s",
                                 step_nr,
                                 status,
@@ -1019,7 +1019,7 @@ class CP2KEngine(EngineBase):
             basename = os.path.basename(files)
             dest = os.path.join(dirname, basename)
             if not os.path.isfile(dest):
-                logger.debug(
+                logger.info(
                     'Adding input file "%s" to "%s"', basename, dirname
                 )
                 self._copyfile(files, dest)
@@ -1117,7 +1117,7 @@ class CP2KEngine(EngineBase):
         system.ekin = kin_new
         if kin_old == 0.0:
             dek = float("inf")
-            logger.debug(
+            logger.info(
                 "Kinetic energy not found for previous point."
                 "\n(This happens when the initial configuration "
                 "does not contain energies.)"

@@ -154,7 +154,7 @@ class TurtleMDEngine(EngineBase):
             if i == idx:
                 box, xyz, vel, names = convert_snapshot(snapshot)
                 if os.path.isfile(out_file):
-                    logger.debug("TurtleMD will overwrite %s", out_file)
+                    logger.info("TurtleMD will overwrite %s", out_file)
                 write_xyz_trajectory(
                     out_file, xyz, vel, names, box, append=False
                 )
@@ -180,7 +180,7 @@ class TurtleMDEngine(EngineBase):
         """
         status = f"propagating with TurtleMD (reverse = {reverse})"
         interfaces = ens_set["interfaces"]
-        logger.debug(status)
+        logger.info(status)
         success = False
         left, _, right = interfaces
         # Get positions and velocities from the input file.
@@ -220,7 +220,7 @@ class TurtleMDEngine(EngineBase):
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
         )
         msg_file.write(f"# Trajectory file is: {traj_file}")
-        logger.debug("Running TurtleMD")
+        logger.info("Running TurtleMD")
         step_nr = 0
         # dict for storing ene  rgies
         thermo = defaultdict(list)
@@ -264,7 +264,7 @@ class TurtleMDEngine(EngineBase):
                 )
 
                 if stop:
-                    logger.debug(
+                    logger.info(
                         "TurtleMD propagation ended at %i. Reason: %s",
                         step_nr,
                         status,
@@ -357,7 +357,7 @@ class TurtleMDEngine(EngineBase):
         system.ekin = kin_new
         if kin_old == 0.0:
             dek = float("inf")
-            logger.debug(
+            logger.info(
                 "Kinetic energy not found for previous point."
                 "\n(This happens when the initial configuration "
                 "does not contain energies.)"

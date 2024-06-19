@@ -113,7 +113,7 @@ class Path:
             end = "R"
         else:
             end = None
-            logger.debug("Undefined end point.")
+            logger.info("Undefined end point.")
         return end
 
     def get_start_point(self, left: float, right: float | None = None) -> str:
@@ -139,7 +139,7 @@ class Path:
             start = "R"
         else:
             start = "?"
-            logger.debug("Undefined starting point.")
+            logger.info("Undefined starting point.")
         return start
 
     def get_shooting_point(self, rgen: Generator) -> tuple[System, int]:
@@ -148,7 +148,7 @@ class Path:
         ### idx = rgen.random_integers(1, self.length - 2)
         idx = rgen.integers(1, self.length - 1)
         order = self.phasepoints[idx].order[0]
-        logger.debug(f"Selected point with orderp {order}")
+        logger.info(f"Selected point with orderp {order}")
         return self.phasepoints[idx], idx
 
     def append(self, phasepoint: System) -> bool:
@@ -156,7 +156,7 @@ class Path:
         if self.maxlen is None or self.length < self.maxlen:
             self.phasepoints.append(phasepoint)
             return True
-        logger.debug("Max length exceeded. Could not append to path.")
+        logger.info("Max length exceeded. Could not append to path.")
         return False
 
     def get_path_data(
@@ -281,11 +281,11 @@ class Path:
     def __eq__(self, other) -> bool:
         """Check if two paths are equal."""
         if self.__class__ != other.__class__:
-            logger.debug("%s and %s.__class__ differ", self, other)
+            logger.info("%s and %s.__class__ differ", self, other)
             return False
 
         if set(self.__dict__) != set(other.__dict__):
-            logger.debug("%s and %s.__dict__ differ", self, other)
+            logger.info("%s and %s.__dict__ differ", self, other)
             return False
 
         # Compare phasepoints:
@@ -345,17 +345,17 @@ class Path:
             vpot : The potential energies to set.
         """
         if len(ekin) != len(vpot):
-            logger.debug(
+            logger.info(
                 "Kinetic and potential energies have different length."
             )
         if len(ekin) != len(self.phasepoints):
-            logger.debug(
+            logger.info(
                 "Length of kinetic energy and phase points differ %d != %d.",
                 len(ekin),
                 len(self.phasepoints),
             )
         if len(vpot) != len(self.phasepoints):
-            logger.debug(
+            logger.info(
                 "Length of potential energy and phase points differ %d != %d.",
                 len(vpot),
                 len(self.phasepoints),
@@ -525,7 +525,7 @@ def _check_path(
         if warning:
             logger.critical(msg, path_ensemble.ensemble_name)
         else:
-            logger.debug(msg, path_ensemble.ensemble_name)
+            logger.info(msg, path_ensemble.ensemble_name)
 
     path.status = status
     return accept, status

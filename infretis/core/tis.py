@@ -379,7 +379,7 @@ def shoot(
     # counted once when the paths are merged by the method
     # `paste_paths` by setting `overlap=True`.
     path_forw = path.empty_path(maxlen=(maxlen - path_back.length + 1))
-    logger.debug("Propagating forwards for shooting move...")
+    logger.info("Propagating forwards for shooting move...")
     # Set ensemble state to the selected shooting point:
     # change the system state.
     # ensemble['system'] = shooting_point.copy()
@@ -494,7 +494,7 @@ def wire_fencing(
 
     succ_seg = 0
     for i in range(ens_set["tis_set"].get("n_jumps", 2)):
-        logger.debug("Trying a new web with Wire Fencing, jump %i", i)
+        logger.info("Trying a new web with Wire Fencing, jump %i", i)
         success, trial_seg, status = shoot(
             sub_ens, new_segment, engine, start_cond=("L", "R")
         )
@@ -505,9 +505,9 @@ def wire_fencing(
         )
         if not success:
             # This handles R to R (start_cond = L) paths. Counter + 1, no ups.
-            logger.debug("Wire Fencing Fail.")
+            logger.info("Wire Fencing Fail.")
         else:
-            logger.debug("Acceptable Wire Fence link.")
+            logger.info("Acceptable Wire Fence link.")
             succ_seg += 1
             new_segment = trial_seg.copy()
     if succ_seg == 0:
@@ -525,7 +525,7 @@ def wire_fencing(
 
     trial_path.generated = ("wf", 9000, succ_seg, trial_path.length)
 
-    logger.debug("WF move %s", trial_path.status)
+    logger.info("WF move %s", trial_path.status)
     if not success:
         return False, trial_path, trial_path.status
 
@@ -614,7 +614,7 @@ def extender(
         back_segment = source_seg.empty_path(
             maxlen=ens_set["tis_set"]["maxlength"]
         )
-        logger.debug("Trying to extend backwards")
+        logger.info("Trying to extend backwards")
         source_seg_copy = source_seg.copy()
 
         shoot_backwards(
@@ -672,7 +672,7 @@ def shoot_backwards(
         otherwise.
 
     """
-    logger.debug("Propagating backwards for the shooting move.")
+    logger.info("Propagating backwards for the shooting move.")
     path_back.time_origin = trial_path.time_origin
     success_back, _ = engine.propagate(
         path_back, ens_set, system, reverse=True
@@ -856,31 +856,31 @@ def retis_swap_zero(
 
     # 1. Generate path for [0^-] from [0^+]:
     # We generate from the first point of the path in [0^+]:
-    logger.debug("Swapping [0^-] <-> [0^+]")
-    logger.debug("Creating path for [0^-]")
+    logger.info("Swapping [0^-] <-> [0^+]")
+    logger.info("Creating path for [0^-]")
     # system = path_ensemble1.last_path.phasepoints[0].copy()
     shpt_copy = path_old1.phasepoints[0].copy()
     # shpt_copy2 = path_old1.phasepoints[0].copy()
-    logger.debug("Initial point is: %s", shpt_copy)
+    logger.info("Initial point is: %s", shpt_copy)
     # Propagate it backward in time:
     path_tmp = path_old1.empty_path(maxlen=maxlen1 - 1)
     if allowed:
-        logger.debug("Propagating for [0^-]")
+        logger.info("Propagating for [0^-]")
         engine0.propagate(path_tmp, ens_set0, shpt_copy, reverse=True)
     else:
-        logger.debug("Not propagating for [0^-]")
+        logger.info("Not propagating for [0^-]")
         path_tmp.append(shpt_copy)
     path0 = path_tmp.empty_path(maxlen=maxlen0)
     for phasepoint in reversed(path_tmp.phasepoints):
         path0.append(phasepoint)
     # print('lobster a', path_tmp.length, path0.length, allowed)
     # Add second point from [0^+] at the end:
-    logger.debug("Adding second point from [0^+]:")
+    logger.info("Adding second point from [0^+]:")
     # Here we make a copy of the phase point, as we will update
     # the configuration and append it to the new path:
     # phase_point = path_ensemble1.last_path.phasepoints[1].copy()
     phase_point = path_old1.phasepoints[1].copy()
-    logger.debug("Point is %s", phase_point)
+    logger.info("Point is %s", phase_point)
     engine1.dump_phasepoint(phase_point, "second")
     path0.append(phase_point)
     if path0.length == maxlen0:
@@ -897,7 +897,7 @@ def retis_swap_zero(
     # print(path0.status)
 
     # 2. Generate path for [0^+] from [0^-]:
-    logger.debug("Creating path for [0^+] from [0^-]")
+    logger.info("Creating path for [0^+] from [0^-]")
     # This path will be generated starting from the LAST point of [0^-] which
     # should be on the right side of the interface. We will also add the
     # SECOND LAST point from [0^-] which should be on the left side of the
@@ -910,23 +910,23 @@ def retis_swap_zero(
     # system = path_ensemble0.last_path.phasepoints[-1].copy()
     system = path_old0.phasepoints[-1].copy()
     if allowed:
-        logger.debug("Initial point is %s", system)
+        logger.info("Initial point is %s", system)
         # nsembles[1]['system'] = system
-        logger.debug("Propagating for [0^+]")
+        logger.info("Propagating for [0^+]")
         engine1.propagate(path_tmp, ens_set1, system, reverse=False)
         # Ok, now we need to just add the SECOND LAST point from [0^-] as
         # the first point for the path:
         path1 = path_tmp.empty_path(maxlen=maxlen1)
         # phase_point = path_ensemble0.last_path.phasepoints[-2].copy()
         phase_point = path_old0.phasepoints[-2].copy()
-        logger.debug("Add second last point: %s", phase_point)
+        logger.info("Add second last point: %s", phase_point)
         engine0.dump_phasepoint(phase_point, "second_last")
         path1.append(phase_point)
         path1 += path_tmp  # Add rest of the path.
     else:
         path1 = path_tmp
         path1.append(system)
-        logger.debug("Skipping propagating for [0^+] from L")
+        logger.info("Skipping propagating for [0^+] from L")
 
     ##### NB if path_ensemble1.last_path.get_move() != 'ld':
     ##### NB     path0.set_move('s+')
@@ -943,7 +943,7 @@ def retis_swap_zero(
         path1.status = "FTS"
     else:
         path1.status = "ACC"
-    logger.debug("Done with swap zero!")
+    logger.info("Done with swap zero!")
 
     # Final checks:
     accept = path0.status == "ACC" and path1.status == "ACC"

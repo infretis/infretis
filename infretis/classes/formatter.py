@@ -474,7 +474,7 @@ class FileIO(OutputBase):
                         'Appending to existing file "%s"', self.filename
                     )
                 else:
-                    logger.debug(
+                    logger.info(
                         'Overwriting existing file "%s"', self.filename
                     )
             self.fileh = open(self.filename, self.file_mode)
@@ -488,7 +488,7 @@ class FileIO(OutputBase):
     def open(self) -> IO[Any] | None:
         """Open a file for reading or writing."""
         if self.fileh is not None:
-            logger.debug(
+            logger.info(
                 "%s asked to open file, but it has already opened a file.",
                 self.__class__.__name__,
             )
@@ -875,7 +875,7 @@ class PathStorage(OutputBase):
         path, status = data[0], data[1]
         files = []
         for key, val in self.formatters.items():
-            logger.debug("Storing: %s", key)
+            logger.info("Storing: %s", key)
             fmt = val["fmt"]
             full_path = os.path.join(target_dir, val["file"])
             relative_path = os.path.join(
@@ -913,9 +913,9 @@ class PathStorage(OutputBase):
             if src != dest:
                 if os.path.exists(dest):
                     if os.path.isfile(dest):
-                        logger.debug("Removing %s as it exists", dest)
+                        logger.info("Removing %s as it exists", dest)
                         os.remove(dest)
-                logger.debug("Copy %s -> %s", src, dest)
+                logger.info("Copy %s -> %s", src, dest)
                 shutil.move(src, dest)
         return path_copy
 

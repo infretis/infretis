@@ -62,7 +62,7 @@ class EngineBase(metaclass=ABCMeta):
         """Set the directory for executing."""
         self._exe_dir = exe_dir
         if exe_dir is not None:
-            logger.debug('Setting exe_dir to "%s"', exe_dir)
+            logger.info('Setting exe_dir to "%s"', exe_dir)
             if not os.path.isdir(exe_dir):
                 logger.warning(
                     (
@@ -222,7 +222,7 @@ class EngineBase(metaclass=ABCMeta):
             if pos_file != out_file:
                 self._copyfile(pos_file, out_file)
         else:
-            logger.debug("Config: %s", (config,))
+            logger.info("Config: %s", (config,))
             self._extract_frame(pos_file, idx, out_file)
         return out_file
 
@@ -243,7 +243,7 @@ class EngineBase(metaclass=ABCMeta):
     def clean_up(self) -> None:
         """Remove all files from the current directory."""
         dirname = self.exe_dir
-        logger.debug('Running engine clean-up in "%s"', dirname)
+        logger.info('Running engine clean-up in "%s"', dirname)
         files = [item.name for item in os.scandir(dirname) if item.is_file()]
         if dirname is not None:
             self._remove_files(dirname, files)
@@ -277,19 +277,19 @@ class EngineBase(metaclass=ABCMeta):
                   This can be used to interpret the cases where the generated
                   path is not acceptable.
         """
-        logger.debug('Running propagate with: "%s"', self.description)
+        logger.info('Running propagate with: "%s"', self.description)
 
         prefix = ens_set["ens_name"] + "_" + str(counter())
         if reverse:
-            logger.debug("Running backward in time.")
+            logger.info("Running backward in time.")
             name = prefix + "_trajB"
         else:
-            logger.debug("Running forward in time.")
+            logger.info("Running forward in time.")
             name = prefix + "_trajF"
-        logger.debug('Trajectory name: "%s"', name)
+        logger.info('Trajectory name: "%s"', name)
         # Also create a message file for inspecting progress:
         msg_file_name = os.path.join(self.exe_dir, f"msg-{name}.txt")
-        logger.debug("Writing propagation progress to: %s", msg_file_name)
+        logger.info("Writing propagation progress to: %s", msg_file_name)
         msg_file = FileIO(
             msg_file_name, "w", OutputFormatter("MSG_File"), backup=False
         )
@@ -302,10 +302,10 @@ class EngineBase(metaclass=ABCMeta):
 
         initial_file = self.dump_frame(system, deffnm=prefix + "_conf")
         msg_file.write(f"# Initial file: {initial_file}")
-        logger.debug("Initial state: %s", system)
+        logger.info("Initial state: %s", system)
 
         if reverse != system.vel_rev:
-            logger.debug("Reversing velocities in initial config.")
+            logger.info("Reversing velocities in initial config.")
             msg_file.write("# Reversing velocities")
             basepath = os.path.dirname(initial_file)
             localfile = os.path.basename(initial_file)
@@ -499,9 +499,9 @@ class EngineBase(metaclass=ABCMeta):
             The return code of the issued command.
         """
         cmd2 = " ".join(cmd)
-        logger.debug("Executing: %s", cmd2)
+        logger.info("Executing: %s", cmd2)
         if inputs is not None:
-            logger.debug("With input: %s", inputs)
+            logger.info("With input: %s", inputs)
 
         out_name = "stdout.txt"
         err_name = "stderr.txt"
@@ -553,13 +553,13 @@ class EngineBase(metaclass=ABCMeta):
     @staticmethod
     def _movefile(source: str, dest: str) -> None:
         """Move file from source to destination."""
-        logger.debug("Moving: %s -> %s", source, dest)
+        logger.info("Moving: %s -> %s", source, dest)
         shutil.move(source, dest)
 
     @staticmethod
     def _copyfile(source: str, dest: str) -> None:
         """Copy file from source to destination."""
-        logger.debug("Copy: %s -> %s", source, dest)
+        logger.info("Copy: %s -> %s", source, dest)
         shutil.copyfile(source, dest)
 
     @staticmethod
@@ -567,9 +567,9 @@ class EngineBase(metaclass=ABCMeta):
         """Remove a given file if it exist."""
         try:
             Path(filename).unlink(missing_ok=True)
-            logger.debug("Removing: %s", filename)
+            logger.info("Removing: %s", filename)
         except OSError:
-            logger.debug("Could not remove: %s", filename)
+            logger.info("Could not remove: %s", filename)
 
     def _remove_files(self, dirname: str, files: list[str]) -> None:
         """Remove files from a directory.
@@ -584,17 +584,17 @@ class EngineBase(metaclass=ABCMeta):
     def __eq__(self, other) -> bool:
         """Check if two engines are equal."""
         if self.__class__ != other.__class__:
-            logger.debug("%s and %s.__class__ differ", self, other)
+            logger.info("%s and %s.__class__ differ", self, other)
             return False
 
         if set(self.__dict__) != set(other.__dict__):
-            logger.debug("%s and %s.__dict__ differ", self, other)
+            logger.info("%s and %s.__dict__ differ", self, other)
             return False
 
         for i in ["needs_order", "description", "_exe_dir", "timestep"]:
             if hasattr(self, i):
                 if getattr(self, i) != getattr(other, i):
-                    logger.debug(
+                    logger.info(
                         "%s for %s and %s, attributes are %s and %s",
                         i,
                         self,
@@ -609,14 +609,14 @@ class EngineBase(metaclass=ABCMeta):
             if self.rgen.__class__ != other.rgen.__class__ or set(
                 self.rgen.__dict__
             ) != set(other.rgen.__dict__):
-                logger.debug("rgen class differs")
+                logger.info("rgen class differs")
                 return False
 
             # pylint: disable=no-member
             for att1, att2 in zip(self.rgen.__dict__, other.rgen.__dict__):
                 # pylint: disable=no-member
                 if self.rgen.__dict__[att1] != other.rgen.__dict__[att2]:
-                    logger.debug(
+                    logger.info(
                         "rgen class attribute %s and %s differs", att1, att2
                     )
                     return False

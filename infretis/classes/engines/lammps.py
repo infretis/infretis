@@ -354,7 +354,7 @@ class LAMMPSEngine(EngineBase):
     ) -> tuple[bool, str]:
         status = f"propagating with LAMMPS (reverse = {reverse})"
         interfaces = ens_set["interfaces"]
-        logger.debug(status)
+        logger.info(status)
         success = False
         left, _, right = interfaces
         initial_conf = system.config[0]
@@ -410,7 +410,7 @@ class LAMMPSEngine(EngineBase):
             while not os.path.exists(traj_file):
                 sleep(self.sleep)
                 if exe.poll() is not None:
-                    logger.debug("LAMMPS execution stopped")
+                    logger.info("LAMMPS execution stopped")
                     break
 
             # LAMMPS may have finished after last processing the files
@@ -459,11 +459,11 @@ class LAMMPSEngine(EngineBase):
                         if stop:
                             # process may have terminated since we last checked
                             if exe.poll() is None:
-                                logger.debug("Terminating LAMMPS execution")
+                                logger.info("Terminating LAMMPS execution")
                                 os.killpg(os.getpgid(exe.pid), signal.SIGTERM)
                                 # wait for process to die, necessary for mpi
                                 exe.wait(timeout=360)
-                            logger.debug(
+                            logger.info(
                                 "LAMMPS propagation ended at %i. Reason: %s",
                                 step_nr,
                                 status,
@@ -580,7 +580,7 @@ class LAMMPSEngine(EngineBase):
         system.ekin = kin_new
         if kin_old == 0.0:
             dek = float("inf")
-            logger.debug(
+            logger.info(
                 "Kinetic energy not found for previous point."
                 "\n(This happens when the initial configuration "
                 "does not contain energies.)"

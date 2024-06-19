@@ -75,7 +75,7 @@ class OrderParameter:
         self.description = description
         self.velocity_dependent = velocity
         if self.velocity_dependent:
-            logger.debug(
+            logger.info(
                 'Order parameter "%s" was marked as velocity dependent.',
                 self.description,
             )

@@ -432,8 +432,8 @@ class GromacsEngine(EngineBase):
         """
         trajexts = [".trr", ".xtc", ".trj"]
 
-        logger.debug("Extracting frame, idx = %i", idx)
-        logger.debug("Source file: %s, out file: %s", traj_file, out_file)
+        logger.info("Extracting frame, idx = %i", idx)
+        logger.info("Source file: %s, out file: %s", traj_file, out_file)
         if traj_file[-4:] in trajexts:
             # TODO: DOES THIS ACTUALLY WORK FOR XTC?
             _, data = read_trr_frame(traj_file, idx)
@@ -518,7 +518,7 @@ class GromacsEngine(EngineBase):
         status = f"propagating with GROMACS (reverse = {reverse})"
         # system = ensemble['system']
         interfaces = ens_set["interfaces"]
-        logger.debug(status)
+        logger.info(status)
         success = False
         left, _, right = interfaces
         # Dumping of the initial config were done by the parent, here
@@ -562,7 +562,7 @@ class GromacsEngine(EngineBase):
         edr_file = os.path.join(self.exe_dir, out_files["edr"])
         cmd = shlex.split(self.mdrun.format(tpr_file, name, confout))
         # 3) Fire off GROMACS mdrun:
-        logger.debug("Executing GROMACS.")
+        logger.info("Executing GROMACS.")
         msg_file.write(f"# Trajectory file is: {trr_file}")
         msg_file.write("# Starting GROMACS.")
         msg_file.write("# Step order parameter cv1 cv2 ...")
@@ -591,16 +591,16 @@ class GromacsEngine(EngineBase):
                     path, phase_point, left, right
                 )
                 if stop:
-                    logger.debug(
+                    logger.info(
                         "Ending propagate at %i. Reason: %s", i, status
                     )
                     break
-        logger.debug("GROMACS propagation done, obtaining energies!")
+        logger.info("GROMACS propagation done, obtaining energies!")
         msg_file.write("# Propagation done.")
         msg_file.write(f'# Reading energies from: {out_files["edr"]}')
         energy = self.get_energies(out_files["edr"])
         path.update_energies(energy["kinetic en."], energy["potential"])
-        logger.debug("Removing GROMACS output after propagate.")
+        logger.info("Removing GROMACS output after propagate.")
         remove = [
             val
             for key, val in out_files.items()
@@ -631,7 +631,7 @@ class GromacsEngine(EngineBase):
         # gen_mdp = os.path.join(self.exe_dir, 'genvel.mdp')
         gen_mdp = os.path.join(self.exe_dir, "genvel.mdp")
         if os.path.isfile(gen_mdp):
-            logger.debug("%s found. Re-using it!", gen_mdp)
+            logger.info("%s found. Re-using it!", gen_mdp)
         else:
             # Create output file to generate velocities:
             settings: dict[str, str | int | float] = {
@@ -652,7 +652,7 @@ class GromacsEngine(EngineBase):
         confout = os.path.join(self.exe_dir, out_mdrun["conf"])
         energy = self.get_energies(out_mdrun["edr"])
         # Remove run-files:
-        logger.debug("Removing GROMACS output after velocity generation.")
+        logger.info("Removing GROMACS output after velocity generation.")
         self._remove_files(self.exe_dir, remove)
         return confout, energy
 
@@ -761,7 +761,7 @@ class GromacsEngine(EngineBase):
 
         if kin_old is None or kin_new is None:
             dek = float("inf")
-            logger.debug(
+            logger.info(
                 "Kinetic energy not found for previous point."
                 "\n(This happens when the initial configuration "
                 "does not contain energies.)"
@@ -829,7 +829,7 @@ class GromacsRunner:
 
     def start(self) -> None:
         """Start execution of GROMACS and wait for output file creation."""
-        logger.debug("Starting GROMACS execution in %s", self.exe_dir)
+        logger.info("Starting GROMACS execution in %s", self.exe_dir)
 
         self.stdout_name = os.path.join(self.exe_dir, "stdout.txt")
         self.stderr_name = os.path.join(self.exe_dir, "stderr.txt")
@@ -849,11 +849,11 @@ class GromacsRunner:
         # Wait for the TRR/EDR files to appear:
         for fname in (self.trr_file, self.edr_file):
             while not os.path.isfile(fname):
-                logger.debug('Waiting for GROMACS file "%s"', fname)
+                logger.info('Waiting for GROMACS file "%s"', fname)
                 sleep(self.SLEEP)
                 poll = self.check_poll()
                 if poll is not None:
-                    logger.debug("GROMACS execution stopped")
+                    logger.info("GROMACS execution stopped")
                     break
             if os.path.isfile(fname):
                 present.append(fname)
@@ -914,7 +914,7 @@ class GromacsRunner:
                         self.bytes_read += new_bytes
                         self.header_size = new_bytes
                         if first_header:
-                            logger.debug("TRR header was: %i", new_bytes)
+                            logger.info("TRR header was: %i", new_bytes)
                             first_header = False
                         # Calculate the size of the data:
                         self.data_size = sum(
@@ -957,7 +957,7 @@ class GromacsRunner:
     def close(self) -> None:
         """Close the file, in case that is explicitly needed."""
         if self.fileh is not None and not self.fileh.closed:
-            logger.debug('Closing GROMACS file: "%s"', self.trr_file)
+            logger.info('Closing GROMACS file: "%s"', self.trr_file)
             self.fileh.close()
         for handle in (self.stdout, self.stderr):
             if handle is not None and not handle.closed:
@@ -977,7 +977,7 @@ class GromacsRunner:
                     except AttributeError:
                         pass
             if self.running.returncode is None:
-                logger.debug("Terminating GROMACS execution")
+                logger.info("Terminating GROMACS execution")
                 os.killpg(os.getpgid(self.running.pid), signal.SIGTERM)
 
             self.running.wait(timeout=360)
@@ -997,8 +997,8 @@ class GromacsRunner:
         if self.running:
             poll = self.running.poll()
             if poll is not None:
-                logger.debug("Execution of GROMACS stopped")
-                logger.debug("Return code was: %i", poll)
+                logger.info("Execution of GROMACS stopped")
+                logger.info("Return code was: %i", poll)
                 if poll != 0:
                     logger.error("STDOUT, see file: %s", self.stdout_name)
                     logger.error("STDERR, see file: %s", self.stderr_name)
@@ -1477,7 +1477,7 @@ def read_remaining_trr(
     stop = False
     bytes_read = start
     bytes_total = os.path.getsize(filename)
-    logger.debug("Reading remaining data from: %s", filename)
+    logger.info("Reading remaining data from: %s", filename)
     while not stop:
         if bytes_read >= bytes_total:
             stop = True
