@@ -733,8 +733,10 @@ class CP2KEngine(EngineBase):
             ]
         self.mass = np.reshape(mass, (len(mass), 1))
 
-        # Check that temperature is not set in cp2k.inp to avoid
-        # unnecessary errors
+        # Check that the temperature set in cp2k.inp and infretis.toml
+        # are the same. Often one modifies one and forgets about the other
+        # If no temperature is set in cp2k.inp its NVE with NVT shooting
+        # and we proceed without any remarks (?)
         section = "MOTION->MD"
         nodes = read_cp2k_input(self.input_files["template"])
         node_ref = set_parents(nodes)
@@ -746,7 +748,7 @@ class CP2KEngine(EngineBase):
                     msg = (
                         f"The temperature in the cp2k input {cp2k_temp} !="
                         + f" {temperature} which is specified in the .toml. "
-                        + "They need to be the same since we generate "
+                        + "They should be the same since we generate "
                         + "velocities internally at the .toml temperature."
                     )
                     raise ValueError(msg)
