@@ -1,7 +1,7 @@
 # infretis config
 
 [dask]
-workers = 4
+workers = 1
 wmdrun = ['0',
 	  '0',
 	  '0',
@@ -21,7 +21,6 @@ allowmaxlength = false
 zero_momentum = true # we do not remove momentum by default in lammps
 n_jumps = 3
 interface_cap = 5.4
-temperature = 300
 
 [engine]
 class = 'lammps'
@@ -30,6 +29,7 @@ input_path = 'lammps_input'
 lmp = 'lmp_mpi'
 timestep = 0.2
 subcycles = 10
+temperature = 300
 
 [orderparameter]
 class = 'Distance'

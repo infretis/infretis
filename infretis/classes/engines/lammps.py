@@ -310,6 +310,7 @@ class LAMMPSEngine(EngineBase):
         input_path: str | Path,
         timestep: float,
         subcycles: int,
+        temperature: float,
         exe_path: Path = Path(".").resolve(),
         sleep: float = 0.1,
     ):
@@ -322,6 +323,8 @@ class LAMMPSEngine(EngineBase):
             timestep: The MD time step to use for LAMMPS.
             subcycles: The number of subcycles to use for each
                 InfRetis step.
+            temperature: The temperature of the simulation. Check that
+                this is specified correctly.
             exe_path: The path to the directory where `input_path` is,
                 in case `input_path` is a relative path.
             sleep: A time in seconds used for waiting between attempts to read
@@ -341,7 +344,9 @@ class LAMMPSEngine(EngineBase):
         }
         self.mass = get_atom_masses(self.input_files["data"])
         self.n_atoms = self.mass.shape[0]
+        self.temperature = temperature
         self.kb = 1.987204259e-3  # kcal/(mol*K)
+        self.beta = 1 / (self.kb * self.temperature)
 
     def _propagate_from(
         self,
@@ -380,7 +385,7 @@ class LAMMPSEngine(EngineBase):
             "infretis_initconf": initial_conf,
             "infretis_name": name,
             "infretis_lammpsdata": self.input_files["data"],
-            "infretis_temperature": ens_set["tis_set"]["temperature"],
+            "infretis_temperature": self.temperature,
             "infretis_seed": seed,
         }
         # write the file run.input from lammps input template
@@ -555,7 +560,6 @@ class LAMMPSEngine(EngineBase):
             This method does **not** take care of constraints.
         """
         mass = self.mass
-        beta = 1 / (self.kb * vel_settings["temperature"])
         # energy is in units kcal/mol which we want to convert
         # to units (g/mol)*Å^2/fs (units of m*v^2), the velocity
         # units of lammps.
@@ -566,7 +570,7 @@ class LAMMPSEngine(EngineBase):
         pos = self.dump_frame(system)
         id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
         kin_old = kinetic_energy(vel, mass)[0]
-        vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
+        vel, _ = self.draw_maxwellian_velocities(vel, mass, self.beta)
         # convert to correct units
         vel /= scale
         # reset momentum is not the default in LAMMPS

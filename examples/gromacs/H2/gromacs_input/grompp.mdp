@@ -1,4 +1,4 @@
-integrator              = sd
+integrator              = sd ; LGTM
 nsteps                  = 10000
 dt                      = 0.0002
 
@@ -22,13 +22,11 @@ coulombtype             = cutoff
 rcoulomb                = 1.20
 
 tcoupl                  = no
-ref-t			= 300
 tau-t			= 0.1
 tc-grps			= System
 
 pbc                     = xyz
 
-gen_temp                = 300
 gen_seed                = -1
 gen_vel = no
 nstcalcenergy = 1

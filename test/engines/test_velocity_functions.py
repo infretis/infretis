@@ -41,11 +41,10 @@ def return_turtlemd_engine():
 def return_lammps_engine():
     """Set up a lammps engine for the H2 system."""
     lammps_input_path = HERE / "../../examples/lammps/H2/lammps_input"
-    engine = LAMMPSEngine("lmp_mpi", lammps_input_path.resolve(), 0, 0)
+    engine = LAMMPSEngine("lmp_mpi", lammps_input_path.resolve(), 0, 0, 300)
     engine.rgen = np.random.default_rng()
     engine.vel_settings = {
         "zero_momentum": False,
-        "temperature": 300,
     }
     return engine
 
@@ -54,12 +53,17 @@ def return_gromacs_engine():
     """Set up a gromacs engine for the H2 system."""
     gromacs_input_path = HERE / "../../examples/gromacs/H2/gromacs_input"
     # set`gmx = echo` here because __init__ calls `gmx` with subprocess
-    engine = GromacsEngine("echo", gromacs_input_path.resolve(), 0, 0)
+    engine = GromacsEngine(
+        "echo",
+        gromacs_input_path.resolve(),
+        0,
+        0,
+        300,
+        masses=[1.008, 1.008],
+        infretis_genvel=True,
+    )
     engine.vel_settings = {
         "zero_momentum": True,
-        "temperature": 300,
-        "infretis_genvel": True,  # generate velocities internally for gromacs
-        "mass": [1.008, 1.008],  # only for gmx with infretis_genvel = True
     }
     engine.rgen = np.random.default_rng()
     return engine
@@ -68,11 +72,10 @@ def return_gromacs_engine():
 def return_cp2k_engine():
     """Set up a cp2k engine for the H2 system."""
     cp2k_input_path = HERE / "../../examples/cp2k/H2/cp2k_input"
-    engine = CP2KEngine("cp2k", cp2k_input_path.resolve(), 1, 1)
+    engine = CP2KEngine("cp2k", cp2k_input_path.resolve(), 1, 1, 300)
     engine.rgen = np.random.default_rng()
     engine.vel_settings = {
         "zero_momentum": False,
-        "temperature": 300,
     }
     return engine
 
