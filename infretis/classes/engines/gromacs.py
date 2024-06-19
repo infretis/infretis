@@ -98,6 +98,8 @@ class GromacsEngine(EngineBase):
         gmx_format: str = "g96",
         write_vel: bool = True,
         write_force: bool = False,
+        infretis_genvel: bool = False,
+        masses: bool | list | str = False,
     ):
         """Set up the GROMACS engine.
 
@@ -114,6 +116,11 @@ class GromacsEngine(EngineBase):
             gmx_format: The format used for GROMACS configurations.
             write_vel: Determines if GROMACS should write velocities or not.
             write_force: Determines if GROMACS should write forces or not.
+            infretis_genvel: If true we generate the velocities
+                internally by drawing random numbers from a maxwell-boltzmann
+                distribution. Mostly used for testing purposes.
+            masses: A list of particle masses or a txt file with particle
+                masses
         """
         super().__init__("GROMACS engine zamn", timestep, subcycles)
         self.ext = gmx_format
@@ -154,6 +161,19 @@ class GromacsEngine(EngineBase):
         # consistent settings:
         check_set = self._read_input_settings(self.input_files["input_o"])
         for key in check_set.keys():
+            val = check_set[key]
+            if (
+                key == "integrator"
+                and "md-vv" not in val
+                and "LGTM" not in val
+            ):
+                msg = (
+                    "Gromacs integrator should be md-vv with "
+                    + "path-sampling. Add a coment LGTM to the relevant"
+                    + " line to overwrite this error."
+                )
+                raise ValueError(msg)
+
             if key in ["ref-t", "ref_t", "gen-temp", "gen_temp"]:
                 msg = (
                     f"Found key '{key}' in {self.input_files['input_o']}. "
@@ -165,6 +185,23 @@ class GromacsEngine(EngineBase):
         self.temperature = temperature
         self.kb = 0.0083144621  # kJ/(K*mol)
         self.beta = 1 / (self.temperature * self.kb)
+
+        # get masses if generating velocites internally
+        self.infretis_genvel = infretis_genvel
+        if infretis_genvel:
+            if not masses:
+                msg = (
+                    "If you want to generate velocites internally you also "
+                    + "need to specify the particle masses either as a list "
+                    + f"or string pointing to a csv file in {self.input_path}"
+                )
+                raise ValueError(msg)
+            if isinstance(masses, str):
+                self.masses = np.reshape(
+                    np.genfromtxt(self.input_path / masses), (-1, 1)
+                )
+            elif isinstance(masses, list):
+                self.masses = np.reshape(masses, (-1, 1))
 
         settings: dict[str, str | float | int] = {
             "dt": self.timestep,
@@ -728,11 +765,6 @@ class GromacsEngine(EngineBase):
             vel_settings: A dict containing
                 'zero_momentum': boolean, if true we reset the linear momentum
                   to zero after generating velocities internally.
-                'infretis_genvel': boolen, if true we generate the velocities
-                  internally by drawing random numbers from a maxwell-boltzmann
-                  distribution. Mostly used for testing purposes.
-                'mass': list, the particle masses when generating velocities
-                  internally.
 
 
         Returns:
@@ -744,7 +776,7 @@ class GromacsEngine(EngineBase):
         kin_old = system.ekin
         pos = self.dump_frame(system)
         # generate velocities with gromacs
-        if not vel_settings.get("infretis_genvel", False):
+        if not self.infretis_genvel:
             if vel_settings.get("zero_momentum", True) is False:
                 msg = (
                     "Velocitiy generation with gromacs "
@@ -760,17 +792,18 @@ class GromacsEngine(EngineBase):
 
         # generate velocities by drawing random numbers
         else:
-            mass = np.reshape(vel_settings["mass"], (-1, 1))
             txt, xyz, vel, _ = read_gromos96_file(pos)
             if not txt["VELOCITY"]:
                 print(f"{pos} did not contain velocity information.")
                 txt["VELOCITY"] = txt["POSITION"]
-            vel, _ = self.draw_maxwellian_velocities(vel, mass, self.beta)
+            vel, _ = self.draw_maxwellian_velocities(
+                vel, self.masses, self.beta
+            )
             if vel_settings.get("zero_momentum", False):
-                vel = reset_momentum(vel, mass)
+                vel = reset_momentum(vel, self.masses)
             conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
             write_gromos96_file(conf_out, txt, xyz, vel)
-            kin_new = kinetic_energy(vel, mass)[0]
+            kin_new = kinetic_energy(vel, self.masses)[0]
             system.config = (conf_out, 0)
             system.ekin = kin_new
 

@@ -1,7 +1,7 @@
 # infretis config
 
 [dask]
-workers = 4
+workers = 1
 wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 1 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 2 -pin on',
@@ -21,8 +21,6 @@ allowmaxlength = false
 zero_momentum = true # momentum true
 n_jumps = 3
 interface_cap = 0.54
-infretis_genvel = true # generate velocities with infretis
-mass = [1.008, 1.008] # then we also need to give masses
 
 [engine]
 class = 'gromacs'
@@ -33,6 +31,8 @@ input_path = 'gromacs_input'
 gmx = 'gmx' # gromacs executable, may also be gmx_mpi, gmx_2023.3, etc.
 subcycles = 10
 temperature = 300
+infretis_genvel = true # generate velocities with infretis
+masses = [1.008, 1.008] # or "masses.txt" stored in input_path/masses.txt in any csv format
 
 [orderparameter]
 class = 'Distance'
