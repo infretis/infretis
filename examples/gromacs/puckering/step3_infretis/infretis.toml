@@ -24,8 +24,6 @@ shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'w
 maxlength = 2000 # maximum path length (NB! this should never be reached )
 allowmaxlength = false  # do not allow paths to exceed maxlength when shooting from load paths
 zero_momentum = true # remove the center of mass motion when generating vels, done by gromacs by default
-temperature = 300 # velocities are generated at this temperature
-high_accept = true # we do want high-acceptance
 n_jumps = 2 # number of wirefencing jumps
 interface_cap = 70.0 # wirefencing interface cap
 
@@ -37,6 +35,7 @@ gmx_format = 'g96' # only g96 is supported for gromacs
 input_path = '../gromacs_input' # path to topolofy files
 gmx = 'gmx' # gromacs executable, may also be gmx_mpi, gmx_2023.3, etc.
 subcycles = 3 # number of MD steps for each infretis step
+temperature = 300 # temperature of the simulation and velocity generations
 
 [orderparameter]
 class = 'puckering'

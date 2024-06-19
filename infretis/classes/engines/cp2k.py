@@ -689,6 +689,7 @@ class CP2KEngine(EngineBase):
         input_path: str,
         timestep: float,
         subcycles: int,
+        temperature: float,
         extra_files: list[str] | None = None,
         exe_path: str | Path = Path(".").resolve(),
         sleep: float = 0.1,
@@ -700,6 +701,7 @@ class CP2KEngine(EngineBase):
             input_path: The path to the directory containing CP2K input files.
             timestep: The time step used in the CP2K simulation.
             subcycles: The number of steps each CP2K run is composed of.
+            temperature: The temperature of the simulation.
             extra_files: List of extra files which may be required to run CP2K.
             exe_path: The path on which the engine is executed
             sleep: A time in seconds, used to wait for files to be ready.
@@ -731,18 +733,27 @@ class CP2KEngine(EngineBase):
             ]
         self.mass = np.reshape(mass, (len(mass), 1))
 
-        # read temperature from CP2K input, defaults to 300
-        self.temperature = None
+        # Check that the temperature set in cp2k.inp and infretis.toml
+        # are the same. Often one modifies one and forgets about the other
+        # If no temperature is set in cp2k.inp its NVE with NVT shooting
+        # and we proceed without any remarks (?)
         section = "MOTION->MD"
         nodes = read_cp2k_input(self.input_files["template"])
         node_ref = set_parents(nodes)
         md_settings = node_ref[section]
         for data in md_settings.data:
             if "temperature" in data.lower():
-                self.temperature = float(data.split()[-1])
-        if self.temperature is None:
-            logger.info("No temperature specified in CP2K input. Using 300 K.")
-            self.temperature = 300.0
+                cp2k_temp = float(data.split()[1])
+                if cp2k_temp != temperature:
+                    msg = (
+                        f"The temperature in the cp2k input {cp2k_temp} !="
+                        + f" {temperature} which is specified in the .toml. "
+                        + "They should be the same since we generate "
+                        + "velocities internally at the .toml temperature."
+                    )
+                    raise ValueError(msg)
+
+        self.temperature = temperature
         self.kb = 3.16681534e-6  # hartree
         self.beta = 1 / (self.temperature * self.kb)
 

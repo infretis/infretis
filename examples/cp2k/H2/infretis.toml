@@ -9,7 +9,7 @@ wmdrun = ['0',
 
 [simulation]
 interfaces = [ 3.45, 3.625, 3.777, 3.922, 4.068, 4.224, 4.399, 4.612, 4.915, 12.0]
-steps = 1000
+steps = 100
 seed = 0
 load_dir = 'load'
 shooting_moves = ['sh','sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
@@ -21,7 +21,6 @@ allowmaxlength = false
 zero_momentum = true # we do not remove momentum by default in lammps
 n_jumps = 3
 interface_cap = 5.4
-temperature = 300
 
 [engine]
 class = 'cp2k'
@@ -30,6 +29,7 @@ input_path = 'cp2k_input'
 cp2k = 'cp2k.ssmp'
 timestep = 0.2
 subcycles = 10
+temperature = 300
 
 [orderparameter]
 class = 'Distance'
