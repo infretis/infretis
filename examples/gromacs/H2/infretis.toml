@@ -21,10 +21,8 @@ allowmaxlength = false
 zero_momentum = true # momentum true
 n_jumps = 3
 interface_cap = 0.54
-temperature = 300
 infretis_genvel = true # generate velocities with infretis
 mass = [1.008, 1.008] # then we also need to give masses
-
 
 [engine]
 class = 'gromacs'
@@ -34,6 +32,7 @@ gmx_format = 'g96'
 input_path = 'gromacs_input'
 gmx = 'gmx' # gromacs executable, may also be gmx_mpi, gmx_2023.3, etc.
 subcycles = 10
+temperature = 300
 
 [orderparameter]
 class = 'Distance'

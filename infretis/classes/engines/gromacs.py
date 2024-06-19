@@ -92,6 +92,7 @@ class GromacsEngine(EngineBase):
         input_path: str | Path,
         timestep: float,
         subcycles: int,
+        temperature: float,
         exe_path: str | Path = Path(".").resolve(),
         maxwarn: int = 0,
         gmx_format: str = "g96",
@@ -107,6 +108,8 @@ class GromacsEngine(EngineBase):
             subcycles: The number of steps each GROMACS MD run is composed of.
             exe_path: The absolute path at which the main simulation will be
                 run.
+            temperature: The temperature during the MD run, used when
+                generating velocities and thermostatting by gromacs.
             maxwarn: Setting for the GROMACS `grompp -maxwarn` option.
             gmx_format: The format used for GROMACS configurations.
             write_vel: Determines if GROMACS should write velocities or not.
@@ -127,7 +130,7 @@ class GromacsEngine(EngineBase):
         # Define the energy terms, these are hard-coded, but
         # here we open up for changing that:
         self.energy_terms = self.select_energy_terms("path")
-        self.input_path = Path(exe_path) / input_path
+        self.input_path = (Path(exe_path) / input_path).resolve()
         # Set the defaults input files:
         default_files = {
             "conf": f"conf.{self.ext}",
@@ -149,10 +152,25 @@ class GromacsEngine(EngineBase):
         )
         # Check the input file and create new input file with
         # consistent settings:
+        check_set = self._read_input_settings(self.input_files["input_o"])
+        for key in check_set.keys():
+            if key in ["ref-t", "ref_t", "gen-temp", "gen_temp"]:
+                msg = (
+                    f"Found key '{key}' in {self.input_files['input_o']}. "
+                    + "This key is set by infretis and should be removed "
+                    + "from this file."
+                )
+                raise ValueError(msg)
+
+        self.temperature = temperature
+        self.kb = 0.0083144621  # kJ/(K*mol)
+        self.beta = 1 / (self.temperature * self.kb)
+
         settings: dict[str, str | float | int] = {
             "dt": self.timestep,
             "nstxout-compressed": 0,
             "gen_vel": "no",
+            "ref-t": self.temperature,
         }
         for key in (
             "nsteps",
@@ -168,9 +186,6 @@ class GromacsEngine(EngineBase):
             settings["nstvout"] = 0
         if not write_force:
             settings["nstfout"] = 0
-
-        # Add boltzmann constant
-        self.kb = 0.0083144621  # kJ/(K*mol)
 
         # Create the .mdp file name:
         self.input_files["input"] = os.path.join(
@@ -639,6 +654,7 @@ class GromacsEngine(EngineBase):
                 "gen_seed": -1,
                 "nsteps": 0,
                 "continuation": "no",
+                "gen-temp": self.temperature,
             }
             self._modify_input(
                 self.input_files["input"], gen_mdp, settings, delim="="
@@ -745,12 +761,11 @@ class GromacsEngine(EngineBase):
         # generate velocities by drawing random numbers
         else:
             mass = np.reshape(vel_settings["mass"], (-1, 1))
-            beta = 1 / (vel_settings["temperature"] * self.kb)
             txt, xyz, vel, _ = read_gromos96_file(pos)
             if not txt["VELOCITY"]:
                 print(f"{pos} did not contain velocity information.")
                 txt["VELOCITY"] = txt["POSITION"]
-            vel, _ = self.draw_maxwellian_velocities(vel, mass, beta)
+            vel, _ = self.draw_maxwellian_velocities(vel, mass, self.beta)
             if vel_settings.get("zero_momentum", False):
                 vel = reset_momentum(vel, mass)
             conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
