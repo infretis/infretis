@@ -727,13 +727,7 @@ def prepare_shooting_point(
     # Copy the shooting point, so that we can modify velocities without
     # altering the original path:
     # Modify the velocities:
-    (
-        dek,
-        _,
-    ) = engine.modify_velocities(
-        shpt_copy,
-        ens_set["tis_set"],
-    )
+    dek, _ = engine.modify_velocities(shpt_copy, ens_set["tis_set"])
     orderp = engine.calculate_order(shpt_copy)
     shpt_copy.order = orderp
     return shpt_copy, idx, dek
