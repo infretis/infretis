@@ -353,7 +353,7 @@ def convert_snapshot(
 def look_for_input_files(
     input_path: str | Path,
     required_files: dict[str, str] | dict[str, Path],
-    extra_files: list[str] | list[Path] | None = None,
+    extra_files: dict[str, str] | dict[str, Path] | None = None,
 ) -> dict[str, Any]:
     """Check that required files for a MD engines are present.
 
