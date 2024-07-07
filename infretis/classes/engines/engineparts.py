@@ -418,10 +418,11 @@ def look_for_input_files(
 
     # Check if the extra files are present
     if extra_files:
-        input_files["extra_files"] = []
-        for file_to_check in extra_files:
+        for file_type, file_to_check in extra_files.items():
             if file_to_check in files_in_input_path:
-                input_files["extra_files"].append(file_to_check)
+                input_files[file_type] = os.path.join(
+                    input_path, file_to_check
+                )
             else:
                 msg = f"Extra file {file_to_check} not present in {input_path}"
                 logger.info(msg)
