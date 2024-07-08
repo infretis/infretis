@@ -155,7 +155,7 @@ class GromacsEngine(EngineBase):
         # Check the presence of the defaults input files or, if absent,
         # try to find them by their expected extension.
         self.input_files = look_for_input_files(
-            self.input_path, default_files, [i for _, i in extra_files.items()]
+            self.input_path, default_files, extra_files
         )
         # Check the input file and create new input file with
         # consistent settings:
@@ -181,6 +181,8 @@ class GromacsEngine(EngineBase):
                     + "from this file."
                 )
                 raise ValueError(msg)
+            if key in ["tc-grps", "tc_grps"]:
+                self.n_tc_grps = len(val.split())
 
         self.temperature = temperature
         self.kb = 0.0083144621  # kJ/(K*mol)
@@ -207,7 +209,9 @@ class GromacsEngine(EngineBase):
             "dt": self.timestep,
             "nstxout-compressed": 0,
             "gen_vel": "no",
-            "ref-t": self.temperature,
+            "ref-t": " ".join(
+                [str(self.temperature) for i in range(self.n_tc_grps)]
+            ),
         }
         for key in (
             "nsteps",
@@ -246,7 +250,6 @@ class GromacsEngine(EngineBase):
         # Generate a tpr file using the input files:
         logger.info('Creating ".tpr" for GROMACS in %s', self.input_path)
         self.exe_dir = str(self.input_path)
-
         out_files = self._execute_grompp(
             self.input_files["input"], self.input_files["conf"], "topol"
         )

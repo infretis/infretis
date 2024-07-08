@@ -353,7 +353,7 @@ def convert_snapshot(
 def look_for_input_files(
     input_path: str | Path,
     required_files: dict[str, str] | dict[str, Path],
-    extra_files: list[str] | list[Path] | None = None,
+    extra_files: dict[str, str] | dict[str, Path] | None = None,
 ) -> dict[str, Any]:
     """Check that required files for a MD engines are present.
 
@@ -418,10 +418,11 @@ def look_for_input_files(
 
     # Check if the extra files are present
     if extra_files:
-        input_files["extra_files"] = []
-        for file_to_check in extra_files:
+        for file_type, file_to_check in extra_files.items():
             if file_to_check in files_in_input_path:
-                input_files["extra_files"].append(file_to_check)
+                input_files[file_type] = os.path.join(
+                    input_path, file_to_check
+                )
             else:
                 msg = f"Extra file {file_to_check} not present in {input_path}"
                 logger.info(msg)
