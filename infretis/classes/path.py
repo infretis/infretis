@@ -227,7 +227,7 @@ class Path:
 
     def copy(self) -> Path:
         """Return a copy of this path."""
-        new_path = self.empty_path()
+        new_path = self.empty_path(maxlen=self.maxlen)
         for phasepoint in self.phasepoints:
             new_path.append(phasepoint.copy())
         new_path.status = self.status
@@ -257,9 +257,8 @@ class Path:
         Returns:
             The time reversed path.
         """
-        new_path = self.empty_path()
+        new_path = self.empty_path(maxlen=self.maxlen)
         new_path.weights = self.weights
-        new_path.maxlen = self.maxlen
         for phasepoint in reversed(self.phasepoints):
             new_point = phasepoint.copy()
             if rev_v:
@@ -272,9 +271,8 @@ class Path:
                 phasepoint.order = order_function.calculate(phasepoint)
         return new_path
 
-    def empty_path(self, **kwargs) -> Path:
+    def empty_path(self, maxlen=DEFAULT_MAXLEN, **kwargs) -> Path:
         """Return an empty path of same class as the current one."""
-        maxlen = kwargs.get("maxlen", DEFAULT_MAXLEN)
         time_origin = kwargs.get("time_origin", 0)
         return self.__class__(maxlen=maxlen, time_origin=time_origin)
 
@@ -559,6 +557,7 @@ def load_paths_from_disk(config: dict[str, Any]) -> list[Path]:
         ### TODO: important for shooting move if 'ld' is set. need a smart way
         ### to remember if status is 'sh' or 'wf' etc. maybe in the toml file.
         new_path.generated = (status, float("nan"), 0, 0)
+        new_path.maxlen = config["simulation"]["tis_set"]["maxlength"]
         paths.append(new_path)
         # assign pnumber
         paths[-1].path_number = pnumber
