@@ -3,12 +3,11 @@ import logging
 import os
 
 import tomli
-from dask.distributed import Client, as_completed, dask, get_worker
 
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
-from infretis.core.tis import run_md_async
+from infretis.core.tis import run_md
 from infretis.asyncrunner import light_runner
 
 logger = logging.getLogger("")
@@ -48,9 +47,9 @@ def setup_internal(config):
 def setup_runner(state):
     """Setup task runner classes."""
     # setup client with state.workers workers
-    runner = light_runner(state.config, state.config["dask"]["workers"])
+    runner = light_runner(state.config, state.config["runner"]["workers"])
 
-    runner.set_task(run_md_async)
+    runner.set_task(run_md)
     runner.start()
 
     ## setup individual worker logs
