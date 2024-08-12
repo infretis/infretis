@@ -1,6 +1,7 @@
 """The main infretis loop."""
 from infretis.setup import setup_runner, setup_internal
 import time
+import concurrent.futures
 
 
 def scheduler(config):
@@ -17,26 +18,32 @@ def scheduler(config):
         # submit job to scheduler
         futures.append(runner.submit_work(md_items))
 
-    time.sleep(1.0)
-
-    # main loop
+    # main step loop
     while state.loop():
-        for fut in list(futures):
-            if fut.done():
-                # get and treat worker output
-                md_items = state.treat_output(fut.result())
 
-                # submit new job:
-                if state.cstep + state.workers <= state.tsteps:
-                    # chose ens and path for the next job
-                    md_items = state.prep_md_items(md_items)
+        one_future_done = False
 
-                    # submit job to scheduler
-                    futures.append(runner.submit_work(md_items))
-                    futures.remove(fut)
+        # At each loop iteration, check the status of futures
+        while not one_future_done:
+            for fut in futures:
+                if fut.done():
+                    print(" pin: {}, cstep: {}".format(md_items["pin"], state.cstep))
+                    # get and treat worker output
+                    md_items = state.treat_output(fut.result())
+
+                    # submit new job:
+                    if state.cstep + state.workers <= state.tsteps:
+                        # chose ens and path for the next job
+                        md_items = state.prep_md_items(md_items)
+
+                        # submit job to scheduler
+                        futures.append(runner.submit_work(md_items))
+                        futures.remove(fut)
+                    one_future_done = True
+                    break
+            #time.sleep(0.1)
 
         #print("State loop")
-        time.sleep(0.2)
 
 
     # end client
