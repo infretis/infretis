@@ -8,6 +8,8 @@ from dask.distributed import Client, as_completed, dask, get_worker
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
+from infretis.core.tis import run_md_async
+from infretis.asyncrunner import light_runner
 
 logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)
@@ -43,26 +45,21 @@ def setup_internal(config):
     return md_items, state
 
 
-def setup_dask(state):
-    """Set up dask classes."""
-    # isolate each worker
-    dask.config.set({"distributed.scheduler.work-stealing": False})
-
+def setup_runner(state):
+    """Setup task runner classes."""
     # setup client with state.workers workers
-    client = Client(n_workers=state.workers)
+    runner = light_runner(state.config, state.config["dask"]["workers"])
 
-    # in case external engine or o_parameter scripts are used
-    for module in state.config["dask"].get("files", []):
-        client.upload_file(module)
+    runner.set_task(run_md_async)
+    runner.start()
 
-    # create future
-    futures = as_completed(None, with_results=True)
+    ## setup individual worker logs
+    #for i in range(state.workers):
+    #    runner.submit(i)
 
-    # setup individual worker logs
-    for i in range(state.workers):
-        client.submit(set_worker_logger, workers=i, pure=False)
+    futures = []
 
-    return client, futures
+    return runner, futures
 
 
 def setup_config(inp="infretis.toml", re_inp="restart.toml"):
