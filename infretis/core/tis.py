@@ -5,8 +5,6 @@ import logging
 import os
 import time
 from typing import TYPE_CHECKING, Any
-import asyncio
-import functools
 
 import numpy as np
 
@@ -28,7 +26,7 @@ def def_globals(config):
         config: Dictionary with engine settings.
     """
     global ENGINES
-    for i in range(config["dask"]["workers"]):
+    for i in range(config["runner"]["workers"]):
         ENGINES[i] = create_engines(config)[config["engine"]["engine"]]
     create_orderparameters(ENGINES, config)
 
@@ -65,37 +63,6 @@ def log_mdlogs(inp: str) -> None:
                     logger.info(
                         log + " " + line.rstrip().split()[1] + " ns/day"
                     )
-
-
-async def run_md_async(stop_event,
-                       queue : asyncio.Queue[Any],
-                       executor,
-                       taskID): 
-    """An async wrapper to enable running run_md from a dynamic list of tasks.
-    
-    Args:
-        stop_event: a asyncio event to stop the worker
-        queue: an asyncio queue to get work from
-        executor: an executor
-    """
-    while not stop_event.is_set():
-        try:
-            # Unpack queue element
-            md_item, future = queue.get_nowait()
-            if md_item is None:
-                break
-            #print("[{}] Running task in executor".format(taskID))
-            #print(id(md_item))
-            loop = asyncio.get_running_loop()
-            md_item = await loop.run_in_executor(
-                executor,
-                functools.partial(run_md, md_item)
-            )
-            future.set_result(md_item)
-            queue.task_done()
-        except asyncio.QueueEmpty:
-            #print("Worker is sleeping")
-            await asyncio.sleep(0.1)
 
 
 def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
