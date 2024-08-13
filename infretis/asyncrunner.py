@@ -3,7 +3,10 @@ import concurrent.futures
 import functools
 import threading
 import time
+import logging
 from typing import Any, Callable, Dict, List
+
+from infretis.classes.formatter import get_log_formatter
 
 
 class RunnerError(Exception):
@@ -68,6 +71,7 @@ class light_runner:
             executor: an executor
             taskID : an ID for the long running task
         """
+        set_worker_logger(taskID)
         while not stop_event.is_set():
             try:
                 # Unpack queue element
@@ -147,6 +151,22 @@ class light_runner:
         # Close the event loop
         self._loop.call_soon_threadsafe(self._loop.stop)
         self._thread.join()
+
+def set_worker_logger(pin : int) -> None:
+    """Set logger for each worker."""
+    # for each worker
+    print("Setting up logger worker{}.log".format(pin))
+    logger = logging.getLogger()
+    print("Got logger")
+    fileh = logging.FileHandler(f"worker{pin}.log", mode="a")
+    log_levl = getattr(logging, "info".upper(), logging.INFO)
+    fileh.setLevel(log_levl)
+    fileh.setFormatter(get_log_formatter(log_levl))
+    logger.addHandler(fileh)
+    logger.info("=============================")
+    logger.info("Logging file for worker %s", pin)
+    logger.info("=============================\n")
+    print("Done worker{}.log".format(pin))
 
 class future_list:
     """A managed list of future."""

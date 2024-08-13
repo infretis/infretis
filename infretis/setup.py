@@ -13,7 +13,6 @@ from infretis.asyncrunner import light_runner, future_list
 logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)
 
-
 def setup_internal(config):
     """Run the various setup functions."""
     # setup logger
@@ -158,18 +157,3 @@ def setup_logger(inp="sim.log"):
     fileh.setLevel(log_levl)
     fileh.setFormatter(get_log_formatter(log_levl))
     logger.addHandler(fileh)
-
-
-def set_worker_logger():
-    """Set logger for each worker."""
-    # for each worker
-    pin = get_worker().name
-    logging.getLogger()
-    fileh = logging.FileHandler(f"worker{pin}.log", mode="a")
-    log_levl = getattr(logging, "info".upper(), logging.INFO)
-    fileh.setLevel(log_levl)
-    fileh.setFormatter(get_log_formatter(log_levl))
-    logger.addHandler(fileh)
-    logger.info("=============================")
-    logger.info("Logging file for worker %s", pin)
-    logger.info("=============================\n")
