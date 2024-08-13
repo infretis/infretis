@@ -8,7 +8,7 @@ from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
 from infretis.core.tis import run_md
-from infretis.asyncrunner import light_runner
+from infretis.asyncrunner import light_runner, future_list
 
 logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)
@@ -56,7 +56,7 @@ def setup_runner(state):
     #for i in range(state.workers):
     #    runner.submit(i)
 
-    futures = []
+    futures = future_list()
 
     return runner, futures
 
