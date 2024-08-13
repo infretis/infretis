@@ -65,7 +65,7 @@ def create_initial_paths():
     exe_dir = Path("temporary_load")  # Path(engine.input_path) / "../load/"
     exe_dir = exe_dir.resolve()
     engine.set_mdrun(
-        {"wmdrun": config["dask"]["wmdrun"][0], "exe_dir": exe_dir}
+        {"wmdrun": config["runner"]["wmdrun"][0], "exe_dir": exe_dir}
     )
 
     exe_dir.mkdir()
