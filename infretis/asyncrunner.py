@@ -1,15 +1,16 @@
 import asyncio
 import concurrent.futures
-import threading
-from typing import Any, Callable, List, Dict
-import time
 import functools
+import threading
+import time
+from typing import Any, Callable, Dict, List
+
 
 class RunnerError(Exception):
     """Exception class for the runner."""
     pass
 
-class light_runner():
+class light_runner:
     """A light asynchronuous runner based on asyncio.
 
     The runner manage an asyncio.queue with a pool of workers.
@@ -55,7 +56,7 @@ class light_runner():
         self._task_f = task_f
 
     async def _task_wrapper(self,
-                            stop_event : asyncio.Event(),
+                            stop_event : asyncio.Event,
                             queue : asyncio.Queue[Any],
                             executor : concurrent.futures.Executor,
                             taskID : int) -> None:
@@ -67,15 +68,12 @@ class light_runner():
             executor: an executor
             taskID : an ID for the long running task
         """
-        print("In _task_wrapper")
         while not stop_event.is_set():
             try:
                 # Unpack queue element
                 md_item, future = queue.get_nowait()
                 if md_item is None:
                     break
-                print("[{}] Running task in executor".format(taskID))
-                #print("Task pin: {}".format(md_item["pin"]))
                 loop = asyncio.get_running_loop()
                 md_item = await loop.run_in_executor(
                     executor,
@@ -83,7 +81,6 @@ class light_runner():
                 )
                 future.set_result(md_item)
                 queue.task_done()
-                #print("[{}] Done running task".format(taskID))
             except asyncio.QueueEmpty:
                 await asyncio.sleep(0.02)
 
@@ -96,7 +93,7 @@ class light_runner():
         Return:
             A future wih the results of the work
         """
-        future = asyncio.Future()
+        future : asyncio.Future = asyncio.Future()
         await self._queue.put((work_unit, future))
         return future
 
@@ -113,7 +110,7 @@ class light_runner():
             raise RunnerError("Unable to submit work if the tasks haven't been initiated")
         future = asyncio.run(self._add_work_to_queue(work_unit))
         # Need to wait otherwise some race condition can occur
-        time.sleep(0.1)
+        time.sleep(0.05)
         return future
 
     async def _start_tasks(self):
@@ -150,3 +147,30 @@ class light_runner():
         # Close the event loop
         self._loop.call_soon_threadsafe(self._loop.stop)
         self._thread.join()
+
+class future_list:
+    """A managed list of future."""
+
+    def __init__(self) -> None:
+        """Initializer."""
+        self._futures : List[asyncio.Future] = []
+
+    def add(self, future : asyncio.Future) -> None:
+        """Add a future to list."""
+        self._futures.append(future)
+
+    def as_completed(self) -> asyncio.Future | None:
+        """Get future as they are done.
+
+        Return:
+            return a future from the list, whenever it is done
+            or return None when the list is empty.
+        """
+        future_out = None
+        while len(self._futures) > 0 and not future_out:
+            for fut in list(self._futures):
+                if fut.done():
+                    future_out = fut
+                    self._futures.remove(fut)
+                    break
+        return future_out
