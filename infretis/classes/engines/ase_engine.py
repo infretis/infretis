@@ -119,11 +119,11 @@ class ASEEngine(EngineBase):
         # integrator step is taken at the end of every loop,
         # such that frame 0 is also written
         for i in range(self.subcycles * path.maxlen):
+            energy = self.calc.results["energy"]
+            forces = self.calc.results["forces"]
+            stress = self.calc.results["stress"]
             if (i) % (self.subcycles) == 0:
                 ekin.append(atoms.get_kinetic_energy())
-                energy = self.calc.results["energy"]
-                forces = self.calc.results["forces"]
-                stress = self.calc.results["stress"]
                 vpot.append(self.calc.results["energy"])
                 # NOTE: Writing atoms removes all results from
                 # the calculator (and therefore atoms)!
