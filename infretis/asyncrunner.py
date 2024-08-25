@@ -59,7 +59,11 @@ class aiorunner:
 
     def start(self) -> None:
         """Launch background tasks."""
-        asyncio.run_coroutine_threadsafe(self._start_tasks(), self._loop)
+        future = asyncio.run_coroutine_threadsafe(self._start_tasks(), self._loop)
+        try:
+            future.result(5.0)
+        except Exception as e:
+            raise(e)
 
     def _start_event_loop(self) -> None:
         """Start the event loop in a separate thread."""
@@ -161,12 +165,16 @@ class aiorunner:
                 for i in range(self._n_workers)
             ]
         except Exception as e:
-            print(e)
+            raise e
 
     async def wait_for_tasks_to_end(self) -> None:
         """Async function waiting for tasks to end."""
         while len(asyncio.all_tasks(self._loop)) > 0:
             await asyncio.sleep(0.1)
+
+    def n_workers(self) -> int:
+        """Return runner number of workers."""
+        return self._n_workers
 
     def stop(self) -> None:
         """Terminate the runner."""
