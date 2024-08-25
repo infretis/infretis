@@ -26,7 +26,7 @@ class light_runner:
     attach a worker function to the runner and start multiple
     instances of that function in the background.
     As work is submitted to the runner, it is picked up by
-    worker on-the-fly.
+    workers on-the-fly.
     """
     def __init__(self, config : Dict, n_workers : int = 1):
         """Init function of runner.
@@ -84,14 +84,20 @@ class light_runner:
             try:
                 # Unpack queue element
                 md_item, future = queue.get_nowait()
-                if md_item is None:
-                    break
+
+                # Run the task in the event loop
                 loop = asyncio.get_running_loop()
-                md_item = await loop.run_in_executor(
-                    executor,
-                    functools.partial(self._task_f, md_item)
-                )
-                future.set_result(md_item)
+                try:
+                    md_item = await loop.run_in_executor(
+                        executor,
+                        functools.partial(self._task_f, md_item)
+                    )
+                    future.set_result(md_item)
+                except Exception as e:
+                    # Pass the exception up in the future
+                    future.set_exception(e)
+
+                # Mask the task as done
                 queue.task_done()
             except asyncio.QueueEmpty:
                 await asyncio.sleep(0.02)
