@@ -50,11 +50,7 @@ show_error_codes = true
 plugins = "numpy.typing.mypy_plugin"
 
 [[tool.mypy.overrides]]
-module = "matplotlib.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "scipy.optimize.*"
+module = ["matplotlib.*", "scipy.optimize.*", "turtlemd.*", "tomli"]
 ignore_missing_imports = true
 
 [tool.poetry.scripts]
