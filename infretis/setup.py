@@ -1,20 +1,30 @@
 """Setup all that is needed for the infretis simulation."""
 import logging
 import os
+from typing import Dict
 
 import tomli
 
+from infretis.asyncrunner import aiorunner, future_list
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
 from infretis.core.tis import run_md
-from infretis.asyncrunner import light_runner, future_list
 
 logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)
 
-def setup_internal(config):
-    """Run the various setup functions."""
+
+def setup_internal(config: Dict) -> tuple[Dict, REPEX_state]:
+    """Run the various setup functions.
+
+    Args
+        config: the configuration dictionary
+
+    Returns:
+        A blank md_items dict
+        An initialized REPEX state
+    """
     # setup logger
     setup_logger()
 
@@ -43,25 +53,37 @@ def setup_internal(config):
     return md_items, state
 
 
-def setup_runner(state):
-    """Setup task runner classes."""
-    # setup client with state.workers workers
-    runner = light_runner(state.config, state.config["runner"]["workers"])
+def setup_runner(state: REPEX_state) -> tuple[aiorunner, future_list]:
+    """Setup task runner classes.
 
+    Args:
+        state: A REPEX state from which to get the config dict
+    """
+    # setup client with state.workers workers
+    runner = aiorunner(state.config, state.config["runner"]["workers"])
+
+    # Attach the run_md task and start the runner's workers
     runner.set_task(run_md)
     runner.start()
 
-    ## setup individual worker logs
-    #for i in range(state.workers):
-    #    runner.submit(i)
-
+    # A managed list of futures
     futures = future_list()
 
     return runner, futures
 
 
-def setup_config(inp="infretis.toml", re_inp="restart.toml"):
-    """Set up dict from *toml file."""
+def setup_config(
+    inp: str = "infretis.toml", re_inp: str = "restart.toml"
+) -> Dict | None:
+    """Set up dict from *toml file.
+
+    Arg
+        inp: a string specifying the input file (def: infretis.toml)
+        re_inp: a string specifying the restart file (def: restart.toml)
+
+    Return
+        A dictionary containing the configuration parameters or None
+    """
     # sets up the dict from *toml file.
 
     # load input:
@@ -126,8 +148,12 @@ def setup_config(inp="infretis.toml", re_inp="restart.toml"):
     return config
 
 
-def write_header(config):
-    """Write infretis_data.txt header."""
+def write_header(config: Dict) -> None:
+    """Write infretis_data.txt header.
+
+    Args
+        config: the configuration dictionary
+    """
     size = config["current"]["size"]
     data_dir = config["output"]["data_dir"]
     data_file = os.path.join(data_dir, "infretis_data.txt")
@@ -145,8 +171,12 @@ def write_header(config):
         write.write("# " + "=" * (34 + 8 * size) + "\n")
 
 
-def setup_logger(inp="sim.log"):
-    """Set main logger."""
+def setup_logger(inp: str = "sim.log") -> None:
+    """Set main logger.
+
+    Args
+        inp: a string specifying the main log file
+    """
     # Define a console logger. This will log to sys.stderr:
     console = logging.StreamHandler()
     console.setLevel(logging.WARNING)

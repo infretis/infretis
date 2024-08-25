@@ -1,23 +1,25 @@
 import asyncio
 import concurrent.futures
 import functools
-import threading
-import time
 import logging
 import multiprocessing
+import threading
+import time
 from typing import Any, Callable, Dict, List
 
 from infretis.classes.formatter import get_log_formatter
 
-
 logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)
 
+
 class RunnerError(Exception):
     """Exception class for the runner."""
+
     pass
 
-class light_runner:
+
+class aiorunner:
     """A light asynchronuous runner based on asyncio.
 
     The runner manage an asyncio.queue with a pool of workers.
@@ -28,38 +30,43 @@ class light_runner:
     As work is submitted to the runner, it is picked up by
     workers on-the-fly.
     """
-    def __init__(self, config : Dict, n_workers : int = 1):
+
+    def __init__(self, config: Dict, n_workers: int = 1) -> None:
         """Init function of runner.
 
         Args:
-            config: a dict of parameters
+            config: the configuration dictionary
             n_workers: number of workers active in the runner
         """
-        self._n_workers : int = n_workers
-        self._counter = multiprocessing.Value('i', 0)
-        self._executor : concurrent.futures.Executor = concurrent.futures.ProcessPoolExecutor(
-            max_workers = n_workers,
-            initializer = worker_initializer,
-            initargs = (self._counter,)
+        self._n_workers: int = n_workers
+        self._counter = multiprocessing.Value("i", 0)
+        self._executor: concurrent.futures.Executor = (
+            concurrent.futures.ProcessPoolExecutor(
+                max_workers=n_workers,
+                initializer=worker_initializer,
+                initargs=(self._counter,),
+            )
         )
         self._stop_event = asyncio.Event()
         self._loop = asyncio.new_event_loop()
-        self._thread = threading.Thread(target=self._start_event_loop, daemon=True)
+        self._thread = threading.Thread(
+            target=self._start_event_loop, daemon=True
+        )
         self._thread.start()
-        self._queue : asyncio.Queue[Any] = asyncio.Queue()
-        self._task_f : Callable | None = None
-        self._tasks : List[asyncio.Task[Any]] | None = None
+        self._queue: asyncio.Queue[Any] = asyncio.Queue()
+        self._task_f: Callable | None = None
+        self._tasks: List[asyncio.Task[Any]] | None = None
 
-    def start(self):
+    def start(self) -> None:
         """Launch background tasks."""
         asyncio.run_coroutine_threadsafe(self._start_tasks(), self._loop)
 
-    def _start_event_loop(self):
+    def _start_event_loop(self) -> None:
         """Start the event loop in a separate thread."""
         asyncio.set_event_loop(self._loop)
         self._loop.run_forever()
 
-    def set_task(self, task_f : Callable) -> None:
+    def set_task(self, task_f: Callable) -> None:
         """Attach the task function to the runner.
 
         Args:
@@ -67,12 +74,17 @@ class light_runner:
         """
         self._task_f = task_f
 
-    async def _task_wrapper(self,
-                            stop_event : asyncio.Event,
-                            queue : asyncio.Queue[Any],
-                            executor : concurrent.futures.Executor,
-                            taskID : int) -> None:
-        """An async wrapper to enable running the sync task_f from a dynamic list of tasks.
+    async def _task_wrapper(
+        self,
+        stop_event: asyncio.Event,
+        queue: asyncio.Queue[Any],
+        executor: concurrent.futures.Executor,
+        taskID: int,
+    ) -> None:
+        """An async wrapper.
+
+        To enable running the sync task_f
+        from a dynamic list of tasks.
 
         Args:
             stop_event: a asyncio event to stop the worker
@@ -86,11 +98,11 @@ class light_runner:
                 md_item, future = queue.get_nowait()
 
                 # Run the task in the event loop
+                assert self._task_f
                 loop = asyncio.get_running_loop()
                 try:
                     md_item = await loop.run_in_executor(
-                        executor,
-                        functools.partial(self._task_f, md_item)
+                        executor, functools.partial(self._task_f, md_item)
                     )
                     future.set_result(md_item)
                 except Exception as e:
@@ -102,7 +114,9 @@ class light_runner:
             except asyncio.QueueEmpty:
                 await asyncio.sleep(0.02)
 
-    async def _add_work_to_queue(self, work_unit : Dict[str, Any]) -> asyncio.Future:
+    async def _add_work_to_queue(
+        self, work_unit: Dict[str, Any]
+    ) -> asyncio.Future:
         """Async function adding work to queue, returns a future.
 
         Args
@@ -111,11 +125,11 @@ class light_runner:
         Return:
             A future wih the results of the work
         """
-        future : asyncio.Future = asyncio.Future()
+        future: asyncio.Future = asyncio.Future()
         await self._queue.put((work_unit, future))
         return future
 
-    def submit_work(self, work_unit : Dict[str, Any]) -> asyncio.Future:
+    def submit_work(self, work_unit: Dict[str, Any]) -> asyncio.Future:
         """Submit work to the runner.
 
         Args:
@@ -125,31 +139,36 @@ class light_runner:
             A future wih the results of the work
         """
         if not self._tasks:
-            raise RunnerError("Unable to submit work if the tasks haven't been initiated")
+            raise RunnerError(
+                "Unable to submit work if the tasks haven't been initiated"
+            )
         future = asyncio.run(self._add_work_to_queue(work_unit))
         # Need to wait otherwise some race condition can occur
         time.sleep(0.05)
         return future
 
-    async def _start_tasks(self):
+    async def _start_tasks(self) -> None:
         """Launch the background tasks."""
         if not self._task_f:
-            raise RunnerError("Unable to start the background task(s) without a task function.")
+            raise RunnerError("Can't start task(s) without a task function.")
         try:
-            self._tasks = [ asyncio.create_task(self._task_wrapper(self._stop_event,
-                                                                   self._queue,
-                                                                   self._executor,
-                                                                   i))
-                           for i in range(self._n_workers) ]
+            self._tasks = [
+                asyncio.create_task(
+                    self._task_wrapper(
+                        self._stop_event, self._queue, self._executor, i
+                    )
+                )
+                for i in range(self._n_workers)
+            ]
         except Exception as e:
             print(e)
 
-    async def wait_for_tasks_to_end(self):
+    async def wait_for_tasks_to_end(self) -> None:
         """Async function waiting for tasks to end."""
         while len(asyncio.all_tasks(self._loop)) > 0:
             await asyncio.sleep(0.1)
 
-    def stop(self):
+    def stop(self) -> None:
         """Terminate the runner."""
         # Make sure there is no more work in the queue
         # before dispatching the task stopping event
@@ -187,9 +206,9 @@ class future_list:
 
     def __init__(self) -> None:
         """Initializer."""
-        self._futures : List[asyncio.Future] = []
+        self._futures: List[asyncio.Future] = []
 
-    def add(self, future : asyncio.Future) -> None:
+    def add(self, future: asyncio.Future) -> None:
         """Add a future to list."""
         self._futures.append(future)
 

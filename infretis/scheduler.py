@@ -1,7 +1,6 @@
 """The main infretis loop."""
-from infretis.setup import setup_runner, setup_internal
-import time
-import concurrent.futures
+
+from infretis.setup import setup_internal, setup_runner
 
 
 def scheduler(config):
