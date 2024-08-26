@@ -1,7 +1,6 @@
 """Setup all that is needed for the infretis simulation."""
 import logging
 import os
-from typing import Dict
 
 import tomli
 
@@ -15,7 +14,7 @@ logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)
 
 
-def setup_internal(config: Dict) -> tuple[Dict, REPEX_state]:
+def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
     """Run the various setup functions.
 
     Args
@@ -74,7 +73,7 @@ def setup_runner(state: REPEX_state) -> tuple[aiorunner, future_list]:
 
 def setup_config(
     inp: str = "infretis.toml", re_inp: str = "restart.toml"
-) -> Dict | None:
+) -> dict | None:
     """Set up dict from *toml file.
 
     Arg
@@ -148,7 +147,7 @@ def setup_config(
     return config
 
 
-def write_header(config: Dict) -> None:
+def write_header(config: dict) -> None:
     """Write infretis_data.txt header.
 
     Args
