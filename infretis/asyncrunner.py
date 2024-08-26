@@ -1,3 +1,5 @@
+"""An asyncio-based task runner for infRETIS."""
+
 import asyncio
 import concurrent.futures
 import functools
@@ -91,7 +93,7 @@ class aiorunner:
         executor: concurrent.futures.Executor,
         taskID: int,
     ) -> None:
-        """An async wrapper.
+        """Wrap the sync task.
 
         To enable running the sync task_f
         from a dynamic list of tasks.
@@ -201,7 +203,7 @@ class aiorunner:
 
 
 def worker_initializer(counter):
-    """Initializer function for each worker process."""
+    """Initialize function for each worker process."""
     with counter.get_lock():  # Ensure that counter increment is thread-safe
         worker_id = counter.value
         counter.value += 1
@@ -219,7 +221,7 @@ class future_list:
     """A managed list of future."""
 
     def __init__(self) -> None:
-        """Initializer."""
+        """Initialize future list."""
         self._futures: list[asyncio.Future] = []
 
     def add(self, future: asyncio.Future) -> None:
