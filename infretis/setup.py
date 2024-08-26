@@ -53,7 +53,7 @@ def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
 
 
 def setup_runner(state: REPEX_state) -> tuple[aiorunner, future_list]:
-    """Setup task runner classes.
+    """Set the task runner class up.
 
     Args:
         state: A REPEX state from which to get the config dict
@@ -74,7 +74,7 @@ def setup_runner(state: REPEX_state) -> tuple[aiorunner, future_list]:
 def setup_config(
     inp: str = "infretis.toml", re_inp: str = "restart.toml"
 ) -> dict | None:
-    """Set up dict from *toml file.
+    """Set dict from *toml file up.
 
     Arg
         inp: a string specifying the input file (def: infretis.toml)
