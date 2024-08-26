@@ -5,7 +5,8 @@ import logging
 import multiprocessing
 import threading
 import time
-from typing import Any, Callable, Dict, List
+from collections.abc import Callable
+from typing import Any
 
 from infretis.classes.formatter import get_log_formatter
 
@@ -31,7 +32,7 @@ class aiorunner:
     workers on-the-fly.
     """
 
-    def __init__(self, config: Dict, n_workers: int = 1) -> None:
+    def __init__(self, config: dict, n_workers: int = 1) -> None:
         """Init function of runner.
 
         Args:
@@ -55,15 +56,20 @@ class aiorunner:
         self._thread.start()
         self._queue: asyncio.Queue[Any] = asyncio.Queue()
         self._task_f: Callable | None = None
-        self._tasks: List[asyncio.Task[Any]] | None = None
+        self._tasks: list[asyncio.Task[Any]] | None = None
 
     def start(self) -> None:
         """Launch background tasks."""
-        future = asyncio.run_coroutine_threadsafe(self._start_tasks(), self._loop)
+        future = asyncio.run_coroutine_threadsafe(
+            self._start_tasks(), self._loop
+        )
         try:
+            # Task startup should be fast
             future.result(5.0)
+        except TimeoutError:
+            raise RunnerError("Launching background tasks took too long")
         except Exception as e:
-            raise(e)
+            raise (e)
 
     def _start_event_loop(self) -> None:
         """Start the event loop in a separate thread."""
@@ -119,7 +125,7 @@ class aiorunner:
                 await asyncio.sleep(0.02)
 
     async def _add_work_to_queue(
-        self, work_unit: Dict[str, Any]
+        self, work_unit: dict[str, Any]
     ) -> asyncio.Future:
         """Async function adding work to queue, returns a future.
 
@@ -133,7 +139,7 @@ class aiorunner:
         await self._queue.put((work_unit, future))
         return future
 
-    def submit_work(self, work_unit: Dict[str, Any]) -> asyncio.Future:
+    def submit_work(self, work_unit: dict[str, Any]) -> asyncio.Future:
         """Submit work to the runner.
 
         Args:
@@ -214,7 +220,7 @@ class future_list:
 
     def __init__(self) -> None:
         """Initializer."""
-        self._futures: List[asyncio.Future] = []
+        self._futures: list[asyncio.Future] = []
 
     def add(self, future: asyncio.Future) -> None:
         """Add a future to list."""
