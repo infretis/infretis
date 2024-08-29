@@ -18,7 +18,7 @@ def pattern_reader(inp, cap=250):
                     "wmd_start": [],
                     "wmd_end": [],
                     "md_end": [],
-                    "dask_end": [],
+                    "runner_end": [],
                     "enss": [],
                     "connect": [],
                 }
@@ -27,7 +27,7 @@ def pattern_reader(inp, cap=250):
             w_data[key]["wmd_start"].append(float(split[2]))
             w_data[key]["wmd_end"].append(float(split[3]))
             w_data[key]["md_end"].append(float(split[4]))
-            w_data[key]["dask_end"].append(float(split[5]))
+            w_data[key]["runner_end"].append(float(split[5]))
             w_data[key]["enss"].append([int(i) for i in split[6].split("-")])
             ensembles += [int(i) for i in split[6].split("-")]
 
@@ -66,7 +66,7 @@ def pattern(inp, cap=250, subtime=False, scatter=False):
             wmds = w_data[worker]["wmd_start"][idx]
             wmde = w_data[worker]["wmd_end"][idx]
             mde = w_data[worker]["md_end"][idx]
-            wend = w_data[worker]["dask_end"][idx]
+            wend = w_data[worker]["runner_end"][idx]
 
             # horizontal lines
             for ens in w_data[worker]["enss"][idx]:
@@ -108,12 +108,12 @@ def pattern(inp, cap=250, subtime=False, scatter=False):
         # scatter swap
         if scatter:
             other_w = [i for i in w_data.keys() if i != worker]
-            for idx, d_end in enumerate(w_data[worker]["dask_end"]):
+            for idx, d_end in enumerate(w_data[worker]["runner_end"]):
                 free_ens = ensembles.copy()
                 for ow in other_w:
                     for start, end, ens in zip(
                         w_data[ow]["md_start"],
-                        w_data[ow]["dask_end"],
+                        w_data[ow]["runner_end"],
                         w_data[ow]["enss"],
                     ):
                         if start < d_end < end:
