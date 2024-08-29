@@ -10,7 +10,7 @@ from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
 from infretis.core.tis import run_md
 
-logger = logging.getLogger("")
+logger = logging.getLogger("main")
 logger.setLevel(logging.DEBUG)
 
 

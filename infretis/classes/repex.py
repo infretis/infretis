@@ -13,7 +13,7 @@ from infretis.classes.formatter import PathStorage
 from infretis.core.core import make_dirs
 from infretis.core.tis import calc_cv_vector
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger("main")  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
