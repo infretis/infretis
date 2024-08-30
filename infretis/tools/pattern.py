@@ -1,9 +1,11 @@
+"""Pattern functionality."""
 import matplotlib.pyplot as plt
 
 plt.rcParams.update({"font.size": 16})
 
 
 def pattern_reader(inp, cap=250):
+    """Pattern reader."""
     w_data = {}
     ensembles = []
     with open(inp) as read:
@@ -44,6 +46,7 @@ def pattern_reader(inp, cap=250):
 
 
 def pattern(inp, cap=250, subtime=False, scatter=False):
+    """Pattern."""
     w_data, ensembles = pattern_reader(inp, cap)
     cols = [
         "#1f77b4",
