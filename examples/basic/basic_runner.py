@@ -1,11 +1,11 @@
-"""A basic example"""
+"""A basic example."""
 import numpy as np
 import psutil
 from infretis.asyncrunner import aiorunner, future_list
 
 
 def return_data(inp : dict):
-    """A function"""
+    """Return data."""
     inp["0"] += 1
     return inp
 
