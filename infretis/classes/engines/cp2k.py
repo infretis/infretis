@@ -460,42 +460,6 @@ def read_cp2k_energy(energy_file: str | Path) -> dict[str, np.ndarray]:
     return energy
 
 
-def read_cp2k_restart(
-    restart_file: str | Path,
-) -> tuple[list[str], np.ndarray, np.ndarray, np.ndarray | None, list[bool]]:
-    """Read some info from a CP2K restart file.
-
-    Args:
-        restart_file: Path to the file to read.
-
-    Returns:
-        A tuple containing:
-            - The name of the atoms in the system.
-            - The positions of the atoms in the system.
-            - The velocities of the atoms in the system.
-            - The box size and dimensions.
-            - The periodic settings for the box dimensions. This is
-              a list of booleans and if an item is True, then periodic
-              boundary conditions should be applied to the corresponding
-              dimension.
-    """
-    nodes = read_cp2k_input(restart_file)
-    node_ref = set_parents(nodes)
-    velocity = "FORCE_EVAL->SUBSYS->VELOCITY"
-    coord = "FORCE_EVAL->SUBSYS->COORD"
-    cell = "FORCE_EVAL->SUBSYS->CELL"
-
-    atoms, pos, vel = [], [], []
-
-    for posi, veli in zip(node_ref[coord].data, node_ref[velocity].data):
-        pos_split = posi.split()
-        atoms.append(pos_split[0])
-        pos.append([float(i) for i in pos_split[1:4]])
-        vel.append([float(i) for i in veli.split()])
-    box, periodic = read_box_data(node_ref[cell].data)
-    return atoms, np.array(pos), np.array(vel), box, periodic
-
-
 def read_cp2k_box(
     inputfile: str | Path,
 ) -> tuple[np.ndarray | None, list[bool]]:
