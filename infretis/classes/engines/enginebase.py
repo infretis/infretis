@@ -627,27 +627,6 @@ class EngineBase(metaclass=ABCMeta):
         """Check if two engines are not equal."""
         return not self == other
 
-    def restart_info(self) -> dict[str, str]:
-        """Return info for storing the state of the engine.
-
-        Returns
-            info: The information needed to create the engine again.
-
-        """
-        info = {"description": self.description}
-        return info
-
-    def load_restart_info(self, info: dict[str, str] | None = None) -> None:
-        """Load restart information.
-
-        Args:
-            info: The dictionary with the restart information. The
-                dictionary returned by :py:func:`.restart_info`
-                should contain all information needed here.
-        """
-        if info is not None:
-            self.description = info["description"]
-
     def __str__(self) -> str:
         """Return the string description of the integrator."""
         return self.description
