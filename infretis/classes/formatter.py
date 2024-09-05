@@ -383,12 +383,6 @@ class OutputBase(metaclass=ABCMeta):
             True if we managed to write, False otherwise.
         """
 
-    def formatter_info(self) -> str:
-        """Return a string with info about the formatter."""
-        if self.formatter is not None:
-            return str(self.formatter.__class__)
-        return "No formatter defined"
-
     def __str__(self) -> str:
         """Return basic info about the formatter."""
         return f"{self.__class__.__name__}\n\t* Formatter: {self.formatter}"
@@ -600,14 +594,6 @@ class FileIO(OutputBase):
         return "\n".join(msg)
 
 
-class OrderFile(FileIO):
-    """A class for handling order parameter files."""
-
-    def __init__(self, filename: str, file_mode: str, backup: bool = True):
-        """Create the order file with correct formatter."""
-        super().__init__(filename, file_mode, OrderFormatter(), backup=backup)
-
-
 class OrderPathFile(FileIO):
     """A class for handling order parameter path files."""
 
@@ -727,14 +713,6 @@ class EnergyPathFormatter(EnergyFormatter):
             for key in self.ENERGY_TERMS:
                 energy[key] = getattr(phasepoint, key, None)
             yield self.apply_format(i, energy)
-
-
-class EnergyFile(FileIO):
-    """A class for handling energy files."""
-
-    def __init__(self, filename: str, file_mode: str, backup: bool = True):
-        """Create the file object and attach the energy formatter."""
-        super().__init__(filename, file_mode, EnergyFormatter(), backup=backup)
 
 
 class EnergyPathFile(FileIO):
@@ -951,12 +929,6 @@ class PathStorage(OutputBase):
             self.__class__.__name__,
         )
         return False
-
-    def formatter_info(self) -> str:
-        """Return info about the formatters."""
-        return "\n".join(
-            [str(val["fmt"].__class__) for val in self.formatters.values()]
-        )
 
     def __str__(self) -> str:
         """Return basic info."""
