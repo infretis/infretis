@@ -324,10 +324,6 @@ class Path:
         """Check if two paths are not equal."""
         return not self == other
 
-    def delete(self, idx: int) -> None:
-        """Remove the specified phase point from the path."""
-        del self.phasepoints[idx]
-
     def update_energies(
         self, ekin: np.ndarray | list[float], vpot: np.ndarray | list[float]
     ) -> None:
