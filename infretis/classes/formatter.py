@@ -822,10 +822,6 @@ class PathStorage(OutputBase):
         target: Determines the target for this output class.
             Here it will be a file archive (i.e., a directory
             based collection of files).
-        archive_acc: Basename for the archive with accepted trajectories.
-        archive_rej: Basename for the archive with rejected trajectories.
-        archive_traj: Basename for a sub-folder containing the actual files
-            for a trajectory.
         formatters: This dict contains the formatters for writing path data,
             with default filenames used for them.
         out_dir_fmt: A format to use for creating directories within the
@@ -833,9 +829,6 @@ class PathStorage(OutputBase):
     """
 
     target = "file-archive"
-    archive_acc = "traj-acc"
-    archive_rej = "traj-rej"
-    archive_traj = "traj"
     formatters: dict[str, FormattersEntry] = {
         "order": {"fmt": OrderPathFormatter(), "file": "order.txt"},
         "energy": {"fmt": EnergyPathFormatter(), "file": "energy.txt"},
