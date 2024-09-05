@@ -1,13 +1,13 @@
 """The main infretis loop."""
-from infretis.core.tis import run_md
-from infretis.setup import setup_dask, setup_internal
+
+from infretis.setup import setup_internal, setup_runner
 
 
 def scheduler(config):
     """Run infretis loop."""
-    # setup repex, dask and futures
+    # setup repex, runner and futures
     md_items, state = setup_internal(config)
-    client, futures = setup_dask(state)
+    runner, futures = setup_runner(state)
 
     # submit the first number of workers
     while state.initiate():
@@ -15,26 +15,22 @@ def scheduler(config):
         md_items = state.prep_md_items(md_items)
 
         # submit job to scheduler
-        fut = client.submit(
-            run_md, md_items, workers=md_items["pin"], pure=False
-        )
-        futures.add(fut)
+        futures.add(runner.submit_work(md_items))
 
-    # main loop
+    # main step loop
     while state.loop():
-        # get and treat worker output
-        md_items = state.treat_output(next(futures)[1])
+        # Get futures as they are completed
+        future = futures.as_completed()
+        if future:
+            md_items = state.treat_output(future.result())
 
-        # submit new job:
+        # submit new job
         if state.cstep + state.workers <= state.tsteps:
             # chose ens and path for the next job
             md_items = state.prep_md_items(md_items)
 
             # submit job to scheduler
-            fut = client.submit(
-                run_md, md_items, workers=md_items["pin"], pure=False
-            )
-            futures.add(fut)
+            futures.add(runner.submit_work(md_items))
 
     # end client
-    client.close()
+    runner.stop()

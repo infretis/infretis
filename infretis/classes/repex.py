@@ -13,7 +13,7 @@ from infretis.classes.formatter import PathStorage
 from infretis.core.core import make_dirs
 from infretis.core.tis import calc_cv_vector
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger("main")  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
@@ -135,7 +135,7 @@ class REPEX_state:
     @property
     def workers(self):
         """Retrieve workers from config dict."""
-        return self.config["dask"]["workers"]
+        return self.config["runner"]["workers"]
 
     def pick(self):
         """Pick path and ens."""
@@ -258,8 +258,8 @@ class REPEX_state:
         # allocate worker pin:
         for ens_num in md_items["ens_nums"]:
             md_items["picked"][ens_num]["exe_dir"] = md_items["w_folder"]
-            if self.config["dask"].get("wmdrun", False):
-                md_items["picked"][ens_num]["wmdrun"] = self.config["dask"][
+            if self.config["runner"].get("wmdrun", False):
+                md_items["picked"][ens_num]["wmdrun"] = self.config["runner"][
                     "wmdrun"
                 ][md_items["pin"]]
             # spawn rgen for {cp2k, turtlemd}

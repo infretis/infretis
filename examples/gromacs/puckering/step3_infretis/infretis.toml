@@ -1,6 +1,6 @@
 # infretis config
 
-[dask]
+[runner]
 workers = 1 # number of workers
 
 # each worker gets its own mdrun command
