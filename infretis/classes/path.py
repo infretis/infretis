@@ -158,34 +158,6 @@ class Path:
         logger.debug("Max length exceeded. Could not append to path.")
         return False
 
-    def get_path_data(
-        self, status: str, interfaces: list[float]
-    ) -> dict[str, Any]:
-        """Return basic information about the path.
-
-        The information includes how the path was generated,
-        its status, length, max/min orderparameter and weights.
-
-        Args:
-            status: The current status of the path.
-            interfaces: The interfaces for the simulation.
-
-        Returns:
-            A dict with information about the path.
-        """
-        path_info: dict[str, Any] = {
-            "generated": self.generated,
-            "status": status,
-            "length": self.length,
-            "ordermax": self.ordermax,
-            "ordermin": self.ordermin,
-            "weights": self.weights,
-        }
-
-        start, end, middle, _ = self.check_interfaces(interfaces)
-        path_info["interface"] = (start, middle, end)
-        return path_info
-
     def get_move(self) -> str | None:
         """Return the move used to generate the path."""
         if self.generated is None:
