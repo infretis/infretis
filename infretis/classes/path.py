@@ -482,48 +482,6 @@ def load_path(pdir: str) -> Path:
     return path
 
 
-def _check_path(
-    path: Path, path_ensemble: Any, warning: bool = True
-) -> tuple[bool, str]:
-    """Run some checks for the path.
-
-    Args:
-        path: The path we are to set up/fill.
-        path_ensemble: The path ensemble the path could be added to.
-        warning: If True, it output warnings, else only debug info.
-
-    Returns:
-        A tuple containing:
-            - True if the path can be accepted.
-            - A string representing the current status of the path.
-    """
-    start, end, _, cross = path.check_interfaces(path_ensemble.interfaces)
-    accept = True
-    status = "ACC"
-    msg = "Initial path for %s is accepted."
-    if start is None or start not in path_ensemble.start_condition:
-        msg = "Initial path for %s starts at the wrong interface!"
-        status = "SWI"
-        accept = False
-    if end not in ("R", "L"):
-        msg = "Initial path for %s ends at the wrong interface!"
-        status = "EWI"
-        accept = False
-    if not cross[1]:
-        msg = "Initial path for %s does not cross the middle interface!"
-        status = "NCR"
-        accept = False
-
-    if not accept:
-        if warning:
-            logger.critical(msg, path_ensemble.ensemble_name)
-        else:
-            logger.debug(msg, path_ensemble.ensemble_name)
-
-    path.status = status
-    return accept, status
-
-
 def _load_energies_for_path(path: Path, dirname: str) -> None:
     """Load energy data for a path.
 
