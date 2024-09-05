@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import shlex
 import signal
 import subprocess
@@ -52,9 +51,6 @@ OUTPUT_FILES = {
     "wfn": "{}-RESTART.wfn",
     "wfn-bak": "{}-RESTART.wfn.bak-",
 }
-
-
-REGEXP_BACKUP = re.compile(r"\.bak-\d$")
 
 
 class SectionNode:
@@ -998,17 +994,6 @@ class CP2KEngine(EngineBase):
                     'Adding input file "%s" to "%s"', basename, dirname
                 )
                 self._copyfile(files, dest)
-
-    @staticmethod
-    def _find_backup_files(dirname: str) -> list[str]:
-        """Return backup-files in the given directory."""
-        out = []
-        for entry in os.scandir(dirname):
-            if entry.is_file():
-                match = REGEXP_BACKUP.search(entry.name)
-                if match is not None:
-                    out.append(entry.name)
-        return out
 
     @staticmethod
     def _read_configuration(
