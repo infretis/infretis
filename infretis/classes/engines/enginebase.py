@@ -627,15 +627,6 @@ class EngineBase(metaclass=ABCMeta):
         """Check if two engines are not equal."""
         return not self == other
 
-    @classmethod
-    def can_use_order_function(cls, order_function: OrderParameter) -> None:
-        """Fail if the engine can't be used with an empty order parameter."""
-        if order_function is None and cls.needs_order:
-            raise ValueError(
-                "No order parameter was defined, but the "
-                "engine *does* require it."
-            )
-
     def restart_info(self) -> dict[str, str]:
         """Return info for storing the state of the engine.
 
