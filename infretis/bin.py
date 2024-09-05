@@ -18,8 +18,3 @@ def infretisrun():
     if config is None:
         return
     scheduler(config)
-
-
-def infretisinit():
-    """To generate initial *toml template and other features."""
-    return
