@@ -26,7 +26,7 @@ def def_globals(config):
         config: Dictionary with engine settings.
     """
     global ENGINES
-    for i in range(config["dask"]["workers"]):
+    for i in range(config["runner"]["workers"]):
         ENGINES[i] = create_engines(config)[config["engine"]["engine"]]
     create_orderparameters(ENGINES, config)
 

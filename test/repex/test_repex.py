@@ -11,7 +11,7 @@ def test_rgen_io(tmp_path: PosixPath) -> None:
     state = REPEX_state(
         {
             "current": {"size": 1, "cstep": 0},
-            "dask": {"workers": 1},
+            "runner": {"workers": 1},
             "simulation": {},
         }
     )

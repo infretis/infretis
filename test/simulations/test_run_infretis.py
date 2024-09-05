@@ -156,7 +156,7 @@ def test_restart_multiple_w(tmp_path: PosixPath) -> None:
     with open("infretis.toml", mode="rb") as f:
         config = tomli.load(f)
         config["simulation"]["steps"] = 1000000
-        config["dask"]["workers"] = workers
+        config["runner"]["workers"] = workers
     with open("infretis.toml", "wb") as f:
         tomli_w.dump(config, f)
 

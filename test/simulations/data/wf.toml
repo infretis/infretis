@@ -1,6 +1,6 @@
 # infretis config
 
-[dask]
+[runner]
 workers = 1
 wmdrun = ['not used',
 	  'not used',
