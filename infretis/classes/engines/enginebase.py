@@ -546,12 +546,6 @@ class EngineBase(metaclass=ABCMeta):
         return return_code
 
     @staticmethod
-    def _movefile(source: str, dest: str) -> None:
-        """Move file from source to destination."""
-        logger.debug("Moving: %s -> %s", source, dest)
-        shutil.move(source, dest)
-
-    @staticmethod
     def _copyfile(source: str, dest: str) -> None:
         """Copy file from source to destination."""
         logger.debug("Copy: %s -> %s", source, dest)
