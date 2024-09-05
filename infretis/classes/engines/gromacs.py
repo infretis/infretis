@@ -132,7 +132,6 @@ class GromacsEngine(EngineBase):
             raise ValueError(msg)
         # Define the GROMACS GMX command:
         self.gmx = gmx
-        self.ext_time = self.timestep * self.subcycles
         self.maxwarn = maxwarn
         # Define the energy terms, these are hard-coded, but
         # here we open up for changing that:
@@ -347,62 +346,6 @@ class GromacsEngine(EngineBase):
         for key in ("cpt", "edr", "log", "trr"):
             out_files[key] = f"{deffnm}.{key}"
         self._remove_gromacs_backup_files(self.exe_dir)
-        return out_files
-
-    def _execute_mdrun_continue(
-        self, tprfile: str, cptfile: str, deffnm: str
-    ) -> dict[str, str]:
-        """Continue the execution of GROMACS.
-
-        Note:
-            We assume that `gmx mdrun` has already been executed.
-            This method is to append and continue a simulation.
-
-        Args:
-            tprfile: The .tpr file which defines the simulation.
-            cptfile: The last checkpoint file (.cpt) from the previous run.
-            deffnm: A name to give the GROMACS simulation.
-
-        Returns:
-            The output file names created/appended by GROMACS when
-            we continue the simulation.
-        """
-        confout = f"{deffnm}.{self.ext}".format(deffnm, self.ext)
-        self._removefile(confout)
-        cmd = shlex.split(
-            self.mdrun_c.format(tprfile, cptfile, deffnm, confout)
-        )
-        self.execute_command(cmd, cwd=self.exe_dir)
-        out_files = {"conf": confout}
-        for key in ("cpt", "edr", "log", "trr"):
-            out_files[key] = f"{deffnm}.{key}"
-        self._remove_gromacs_backup_files(self.exe_dir)
-        return out_files
-
-    def _extend_gromacs(self, tprfile: str, time: float) -> dict[str, str]:
-        """Extend a GROMACS simulation.
-
-        Args:
-            tprfile: The file to read for extending.
-            time: The time (in ps) to extend the simulation by.
-
-        Returns:
-            The files created by GROMACS when we extend.
-        """
-        tpxout = f"ext_{tprfile}"
-        self._removefile(tpxout)
-        cmd = [
-            self.gmx,
-            "convert-tpr",
-            "-s",
-            tprfile,
-            "-extend",
-            str(time),
-            "-o",
-            tpxout,
-        ]
-        self.execute_command(cmd, cwd=self.exe_dir)
-        out_files = {"tpr": tpxout}
         return out_files
 
     def _remove_gromacs_backup_files(self, dirname: str | Path) -> None:
