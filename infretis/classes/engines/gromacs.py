@@ -601,7 +601,6 @@ class GromacsEngine(EngineBase):
         """Set the worker terminal command to execute."""
         base = md_items["wmdrun"]
         self.mdrun = base + " -s {} -deffnm {} -c {}"
-        self.mdrun_c = base + " -s {} -cpi {} -append -deffnm {} -c {}"
         self.exe_dir = md_items["exe_dir"]
 
     def _read_configuration(
