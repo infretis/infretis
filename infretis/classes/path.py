@@ -44,7 +44,6 @@ class Path:
         self.weights: tuple[float, ...] | None = None
         self.weight: float = 0.0
         self.phasepoints: list[System] = []
-        self.min_valid = None
         self.time_origin = time_origin
 
     @property
