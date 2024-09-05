@@ -35,12 +35,7 @@ class EngineBase(metaclass=ABCMeta):
         description: Short string description of the engine.
             Used for printing information about the integrator.
         exe_dir: A directory where the engine is going to be executed.
-        needs_order: Determines if the engine needs an internal
-            order parameter or not. If not, it is assumed that the
-            order parameter is calculated by the engine.
     """
-
-    needs_order: bool = True
 
     def __init__(self, description: str, timestep: float, subcycles: int):
         """Initialize the engine."""
@@ -591,7 +586,7 @@ class EngineBase(metaclass=ABCMeta):
             logger.debug("%s and %s.__dict__ differ", self, other)
             return False
 
-        for i in ["needs_order", "description", "_exe_dir", "timestep"]:
+        for i in ["description", "_exe_dir", "timestep"]:
             if hasattr(self, i):
                 if getattr(self, i) != getattr(other, i):
                     logger.debug(
