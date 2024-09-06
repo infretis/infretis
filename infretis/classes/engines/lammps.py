@@ -53,8 +53,8 @@ def write_lammpstrj(
     filemode = "a" if append else "w"
     with open(outfile, filemode) as writefile:
         to_write = (
-            f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n \
-ITEM: BOX BOUNDS xy xz yz pp pp pp\n"
+            f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n\
+ITEM: BOX BOUNDS pp pp pp\n"
             ""
         )
 
