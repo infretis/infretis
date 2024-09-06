@@ -383,12 +383,6 @@ class OutputBase(metaclass=ABCMeta):
             True if we managed to write, False otherwise.
         """
 
-    def formatter_info(self) -> str:
-        """Return a string with info about the formatter."""
-        if self.formatter is not None:
-            return str(self.formatter.__class__)
-        return "No formatter defined"
-
     def __str__(self) -> str:
         """Return basic info about the formatter."""
         return f"{self.__class__.__name__}\n\t* Formatter: {self.formatter}"
@@ -600,14 +594,6 @@ class FileIO(OutputBase):
         return "\n".join(msg)
 
 
-class OrderFile(FileIO):
-    """A class for handling order parameter files."""
-
-    def __init__(self, filename: str, file_mode: str, backup: bool = True):
-        """Create the order file with correct formatter."""
-        super().__init__(filename, file_mode, OrderFormatter(), backup=backup)
-
-
 class OrderPathFile(FileIO):
     """A class for handling order parameter path files."""
 
@@ -729,14 +715,6 @@ class EnergyPathFormatter(EnergyFormatter):
             yield self.apply_format(i, energy)
 
 
-class EnergyFile(FileIO):
-    """A class for handling energy files."""
-
-    def __init__(self, filename: str, file_mode: str, backup: bool = True):
-        """Create the file object and attach the energy formatter."""
-        super().__init__(filename, file_mode, EnergyFormatter(), backup=backup)
-
-
 class EnergyPathFile(FileIO):
     """A class for handling energy path files."""
 
@@ -822,10 +800,6 @@ class PathStorage(OutputBase):
         target: Determines the target for this output class.
             Here it will be a file archive (i.e., a directory
             based collection of files).
-        archive_acc: Basename for the archive with accepted trajectories.
-        archive_rej: Basename for the archive with rejected trajectories.
-        archive_traj: Basename for a sub-folder containing the actual files
-            for a trajectory.
         formatters: This dict contains the formatters for writing path data,
             with default filenames used for them.
         out_dir_fmt: A format to use for creating directories within the
@@ -833,9 +807,6 @@ class PathStorage(OutputBase):
     """
 
     target = "file-archive"
-    archive_acc = "traj-acc"
-    archive_rej = "traj-rej"
-    archive_traj = "traj"
     formatters: dict[str, FormattersEntry] = {
         "order": {"fmt": OrderPathFormatter(), "file": "order.txt"},
         "energy": {"fmt": EnergyPathFormatter(), "file": "energy.txt"},
@@ -958,12 +929,6 @@ class PathStorage(OutputBase):
             self.__class__.__name__,
         )
         return False
-
-    def formatter_info(self) -> str:
-        """Return info about the formatters."""
-        return "\n".join(
-            [str(val["fmt"].__class__) for val in self.formatters.values()]
-        )
 
     def __str__(self) -> str:
         """Return basic info."""

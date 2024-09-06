@@ -35,12 +35,7 @@ class EngineBase(metaclass=ABCMeta):
         description: Short string description of the engine.
             Used for printing information about the integrator.
         exe_dir: A directory where the engine is going to be executed.
-        needs_order: Determines if the engine needs an internal
-            order parameter or not. If not, it is assumed that the
-            order parameter is calculated by the engine.
     """
-
-    needs_order: bool = True
 
     def __init__(self, description: str, timestep: float, subcycles: int):
         """Initialize the engine."""
@@ -551,12 +546,6 @@ class EngineBase(metaclass=ABCMeta):
         return return_code
 
     @staticmethod
-    def _movefile(source: str, dest: str) -> None:
-        """Move file from source to destination."""
-        logger.debug("Moving: %s -> %s", source, dest)
-        shutil.move(source, dest)
-
-    @staticmethod
     def _copyfile(source: str, dest: str) -> None:
         """Copy file from source to destination."""
         logger.debug("Copy: %s -> %s", source, dest)
@@ -591,7 +580,7 @@ class EngineBase(metaclass=ABCMeta):
             logger.debug("%s and %s.__dict__ differ", self, other)
             return False
 
-        for i in ["needs_order", "description", "_exe_dir", "timestep"]:
+        for i in ["description", "_exe_dir", "timestep"]:
             if hasattr(self, i):
                 if getattr(self, i) != getattr(other, i):
                     logger.debug(
@@ -626,36 +615,6 @@ class EngineBase(metaclass=ABCMeta):
     def __ne__(self, other) -> bool:
         """Check if two engines are not equal."""
         return not self == other
-
-    @classmethod
-    def can_use_order_function(cls, order_function: OrderParameter) -> None:
-        """Fail if the engine can't be used with an empty order parameter."""
-        if order_function is None and cls.needs_order:
-            raise ValueError(
-                "No order parameter was defined, but the "
-                "engine *does* require it."
-            )
-
-    def restart_info(self) -> dict[str, str]:
-        """Return info for storing the state of the engine.
-
-        Returns
-            info: The information needed to create the engine again.
-
-        """
-        info = {"description": self.description}
-        return info
-
-    def load_restart_info(self, info: dict[str, str] | None = None) -> None:
-        """Load restart information.
-
-        Args:
-            info: The dictionary with the restart information. The
-                dictionary returned by :py:func:`.restart_info`
-                should contain all information needed here.
-        """
-        if info is not None:
-            self.description = info["description"]
 
     def __str__(self) -> str:
         """Return the string description of the integrator."""

@@ -106,14 +106,6 @@ class OrderParameter:
             msg.append("This order parameter is velocity dependent.")
         return "\n".join(msg)
 
-    @abstractmethod
-    def load_restart_info(self, info: dict[str, str]):
-        """Load the order parameter restart info."""
-
-    @abstractmethod
-    def restart_info(self) -> dict[str, str]:
-        """Save any mutatable info for the restart."""
-
 
 class Distancevel(OrderParameter):
     """A rate of change of the distance order parameter.

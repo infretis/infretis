@@ -6,8 +6,6 @@ import os
 import time
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
-
 from infretis.classes.engines.factory import create_engines
 from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import paste_paths
@@ -976,27 +974,6 @@ def retis_swap_zero(
         )
 
     return accept, [path0, path1], status
-
-
-def metropolis_accept_reject(
-    rgen: Generator, system: System, deltae: float
-) -> bool:
-    """Accept/reject a change in energy according to the metropolis rule.
-
-    Args:
-        rgen: The random number generator.
-        system: The system object we are investigating
-            This is used to access the beta factor.
-        deltae: The change in energy.
-
-    Returns:
-        True if the move is accepted, False otherwise.
-
-    """
-    if deltae < 0.0:  # short-cut to avoid calculating np.exp()
-        return True
-    pacc = np.exp(-system.temperature["beta"] * deltae)
-    return rgen.random() < pacc
 
 
 def high_acc_swap(
