@@ -1,6 +1,7 @@
 """Defines the main REPEX class for path handling and permanent calc."""
 import logging
 import os
+import shutil
 import sys
 import time
 from datetime import datetime
@@ -879,7 +880,15 @@ class REPEX_state:
                         os.getcwd(), self.config["simulation"]["load_dir"]
                     ),
                 }
-                out_traj = self.pstore.output(self.cstep, data)
+                out_traj, path_sources = self.pstore.output(self.cstep, data)
+                # move .xtc to accepted/ as well if keep_xtc = true in toml
+                if self.config["engine"].get("keep_xtc", False):
+                    for trr_src, trr_dest in path_sources.items():
+                        if trr_src.endswith(".trr"):
+                            xtc_src = trr_src.replace(".trr", ".xtc")
+                            xtc_dest = trr_dest.replace(".trr", ".xtc")
+                            shutil.move(xtc_src, xtc_dest)
+
                 self.traj_data[traj_num] = {
                     "frac": np.zeros(self.n, dtype="longdouble"),
                     "max_op": out_traj.ordermax,

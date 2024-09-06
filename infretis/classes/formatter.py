@@ -888,7 +888,7 @@ class PathStorage(OutputBase):
                         os.remove(dest)
                 logger.debug("Copy %s -> %s", src, dest)
                 shutil.move(src, dest)
-        return path_copy
+        return path_copy, source
 
     def output(self, step: int, data: Any) -> InfPath:
         """Format the path data and store the path.
@@ -919,8 +919,8 @@ class PathStorage(OutputBase):
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
         _ = self.output_path_files(step, [path, "ACC"], archive_path)
-        path = self._move_path(path, traj_dir)
-        return path
+        path, path_sources = self._move_path(path, traj_dir)
+        return path, path_sources
 
     def write(self, towrite: str, end: str = "\n") -> bool:
         """We do not need the write method for this object."""
