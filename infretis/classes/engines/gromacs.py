@@ -181,7 +181,7 @@ class GromacsEngine(EngineBase):
                 )
                 raise ValueError(msg)
             if key in ["tc-grps", "tc_grps"]:
-                self.n_tc_grps = len(val.split())
+                self.n_tc_grps = len(val.split(";")[0].split())
 
         self.temperature = temperature
         self.kb = 0.0083144621  # kJ/(K*mol)
