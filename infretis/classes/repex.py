@@ -583,27 +583,6 @@ class REPEX_state:
             total_traj_prob[np.where(total_traj_prob < 0)] = 0
         return out_mat
 
-    def force_quick_prob(self, arr):
-        """Quick P matrix calculation for specific W matrix."""
-        # TODO: DEBUG CODE
-        # ONLY HERE TO DEBUG THE OTHER METHODS
-        total_traj_prob = np.ones(shape=arr.shape[0], dtype="longdouble")
-        out_mat = np.zeros(shape=arr.shape, dtype="longdouble")
-
-        force_arr = arr.copy()
-        # Force everything to be identical
-        force_arr[np.where(force_arr != 0)] = 1
-        for i, column in enumerate(force_arr.T[::-1]):
-            ens = column * total_traj_prob
-            s = ens.sum()
-            if s != 0:
-                ens /= s
-            out_mat[:, -(i + 1)] = ens
-            total_traj_prob -= ens
-            # force negative values to 0
-            total_traj_prob[np.where(total_traj_prob < 0)] = 0
-        return out_mat
-
     def permanent_prob(self, arr):
         """P matrix calculation for specific W matrix."""
         out = np.zeros(shape=arr.shape, dtype="longdouble")

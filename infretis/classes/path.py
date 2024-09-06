@@ -44,7 +44,6 @@ class Path:
         self.weights: tuple[float, ...] | None = None
         self.weight: float = 0.0
         self.phasepoints: list[System] = []
-        self.min_valid = None
         self.time_origin = time_origin
 
     @property
@@ -158,34 +157,6 @@ class Path:
             return True
         logger.debug("Max length exceeded. Could not append to path.")
         return False
-
-    def get_path_data(
-        self, status: str, interfaces: list[float]
-    ) -> dict[str, Any]:
-        """Return basic information about the path.
-
-        The information includes how the path was generated,
-        its status, length, max/min orderparameter and weights.
-
-        Args:
-            status: The current status of the path.
-            interfaces: The interfaces for the simulation.
-
-        Returns:
-            A dict with information about the path.
-        """
-        path_info: dict[str, Any] = {
-            "generated": self.generated,
-            "status": status,
-            "length": self.length,
-            "ordermax": self.ordermax,
-            "ordermin": self.ordermin,
-            "weights": self.weights,
-        }
-
-        start, end, middle, _ = self.check_interfaces(interfaces)
-        path_info["interface"] = (start, middle, end)
-        return path_info
 
     def get_move(self) -> str | None:
         """Return the move used to generate the path."""
@@ -324,10 +295,6 @@ class Path:
     def __ne__(self, other) -> bool:
         """Check if two paths are not equal."""
         return not self == other
-
-    def delete(self, idx: int) -> None:
-        """Remove the specified phase point from the path."""
-        del self.phasepoints[idx]
 
     def update_energies(
         self, ekin: np.ndarray | list[float], vpot: np.ndarray | list[float]
@@ -485,48 +452,6 @@ def load_path(pdir: str) -> Path:
     _load_energies_for_path(path, pdir)
     # TODO: CHECK PATH SOMEWHERE .acc, sta = _check_path(path, path_ensemble)
     return path
-
-
-def _check_path(
-    path: Path, path_ensemble: Any, warning: bool = True
-) -> tuple[bool, str]:
-    """Run some checks for the path.
-
-    Args:
-        path: The path we are to set up/fill.
-        path_ensemble: The path ensemble the path could be added to.
-        warning: If True, it output warnings, else only debug info.
-
-    Returns:
-        A tuple containing:
-            - True if the path can be accepted.
-            - A string representing the current status of the path.
-    """
-    start, end, _, cross = path.check_interfaces(path_ensemble.interfaces)
-    accept = True
-    status = "ACC"
-    msg = "Initial path for %s is accepted."
-    if start is None or start not in path_ensemble.start_condition:
-        msg = "Initial path for %s starts at the wrong interface!"
-        status = "SWI"
-        accept = False
-    if end not in ("R", "L"):
-        msg = "Initial path for %s ends at the wrong interface!"
-        status = "EWI"
-        accept = False
-    if not cross[1]:
-        msg = "Initial path for %s does not cross the middle interface!"
-        status = "NCR"
-        accept = False
-
-    if not accept:
-        if warning:
-            logger.critical(msg, path_ensemble.ensemble_name)
-        else:
-            logger.debug(msg, path_ensemble.ensemble_name)
-
-    path.status = status
-    return accept, status
 
 
 def _load_energies_for_path(path: Path, dirname: str) -> None:

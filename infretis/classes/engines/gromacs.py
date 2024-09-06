@@ -132,7 +132,6 @@ class GromacsEngine(EngineBase):
             raise ValueError(msg)
         # Define the GROMACS GMX command:
         self.gmx = gmx
-        self.ext_time = self.timestep * self.subcycles
         self.maxwarn = maxwarn
         # Define the energy terms, these are hard-coded, but
         # here we open up for changing that:
@@ -347,120 +346,6 @@ class GromacsEngine(EngineBase):
         for key in ("cpt", "edr", "log", "trr"):
             out_files[key] = f"{deffnm}.{key}"
         self._remove_gromacs_backup_files(self.exe_dir)
-        return out_files
-
-    def _execute_grompp_and_mdrun(
-        self, config: str, deffnm: str
-    ) -> dict[str, str]:
-        """Execute GROMACS `grompp` and `mdrun`.
-
-        Note:
-            The input GROMACS files are assumed to be in the `"input"`
-            directory.
-
-        Args:
-            config: The path to the input GROMACS config file.
-            deffnm: A string used to name the GROMACS output files.
-
-        Returns:
-            The file names created by this command.
-        """
-        out_files = {}
-        out_grompp = self._execute_grompp(
-            self.input_files["input"], config, deffnm
-        )
-        tpr_file = out_grompp["tpr"]
-        for key, value in out_grompp.items():
-            out_files[key] = value
-        out_mdrun = self._execute_mdrun(tpr_file, deffnm)
-        for key, value in out_mdrun.items():
-            out_files[key] = value
-        return out_files
-
-    def _execute_mdrun_continue(
-        self, tprfile: str, cptfile: str, deffnm: str
-    ) -> dict[str, str]:
-        """Continue the execution of GROMACS.
-
-        Note:
-            We assume that `gmx mdrun` has already been executed.
-            This method is to append and continue a simulation.
-
-        Args:
-            tprfile: The .tpr file which defines the simulation.
-            cptfile: The last checkpoint file (.cpt) from the previous run.
-            deffnm: A name to give the GROMACS simulation.
-
-        Returns:
-            The output file names created/appended by GROMACS when
-            we continue the simulation.
-        """
-        confout = f"{deffnm}.{self.ext}".format(deffnm, self.ext)
-        self._removefile(confout)
-        cmd = shlex.split(
-            self.mdrun_c.format(tprfile, cptfile, deffnm, confout)
-        )
-        self.execute_command(cmd, cwd=self.exe_dir)
-        out_files = {"conf": confout}
-        for key in ("cpt", "edr", "log", "trr"):
-            out_files[key] = f"{deffnm}.{key}"
-        self._remove_gromacs_backup_files(self.exe_dir)
-        return out_files
-
-    def _extend_gromacs(self, tprfile: str, time: float) -> dict[str, str]:
-        """Extend a GROMACS simulation.
-
-        Args:
-            tprfile: The file to read for extending.
-            time: The time (in ps) to extend the simulation by.
-
-        Returns:
-            The files created by GROMACS when we extend.
-        """
-        tpxout = f"ext_{tprfile}"
-        self._removefile(tpxout)
-        cmd = [
-            self.gmx,
-            "convert-tpr",
-            "-s",
-            tprfile,
-            "-extend",
-            str(time),
-            "-o",
-            tpxout,
-        ]
-        self.execute_command(cmd, cwd=self.exe_dir)
-        out_files = {"tpr": tpxout}
-        return out_files
-
-    def _extend_and_execute_mdrun(
-        self, tpr_file: str, cpt_file: str, deffnm: str
-    ) -> dict[str, str]:
-        """Extend GROMACS and execute mdrun.
-
-        Args:
-            tpr_file: The location of the "current" .tpr file.
-            cpt_file: The last checkpoint file (.cpt) from the previous run.
-            deffnm: To give the GROMACS simulation a name.
-
-        Returns:
-            The files created by GROMACS when we extend.
-        """
-        out_files = {}
-        out_grompp = self._extend_gromacs(tpr_file, self.ext_time)
-        ext_tpr_file = out_grompp["tpr"]
-        for key, value in out_grompp.items():
-            out_files[key] = value
-        out_mdrun = self._execute_mdrun_continue(
-            ext_tpr_file, cpt_file, deffnm
-        )
-        for key, value in out_mdrun.items():
-            out_files[key] = value
-        # Move extended tpr so that we can continue extending:
-        source = os.path.join(self.exe_dir, ext_tpr_file)
-        dest = os.path.join(self.exe_dir, tpr_file)
-        self._movefile(source, dest)
-        out_files["tpr"] = tpr_file
         return out_files
 
     def _remove_gromacs_backup_files(self, dirname: str | Path) -> None:
@@ -716,7 +601,6 @@ class GromacsEngine(EngineBase):
         """Set the worker terminal command to execute."""
         base = md_items["wmdrun"]
         self.mdrun = base + " -s {} -deffnm {} -c {}"
-        self.mdrun_c = base + " -s {} -cpi {} -append -deffnm {} -c {}"
         self.exe_dir = md_items["exe_dir"]
 
     def _read_configuration(
@@ -1372,32 +1256,6 @@ def read_trr_data(
         if header[header_key] != 0:
             data[key] = read_coord(fileh, endian, double, header["natoms"])
     return data
-
-
-def read_trr_file(
-    filename: str, read_data: bool = True
-) -> (
-    Iterator[tuple[dict[str, Any], dict[str, np.ndarray] | None]]
-    | tuple[None, None]
-):
-    """Yield frames from a TRR file."""
-    with open(filename, "rb") as infile:
-        while True:
-            try:
-                header, _ = read_trr_header(infile)
-                if read_data:
-                    data = read_trr_data(infile, header)
-                else:
-                    skip_trr_data(infile, header)
-                    data = None
-                yield header, data
-            except EOFError:
-                return None, None
-            except struct.error:
-                logger.warning(
-                    "Could not read a frame from the TRR file. Aborting!"
-                )
-                return None, None
 
 
 def read_matrix(
