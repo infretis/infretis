@@ -887,7 +887,8 @@ class REPEX_state:
                         if trr_src.endswith(".trr"):
                             xtc_src = trr_src.replace(".trr", ".xtc")
                             xtc_dest = trr_dest.replace(".trr", ".xtc")
-                            shutil.move(xtc_src, xtc_dest)
+                            if os.path.isfile(xtc_src):
+                                shutil.move(xtc_src, xtc_dest)
 
                 self.traj_data[traj_num] = {
                     "frac": np.zeros(self.n, dtype="longdouble"),
