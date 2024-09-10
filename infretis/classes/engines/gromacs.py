@@ -214,6 +214,7 @@ class GromacsEngine(EngineBase):
                 [str(self.temperature) for i in range(self.n_tc_grps)]
             ),
         }
+        self.keep_xtc = keep_xtc
         if keep_xtc:
             settings.pop("nstxout-compressed")
 

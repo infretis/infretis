@@ -1,4 +1,5 @@
 """Setup all that is needed for the infretis simulation."""
+
 import logging
 import os
 
@@ -12,6 +13,14 @@ from infretis.core.tis import run_md
 
 logger = logging.getLogger("main")
 logger.setLevel(logging.DEBUG)
+
+
+class TOMLConfigError(Exception):
+    """Raised when there is an error in the .toml configuration."""
+
+    pass
+    # def __init__(self, message):
+    #    super().__init__(message)
 
 
 def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
@@ -144,7 +153,75 @@ def setup_config(
         if config["output"].get("pattern", False):
             config["output"]["pattern_file"] = os.path.join("pattern.txt")
 
+    # quantis or any other method requiring different engines in each ensemble
+    multi_engine = config["simulation"].get("multi_engine", False)
+    quantis = config["simulation"]["tis_set"].get("quantis", False)
+    # set the keywords once
+    config["simulation"]["tis_set"]["quantis"] = quantis
+    config["simulation"]["multi_engine"] = multi_engine
+
+    check_config(config)
+
     return config
+
+
+def check_config(config: dict) -> None:
+    """Perform some checks on the settings from the .toml file. Raises
+    TOMLConfigError if something is wrong.
+
+    Args
+        config: the configuration dictionary
+    """
+    intf = config["simulation"]["interfaces"]
+    n_ens = len(config["simulation"]["interfaces"])
+    n_workers = config["runner"]["workers"]
+    sh_moves = config["simulation"]["shooting_moves"]
+    n_sh_moves = len(sh_moves)
+    intf_cap = config["simulation"]["tis_set"]["interface_cap"]
+
+    if n_workers > n_ens - 1:
+        raise TOMLConfigError("Too many workers defined!")
+
+    if n_ens > n_sh_moves:
+        raise TOMLConfigError(
+            f"N_interfaces {n_ens} > N_shooting_moves {n_sh_moves}!"
+        )
+
+    if intf_cap > intf[-1]:
+        raise TOMLConfigError(
+            f"Interface_cap {intf_cap} > interface[-1]={intf[-1]}"
+        )
+    if intf_cap < intf[0]:
+        raise TOMLConfigError(
+            f"Interface_cap {intf_cap} < interface[-2]={intf[-2]}"
+        )
+
+    if config["simulation"]["tis_set"]["quantis"]:
+        if not config.get("engine-1"):
+            raise TOMLConfigError(
+                "Quantis needs a [0-] engine definition in [engine-1] section!"
+            )
+        if not config.get("engine0"):
+            raise TOMLConfigError(
+                "Quantis needs an [N+] engine definition in [engine0] section!"
+            )
+        if not config["simulation"]["multi_engine"]:
+            raise TOMLConfigError(
+                "Need 'multi_engine=true' with 'quantis=true'"
+            )
+
+    if config["simulation"]["multi_engine"]:
+        engine_input_paths = []
+        for key in config.keys():
+            if "engine" in key:
+                inp_path = config[key]["input_path"]
+                if inp_path not in engine_input_paths:
+                    engine_input_paths.append(inp_path)
+                else:
+                    raise TOMLConfigError(
+                        "Each [engine] needs a unique 'input_path'! Found dup"
+                        + f"licated occurances '{inp_path}' in engine {key}"
+                    )
 
 
 def write_header(config: dict) -> None:

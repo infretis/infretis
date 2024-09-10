@@ -62,7 +62,6 @@ def return_ensset() -> dict():
             "n_jumps": 4,
         },
         "mc_move": "sh",
-        "eng_name": "turtlemd",
         "ens_name": "007",
         "start_cond": "L",
         "rgen": MockRandomGenerator(),

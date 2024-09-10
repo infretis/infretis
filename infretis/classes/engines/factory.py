@@ -42,15 +42,51 @@ def create_engine(settings: dict[str, Any]) -> EngineBase | None:
 
 
 def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
-    """Create engines."""
-    if config.get("engine", {}).get("obj", False):
-        return config["engine"]["obj"]
-
+    """Create N_workers identical engines."""
+    engines = {}
     check_engine(config)
-    engine = create_engine(config)
-    logtxt = f'Created engine "{engine}" from settings.'
-    logger.info(logtxt)
-    return {config["engine"]["engine"]: engine}
+    for i in range(config["runner"]["workers"]):
+        engine = create_engine(config)
+        logtxt = f'Created engine "{engine}" from settings.'
+        logger.info(logtxt)
+        engines[i] = engine
+    return engines
+
+
+def create_multi_engines(
+    config: dict[str, Any]
+) -> dict[Any, EngineBase | None]:
+    """Create engines for methods requiring different engines.
+
+    For quantis, we create N_workers identical engines, and add to that a
+    single engine for [0-].
+
+    We here also show how to define a single engine for each ensemble.
+    """
+
+    tmp_config = config.copy()
+    if config["simulation"]["tis_set"]["quantis"]:
+        logger.info("Creating Quantis engines.")
+        # [N+] engines
+        tmp_config["engine"] = config["engine0"]
+        engines = create_engines(tmp_config)
+        # [0-] engines
+        tmp_config["engine"] = config["engine-1"]
+        check_engine(tmp_config)
+        engine_minus = create_engine(tmp_config)
+        logger.info(f"Created [0-] engine {engine_minus}.")
+        engines[-1] = engine_minus
+
+    else:
+        engines = {}
+        logger.info("Creating 1 engine in each ensemble.")
+        for i in range(-1, len(config["simulation"]["interfaces"]) - 1):
+            tmp_config["engine"] = config[f"engine{i}"]
+            check_engine(tmp_config)
+            engines[i] = create_engine(tmp_config)
+            logger.info(f"Created {engines[i]} in ensemble {i+1:03d}.")
+
+    return engines
 
 
 def check_engine(settings: dict[str, Any]) -> bool:

@@ -183,7 +183,6 @@ class REPEX_state:
                 "ens": ens_pick,
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
-                "eng_name": ens_pick["eng_name"],
             }
         return picked
 
@@ -229,7 +228,6 @@ class REPEX_state:
                 "ens": ens_pick,
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
-                "eng_name": ens_pick["eng_name"],
             }
         return picked
 
@@ -263,15 +261,9 @@ class REPEX_state:
                 md_items["picked"][ens_num]["wmdrun"] = self.config["runner"][
                     "wmdrun"
                 ][md_items["pin"]]
-            # spawn rgen for {cp2k, turtlemd}
-            if md_items["picked"][ens_num]["eng_name"] in (
-                "cp2k",
-                "turtlemd",
-                "lammps",
-                "gmx",
-            ):
-                ens_rgen = md_items["picked"][ens_num]["ens"]["rgen"]
-                md_items["picked"][ens_num]["rgen-eng"] = ens_rgen.spawn(1)[0]
+            # spawn rgen for all engines
+            ens_rgen = md_items["picked"][ens_num]["ens"]["rgen"]
+            md_items["picked"][ens_num]["rgen-eng"] = ens_rgen.spawn(1)[0]
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:
@@ -882,7 +874,8 @@ class REPEX_state:
                 }
                 out_traj, path_sources = self.pstore.output(self.cstep, data)
                 # move .xtc to accepted/ as well if keep_xtc = true in toml
-                if self.config["engine"].get("keep_xtc", False):
+                engine = picked[ens_num]["ens"]["engine"]
+                if engine.name == "gromacs" and engine.keep_xtc:
                     for trr_src, trr_dest in path_sources.items():
                         if trr_src.endswith(".trr"):
                             xtc_src = trr_src.replace(".trr", ".xtc")
@@ -1037,10 +1030,10 @@ class REPEX_state:
                 "interfaces": tuple(ens_intf),
                 "tis_set": self.config["simulation"]["tis_set"],
                 "mc_move": self.config["simulation"]["shooting_moves"][i],
-                "eng_name": self.config["engine"]["engine"],
                 "ens_name": f"{i:03d}",
                 "start_cond": "R" if i == 0 else "L",
             }
+
         self.ensembles = pensembles
 
 

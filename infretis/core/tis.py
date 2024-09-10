@@ -1,4 +1,5 @@
 """Transition interface sampling methods."""
+
 from __future__ import annotations
 
 import logging
@@ -6,7 +7,10 @@ import os
 import time
 from typing import TYPE_CHECKING, Any
 
-from infretis.classes.engines.factory import create_engines
+from infretis.classes.engines.factory import (
+    create_engines,
+    create_multi_engines,
+)
 from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import paste_paths
 
@@ -24,8 +28,12 @@ def def_globals(config):
         config: Dictionary with engine settings.
     """
     global ENGINES
-    for i in range(config["runner"]["workers"]):
-        ENGINES[i] = create_engines(config)[config["engine"]["engine"]]
+
+    if config["simulation"]["multi_engine"]:
+        ENGINES = create_multi_engines(config)
+    else:
+        ENGINES = create_engines(config)
+
     create_orderparameters(ENGINES, config)
 
 
@@ -82,15 +90,22 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
     # set mdrun, rng, clean_up
     for ens_num in md_items["ens_nums"]:
         pens = md_items["picked"][ens_num]
-        engine = ENGINES[md_items["pin"]]
+        if pens["ens"]["tis_set"]["quantis"] and ens_num == -1:
+            engine = ENGINES[-1]
+        elif md_items["config"]["simulation"]["multi_engine"]:
+            engine = ENGINES[ens_num]
+            print(ens_num, engine.timestep)
+        else:
+            engine = ENGINES[md_items["pin"]]
         engine.set_mdrun(pens)
         if "rgen-eng" in pens:
             engine.rgen = pens["rgen-eng"]
         engine.clean_up()
+        md_items["picked"][ens_num]["ens"]["engine"] = engine
 
     # perform the hw move:
     picked = md_items["picked"]
-    _, trials, status = select_shoot(picked, engine)
+    _, trials, status = select_shoot(picked)
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -111,6 +126,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
             picked[ens_num]["traj"] = trial
 
     md_items.update({"status": status, "wmd_end": time.time()})
+    print("=" * 10)
     return md_items
 
 
@@ -255,7 +271,6 @@ def wirefence_weight_and_pick(
 
 def select_shoot(
     picked: dict[int, Any],
-    engine: EngineBase,
     start_cond: tuple[str, ...] = ("L",),
 ) -> tuple[bool, list[InfPath], str]:
     """Select shooting move and generate a new path.
@@ -282,6 +297,7 @@ def select_shoot(
     if len(picked) == 1:
         pens = next(iter(picked.values()))
         ens_set, path = (pens[i] for i in ["ens", "traj"])
+        engine = ens_set["engine"]
         move = ens_set["mc_move"]
         logger.info(
             f"starting {move} in {ens_set['ens_name']}"
@@ -293,7 +309,7 @@ def select_shoot(
         )
         new_paths = [new_path]
     else:
-        accept, new_paths, status = retis_swap_zero(picked, engine)
+        accept, new_paths, status = retis_swap_zero(picked)
 
     logger.info(f"Move was {accept} with status {status}\n")
     return accept, new_paths, status
@@ -769,7 +785,6 @@ def check_kick(
 
 def retis_swap_zero(
     picked: dict[int, Any],
-    engine: EngineBase,
 ) -> tuple[bool, list[InfPath], str]:
     """Perform the RETIS swapping for `[0^-] <-> [0^+]` swaps.
 
@@ -816,8 +831,8 @@ def retis_swap_zero(
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = engine
-    engine1 = engine
+    engine0 = picked[-1]["ens"]["engine"]
+    engine1 = picked[0]["ens"]["engine"]
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
     maxlen0 = ens_set0["tis_set"]["maxlength"]
