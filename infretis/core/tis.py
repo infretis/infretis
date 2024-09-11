@@ -7,6 +7,8 @@ import os
 import time
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from infretis.classes.engines.factory import (
     create_engines,
     create_multi_engines,
@@ -307,7 +309,10 @@ def select_shoot(
         )
         new_paths = [new_path]
     else:
-        accept, new_paths, status = retis_swap_zero(picked)
+        if picked[-1]["ens"]["tis_set"]["quantis"]:
+            accept, new_paths, status = quantis_swap_zero(picked)
+        else:
+            accept, new_paths, status = retis_swap_zero(picked)
 
     logger.info(f"Move was {accept} with status {status}\n")
     return accept, new_paths, status
@@ -1038,3 +1043,262 @@ def high_acc_swap(
         return True, "ACC"  # Accepted
 
     return False, "HAS"  # Rejected
+
+
+def quantis_swap_zero(
+    picked: dict[int, Any],
+) -> tuple[bool, list[InfPath], str]:
+    """Perform a Quantis swap between the [0-] and [0+] ensembles.
+
+    Args:
+        picked: A dictionary mapping the ensemble indices to their
+            settings, including the move, the paths to be swapped,
+            and the engine(s).
+
+    Returns:
+        A tuple containing:
+            - True if the path can be accepted, False otherwise.
+            - The generated paths.
+            - A string representing the status of the paths.
+
+
+    The quantis swap is similar to a retis zero swap, except that the [0-]
+    and [0+] ensembles are treated at two different levels of theory. To
+    obey detailed balance, we need to check if the energy differences
+    between the configurations to be swapped are in accord with the metropolis
+    acceptance rule. The metropolis acceptance rule is defined by the
+    following energies:
+
+        old_path0.phasepoints[-2].vpot <- V_lo(r_lo)
+        old_path1.phasepoints[0].vpot <- V_hi(r_hi)
+        tmp_path1.phasepoints[0].vpot <- V_hi(r_lo)
+        tmp_path0.phasepoints[0].vpot <- V_lo(r_hi)
+        deltaV <- V(r_lo) - V(r_hi)
+        pacc = exp(-(beta_lo*deltaV_lo - beta_hi*deltaV_hi))
+
+    The quantis swap can be viewed as a generalization of the retis zero
+    swap; when the two levels of theroy are identical, the energy
+    differences become zero, and the acceptance probability is unity.
+
+    We start by integrating one step in each ensemble. This gives us
+    the energy of the configuration at the different level of theory,
+    which is the 0th step, but also lets us check that we crosse lambda0
+    in one step, which is a condition that must be met. We could also
+    start with evaluating the energy acceptance/rejection by running a
+    0-step integration (which is also time consuming) and then run 1 step
+    and check the crossing. However, this would mean restarting twice and
+    may be slower due to wavefunction guesses, so we do it the other way
+    around.
+
+    The method is described in detail in:
+        Lervik, A., & van Erp, T. S. (2015). Gluing potential energy surfaces
+        with rare event simulations [https://doi.org/10.1021/acs.jctc.5b00012]
+
+    Todo:
+        * Implement the option to mix engines in [eninge] and [engine2], as
+        quantis now only works properly with the same engine in all ensembles
+        due to different units and file formats being used. For example, to
+        extract a  configuration from [0+] into [0-] requires some processing.
+        * Add options to relax crossing condition and energy acceptance rule
+        * Option to do 'wf' or nah?
+        * After performing a swap, another swap that happens before any moves
+        in the ensembles [0-] and [0+] are performed, we get back the original
+        paths. Should avoid zero swap if this is the case (see retis_swap_0)
+
+    """
+    ens_set0 = picked[-1]["ens"]
+    ens_set1 = picked[0]["ens"]
+    engine0 = ENGINES[picked[-1]["eng_name"]]
+    engine1 = ENGINES[picked[0]["eng_name"]]
+    old_path0 = picked[-1]["traj"]
+    old_path1 = picked[0]["traj"]
+    maxlen0 = ens_set0["tis_set"]["maxlength"]
+    maxlen1 = ens_set0["tis_set"]["maxlength"]
+    lambda0 = ens_set0["interfaces"][-1]
+
+    logger.info("Quantis swapping [0^-] <-> [0^+]")
+
+    if "wf" in [ens_set0["mc_move"], ens_set1["mc_move"]]:
+        logger.warning("Quantis with 'wf' in [0-] or [0+] is not implemented")
+        logger.warning("Continuing with regular shooting.")
+
+    shooting_point0 = old_path1.phasepoints[0].copy()
+    shooting_point1 = old_path0.phasepoints[-2].copy()
+
+    tmp_path0 = old_path1.empty_path(maxlen=2)
+    tmp_path1 = old_path0.empty_path(maxlen=2)
+    # add some information in case we return early
+    tmp_path0.generated = ("q+", shooting_point0.order[0], 0, 0)
+    tmp_path1.generated = (
+        "q-",
+        shooting_point1.order[0],
+        len(old_path0.phasepoints) - 2,
+        0,
+    )
+
+    # check that we have energies in the two paths
+    if None in [shooting_point0.vpot, shooting_point1.vpot]:
+        message = " Shooting point in [0-] or [0+] did not contain energies!"
+        logger.info(message)
+        status = "QNE"
+        # add shooting points for debugging purposes
+        tmp_path0.append(shooting_point0)
+        tmp_path1.append(shooting_point1)
+        tmp_path0.status = status
+        tmp_path1.status = status
+        logger.info(message)
+        return False, [tmp_path0, tmp_path1], status
+
+    # check that we actually start at the left side of interface0
+    # before beginning the propagation
+    start_cond0 = "L" if shooting_point0.order[0] < lambda0 else "R"
+    start_cond1 = "L" if shooting_point1.order[0] < lambda0 else "R"
+    if start_cond0 != "L" or start_cond1 != "L":
+        logger.warning(f"{start_cond0} {start_cond1} != L L!")
+        logger.warning(
+            "One or both of the shooting points do not start on"
+            " the left side of lambda0."
+        )
+        logger.warning("This should not happen in a stable simulation.")
+        status = "QLL"
+        tmp_path0.append(shooting_point0)
+        tmp_path1.append(shooting_point1)
+        tmp_path0.status = status
+        tmp_path1.status = status
+        return False, [tmp_path0, tmp_path1], status
+
+    # propagate one step in [0-] and check the crossing condition
+    logger.info("Propagating one step in [0-]")
+    logger.info(f"Initial point for [0-] is: {shooting_point0.order}")
+    _, msg = engine0.propagate(tmp_path0, ens_set0, shooting_point0)
+
+    if tmp_path0.get_end_point(lambda0) != "R":
+        logger.info("One-step crossing condition failed for new [0-] path.")
+        logger.info(f"Reason: {msg}")
+        status = "QS0"
+        tmp_path0.status = status
+        tmp_path1.status = status
+        tmp_path1.append(shooting_point1)
+        return False, [tmp_path0, tmp_path1], status
+
+    # propagate one step in [0+] and check the crossing condition
+    logger.info("Propagating one step in [0+]")
+    logger.info(f"Initial point for [0+] is: {shooting_point1.order}")
+    _, msg = engine1.propagate(tmp_path1, ens_set0, shooting_point1)
+
+    if tmp_path1.get_end_point(lambda0) != "R":
+        logger.info("One-step crossing condition failed for new [0+] path.")
+        logger.info("Reason: {msg}")
+        status = "QS1"
+        tmp_path1.status = status
+        tmp_path1.status = status
+        return False, [tmp_path0, tmp_path1], status
+
+    # now we check the energy acceptance rule
+    V0_r0 = old_path0.phasepoints[-2].vpot
+    V0_r1 = tmp_path0.phasepoints[0].vpot
+    V1_r1 = old_path1.phasepoints[0].vpot
+    V1_r0 = tmp_path1.phasepoints[0].vpot
+    logger.info(f"V0r0 {V0_r0:.4e} V0r1 {V0_r1:.4e} dV0 {V0_r0 - V0_r1:.4e}")
+    logger.info(f"V1r0 {V1_r0:.4e} V1r1 {V1_r1:.4e} dV1 {V1_r0 - V1_r1:.4e}")
+    deltaV0 = V0_r0 - V0_r1
+    deltaV1 = V1_r0 - V1_r1
+    pacc = min(1.0, np.exp(deltaV0 * engine0.beta - deltaV1 * engine1.beta))
+    rand = ens_set0["rgen"].random()
+    if rand <= pacc:
+        logger.info(f"Energy acceptance rule checks out! Pacc = {pacc}")
+    else:
+        status = "QEA"
+        tmp_path0.status = status
+        tmp_path1.status = status
+        logger.info(f"Random nr {rand} > pacc {pacc}! Rejecting zero swap.")
+        return False, [tmp_path1, tmp_path1], status
+
+    # The energies check out, now complete the two paths.
+    # We start with backward propagation in [0-]
+
+    shooting_point0 = tmp_path0.phasepoints[0].copy()
+    new_path0 = tmp_path0.empty_path(maxlen=maxlen0 - 1)
+
+    # check that we actually start on the correct side of the interface
+    start_cond0 = "L" if shooting_point0.order[0] < lambda0 else "R"
+    if start_cond1 != "L":
+        logger.warning("The phasepoint from [0-] from L is now on R side!")
+        logger.warning("This should not happen!")
+        status = "QR*"
+        tmp_path0.status = status
+        tmp_path1.status = status
+        new_path0.append(shooting_point0)
+        return False, [new_path0, tmp_path1], status
+
+    logger.info("Propagating backwards in [0-]")
+    _, msg = engine0.propagate(
+        new_path0,
+        ens_set0,
+        shooting_point0,
+        reverse=True,
+    )
+
+    # obtain the final full path in [0-]:
+    # append the one-step path 'tmp_path0' (which is the end point)
+    # to the rest of the 'new_path0', which was propagated in reverse
+    new_path0 = paste_paths(new_path0, tmp_path0, maxlen=maxlen0)
+
+    # finished with path0, now do some checks
+    if new_path0.length >= maxlen0:
+        new_path0.status = "BTX"
+    elif new_path0.length < 3:
+        new_path0.status = "BTS"
+    elif (
+        "L" not in set(ens_set0["start_cond"])
+        and "L" in new_path0.check_interfaces(ens_set0["interfaces"])[:2]
+    ):
+        new_path0.status = "0-L"
+    else:
+        new_path0.status = "ACC"
+
+    if new_path0.status != "ACC":
+        return False, [new_path0, tmp_path1], new_path0.status
+
+    # Finally, propagate the [0+] path
+    shooting_point1 = tmp_path1.phasepoints[-1].copy()
+    new_path1 = tmp_path1.empty_path(maxlen=maxlen1 - 1)
+
+    # but check that we actually start on the correct side of the interface
+    start_cond1 = "L" if shooting_point1.order[0] < lambda0 else "R"
+    if start_cond1 != "R":
+        logger.warning("The phasepoint from [0+] from R is now on L side!")
+        logger.warning("This should not happen!")
+        status = "QLR"
+        new_path0.status = status
+        new_path1.status = status
+        new_path1.append(shooting_point1)
+        return False, [new_path0, new_path1], status
+
+    logger.info("Continuing ropagation in [0+]")
+    _, msg = engine1.propagate(new_path1, ens_set1, shooting_point1)
+
+    # obtain the final full path in [0+]:
+    # append 'new_path1' to the one-step path 'tmp_path1'
+    new_path1 = paste_paths(
+        tmp_path1.reverse(None, rev_v=False), new_path1, maxlen=maxlen1
+    )
+
+    # finished with path1, now do some extra checks
+    if new_path1.length == maxlen1 and new_path1.get_end_point:
+        new_path1.status = "FTX"
+    elif new_path1.length < 3:
+        new_path1.status = "FTS"
+    elif new_path1.get_start_point(lambda0) != "L":
+        new_path1.status = "0+R"
+    else:
+        new_path1.status = "ACC"
+
+    if new_path1.status != "ACC":
+        return False, [new_path0, new_path1], new_path1.status
+
+    # everything checked out
+    new_path0.weight = 1.0
+    new_path1.weight = 1.0
+
+    return True, [new_path0, new_path1], "ACC"
