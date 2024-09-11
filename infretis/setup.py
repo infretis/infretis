@@ -166,8 +166,7 @@ def setup_config(
 
 
 def check_config(config: dict) -> None:
-    """Perform some checks on the settings from the .toml file. Raises
-    TOMLConfigError if something is wrong.
+    """Perform some checks on the settings from the .toml file.
 
     Args
         config: the configuration dictionary

@@ -105,7 +105,7 @@ class MockEngine:
         return traj["out"]
 
 
-def return_engset() -> dict():
+def return_engset() -> dict:
     eng_set = {
         "class": "turtlemd",
         "engine": "turtlemd",
@@ -127,7 +127,7 @@ def return_engset() -> dict():
     return eng_set
 
 
-def return_ensset() -> dict():
+def return_ensset() -> dict:
     ens_set = {
         "interfaces": (-0.99, -0.3, 1.0),
         "tis_set": {
@@ -144,7 +144,7 @@ def return_ensset() -> dict():
     return ens_set
 
 
-def create_ensdic_and_engine() -> (dict(), TurtleMDEngine):
+def create_ensdic_and_engine() -> tuple[dict, TurtleMDEngine]:
     eng_set = return_engset()
     ens_set = return_ensset()
     turtle = create_engine({"engine": eng_set})

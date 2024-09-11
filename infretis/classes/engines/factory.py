@@ -46,10 +46,10 @@ def create_engine(
 
 
 def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
-    """Create the engines for a infretis simulation. The way we create these
-    engines depends on the settings in config.
+    """Create the engines for a infretis simulation.
 
-    For normal infretis, create config['runner']['workers'] identical engines.
+    The way we create these engines depends on the settings in config. For
+    normal infretis, create config['runner']['workers'] identical engines.
     With quantis, we create one additional engine in the [0-] ensemble.
 
     Any other methods requiring multiple engines should set them here. The

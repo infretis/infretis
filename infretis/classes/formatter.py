@@ -861,7 +861,7 @@ class PathStorage(OutputBase):
     @staticmethod
     def _move_path(
         path: InfPath, target_dir: str, prefix: str | None = None
-    ) -> InfPath:
+    ) -> tuple[InfPath, dict[str, str]]:
         """Copy a path to a given target directory.
 
         Args:
@@ -870,7 +870,10 @@ class PathStorage(OutputBase):
             prefix: A prefix for the file names of copied files.
 
         Returns:
-            A copy of the input path.
+            path_copy: A copy of the input path.
+
+            source: A mapping from source trajectory filenames to destination
+                after moving.
         """
         path_copy = path.copy()
         new_pos, source = _generate_file_names(
@@ -890,7 +893,7 @@ class PathStorage(OutputBase):
                 shutil.move(src, dest)
         return path_copy, source
 
-    def output(self, step: int, data: Any) -> InfPath:
+    def output(self, step: int, data: Any) -> tuple[InfPath, dict[str, str]]:
         """Format the path data and store the path.
 
         Args:
@@ -899,7 +902,10 @@ class PathStorage(OutputBase):
                 write to.
 
         Returns:
-            A copy of the path (moved to the new directory).
+            path: A copy of the path (moved to the new directory).
+
+            path_source: A mapping from source trajectory filenames to
+                destination after moving.
         """
         # path_ensemble = data
         # path = path_ensemble.last_path

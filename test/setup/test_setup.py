@@ -19,7 +19,7 @@ def test_write_header(tmp_path: PosixPath) -> None:
     f1 = tmp_path / "temp"
     f1.mkdir()
     os.chdir(f1)
-    config = {"current": {"size": 10}, "output": {"data_dir": "./"}}
+    config: dict = {"current": {"size": 10}, "output": {"data_dir": "./"}}
 
     # write the first infretis_data.txt file
     write_header(config)
