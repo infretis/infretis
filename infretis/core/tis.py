@@ -9,10 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from infretis.classes.engines.factory import (
-    create_engines,
-    create_multi_engines,
-)
+from infretis.classes.engines.factory import create_engines
 from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import paste_paths
 
@@ -24,18 +21,14 @@ ENGINES: dict = {}
 
 
 def def_globals(config):
-    """Define global engine and orderparameter variables for each worker.
+    """Define global engine and orderparameter variables.
 
     Args:
-        config: Dictionary with engine settings.
+        config: Dictionary with .toml settings.
     """
     global ENGINES
 
-    if config["simulation"]["multi_engine"]:
-        ENGINES = create_multi_engines(config)
-    else:
-        ENGINES = create_engines(config)
-
+    ENGINES = create_engines(config)
     create_orderparameters(ENGINES, config)
 
 

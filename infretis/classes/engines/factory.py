@@ -18,12 +18,16 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-def create_engine(settings: dict[str, Any]) -> EngineBase | None:
+def create_engine(
+    settings: dict[str, Any], eng_key: str = "engine"
+) -> EngineBase | None:
     """Create an engine from settings.
 
     Args:
         settings: Settings for the simulation. This method will
             use the `"engine"` section of the settings.
+
+        eng_key: The key to the specific engine.
 
     Returns:
         The engine created here.
@@ -35,77 +39,76 @@ def create_engine(settings: dict[str, Any]) -> EngineBase | None:
         "lammps": {"class": LAMMPSEngine},
     }
 
-    if settings["engine"]["class"].lower() not in engine_map:
-        return create_external(settings["engine"], "engine", ["step"])
-    engine = generic_factory(settings["engine"], engine_map, name="engine")
+    if settings[eng_key]["class"].lower() not in engine_map:
+        return create_external(settings[eng_key], "engine", ["step"])
+    engine = generic_factory(settings[eng_key], engine_map, name="engine")
     return engine
 
 
 def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
-    """Create N_workers identical engines."""
-    engines = {}
-    check_engine(config)
-    for i in range(config["runner"]["workers"]):
-        engine = create_engine(config)
-        logtxt = f'Created engine "{engine}" from settings.'
-        logger.info(logtxt)
-        engines[i] = engine
-    return engines
+    """Create the engines for a infretis simulation. The way we create these
+    engines depends on the settings in config.
 
+    For normal infretis, create config['runner']['workers'] identical engines.
+    With quantis, we create one additional engine in the [0-] ensemble.
 
-def create_multi_engines(
-    config: dict[str, Any]
-) -> dict[Any, EngineBase | None]:
-    """Create engines for methods requiring different engines.
+    Any other methods requiring multiple engines should set them here. The
+    returned engines are stored as a global variable ENGINES, and which to use
+    at what point may depend on the MC move. Therefore, new methods should use
+    keys in the 'engines' dictionary that make sense for the method.
 
-    For quantis, we create N_workers identical engines, and add to that a
-    single engine for [0-].
+    Args:
+        config: The config dict that is setup from the .toml file.
 
-    We here also show how to define a single engine for each ensemble.
+    Returns:
+        engines: A dictionary of engines.
+
     """
-
-    tmp_config = config.copy()
+    engines = {}
+    eng_key = "engine"
     if config["simulation"]["tis_set"]["quantis"]:
-        logger.info("Creating Quantis engines.")
-        # [N+] engines
-        tmp_config["engine"] = config["engine1"]
-        engines = create_engines(tmp_config)
-        # [0-] engines
-        tmp_config["engine"] = config["engine0"]
-        check_engine(tmp_config)
-        engine0 = create_engine(tmp_config)
-        logger.info(f"Created [0-] engine {engine0}.")
+        check_engine(config, eng_key="engine0")
+        engine0 = create_engine(config, eng_key="engine0")
+        logger.info(f"Created engine '{engine0}' from settings.")
         engines[-1] = engine0
+        eng_key = "engine1"
 
+    if not config["simulation"]["multi_engine"]:
+        check_engine(config, eng_key=eng_key)
+        for i in range(config["runner"]["workers"]):
+            engine = create_engine(config, eng_key)
+            logger.info(f"Created engine '{engine}' from settings.")
+            engines[i] = engine
+
+    # as an example, we here create 1 engine in each ensemble
+    # if multi_engine = true
     else:
-        engines = {}
-        logger.info("Creating 1 engine in each ensemble.")
-        for i in range(-1, len(config["simulation"]["interfaces"]) - 1):
-            tmp_config["engine"] = config[f"engine{i+1}"]
-            check_engine(tmp_config)
-            engines[i] = create_engine(tmp_config)
-            logger.info(f"Created {engines[i]} in ensemble {i+1:03d}.")
+        for i in range(len(config["simulation"]["interfaces"])):
+            eng_key = f"engine{i}"
+            check_engine(config, eng_key=eng_key)
+            engines[i - 1] = create_engine(config, eng_key)
+            logger.info(f"Created {engines[i-1]} in ensemble {i:03d}.")
 
     return engines
 
 
-def check_engine(settings: dict[str, Any]) -> bool:
+def check_engine(settings: dict[str, Any], eng_key: str) -> bool:
     """Check the input settings for engine creation.
 
     Args:
         settings: The input settings to use for creating the engine.
+
+        eng_key: The key to the specific engine.
     """
     msg = []
-    if "engine" not in settings:
-        msg += ["The section engine is missing"]
-    if "input_path" not in settings["engine"]:
-        msg += ["The section engine requires an input_path entry"]
+    if eng_key not in settings:
+        msg += [f"The section [{eng_key}] is missing"]
 
-    if "gmx" in settings["engine"] and "gmx_format" not in settings["engine"]:
+    if "gmx" in settings[eng_key] and "gmx_format" not in settings[eng_key]:
         msg += ["File format is not specified for the engine"]
+
     elif (
-        "cp2k" in settings["engine"]
-        and "cp2k_format" not in settings["engine"]
+        "cp2k" in settings[eng_key] and "cp2k_format" not in settings[eng_key]
     ):
         msg += ["File format is not specified for the engine"]
 

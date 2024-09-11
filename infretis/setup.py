@@ -177,7 +177,7 @@ def check_config(config: dict) -> None:
     n_workers = config["runner"]["workers"]
     sh_moves = config["simulation"]["shooting_moves"]
     n_sh_moves = len(sh_moves)
-    intf_cap = config["simulation"]["tis_set"]["interface_cap"]
+    intf_cap = config["simulation"]["tis_set"].get("interface_cap", False)
 
     if n_ens < 2:
         raise TOMLConfigError("Define at least 2 interfaces!")
@@ -196,11 +196,11 @@ def check_config(config: dict) -> None:
             f"N_interfaces {n_ens} > N_shooting_moves {n_sh_moves}!"
         )
 
-    if intf_cap > intf[-1]:
+    if intf_cap and intf_cap > intf[-1]:
         raise TOMLConfigError(
             f"Interface_cap {intf_cap} > interface[-1]={intf[-1]}"
         )
-    if intf_cap < intf[0]:
+    if intf_cap and intf_cap < intf[0]:
         raise TOMLConfigError(
             f"Interface_cap {intf_cap} < interface[-2]={intf[-2]}"
         )
@@ -214,27 +214,26 @@ def check_config(config: dict) -> None:
             raise TOMLConfigError(
                 "Quantis needs an [N+] engine definition in [engine1] section!"
             )
-        if not config["simulation"]["multi_engine"]:
+        if config["simulation"]["multi_engine"]:
             raise TOMLConfigError(
-                "Need 'multi_engine=true' with 'quantis=true'"
+                "Need 'multi_engine=false' with 'quantis=true'"
             )
 
-    if config["simulation"]["multi_engine"]:
-        for key1 in config.keys():
-            if "engine" in key1 and config[key1]["class"] == "gromacs":
-                eng1 = config[key1].copy()
-                inp_path1 = eng1.pop("input_path")
-                for key2 in config.keys():
-                    if "engine" in key2:
-                        eng2 = config[key2].copy()
-                        inp_path2 = eng2.pop("input_path")
-                        if eng1 != eng2 and inp_path1 == inp_path2:
-                            raise TOMLConfigError(
-                                "Found differing engine settings with identic"
-                                + "al 'input_path'. This would overwrite the"
-                                + "settings of one of the engines in"
-                                + " 'infretis.mdp'!"
-                            )
+    for key1 in config.keys():
+        if "engine" in key1 and config[key1]["class"] == "gromacs":
+            eng1 = config[key1].copy()
+            inp_path1 = eng1.pop("input_path")
+            for key2 in config.keys():
+                if "engine" in key2:
+                    eng2 = config[key2].copy()
+                    inp_path2 = eng2.pop("input_path")
+                    if eng1 != eng2 and inp_path1 == inp_path2:
+                        raise TOMLConfigError(
+                            "Found differing engine settings with identic"
+                            + "al 'input_path'. This would overwrite the"
+                            + "settings of one of the engines in"
+                            + " 'infretis.mdp'!"
+                        )
 
 
 def write_header(config: dict) -> None:
