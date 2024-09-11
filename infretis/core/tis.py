@@ -87,7 +87,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
         pens = md_items["picked"][ens_num]
         if pens["ens"]["tis_set"]["quantis"] and ens_num == -1:
             engine = ENGINES[-1]
-        elif md_items["config"]["simulation"]["multi_engine"]:
+        elif md_items["config"]["simulation"]["tis_set"]["multi_engine"]:
             engine = ENGINES[ens_num]
         else:
             engine = ENGINES[md_items["pin"]]
@@ -99,6 +99,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
 
     # perform the hw move:
     picked = md_items["picked"]
+    print(picked)
     _, trials, status = select_shoot(picked)
 
     # Record data

@@ -154,11 +154,11 @@ def setup_config(
             config["output"]["pattern_file"] = os.path.join("pattern.txt")
 
     # quantis or any other method requiring different engines in each ensemble
-    multi_engine = config["simulation"].get("multi_engine", False)
+    multi_engine = config["simulation"]["tis_set"].get("multi_engine", False)
     quantis = config["simulation"]["tis_set"].get("quantis", False)
     # set the keywords once
     config["simulation"]["tis_set"]["quantis"] = quantis
-    config["simulation"]["multi_engine"] = multi_engine
+    config["simulation"]["tis_set"]["multi_engine"] = multi_engine
 
     check_config(config)
 
@@ -214,26 +214,30 @@ def check_config(config: dict) -> None:
             raise TOMLConfigError(
                 "Quantis needs an [N+] engine definition in [engine1] section!"
             )
-        if config["simulation"]["multi_engine"]:
+        if config["simulation"]["tis_set"]["multi_engine"]:
             raise TOMLConfigError(
                 "Need 'multi_engine=false' with 'quantis=true'"
             )
 
-    for key1 in config.keys():
-        if "engine" in key1 and config[key1]["class"] == "gromacs":
-            eng1 = config[key1].copy()
-            inp_path1 = eng1.pop("input_path")
-            for key2 in config.keys():
-                if "engine" in key2:
-                    eng2 = config[key2].copy()
-                    inp_path2 = eng2.pop("input_path")
-                    if eng1 != eng2 and inp_path1 == inp_path2:
-                        raise TOMLConfigError(
-                            "Found differing engine settings with identic"
-                            + "al 'input_path'. This would overwrite the"
-                            + "settings of one of the engines in"
-                            + " 'infretis.mdp'!"
-                        )
+    if (
+        config["simulation"]["tis_set"]["quantis"]
+        or config["simulation"]["tis_set"]["multi_engine"]
+    ):
+        for key1 in config.keys():
+            if "engine" in key1 and config[key1]["class"] == "gromacs":
+                eng1 = config[key1].copy()
+                inp_path1 = eng1.pop("input_path")
+                for key2 in config.keys():
+                    if "engine" in key2:
+                        eng2 = config[key2].copy()
+                        inp_path2 = eng2.pop("input_path")
+                        if eng1 != eng2 and inp_path1 == inp_path2:
+                            raise TOMLConfigError(
+                                "Found differing engine settings with identic"
+                                + "al 'input_path'. This would overwrite the"
+                                + "settings of one of the engines in"
+                                + " 'infretis.mdp'!"
+                            )
 
 
 def write_header(config: dict) -> None:

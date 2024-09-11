@@ -67,12 +67,16 @@ def test_multi_engine_config():
         Path(__file__).parent / "../../examples/gromacs/H2/infretis.toml"
     )
     original_config = setup_config(toml_path)
-    original_config["simulation"]["multi_engine"] = True
-    original_config["engine0"] = original_config["engine"]
-    original_config["engine1"] = original_config["engine"]
+    original_config["simulation"]["tis_set"]["multi_engine"] = True
+    original_config["engine0"] = original_config["engine"].copy()
+    original_config["engine1"] = original_config["engine"].copy()
     original_config["engine2"] = original_config.pop("engine")
     test_cases = [
-        (["engine2", "timestep"], [10.0]),
+        (["engine2", "timestep"], 10.0),
     ]
     for keys, invalid_value in test_cases:
-        copy.deepcopy(original_config)
+        config = copy.deepcopy(original_config)
+        set_nested_value(config, keys, invalid_value)
+        print("Testing:", keys, invalid_value)
+        with pytest.raises(TOMLConfigError):
+            check_config(config)

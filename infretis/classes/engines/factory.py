@@ -73,7 +73,7 @@ def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
         engines[-1] = engine0
         eng_key = "engine1"
 
-    if not config["simulation"]["multi_engine"]:
+    if not config["simulation"]["tis_set"]["multi_engine"]:
         check_engine(config, eng_key=eng_key)
         for i in range(config["runner"]["workers"]):
             engine = create_engine(config, eng_key)
