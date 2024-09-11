@@ -264,6 +264,7 @@ class REPEX_state:
             # spawn rgen for all engines
             ens_rgen = md_items["picked"][ens_num]["ens"]["rgen"]
             md_items["picked"][ens_num]["rgen-eng"] = ens_rgen.spawn(1)[0]
+            md_items["picked"][ens_num]["pin"] = md_items["pin"]
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:

@@ -82,24 +82,9 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
     # initiate engine and order parameter function if None
     if len(ENGINES) == 0:
         def_globals(md_items["config"])
-    # set mdrun, rng, clean_up
-    for ens_num in md_items["ens_nums"]:
-        pens = md_items["picked"][ens_num]
-        if pens["ens"]["tis_set"]["quantis"] and ens_num == -1:
-            engine = ENGINES[-1]
-        elif md_items["config"]["simulation"]["tis_set"]["multi_engine"]:
-            engine = ENGINES[ens_num]
-        else:
-            engine = ENGINES[md_items["pin"]]
-        engine.set_mdrun(pens)
-        if "rgen-eng" in pens:
-            engine.rgen = pens["rgen-eng"]
-        engine.clean_up()
-        md_items["picked"][ens_num]["ens"]["engine"] = engine
 
     # perform the hw move:
     picked = md_items["picked"]
-    print(picked)
     _, trials, status = select_shoot(picked)
 
     # Record data
@@ -267,11 +252,14 @@ def select_shoot(
     picked: dict[int, Any],
     start_cond: tuple[str, ...] = ("L",),
 ) -> tuple[bool, list[InfPath], str]:
-    """Select shooting move and generate a new path.
+    """Select shooting move, select engines, and generate a new path.
+
+    Since the engine used now depends on the move chosen, we set the
+    engines in 'picked' via this function using the global variable ENGINE.
 
     Args:
         picked: A dictionary mapping the ensemble indices to their
-            settings, including the move, current path and engine.
+            settings, including the move and current path.
         start_cond: The starting condition for the path.
             This is determined by the ensemble we are generating
             for - it is right ("R") or left ("L").
@@ -287,6 +275,21 @@ def select_shoot(
         "wf": wire_fencing,
         "sh": shoot,
     }
+
+    # set engine, mdrun, rng, then clean_up
+    for ens_num in picked.keys():
+        pens = picked[ens_num]
+        if pens["ens"]["tis_set"]["quantis"] and ens_num == -1:
+            engine = ENGINES[-1]
+        elif pens["ens"]["tis_set"]["multi_engine"]:
+            engine = ENGINES[ens_num]
+        else:
+            engine = ENGINES[picked["ens"]["pin"]]
+        engine.set_mdrun(pens)
+        if "rgen-eng" in pens:
+            engine.rgen = pens["rgen-eng"]
+        engine.clean_up()
+        pens["ens"]["engine"] = engine
 
     if len(picked) == 1:
         pens = next(iter(picked.values()))
