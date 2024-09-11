@@ -68,20 +68,20 @@ def create_multi_engines(
     if config["simulation"]["tis_set"]["quantis"]:
         logger.info("Creating Quantis engines.")
         # [N+] engines
-        tmp_config["engine"] = config["engine0"]
+        tmp_config["engine"] = config["engine1"]
         engines = create_engines(tmp_config)
         # [0-] engines
-        tmp_config["engine"] = config["engine-1"]
+        tmp_config["engine"] = config["engine0"]
         check_engine(tmp_config)
-        engine_minus = create_engine(tmp_config)
-        logger.info(f"Created [0-] engine {engine_minus}.")
-        engines[-1] = engine_minus
+        engine0 = create_engine(tmp_config)
+        logger.info(f"Created [0-] engine {engine0}.")
+        engines[-1] = engine0
 
     else:
         engines = {}
         logger.info("Creating 1 engine in each ensemble.")
         for i in range(-1, len(config["simulation"]["interfaces"]) - 1):
-            tmp_config["engine"] = config[f"engine{i}"]
+            tmp_config["engine"] = config[f"engine{i+1}"]
             check_engine(tmp_config)
             engines[i] = create_engine(tmp_config)
             logger.info(f"Created {engines[i]} in ensemble {i+1:03d}.")

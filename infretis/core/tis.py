@@ -94,7 +94,6 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
             engine = ENGINES[-1]
         elif md_items["config"]["simulation"]["multi_engine"]:
             engine = ENGINES[ens_num]
-            print(ens_num, engine.timestep)
         else:
             engine = ENGINES[md_items["pin"]]
         engine.set_mdrun(pens)
@@ -126,7 +125,6 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
             picked[ens_num]["traj"] = trial
 
     md_items.update({"status": status, "wmd_end": time.time()})
-    print("=" * 10)
     return md_items
 
 

@@ -69,9 +69,10 @@ def test_multi_engine_config():
     original_config = setup_config(toml_path)
     original_config["simulation"]["multi_engine"] = True
     original_config["engine0"] = original_config["engine"]
-    original_config["engine1"] = original_config.pop("engine")
+    original_config["engine1"] = original_config["engine"]
+    original_config["engine2"] = original_config.pop("engine")
     test_cases = [
-        (["engine0", "timestep"], [10.0]),
+        (["engine2", "timestep"], [10.0]),
     ]
     for keys, invalid_value in test_cases:
         copy.deepcopy(original_config)

@@ -206,13 +206,13 @@ def check_config(config: dict) -> None:
         )
 
     if config["simulation"]["tis_set"]["quantis"]:
-        if not config.get("engine-1"):
-            raise TOMLConfigError(
-                "Quantis needs a [0-] engine definition in [engine-1] section!"
-            )
         if not config.get("engine0"):
             raise TOMLConfigError(
-                "Quantis needs an [N+] engine definition in [engine0] section!"
+                "Quantis needs a [0-] engine definition in [engine0] section!"
+            )
+        if not config.get("engine1"):
+            raise TOMLConfigError(
+                "Quantis needs an [N+] engine definition in [engine1] section!"
             )
         if not config["simulation"]["multi_engine"]:
             raise TOMLConfigError(
