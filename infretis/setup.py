@@ -234,7 +234,7 @@ def check_config(config: dict) -> None:
                             raise TOMLConfigError(
                                 "Found differing engine settings with identic"
                                 + "al 'input_path'. This would overwrite the"
-                                + "settings of one of the engines in"
+                                + " settings of one of the engines in"
                                 + " 'infretis.mdp'!"
                             )
 

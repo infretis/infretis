@@ -1,0 +1,74 @@
+# infretis config
+[runner]
+workers = 1
+wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
+	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 1 -pin on',
+	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 2 -pin on',
+	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 3 -pin on',]
+
+[simulation]
+interfaces = [0.345, 0.3625, 1.200]
+steps = 2
+seed = 0
+load_dir = 'load'
+shooting_moves = ['sh','sh','wf','wf','wf','wf','wf','wf','wf','wf']
+
+[simulation.tis_set]
+maxlength = 2000
+allowmaxlength = false
+zero_momentum = true
+n_jumps = 3
+interface_cap = 0.54
+multi_engine = true # define 1 engine in each ensemble
+
+[orderparameter]
+class = 'Distance'
+index = [ 0, 1]
+periodic = true
+
+[output]
+data_dir = "./"
+screen = 1
+pattern = 1
+delete_old = true # but keep .xtc if keep_xtc = ture in gromacs
+
+# Rest is a long engine list
+
+[engine0]
+class = 'gromacs'
+engine = 'gmx'
+timestep = 0.0002
+gmx_format = 'g96'
+input_path = 'gromacs_input'
+gmx = 'gmx'
+subcycles = 10
+temperature = 300
+infretis_genvel = true
+masses = [1.008, 1.008]
+keep_xtc = true # keep .xtc files
+
+[engine1]
+class = 'gromacs'
+engine = 'gmx'
+timestep = 0.0002
+gmx_format = 'g96'
+input_path = 'gromacs_input'
+gmx = 'gmx'
+subcycles = 10
+temperature = 300
+infretis_genvel = true
+masses = [1.008, 1.008]
+keep_xtc = true
+
+[engine2]
+class = 'gromacs'
+engine = 'gmx'
+timestep = 0.0002
+gmx_format = 'g96'
+input_path = 'gromacs_input'
+gmx = 'gmx'
+subcycles = 10
+temperature = 300
+infretis_genvel = true
+masses = [1.008, 1.008]
+keep_xtc = true

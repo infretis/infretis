@@ -2,16 +2,14 @@
 
 [runner]
 workers = 1
-wmdrun = ['not used',
-	  'not used',]
+wmdrun = ["0","0"]
 
 [simulation]
-interfaces = [0.345, 1.200]
+interfaces = [0.345, 0.3625, 0.3777, 0.3922, 0.4068, 0.4224, 0.4399, 0.4612, 0.4915, 1.200]
 steps = 2
 seed = 1
 load_dir = 'load'
 shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
-multi_engine = true
 
 [simulation.tis_set]
 maxlength = 2000
