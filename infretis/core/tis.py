@@ -284,7 +284,7 @@ def select_shoot(
         elif pens["ens"]["tis_set"]["multi_engine"]:
             engine = ENGINES[ens_num]
         else:
-            engine = ENGINES[picked["ens"]["pin"]]
+            engine = ENGINES[picked[ens_num]["pin"]]
         engine.set_mdrun(pens)
         if "rgen-eng" in pens:
             engine.rgen = pens["rgen-eng"]
