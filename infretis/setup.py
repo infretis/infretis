@@ -179,8 +179,17 @@ def check_config(config: dict) -> None:
     n_sh_moves = len(sh_moves)
     intf_cap = config["simulation"]["tis_set"]["interface_cap"]
 
+    if n_ens < 2:
+        raise TOMLConfigError("Define at least 2 interfaces!")
+
     if n_workers > n_ens - 1:
         raise TOMLConfigError("Too many workers defined!")
+
+    if sorted(intf) != intf:
+        raise TOMLConfigError("Your interfaces are not sorted!")
+
+    if len(set(intf)) != len(intf):
+        raise TOMLConfigError("Your interfaces contain duplicate values!")
 
     if n_ens > n_sh_moves:
         raise TOMLConfigError(
@@ -211,17 +220,21 @@ def check_config(config: dict) -> None:
             )
 
     if config["simulation"]["multi_engine"]:
-        engine_input_paths = []
-        for key in config.keys():
-            if "engine" in key:
-                inp_path = config[key]["input_path"]
-                if inp_path not in engine_input_paths:
-                    engine_input_paths.append(inp_path)
-                else:
-                    raise TOMLConfigError(
-                        "Each [engine] needs a unique 'input_path'! Found dup"
-                        + f"licated occurances '{inp_path}' in engine {key}"
-                    )
+        for key1 in config.keys():
+            if "engine" in key1 and config[key1]["class"] == "gromacs":
+                eng1 = config[key1].copy()
+                inp_path1 = eng1.pop("input_path")
+                for key2 in config.keys():
+                    if "engine" in key2:
+                        eng2 = config[key2].copy()
+                        inp_path2 = eng2.pop("input_path")
+                        if eng1 != eng2 and inp_path1 == inp_path2:
+                            raise TOMLConfigError(
+                                "Found differing engine settings with identic"
+                                + "al 'input_path'. This would overwrite the"
+                                + "settings of one of the engines in"
+                                + " 'infretis.mdp'!"
+                            )
 
 
 def write_header(config: dict) -> None:
