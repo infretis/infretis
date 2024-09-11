@@ -1108,8 +1108,8 @@ def quantis_swap_zero(
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = ENGINES[picked[-1]["eng_name"]]
-    engine1 = ENGINES[picked[0]["eng_name"]]
+    engine0 = picked[-1]["ens"]["engine"]
+    engine1 = picked[0]["ens"]["engine"]
     old_path0 = picked[-1]["traj"]
     old_path1 = picked[0]["traj"]
     maxlen0 = ens_set0["tis_set"]["maxlength"]
