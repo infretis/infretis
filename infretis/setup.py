@@ -156,8 +156,10 @@ def setup_config(
     # quantis or any other method requiring different engines in each ensemble
     multi_engine = config["simulation"]["tis_set"].get("multi_engine", False)
     quantis = config["simulation"]["tis_set"].get("quantis", False)
+    accept_all = config["simulation"]["tis_set"].get("accept_all", False)
     # set the keywords once
     config["simulation"]["tis_set"]["quantis"] = quantis
+    config["simulation"]["tis_set"]["accept_all"] = accept_all
     config["simulation"]["tis_set"]["multi_engine"] = multi_engine
 
     check_config(config)
@@ -217,6 +219,13 @@ def check_config(config: dict) -> None:
             raise TOMLConfigError(
                 "Need 'multi_engine=false' with 'quantis=true'"
             )
+    if (
+        config["simulation"]["tis_set"]["accept_all"]
+        and not config["simulation"]["tis_set"]["quantis"]
+    ):
+        raise TOMLConfigError(
+            "Can't have 'accept_all=true' with 'quantis=false'!"
+        )
 
     if (
         config["simulation"]["tis_set"]["quantis"]

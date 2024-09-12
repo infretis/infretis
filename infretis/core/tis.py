@@ -276,25 +276,36 @@ def select_shoot(
         "sh": shoot,
     }
 
-    # set engine, mdrun, rng, then clean_up
+    # set engine, might also depend on chosen move
+    engines = {}
     for ens_num in picked.keys():
         pens = picked[ens_num]
-        if pens["ens"]["tis_set"]["quantis"] and ens_num == -1:
-            engine = ENGINES[-1]
+        if pens["ens"]["tis_set"]["quantis"] and len(picked) == 2:
+            if ens_num == -1:
+                # The [0-] ensemble has its own engine, so its allways free.
+                engines[-1] = ENGINES[-1]
+            else:
+                # We need the worker pin to choose the workers engine. If not
+                # given, we risk chosing a non-free engine.
+                engines[0] = ENGINES[pens["pin"]]
         elif pens["ens"]["tis_set"]["multi_engine"]:
-            engine = ENGINES[ens_num]
+            # We don't need to worry about picking a non-free engine here,
+            # since each engine has its own ensemble, and ther is 1 worker
+            # in each ensemble.
+            engines[0] = ENGINES[ens_num]
         else:
-            engine = ENGINES[picked[ens_num]["pin"]]
+            engines[0] = ENGINES[pens["pin"]]
+
+    # Set mdrun, rng, then clean_up.
+    for engine in engines.values():
         engine.set_mdrun(pens)
         if "rgen-eng" in pens:
             engine.rgen = pens["rgen-eng"]
         engine.clean_up()
-        pens["ens"]["engine"] = engine
 
     if len(picked) == 1:
         pens = next(iter(picked.values()))
         ens_set, path = (pens[i] for i in ["ens", "traj"])
-        engine = ens_set["engine"]
         move = ens_set["mc_move"]
         logger.info(
             f"starting {move} in {ens_set['ens_name']}"
@@ -302,14 +313,14 @@ def select_shoot(
         )
         start_cond = ens_set["start_cond"]
         accept, new_path, status = sh_moves[move](
-            ens_set, path, engine, start_cond=start_cond
+            ens_set, path, engines[0], start_cond=start_cond
         )
         new_paths = [new_path]
     else:
         if picked[-1]["ens"]["tis_set"]["quantis"]:
-            accept, new_paths, status = quantis_swap_zero(picked)
+            accept, new_paths, status = quantis_swap_zero(picked, engines)
         else:
-            accept, new_paths, status = retis_swap_zero(picked)
+            accept, new_paths, status = retis_swap_zero(picked, engines[0])
 
     logger.info(f"Move was {accept} with status {status}\n")
     return accept, new_paths, status
@@ -785,12 +796,15 @@ def check_kick(
 
 def retis_swap_zero(
     picked: dict[int, Any],
+    engine: EngineBase,
 ) -> tuple[bool, list[InfPath], str]:
     """Perform the RETIS swapping for `[0^-] <-> [0^+]` swaps.
 
     Args:
         picked: A dictionary mapping the ensemble indices to their
-            settings, including the move, current path and engine.
+            settings, including the move and current path.
+
+        engine: The engine used to propagate the system.
 
     Returns:
         A tuple containing:
@@ -831,8 +845,8 @@ def retis_swap_zero(
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = picked[-1]["ens"]["engine"]
-    engine1 = picked[0]["ens"]["engine"]
+    engine0 = engine
+    engine1 = engine
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
     maxlen0 = ens_set0["tis_set"]["maxlength"]
@@ -1044,13 +1058,15 @@ def high_acc_swap(
 
 def quantis_swap_zero(
     picked: dict[int, Any],
+    engines: dict[int, EngineBase],
 ) -> tuple[bool, list[InfPath], str]:
     """Perform a Quantis swap between the [0-] and [0+] ensembles.
 
     Args:
         picked: A dictionary mapping the ensemble indices to their
-            settings, including the move, the paths to be swapped,
-            and the engine(s).
+            settings, including the move and the paths to be swapped.
+
+        engines: A dictionary containing the two engines.
 
     Returns:
         A tuple containing:
@@ -1105,8 +1121,8 @@ def quantis_swap_zero(
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = picked[-1]["ens"]["engine"]
-    engine1 = picked[0]["ens"]["engine"]
+    engine0 = engines[-1]
+    engine1 = engines[0]
     old_path0 = picked[-1]["traj"]
     old_path1 = picked[0]["traj"]
     maxlen0 = ens_set0["tis_set"]["maxlength"]
@@ -1202,7 +1218,9 @@ def quantis_swap_zero(
     deltaV1 = V1_r0 - V1_r1
     pacc = min(1.0, np.exp(deltaV0 * engine0.beta - deltaV1 * engine1.beta))
     rand = ens_set0["rgen"].random()
-    if rand <= pacc:
+    if ens_set0["tis_set"]["accept_all"]:
+        logger.info(f"Accepting all zero swaps! Actual Pacc = {pacc}")
+    elif rand <= pacc:
         logger.info(f"Energy acceptance rule checks out! Pacc = {pacc}")
     else:
         status = "QEA"
