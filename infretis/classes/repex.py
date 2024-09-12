@@ -1,7 +1,6 @@
 """Defines the main REPEX class for path handling and permanent calc."""
 import logging
 import os
-import shutil
 import sys
 import time
 from datetime import datetime
@@ -39,6 +38,8 @@ class REPEX_state:
     def __init__(self, config, minus=False):
         """Initiate REPEX given confic dict from *toml file."""
         self.config = config
+        # storage of additional trajectory files
+        self.pstore.keep_files = config["output"].get("keep_worker_fnames", [])
         # set rng
         if "restarted_from" in config["current"]:
             self.set_rgen()
@@ -873,17 +874,7 @@ class REPEX_state:
                         os.getcwd(), self.config["simulation"]["load_dir"]
                     ),
                 }
-                out_traj, path_sources = self.pstore.output(self.cstep, data)
-                # move .xtc to accepted/ as well if keep_xtc = true in toml
-                engine = picked[ens_num]["ens"]["engine"]
-                if engine.name == "gromacs" and engine.keep_xtc:
-                    for trr_src, trr_dest in path_sources.items():
-                        if trr_src.endswith(".trr"):
-                            xtc_src = trr_src.replace(".trr", ".xtc")
-                            xtc_dest = trr_dest.replace(".trr", ".xtc")
-                            if os.path.isfile(xtc_src):
-                                shutil.move(xtc_src, xtc_dest)
-
+                out_traj = self.pstore.output(self.cstep, data)
                 self.traj_data[traj_num] = {
                     "frac": np.zeros(self.n, dtype="longdouble"),
                     "max_op": out_traj.ordermax,

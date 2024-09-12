@@ -100,7 +100,6 @@ class GromacsEngine(EngineBase):
         write_force: bool = False,
         infretis_genvel: bool = False,
         masses: bool | list | str = False,
-        keep_xtc: bool = False,
     ):
         """Set up the GROMACS engine.
 
@@ -122,7 +121,6 @@ class GromacsEngine(EngineBase):
                 distribution. Mostly used for testing purposes.
             masses: A list of particle masses or a txt file with particle
                 masses
-            keeps_xtc: Wether or not .xtc files are stored.
         """
         super().__init__("GROMACS engine zamn", timestep, subcycles)
         self.ext = gmx_format
@@ -208,15 +206,11 @@ class GromacsEngine(EngineBase):
 
         settings: dict[str, str | float | int] = {
             "dt": self.timestep,
-            "nstxout-compressed": 0,
             "gen_vel": "no",
             "ref-t": " ".join(
                 [str(self.temperature) for i in range(self.n_tc_grps)]
             ),
         }
-        self.keep_xtc = keep_xtc
-        if keep_xtc:
-            settings.pop("nstxout-compressed")
 
         for key in (
             "nsteps",
