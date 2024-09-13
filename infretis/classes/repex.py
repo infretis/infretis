@@ -39,7 +39,7 @@ class REPEX_state:
         """Initiate REPEX given confic dict from *toml file."""
         self.config = config
         # storage of additional trajectory files
-        self.pstore.keep_traj_fnames = config["output"].get(
+        self.pstore.keep_traj_fnames = config.get("output", {}).get(
             "keep_traj_fnames", []
         )
         # set rng

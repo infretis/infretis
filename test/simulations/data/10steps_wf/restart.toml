@@ -42,6 +42,7 @@ allowmaxlength = false
 zero_momentum = false
 n_jumps = 6
 quantis = false
+accept_all = false
 multi_engine = false
 
 [engine]

@@ -280,14 +280,14 @@ def select_shoot(
     engines = {}
     for ens_num in picked.keys():
         pens = picked[ens_num]
-        if pens["ens"]["tis_set"]["quantis"] and len(picked) == 2:
-            if ens_num == -1:
+        if len(picked) == 2:
+            if pens["ens"]["tis_set"]["quantis"] and ens_num == -1:
                 # The [0-] ensemble has its own engine, so its allways free.
                 engines[-1] = ENGINES[-1]
             else:
                 # We need the worker pin to choose the workers engine. If not
                 # given, we risk chosing a non-free engine.
-                engines[0] = ENGINES[pens["pin"]]
+                engines[ens_num] = ENGINES[pens["pin"]]
         elif pens["ens"]["tis_set"]["multi_engine"]:
             # We don't need to worry about picking a non-free engine here,
             # since each engine has its own ensemble, and ther is 1 worker
@@ -320,7 +320,7 @@ def select_shoot(
         if picked[-1]["ens"]["tis_set"]["quantis"]:
             accept, new_paths, status = quantis_swap_zero(picked, engines)
         else:
-            accept, new_paths, status = retis_swap_zero(picked, engines[0])
+            accept, new_paths, status = retis_swap_zero(picked, engines)
 
     logger.info(f"Move was {accept} with status {status}\n")
     return accept, new_paths, status
@@ -796,7 +796,7 @@ def check_kick(
 
 def retis_swap_zero(
     picked: dict[int, Any],
-    engine: EngineBase,
+    engines: dict[int, EngineBase],
 ) -> tuple[bool, list[InfPath], str]:
     """Perform the RETIS swapping for `[0^-] <-> [0^+]` swaps.
 
@@ -845,8 +845,8 @@ def retis_swap_zero(
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = engine
-    engine1 = engine
+    engine0 = engines[-1]
+    engine1 = engines[0]
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
     maxlen0 = ens_set0["tis_set"]["maxlength"]

@@ -314,12 +314,13 @@ def test_quantis_swap_zero_messages() -> None:
 
     for true_status in ["QS0", "QS1", "QEA", "BTS", "FTS", "BTX", "ACC"]:
         engine = MockEngine(status=true_status)
+        engines = {-1: engine, 0: engine}
 
         picked = {
             -1: {
                 "ens": {
                     "interfaces": (-np.inf, 2.0, 2.0),
-                    "tis_set": {"maxlength": 100},
+                    "tis_set": {"maxlength": 100, "accept_all": False},
                     "rgen": np.random.default_rng(seed=123),
                     "mc_move": "sh",
                     "start_cond": "L",
@@ -339,7 +340,9 @@ def test_quantis_swap_zero_messages() -> None:
                 "traj": path1,
             },
         }
-        success, [new_path0, new_path1], status = quantis_swap_zero(picked)
+        success, [new_path0, new_path1], status = quantis_swap_zero(
+            picked, engines
+        )
 
         assert status == true_status
 
@@ -368,6 +371,8 @@ def test_zero_swaps(
     ens_set1["interfaces"] = (-0.99, -0.3, 1.0)
     ens_set0["tis_set"]["allowmaxlength"] = True
     ens_set1["tis_set"]["allowmaxlength"] = True
+    ens_set0["tis_set"]["accept_all"] = False
+    ens_set1["tis_set"]["accept_all"] = False
     ens_set0["name"] = "000"
     ens_set1["name"] = "001"
     ens_set0["start_cond"] = "R"
@@ -377,9 +382,8 @@ def test_zero_swaps(
     turtle.rgen = np.random.default_rng(seed=123)
     turtle.integrator_settings = {"beta": 1e12, "gamma": 1e-5}
     turtle.exe_dir = str(tmp_dir)
+    engines = {-1: turtle, 0: turtle}
 
-    ens_set0["engine"] = turtle
-    ens_set1["engine"] = turtle
     picked = {
         -1: {"ens": ens_set0, "traj": INP_PATH0},
         0: {"ens": ens_set1, "traj": INP_PATH1},
@@ -408,7 +412,9 @@ def test_zero_swaps(
         turtle.exe_dir = str(pathdir.resolve())
         picked[-1]["traj"] = old_path0
         picked[0]["traj"] = old_path1
-        success, [new_path0, new_path1], status = zero_swap_move(picked)
+        success, [new_path0, new_path1], status = zero_swap_move(
+            picked, engines
+        )
         swapped_paths0.append(new_path0)
         swapped_paths1.append(new_path1)
         old_path0 = new_path0
