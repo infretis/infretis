@@ -49,6 +49,7 @@ class EngineBase(metaclass=ABCMeta):
 
     @property
     def beta(self):
+        """The thermodynamic temperature in units of the engine."""
         return self._beta
 
     @property
