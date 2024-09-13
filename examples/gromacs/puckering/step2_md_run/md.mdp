@@ -17,12 +17,12 @@ vdwtype			= cut-off	; Straight cut off for vdw interactions
 
 ; Temperature coupling
 tcoupl			= V-rescale	; Canonical sampling thorugh stochastic velocity rescaling
-tc-grps 		= System 	; two coupling groups - more accurate
+tc-grps 		= System
 tau_t 			= 0.1 		; time constant, in ps
 ref_t 			= 300 		; reference temperature
 
 ; Pressure coupling
-pcoupl 			= Parrinello-Rahman             ; pressure coupling is on for NPT
+pcoupl 			= C-rescale			; pressure coupling is on for NPT
 pcoupltype 		= isotropic                     ; uniform scaling of box vectors
 tau_p 			= 2.0                           ; time constant, in ps
 ref_p 			= 1.0                           ; reference pressure, in bar
