@@ -87,12 +87,13 @@ periodic = [
 ]
 
 [orderparameter]
-class = "Position"
+class = "PositionX"
 index = [
     0,
     0,
 ]
 periodic = false
+module = "orderp.py"
 
 [output]
 backup = "backup"
