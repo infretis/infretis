@@ -30,10 +30,12 @@ periodic = true
 data_dir = "./"
 screen = 1
 pattern = 1
-delete_old = true # but keep .xtc if keep_xtc = ture in gromacs
+# keep files such as '001_1234_trajF.xtc' and .edr. For .xtc,
+# we also need to set 'nstxout-compressed' in the .mdp.
+keep_traj_fnames = [".xtc", ".edr"]
+delete_old = true # but keeps 'keep_traj_fnames' that match
 
 # Rest is a long engine list
-
 [engine0]
 class = 'gromacs'
 engine = 'gmx'
@@ -45,7 +47,6 @@ subcycles = 10
 temperature = 300
 infretis_genvel = true
 masses = [1.008, 1.008]
-keep_xtc = true # keep .xtc files
 
 [engine1]
 class = 'gromacs'
@@ -58,7 +59,6 @@ subcycles = 10
 temperature = 300
 infretis_genvel = true
 masses = [1.008, 1.008]
-keep_xtc = true
 
 [engine2]
 class = 'gromacs'
@@ -71,4 +71,3 @@ subcycles = 10
 temperature = 300
 infretis_genvel = true
 masses = [1.008, 1.008]
-keep_xtc = true

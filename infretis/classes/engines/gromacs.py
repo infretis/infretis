@@ -544,7 +544,7 @@ class GromacsEngine(EngineBase):
         remove = [
             val
             for key, val in out_files.items()
-            if key not in ("trr", "gro", "g96")
+            if key not in ("trr", "gro", "g96", "edr")
         ]
         self._remove_files(self.exe_dir, remove)
         self._remove_gromacs_backup_files(self.exe_dir)

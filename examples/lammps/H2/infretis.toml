@@ -40,4 +40,5 @@ periodic = true
 data_dir = "./" # where to store infretis_data.txt
 screen = 1 # how often to print to sim.log
 pattern = false # how often we print info of which worker is in which ensemble at any time to pattern.txt
-delete_old = true # delete old accepted trajectories (e.g. .trr or .xyz files)
+delete_old = true # delete old accepted trajectories (all .lammpstrj files)
+keep_traj_fnames = [".xtc"] # traj_fname.xtc files (other than .lammpstrj) are kept if written
