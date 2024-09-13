@@ -48,6 +48,10 @@ class EngineBase(metaclass=ABCMeta):
         self.order_function: OrderParameter | None = None
 
     @property
+    def beta(self):
+        return self._beta
+
+    @property
     def exe_dir(self) -> str:
         """Return the directory we are currently using."""
         return self._exe_dir

@@ -98,7 +98,7 @@ class TurtleMDEngine(EngineBase):
         )
 
         self.boltzmann = boltzmann
-        self.beta = 1 / (self.boltzmann * self.temperature)
+        self._beta = 1 / (self.boltzmann * self.temperature)
 
         self.subcycles = subcycles
 

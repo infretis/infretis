@@ -715,7 +715,7 @@ class CP2KEngine(EngineBase):
 
         self.temperature = temperature
         self.kb = 3.16681534e-6  # hartree
-        self.beta = 1 / (self.temperature * self.kb)
+        self._beta = 1 / (self.temperature * self.kb)
 
         # todo, these info can be processed by look_for_input_files using
         # the extra_files option.

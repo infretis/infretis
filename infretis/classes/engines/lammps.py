@@ -346,7 +346,7 @@ class LAMMPSEngine(EngineBase):
         self.n_atoms = self.mass.shape[0]
         self.temperature = temperature
         self.kb = 1.987204259e-3  # kcal/(mol*K)
-        self.beta = 1 / (self.kb * self.temperature)
+        self._beta = 1 / (self.kb * self.temperature)
 
     def _propagate_from(
         self,

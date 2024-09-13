@@ -185,7 +185,7 @@ class GromacsEngine(EngineBase):
 
         self.temperature = temperature
         self.kb = 0.0083144621  # kJ/(K*mol)
-        self.beta = 1 / (self.temperature * self.kb)
+        self._beta = 1 / (self.temperature * self.kb)
 
         # get masses if generating velocites internally
         self.infretis_genvel = infretis_genvel
