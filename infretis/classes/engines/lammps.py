@@ -207,15 +207,22 @@ def write_for_run(
         )
 
 
-def get_atom_masses(lammps_data: str | Path) -> np.ndarray:
+def get_atom_masses(lammps_data: str | Path, atom_style) -> np.ndarray:
     """Read atom masses from a LAMMPS data file.
+
+    TODO: atom style dependent!!
 
     Args:
         lammps_data: Path to the LAMMPS data file to read.
 
+        atom_style: The style used in lammps. Supports 'full' and 'charge'.
+
     Returns:
         An array with the masses read from the file.
     """
+    col = {"full": 2, "charge": 1}
+    if atom_style not in col:
+        raise NotImplementedError(f"Style {atom_style}' not supported yet.")
     n_atoms = 0
     n_atom_types = 0
     atom_type_masses = np.zeros(0)
@@ -247,7 +254,7 @@ def get_atom_masses(lammps_data: str | Path) -> np.ndarray:
         )
     masses = np.zeros((n_atoms, 1))
     for atom_type in range(1, n_atom_types + 1):
-        idx = np.where(atoms[:, 2] == atom_type)[0]
+        idx = np.where(atoms[:, col[atom_style]] == atom_type)[0]
         masses[idx] = atom_type_masses[atom_type - 1, 1]
     return masses
 
@@ -311,6 +318,7 @@ class LAMMPSEngine(EngineBase):
         timestep: float,
         subcycles: int,
         temperature: float,
+        atom_style: str = "full",
         exe_path: Path = Path(".").resolve(),
         sleep: float = 0.1,
     ):
@@ -325,6 +333,8 @@ class LAMMPSEngine(EngineBase):
                 InfRetis step.
             temperature: The temperature of the simulation. Check that
                 this is specified correctly.
+            atom_style: The lammps atom_style, supported values are 'full' and
+                'real'.
             exe_path: The path to the directory where `input_path` is,
                 in case `input_path` is a relative path.
             sleep: A time in seconds used for waiting between attempts to read
@@ -342,7 +352,8 @@ class LAMMPSEngine(EngineBase):
             "data": self.input_path / "lammps.data",
             "input": self.input_path / "lammps.input",
         }
-        self.mass = get_atom_masses(self.input_files["data"])
+        self.atom_style = atom_style
+        self.mass = get_atom_masses(self.input_files["data"], self.atom_style)
         self.n_atoms = self.mass.shape[0]
         self.temperature = temperature
         self.kb = 1.987204259e-3  # kcal/(mol*K)

@@ -30,6 +30,7 @@ lmp = 'lmp_mpi'
 timestep = 0.2
 subcycles = 10
 temperature = 300
+atom_style = "full"
 
 [orderparameter]
 class = 'Distance'
