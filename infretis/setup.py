@@ -9,7 +9,7 @@ from infretis.asyncrunner import aiorunner, future_list
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
-from infretis.core.tis import run_md
+from infretis.core.tis import def_globals, run_md
 
 logger = logging.getLogger("main")
 logger.setLevel(logging.DEBUG)
@@ -53,6 +53,9 @@ def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
         "cap": state.cap,
         "config": config,
     }
+
+    # setup global engines and create orderparameters
+    def_globals(config)
 
     # write pattern header
     if state.pattern:

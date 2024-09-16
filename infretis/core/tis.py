@@ -79,10 +79,6 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
     # record start time
     md_items["wmd_start"] = time.time()
 
-    # initiate engine and order parameter function if None
-    if len(ENGINES) == 0:
-        def_globals(md_items["config"])
-
     # perform the hw move:
     picked = md_items["picked"]
     _, trials, status = select_shoot(picked)
