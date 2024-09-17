@@ -150,7 +150,9 @@ def create_ensdic_and_engine() -> tuple[dict, TurtleMDEngine]:
     turtle = create_engine({"engine": eng_set})
     turtle.rgen = ens_set["rgen"]
     ordp_set = {"class": "Position", "index": [0, 0], "periodic": False}
-    create_orderparameters({"engine": turtle}, {"orderparameter": ordp_set})
+    create_orderparameters(
+        {"engine": [[-1], [turtle]]}, {"orderparameter": ordp_set}
+    )
     return ens_set, turtle
 
 
@@ -314,7 +316,7 @@ def test_quantis_swap_zero_messages() -> None:
 
     for true_status in ["QS0", "QS1", "QEA", "BTS", "FTS", "BTX", "ACC"]:
         engine = MockEngine(status=true_status)
-        engines = {-1: engine, 0: engine}
+        engines = {-1: [engine], 0: [engine]}
 
         picked = {
             -1: {
@@ -324,7 +326,6 @@ def test_quantis_swap_zero_messages() -> None:
                     "rgen": np.random.default_rng(seed=123),
                     "mc_move": "sh",
                     "start_cond": "L",
-                    "engine": engine,
                 },
                 "traj": path0,
             },
@@ -335,7 +336,6 @@ def test_quantis_swap_zero_messages() -> None:
                     "rgen": np.random.default_rng(seed=123),
                     "mc_move": "sh",
                     "start_cond": "R",
-                    "engine": engine,
                 },
                 "traj": path1,
             },
@@ -382,7 +382,7 @@ def test_zero_swaps(
     turtle.rgen = np.random.default_rng(seed=123)
     turtle.integrator_settings = {"beta": 1e12, "gamma": 1e-5}
     turtle.exe_dir = str(tmp_dir)
-    engines = {-1: turtle, 0: turtle}
+    engines = {-1: [turtle], 0: [turtle]}
 
     picked = {
         -1: {"ens": ens_set0, "traj": INP_PATH0},

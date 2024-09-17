@@ -35,6 +35,32 @@ shooting_moves = [
     "wf",
     "wf",
 ]
+ensemble_engines = [
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+]
 
 [simulation.tis_set]
 maxlength = 2000
@@ -43,7 +69,6 @@ zero_momentum = false
 n_jumps = 6
 quantis = false
 accept_all = false
-multi_engine = false
 
 [engine]
 class = "turtlemd"
