@@ -20,7 +20,6 @@ allowmaxlength = false
 zero_momentum = true
 n_jumps = 3
 interface_cap = 0.54
-multi_engine = true # define 1 engine in each ensemble
 
 [orderparameter]
 class = 'Distance'
