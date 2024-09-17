@@ -8,10 +8,11 @@ wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 
 [simulation]
 interfaces = [0.345, 0.3625, 1.200]
-steps = 2
+steps = 10
 seed = 0
 load_dir = 'load'
 shooting_moves = ['sh','sh','wf','wf','wf','wf','wf','wf','wf','wf']
+ensemble_engines = [["engine0"],["engine1"],["engine1", "engine2"]] # wf/sh picks only first of these
 
 [simulation.tis_set]
 maxlength = 2000

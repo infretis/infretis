@@ -1,4 +1,5 @@
 """Engine factory."""
+
 from __future__ import annotations
 
 import logging
@@ -26,7 +27,6 @@ def create_engine(
     Args:
         settings: Settings for the simulation. This method will
             use the `"engine"` section of the settings.
-
         eng_key: The key to the specific engine.
 
     Returns:
@@ -48,46 +48,38 @@ def create_engine(
 def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
     """Create the engines for a infretis simulation.
 
-    The way we create these engines depends on the settings in config. For
-    normal infretis, create config['runner']['workers'] identical engines.
-    With quantis, we create one additional engine in the [0-] ensemble.
+    We create min(n_engines_type_i, n_workers) engines in a dict
+    'engines'. Each entry of engines['enginei']
+    has elements:
+        [
+         [workeri_pin, workerj_pin,       -1],
+         [   enginei0,    enginei1, enginei2]
+        ]
 
-    Any other methods requiring multiple engines should set them here. The
-    returned engines are stored as a global variable ENGINES, and which to use
-    at what point may depend on the MC move. Therefore, new methods should use
-    keys in the 'engines' dictionary that make sense for the method.
+    Where enginei0 is used by workeri, enginei1 by workerj, and
+    enginei2 is free (-1 tells us the engine is not used).
 
     Args:
         config: The config dict that is setup from the .toml file.
 
     Returns:
-        engines: A dictionary of engines.
+        engines: A dictionary with a nested list of worker pins, and engines.
 
     """
-    engines = {}
-    eng_key = "engine"
-    if config["simulation"]["tis_set"]["quantis"]:
-        check_engine(config, eng_key="engine0")
-        engine0 = create_engine(config, eng_key="engine0")
-        logger.info(f"Created engine '{engine0}' from settings.")
-        engines[-1] = engine0
-        eng_key = "engine1"
+    engine_count: dict = {}
+    engines: dict = {}
+    # get all unique engines with number of occurences
+    for engine in config["simulation"]["ensemble_engines"]:
+        for engine_i in engine:
+            engine_count[engine_i] = engine_count.get(engine_i, 0) + 1
 
-    if not config["simulation"]["tis_set"]["multi_engine"]:
-        check_engine(config, eng_key=eng_key)
-        for i in range(config["runner"]["workers"]):
-            engine = create_engine(config, eng_key)
-            logger.info(f"Created engine '{engine}' from settings.")
-            engines[i] = engine
-
-    # as an example, we here create 1 engine in each ensemble
-    # if multi_engine = true
-    else:
-        for i in range(len(config["simulation"]["interfaces"])):
-            eng_key = f"engine{i}"
-            check_engine(config, eng_key=eng_key)
-            engines[i - 1] = create_engine(config, eng_key)
-            logger.info(f"Created {engines[i-1]} in ensemble {i:03d}.")
+    for engine, n_engine in engine_count.items():
+        engines[engine] = [[], []]
+        n_create = min(n_engine, config["runner"]["workers"])
+        for i in range(n_create):
+            check_engine(config, eng_key=engine)
+            engines[engine][0].append(-1)
+            engines[engine][1].append(create_engine(config, eng_key=engine))
 
     return engines
 
@@ -97,7 +89,6 @@ def check_engine(settings: dict[str, Any], eng_key: str) -> bool:
 
     Args:
         settings: The input settings to use for creating the engine.
-
         eng_key: The key to the specific engine.
     """
     msg = []
@@ -118,3 +109,41 @@ def check_engine(settings: dict[str, Any], eng_key: str) -> bool:
         return False
 
     return True
+
+
+def get_engines(engines: dict[str, list], eng_names, pin) -> list:
+    """Get non-occupied engine(s) from the engine dict.
+
+    Args:
+        engines: The dict containing engine_occupations and engine instances.
+        eng_names: The engine names to get.
+        pin: The worker pin.
+
+    Returns:
+        out: A list of engine instances of type eng_names.
+    """
+    # first free all engines that where occupied by worker i
+    for eng_key in engines.keys():
+        for i, occupied_by in enumerate(engines[eng_key][0]):
+            if pin == occupied_by:
+                engines[eng_key][0][i] = -1
+
+    # then get non-occupied engines of type 'eng_names'
+    out = []
+    for eng_key in eng_names:
+        for i, (occupied_by, engine) in enumerate(zip(*engines[eng_key])):
+            if occupied_by == -1:
+                engines[eng_key][0][i] = pin
+                out.append(engine)
+                # exit inner loop when we find a non-occupied engine
+                break
+
+            if i == len(engines[eng_key][0]):
+                # we should never reach this:
+                msg = (
+                    f"All engines '{eng_key}' are occupied."
+                    + "This should not happen!"
+                )
+                raise ValueError(msg)
+
+    return out

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from infretis.classes.engines.factory import create_engines
+from infretis.classes.engines.factory import create_engines, get_engines
 from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import paste_paths
 
@@ -274,30 +274,25 @@ def select_shoot(
 
     # set engine, might also depend on chosen move
     engines = {}
+    msg = "Selected engines "
     for ens_num in picked.keys():
         pens = picked[ens_num]
         if len(picked) == 2:
-            if pens["ens"]["tis_set"]["quantis"] and ens_num == -1:
-                # The [0-] ensemble has its own engine, so its allways free.
-                engines[-1] = ENGINES[-1]
-            else:
-                # We need the worker pin to choose the workers engine. If not
-                # given, we risk chosing a non-free engine.
-                engines[ens_num] = ENGINES[pens["pin"]]
-        elif pens["ens"]["tis_set"]["multi_engine"]:
-            # We don't need to worry about picking a non-free engine here,
-            # since each engine has its own ensemble, and ther is 1 worker
-            # in each ensemble.
-            engines[0] = ENGINES[ens_num]
+            engines[ens_num] = get_engines(
+                ENGINES, pens["eng_names"], pens["pin"]
+            )
         else:
-            engines[0] = ENGINES[pens["pin"]]
+            engines[0] = get_engines(ENGINES, pens["eng_names"], pens["pin"])
+        msg += f"{pens['eng_names']} "
+    logger.info(msg + "for MC move.")
 
     # Set mdrun, rng, then clean_up.
-    for engine in engines.values():
-        engine.set_mdrun(pens)
-        if "rgen-eng" in pens:
-            engine.rgen = pens["rgen-eng"]
-        engine.clean_up()
+    for key in engines.keys():
+        for engine in engines[key]:
+            engine.set_mdrun(pens)
+            if "rgen-eng" in pens:
+                engine.rgen = pens["rgen-eng"]
+            engine.clean_up()
 
     if len(picked) == 1:
         pens = next(iter(picked.values()))
@@ -309,7 +304,7 @@ def select_shoot(
         )
         start_cond = ens_set["start_cond"]
         accept, new_path, status = sh_moves[move](
-            ens_set, path, engines[0], start_cond=start_cond
+            ens_set, path, engines[0][0], start_cond=start_cond
         )
         new_paths = [new_path]
     else:
@@ -792,7 +787,7 @@ def check_kick(
 
 def retis_swap_zero(
     picked: dict[int, Any],
-    engines: dict[int, EngineBase],
+    engines: dict[int, list[EngineBase]],
 ) -> tuple[bool, list[InfPath], str]:
     """Perform the RETIS swapping for `[0^-] <-> [0^+]` swaps.
 
@@ -800,7 +795,7 @@ def retis_swap_zero(
         picked: A dictionary mapping the ensemble indices to their
             settings, including the move and current path.
 
-        engine: The engine used to propagate the system.
+        engines: The engines used to propagate the system.
 
     Returns:
         A tuple containing:
@@ -841,8 +836,8 @@ def retis_swap_zero(
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = engines[-1]
-    engine1 = engines[0]
+    engine0 = engines[-1][0]
+    engine1 = engines[0][0]
     path_old0 = picked[-1]["traj"]
     path_old1 = picked[0]["traj"]
     maxlen0 = ens_set0["tis_set"]["maxlength"]
@@ -875,31 +870,31 @@ def retis_swap_zero(
 
     # 1. Generate path for [0^-] from [0^+]:
     # We generate from the first point of the path in [0^+]:
-    logger.debug("Swapping [0^-] <-> [0^+]")
-    logger.debug("Creating path for [0^-]")
+    logger.info("Swapping [0^-] <-> [0^+]")
+    logger.info("Creating path for [0^-]")
     # system = path_ensemble1.last_path.phasepoints[0].copy()
     shpt_copy = path_old1.phasepoints[0].copy()
     # shpt_copy2 = path_old1.phasepoints[0].copy()
-    logger.debug("Initial point is: %s", shpt_copy)
+    logger.info("Initial point is: %s", shpt_copy.order)
     # Propagate it backward in time:
     path_tmp = path_old1.empty_path(maxlen=maxlen1 - 1)
     if allowed:
-        logger.debug("Propagating for [0^-]")
+        logger.info("Propagating for [0^-]")
         engine0.propagate(path_tmp, ens_set0, shpt_copy, reverse=True)
     else:
-        logger.debug("Not propagating for [0^-]")
+        logger.info("Not propagating for [0^-]")
         path_tmp.append(shpt_copy)
     path0 = path_tmp.empty_path(maxlen=maxlen0)
     for phasepoint in reversed(path_tmp.phasepoints):
         path0.append(phasepoint)
     # print('lobster a', path_tmp.length, path0.length, allowed)
     # Add second point from [0^+] at the end:
-    logger.debug("Adding second point from [0^+]:")
+    logger.info("Adding second point from [0^+]:")
     # Here we make a copy of the phase point, as we will update
     # the configuration and append it to the new path:
     # phase_point = path_ensemble1.last_path.phasepoints[1].copy()
     phase_point = path_old1.phasepoints[1].copy()
-    logger.debug("Point is %s", phase_point)
+    logger.info("Point is %s", phase_point.order)
     engine1.dump_phasepoint(phase_point, "second")
     path0.append(phase_point)
     if path0.length == maxlen0:
@@ -916,7 +911,7 @@ def retis_swap_zero(
     # print(path0.status)
 
     # 2. Generate path for [0^+] from [0^-]:
-    logger.debug("Creating path for [0^+] from [0^-]")
+    logger.info("Creating path for [0^+] from [0^-]")
     # This path will be generated starting from the LAST point of [0^-] which
     # should be on the right side of the interface. We will also add the
     # SECOND LAST point from [0^-] which should be on the left side of the
@@ -929,23 +924,23 @@ def retis_swap_zero(
     # system = path_ensemble0.last_path.phasepoints[-1].copy()
     system = path_old0.phasepoints[-1].copy()
     if allowed:
-        logger.debug("Initial point is %s", system)
+        logger.info("Initial point is %s", system.order)
         # nsembles[1]['system'] = system
-        logger.debug("Propagating for [0^+]")
+        logger.info("Propagating for [0^+]")
         engine1.propagate(path_tmp, ens_set1, system, reverse=False)
         # Ok, now we need to just add the SECOND LAST point from [0^-] as
         # the first point for the path:
         path1 = path_tmp.empty_path(maxlen=maxlen1)
         # phase_point = path_ensemble0.last_path.phasepoints[-2].copy()
         phase_point = path_old0.phasepoints[-2].copy()
-        logger.debug("Add second last point: %s", phase_point)
+        logger.info("Add second last point: %s", phase_point.order)
         engine0.dump_phasepoint(phase_point, "second_last")
         path1.append(phase_point)
         path1 += path_tmp  # Add rest of the path.
     else:
         path1 = path_tmp
         path1.append(system)
-        logger.debug("Skipping propagating for [0^+] from L")
+        logger.info("Skipping propagating for [0^+] from L")
 
     ##### NB if path_ensemble1.last_path.get_move() != 'ld':
     ##### NB     path0.set_move('s+')
@@ -962,7 +957,7 @@ def retis_swap_zero(
         path1.status = "FTS"
     else:
         path1.status = "ACC"
-    logger.debug("Done with swap zero!")
+    logger.info("Done with swap zero!")
 
     # Final checks:
     accept = path0.status == "ACC" and path1.status == "ACC"
@@ -1054,7 +1049,7 @@ def high_acc_swap(
 
 def quantis_swap_zero(
     picked: dict[int, Any],
-    engines: dict[int, EngineBase],
+    engines: dict[int, list[EngineBase]],
 ) -> tuple[bool, list[InfPath], str]:
     """Perform a Quantis swap between the [0-] and [0+] ensembles.
 
@@ -1117,15 +1112,15 @@ def quantis_swap_zero(
     """
     ens_set0 = picked[-1]["ens"]
     ens_set1 = picked[0]["ens"]
-    engine0 = engines[-1]
-    engine1 = engines[0]
+    engine0 = engines[-1][0]
+    engine1 = engines[0][0]
     old_path0 = picked[-1]["traj"]
     old_path1 = picked[0]["traj"]
     maxlen0 = ens_set0["tis_set"]["maxlength"]
     maxlen1 = ens_set0["tis_set"]["maxlength"]
     lambda0 = ens_set0["interfaces"][-1]
 
-    logger.info("Quantis swapping [0^-] <-> [0^+]")
+    logger.info("Quantis swapping [0^-] <-> [0^+].")
 
     if "wf" in [ens_set0["mc_move"], ens_set1["mc_move"]]:
         logger.warning("Quantis with 'wf' in [0-] or [0+] is not implemented")

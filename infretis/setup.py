@@ -157,13 +157,20 @@ def setup_config(
             config["output"]["pattern_file"] = os.path.join("pattern.txt")
 
     # quantis or any other method requiring different engines in each ensemble
-    multi_engine = config["simulation"]["tis_set"].get("multi_engine", False)
-    quantis = config["simulation"]["tis_set"].get("quantis", False)
-    accept_all = config["simulation"]["tis_set"].get("accept_all", False)
+    has_ens_engs = config["simulation"].get("ensemble_engines", False)
+    if not has_ens_engs:
+        ens_engs = []
+        for itnf in config["simulation"]["interfaces"]:
+            ens_engs.append(["engine"])
+        config["simulation"]["ensemble_engines"] = ens_engs
+
     # set the keywords once
+    quantis = config["simulation"]["tis_set"].get("quantis", False)
     config["simulation"]["tis_set"]["quantis"] = quantis
+    if quantis and not has_ens_engs:
+        config["simulation"]["ensemble_engines"][0] = ["engine0"]
+    accept_all = config["simulation"]["tis_set"].get("accept_all", False)
     config["simulation"]["tis_set"]["accept_all"] = accept_all
-    config["simulation"]["tis_set"]["multi_engine"] = multi_engine
 
     check_config(config)
 
@@ -209,46 +216,32 @@ def check_config(config: dict) -> None:
             f"Interface_cap {intf_cap} < interface[-2]={intf[-2]}"
         )
 
-    if config["simulation"]["tis_set"]["quantis"]:
-        if not config.get("engine0"):
-            raise TOMLConfigError(
-                "Quantis needs a [0-] engine definition in [engine0] section!"
-            )
-        if not config.get("engine1"):
-            raise TOMLConfigError(
-                "Quantis needs an [N+] engine definition in [engine1] section!"
-            )
-        if config["simulation"]["tis_set"]["multi_engine"]:
-            raise TOMLConfigError(
-                "Need 'multi_engine=false' with 'quantis=true'"
-            )
-    if (
-        config["simulation"]["tis_set"]["accept_all"]
-        and not config["simulation"]["tis_set"]["quantis"]
-    ):
-        raise TOMLConfigError(
-            "Can't have 'accept_all=true' with 'quantis=false'!"
-        )
+    # engine checks
+    unique_engines = []
+    for engines in config["simulation"]["ensemble_engines"]:
+        for engine in engines:
+            if engine not in unique_engines:
+                unique_engines.append(engine)
 
-    if (
-        config["simulation"]["tis_set"]["quantis"]
-        or config["simulation"]["tis_set"]["multi_engine"]
-    ):
-        for key1 in config.keys():
-            if "engine" in key1 and config[key1]["class"] == "gromacs":
-                eng1 = config[key1].copy()
-                inp_path1 = eng1.pop("input_path")
-                for key2 in config.keys():
-                    if "engine" in key2:
-                        eng2 = config[key2].copy()
-                        inp_path2 = eng2.pop("input_path")
-                        if eng1 != eng2 and inp_path1 == inp_path2:
-                            raise TOMLConfigError(
-                                "Found differing engine settings with identic"
-                                + "al 'input_path'. This would overwrite the"
-                                + " settings of one of the engines in"
-                                + " 'infretis.mdp'!"
-                            )
+    for key1 in unique_engines:
+        if key1 not in config.keys():
+            raise TOMLConfigError(f"Engine '{key1}' not defined!")
+
+    # gromacs check
+    for key1 in unique_engines:
+        if config[key1]["class"] == "gromacs":
+            eng1 = config[key1].copy()
+            inp_path1 = eng1.pop("input_path")
+            for key2 in unique_engines:
+                eng2 = config[key2].copy()
+                inp_path2 = eng2.pop("input_path")
+                if eng1 != eng2 and inp_path1 == inp_path2:
+                    raise TOMLConfigError(
+                        "Found differing engine settings with identic"
+                        + "al 'input_path'. This would overwrite the"
+                        + " settings of one of the engines in"
+                        + " 'infretis.mdp'!"
+                    )
 
 
 def write_header(config: dict) -> None:

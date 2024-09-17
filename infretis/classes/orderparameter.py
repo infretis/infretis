@@ -10,7 +10,6 @@ import numpy as np
 from infretis.core.core import create_external, generic_factory
 
 if TYPE_CHECKING:  # pragma: no cover
-    from infretis.classes.engines.enginebase import EngineBase
     from infretis.classes.system import System
 
 logger = logging.getLogger(__name__)
@@ -265,11 +264,13 @@ class Velocity(OrderParameter):
 
 
 def create_orderparameters(
-    engines: dict[str, EngineBase], settings: dict[str, Any]
+    engines: dict[str, list],
+    settings: dict[str, Any],
 ):
     """Create orderparameters."""
-    for engine in engines.keys():
-        engines[engine].order_function = create_orderparameter(settings)
+    for engine_key in engines.keys():
+        for engine in engines[engine_key][1]:
+            engine.order_function = create_orderparameter(settings)
 
 
 def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
