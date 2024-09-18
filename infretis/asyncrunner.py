@@ -48,6 +48,7 @@ class aiorunner:
                 max_workers=n_workers,
                 initializer=worker_initializer,
                 initargs=(self._counter,),
+                mp_context=multiprocessing.get_context("fork"),
             )
         )
         self._stop_event = asyncio.Event()
