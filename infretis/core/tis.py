@@ -30,6 +30,7 @@ def def_globals(config):
 
     ENGINES = create_engines(config)
     create_orderparameters(ENGINES, config)
+    return ENGINES
 
 
 if TYPE_CHECKING:  # pragma: no cover
