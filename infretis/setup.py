@@ -33,7 +33,6 @@ def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
         A blank md_items dict
         An initialized REPEX state
     """
-    global ENGINES
     # setup logger
     setup_logger()
 
@@ -56,7 +55,7 @@ def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
     }
 
     # setup global engines and create orderparameters
-    ENGINES = def_globals(config)
+    def_globals(config)
 
     # write pattern header
     if state.pattern:
