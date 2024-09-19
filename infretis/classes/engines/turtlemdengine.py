@@ -18,7 +18,7 @@ from turtlemd.integrators import (
     Verlet,
 )
 from turtlemd.potentials.lennardjones import LennardJonesCut
-from turtlemd.potentials.well import DoubleWell
+from turtlemd.potentials.well import DoubleWell, DoubleWellPair
 from turtlemd.simulation import MDSimulation
 from turtlemd.system.box import Box as TBox
 from turtlemd.system.particles import Particles as TParticles
@@ -41,7 +41,11 @@ if TYPE_CHECKING:  # pragma: no cover
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
-POTENTIAL_MAPS = {"doublewell": DoubleWell, "lennardjones": LennardJonesCut}
+POTENTIAL_MAPS = {
+    "doublewell": DoubleWell,
+    "lennardjones": LennardJonesCut,
+    "doublewellpair": DoubleWellPair,
+}
 
 INTEGRATOR_MAPS = {
     "langevininertia": LangevinInertia,
@@ -94,16 +98,17 @@ class TurtleMDEngine(EngineBase):
         )
 
         self.boltzmann = boltzmann
-        self.beta = 1 / (self.boltzmann * self.temperature)
+        self._beta = 1 / (self.boltzmann * self.temperature)
 
         self.subcycles = subcycles
 
         self.integrator = INTEGRATOR_MAPS[integrator["class"].lower()]
         self.integrator_settings = integrator["settings"]
         potential_class = POTENTIAL_MAPS[potential["class"].lower()]
+        self.box = TBox(**box)
 
-        # if lennard-jones potential we need to set some parameters
-        # after the the class is initiated
+        # if lennard-jones or pairdoublewell potential we need to set some
+        # parameters after the the class is initiated
         if potential["class"].lower() == "lennardjones":
             lj_params = {}
             for key in potential["settings"]["parameters"]:
@@ -113,6 +118,10 @@ class TurtleMDEngine(EngineBase):
             self.potential = [potential_class()]
             # set the parameters of the LJ potential
             self.potential[0].set_parameters(lj_params)
+        elif potential["class"].lower() == "doublewellpair":
+            dwell = potential_class(types=(1, 1), dim=self.box.dim)
+            dwell.set_parameters(potential["settings"]["parameters"])
+            self.potential = [dwell]
         else:
             self.potential = [potential_class(**potential["settings"])]
 
@@ -130,7 +139,6 @@ class TurtleMDEngine(EngineBase):
         self.names = particles["name"]
 
         self.particles = TParticles(dim=self.dim)
-        self.box = TBox(**box)
         for i, pos in enumerate(particles["pos"]):
             self.particles.add_particle(
                 pos, mass=self.mass[i], name=self.names[i]

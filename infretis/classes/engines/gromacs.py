@@ -185,7 +185,7 @@ class GromacsEngine(EngineBase):
 
         self.temperature = temperature
         self.kb = 0.0083144621  # kJ/(K*mol)
-        self.beta = 1 / (self.temperature * self.kb)
+        self._beta = 1 / (self.temperature * self.kb)
 
         # get masses if generating velocites internally
         self.infretis_genvel = infretis_genvel
@@ -206,12 +206,12 @@ class GromacsEngine(EngineBase):
 
         settings: dict[str, str | float | int] = {
             "dt": self.timestep,
-            "nstxout-compressed": 0,
             "gen_vel": "no",
             "ref-t": " ".join(
                 [str(self.temperature) for i in range(self.n_tc_grps)]
             ),
         }
+
         for key in (
             "nsteps",
             "nstxout",
@@ -544,7 +544,7 @@ class GromacsEngine(EngineBase):
         remove = [
             val
             for key, val in out_files.items()
-            if key not in ("trr", "gro", "g96")
+            if key not in ("trr", "gro", "g96", "edr")
         ]
         self._remove_files(self.exe_dir, remove)
         self._remove_gromacs_backup_files(self.exe_dir)

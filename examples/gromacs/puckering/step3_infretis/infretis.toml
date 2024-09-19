@@ -10,18 +10,18 @@ wmdrun = ['gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 0 -pin on',
 	  'gmx mdrun -ntomp 1 -ntmpi 1 -pinoffset 3 -pin on',]
 
 [simulation]
+# define your interface positions here
 interfaces = []
 
 steps = 20 # number of infretis steps to perform
 seed = 0
 load_dir = 'load' # directory to load paths
 
-# shooting moves in the various ensembles, which should have the same length as interfaces
 # sh: regular shooting, wf: wirefencing
 shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
 
 [simulation.tis_set]
-maxlength = 2000 # maximum path length (NB! this should never be reached )
+maxlength = 2000 # maximum path length (NB! this should never be reached!!)
 allowmaxlength = false  # do not allow paths to exceed maxlength when shooting from load paths
 zero_momentum = true # remove the center of mass motion when generating vels, done by gromacs by default
 n_jumps = 2 # number of wirefencing jumps
@@ -30,9 +30,9 @@ interface_cap = 70.0 # wirefencing interface cap
 [engine]
 class = 'gromacs'
 engine = 'gmx'
-timestep = 0.002 # md timestep
+timestep = 0.002 # md timestep in units of the engine
 gmx_format = 'g96' # only g96 is supported for gromacs
-input_path = '../gromacs_input' # path to topolofy files
+input_path = '../gromacs_input' # path to topology files
 gmx = 'gmx' # gromacs executable, may also be gmx_mpi, gmx_2023.3, etc.
 subcycles = 3 # number of MD steps for each infretis step
 temperature = 300 # temperature of the simulation and velocity generations
@@ -40,10 +40,11 @@ temperature = 300 # temperature of the simulation and velocity generations
 [orderparameter]
 class = 'puckering'
 index = []
-periodic = true # correct atomic positions for periodic boundary conditions
+periodic = true # correct atomic positions for pbc
 
 [output]
 data_dir = "./" # where to store infretis_data.txt
 screen = 1 # how often to print to sim.log
 pattern = 1 # how often we print info of which worker is in which ensemble at any time to pattern.txt
-delete_old = false # keep all old accepted trajectories (e.g. .trr or .xyz files) for analysis, beware of storage
+delete_old = true # dele old accepted trajectories (.trr and .g96 files) that are not active
+keep_traj_fnames = [".xtc"] # keep gromacs .xtc files

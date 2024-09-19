@@ -51,6 +51,8 @@ def create_initial_paths():
     config = setup_config()
     state = REPEX_state(config, minus=True)
     state.initiate_ensembles()
+    if "engine0" in config.keys():
+        config["engine"] = config["engine1"].copy()
     engine: EngineBase = create_engine(config)
     engine.order_function = create_orderparameter(config)
     interfaces = np.array(config["simulation"]["interfaces"])

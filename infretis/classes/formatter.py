@@ -814,7 +814,7 @@ class PathStorage(OutputBase):
     }
     out_dir_fmt = "{}"
 
-    def __init__(self):
+    def __init__(self, keep_traj_fnames: list = []):
         """Set up the storage.
 
         Note:
@@ -824,6 +824,7 @@ class PathStorage(OutputBase):
         """
         formatter = OutputFormatter("empty formatter", header=None)
         super().__init__(formatter)
+        self.keep_traj_fnames = keep_traj_fnames
 
     def output_path_files(
         self, step: int, data: list[Any], target_dir: str
@@ -860,13 +861,19 @@ class PathStorage(OutputBase):
 
     @staticmethod
     def _move_path(
-        path: InfPath, target_dir: str, prefix: str | None = None
+        path: InfPath,
+        target_dir: str,
+        keep_traj_fnames: list,
+        prefix: str | None = None,
     ) -> InfPath:
         """Copy a path to a given target directory.
 
         Args:
             path: The path to copy.
-            target_dir: The location where we are copying the path to.
+            target_dir: The location where we are moving the path to.
+            keep_traj_fnames: A list file extensions that are matched aginst
+              the source directories in which the trajectories are stored.
+              File extensions that match the pattern are also stored.
             prefix: A prefix for the file names of copied files.
 
         Returns:
@@ -876,6 +883,16 @@ class PathStorage(OutputBase):
         new_pos, source = _generate_file_names(
             path_copy, target_dir, prefix=prefix
         )
+        # keep any files where extension match the patterns in keep_traj_fnames
+        if keep_traj_fnames:
+            for source_file in source.copy().keys():
+                source_dir, source_fname = os.path.split(source_file)
+                traj_name, traj_ext = os.path.splitext(source_fname)
+                for ext in keep_traj_fnames:
+                    new_fname = traj_name + ext
+                    fpath = os.path.join(source_dir, new_fname)
+                    if os.path.isfile(fpath):
+                        source[fpath] = os.path.join(target_dir, new_fname)
         # Update positions:
         for pos, phasepoint in zip(new_pos, path_copy.phasepoints):
             phasepoint.config = (pos[0], pos[1])
@@ -919,7 +936,7 @@ class PathStorage(OutputBase):
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
         _ = self.output_path_files(step, [path, "ACC"], archive_path)
-        path = self._move_path(path, traj_dir)
+        path = self._move_path(path, traj_dir, self.keep_traj_fnames)
         return path
 
     def write(self, towrite: str, end: str = "\n") -> bool:

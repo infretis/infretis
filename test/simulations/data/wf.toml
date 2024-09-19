@@ -58,9 +58,10 @@ pos = [[-1.0]]
 periodic = [false]
 
 [orderparameter]
-class = 'Position'
+class = 'PositionX'
 index = [0, 0] # x-component of first particle
 periodic = false
+module="orderp.py"
 
 [output]
 backup = 'backup'

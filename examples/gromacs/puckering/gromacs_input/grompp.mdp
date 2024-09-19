@@ -5,6 +5,8 @@ dt			= 0.002		; 2 fs
 nstxout			= 200
 nstvout			= 200
 nstfout			= 0
+nstxout-compressed	= 3		; not modified by infretis
+compressed-x-grps	= non-water	; save only solute coordinates in the .xtc files
 
 ; Bond parameters
 constraints		= h-bonds	; constrain h-bonds because of large timestep
@@ -17,11 +19,11 @@ vdwtype			= cut-off	; Straight cut off for vdw interactions
 
 ; Temperature coupling
 tcoupl			= V-rescale	; Canonical sampling thorugh stochastic velocity rescaling
-tc-grps 		= System 	; two coupling groups - more accurate
+tc-grps 		= System
 tau_t 			= 0.1 		; time constant, in ps
 
 ; Pressure coupling
-pcoupl 			= no		             ; pressure coupling is on for NPT
+pcoupl 			= no
 
 ; Dispersion correction
 DispCorr		= EnerPres 	; account for cut-off vdW scheme

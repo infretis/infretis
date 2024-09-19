@@ -38,6 +38,10 @@ class REPEX_state:
     def __init__(self, config, minus=False):
         """Initiate REPEX given confic dict from *toml file."""
         self.config = config
+        # storage of additional trajectory files
+        self.pstore.keep_traj_fnames = config.get("output", {}).get(
+            "keep_traj_fnames", []
+        )
         # set rng
         if "restarted_from" in config["current"]:
             self.set_rgen()
@@ -177,12 +181,15 @@ class REPEX_state:
         child_rng = self.rgen.spawn(1)[0]
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
             ens_pick = self.ensembles[ens_num + 1]
+            eng_names = self.config["simulation"]["ensemble_engines"][
+                ens_num + 1
+            ]
             ens_pick["rgen"] = child_rng.spawn(1)[0]
             picked[ens_num] = {
                 "ens": ens_pick,
+                "eng_names": eng_names,
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
-                "eng_name": ens_pick["eng_name"],
             }
         return picked
 
@@ -224,11 +231,14 @@ class REPEX_state:
         for ens_num, inp_traj in zip(enss, trajs):
             ens_pick = self.ensembles[ens_num + 1]
             ens_pick["rgen"] = child_rng.spawn(1)[0]
+            eng_names = self.config["simulation"]["ensemble_engines"][
+                ens_num + 1
+            ]
             picked[ens_num] = {
                 "ens": ens_pick,
+                "eng_names": eng_names,
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
-                "eng_name": ens_pick["eng_name"],
             }
         return picked
 
@@ -262,15 +272,10 @@ class REPEX_state:
                 md_items["picked"][ens_num]["wmdrun"] = self.config["runner"][
                     "wmdrun"
                 ][md_items["pin"]]
-            # spawn rgen for {cp2k, turtlemd}
-            if md_items["picked"][ens_num]["eng_name"] in (
-                "cp2k",
-                "turtlemd",
-                "lammps",
-                "gmx",
-            ):
-                ens_rgen = md_items["picked"][ens_num]["ens"]["rgen"]
-                md_items["picked"][ens_num]["rgen-eng"] = ens_rgen.spawn(1)[0]
+            # spawn rgen for all engines
+            ens_rgen = md_items["picked"][ens_num]["ens"]["rgen"]
+            md_items["picked"][ens_num]["rgen-eng"] = ens_rgen.spawn(1)[0]
+            md_items["picked"][ens_num]["pin"] = md_items["pin"]
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:
@@ -1027,10 +1032,10 @@ class REPEX_state:
                 "interfaces": tuple(ens_intf),
                 "tis_set": self.config["simulation"]["tis_set"],
                 "mc_move": self.config["simulation"]["shooting_moves"][i],
-                "eng_name": self.config["engine"]["engine"],
                 "ens_name": f"{i:03d}",
                 "start_cond": "R" if i == 0 else "L",
             }
+
         self.ensembles = pensembles
 
 

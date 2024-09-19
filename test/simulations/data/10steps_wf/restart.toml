@@ -35,12 +35,40 @@ shooting_moves = [
     "wf",
     "wf",
 ]
+ensemble_engines = [
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+    [
+        "engine",
+    ],
+]
 
 [simulation.tis_set]
 maxlength = 2000
 allowmaxlength = false
 zero_momentum = false
 n_jumps = 6
+quantis = false
+accept_all = false
 
 [engine]
 class = "turtlemd"
@@ -84,12 +112,13 @@ periodic = [
 ]
 
 [orderparameter]
-class = "Position"
+class = "PositionX"
 index = [
     0,
     0,
 ]
 periodic = false
+module = "orderp.py"
 
 [output]
 backup = "backup"

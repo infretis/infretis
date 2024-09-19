@@ -1,5 +1,6 @@
 """Test methods for doing TIS."""
 import os
+from collections.abc import Callable
 from pathlib import PosixPath
 
 import numpy as np
@@ -13,9 +14,13 @@ from infretis.classes.orderparameter import create_orderparameters
 
 # from infretis.classes.path import Path, restart_path
 from infretis.classes.path import Path, load_path
+from infretis.classes.path import Path as InfPath
+from infretis.classes.system import System
 from infretis.core.tis import (
     compute_weight,
     prepare_shooting_point,
+    quantis_swap_zero,
+    retis_swap_zero,
     shoot,
     wire_fencing,
 )
@@ -29,8 +34,78 @@ for idx, i in enumerate(INP_PATH.phasepoints):
     tup = (os.path.join(BASEPATH, i.config[0]), i.config[1])
     INP_PATH.phasepoints[idx].config = tup
 
+# paths for zero swaps
+PATH_DIR_2 = PosixPath(
+    BASEPATH, "../../examples/turtlemd/double_well/load_copy"
+).resolve()
+INP_PATH0 = load_path(str(PATH_DIR_2 / "0"))
+INP_PATH1 = load_path(str(PATH_DIR_2 / "1"))
 
-def return_engset() -> dict():
+
+class MockEngine:
+    """A mockengine that generates fake paths with a given status.
+
+    Note: This engine does not check interface crossings.
+    """
+
+    def __init__(self, status="QS0"):
+        self.status = status
+        self.beta = 1.0
+        self.rgen = np.random.default_rng()
+        self.trajs = {
+            # assuming interfaces = [2, 4]
+            # single step crossing error for new path 0
+            "QS0": [
+                {
+                    "op": [1, 1],
+                    "V": [0, 0],
+                    "out": ("", ""),
+                }
+            ],
+            # single step crossing error for new path 1
+            "QS1": [
+                {"op": [1, 3], "V": [0, 0], "out": ("", "")},
+                {"op": [1, 1, 1], "V": [0, 0, 0], "out": ("", "")},
+            ],
+            # swap is rejected because the energy acceptance rule is not met
+            "QEA": [
+                {"op": [1, 3], "V": [1e6, 0], "out": ("", "")},
+                {"op": [1, 3], "V": [1e6, 0], "out": ("", "")},
+            ],
+            # backward trajectory (full trial path in [0-]) too short
+            "BTS": 2 * [{"op": [1, 3], "V": [0, 0], "out": ("", "")}]
+            + [
+                {
+                    "op": [
+                        1,
+                    ],
+                    "V": [0],
+                    "out": ("", ""),
+                }
+            ],
+            # forward trajectory (full trial path in [0+]) too short
+            "FTS": 3 * [{"op": [1, 3], "V": [0, 0], "out": ("", "")}]
+            + [{"op": [1], "V": [0], "out": ("", "")}],
+            # backward trajectory (full trial path in [0-]) >= maxlen
+            "BTX": 2 * [{"op": [1, 3], "V": [0, 0], "out": ("", "")}]
+            + [{"op": 99 * [2], "V": 99 * [0], "out": ("", "")}],
+            "ACC": 2 * [{"op": [1, 3], "V": [0, 0], "out": ("", "")}]
+            + [{"op": [1, 3], "V": [0, 0], "out": ("", "")}]
+            + [{"op": [1, 3], "V": [0, 0], "out": ("", "")}],
+        }
+
+    def propagate(self, path, ens_set, shooting_point, reverse=False):
+        traj = self.trajs[self.status].pop(0)
+        for order, vpot in zip(traj["op"], traj["V"]):
+            system = System()
+            system.order = [order]
+            system.vpot = vpot
+            system.vel_rev = reverse
+            path.append(system)
+        return traj["out"]
+
+
+def return_engset() -> dict:
     eng_set = {
         "class": "turtlemd",
         "engine": "turtlemd",
@@ -52,7 +127,7 @@ def return_engset() -> dict():
     return eng_set
 
 
-def return_ensset() -> dict():
+def return_ensset() -> dict:
     ens_set = {
         "interfaces": (-0.99, -0.3, 1.0),
         "tis_set": {
@@ -62,7 +137,6 @@ def return_ensset() -> dict():
             "n_jumps": 4,
         },
         "mc_move": "sh",
-        "eng_name": "turtlemd",
         "ens_name": "007",
         "start_cond": "L",
         "rgen": MockRandomGenerator(),
@@ -70,13 +144,15 @@ def return_ensset() -> dict():
     return ens_set
 
 
-def create_ensdic_and_engine() -> (dict(), TurtleMDEngine):
+def create_ensdic_and_engine() -> tuple[dict, TurtleMDEngine]:
     eng_set = return_engset()
     ens_set = return_ensset()
     turtle = create_engine({"engine": eng_set})
     turtle.rgen = ens_set["rgen"]
     ordp_set = {"class": "Position", "index": [0, 0], "periodic": False}
-    create_orderparameters({"engine": turtle}, {"orderparameter": ordp_set})
+    create_orderparameters(
+        {"engine": [[-1], [turtle]]}, {"orderparameter": ordp_set}
+    )
     return ens_set, turtle
 
 
@@ -219,3 +295,142 @@ def test_prepare_shooting_point(tmp_path: PosixPath) -> None:
             )
         else:
             assert shpt_xyz[0][key] == path_xyz[idx][key]
+
+
+def test_quantis_swap_zero_messages() -> None:
+    """Make some fake paths and check that we catch all errors."""
+    # the old paths we want to swap
+    path0 = InfPath()
+    for order in [2.5, 1.0, 2.5]:
+        system = System()
+        system.order = [order]
+        system.vpot = 0.0
+        path0.append(system)
+
+    path1 = InfPath()
+    for order in [1.0, 2.5, 1.0]:
+        system = System()
+        system.order = [order]
+        system.vpot = 0.0
+        path1.append(system)
+
+    for true_status in ["QS0", "QS1", "QEA", "BTS", "FTS", "BTX", "ACC"]:
+        engine = MockEngine(status=true_status)
+        engines = {-1: [engine], 0: [engine]}
+
+        picked = {
+            -1: {
+                "ens": {
+                    "interfaces": (-np.inf, 2.0, 2.0),
+                    "tis_set": {"maxlength": 100, "accept_all": False},
+                    "rgen": np.random.default_rng(seed=123),
+                    "mc_move": "sh",
+                    "start_cond": "L",
+                },
+                "traj": path0,
+            },
+            0: {
+                "ens": {
+                    "interfaces": (2.0, 2.0, 4.0),
+                    "tis_set": {"maxlength": 100},
+                    "rgen": np.random.default_rng(seed=123),
+                    "mc_move": "sh",
+                    "start_cond": "R",
+                },
+                "traj": path1,
+            },
+        }
+        success, [new_path0, new_path1], status = quantis_swap_zero(
+            picked, engines
+        )
+
+        assert status == true_status
+
+
+@pytest.mark.parametrize(
+    "zero_swap_move",
+    [retis_swap_zero, quantis_swap_zero],
+)
+@pytest.mark.heavy
+def test_zero_swaps(
+    tmp_path: PosixPath,
+    zero_swap_move: Callable[
+        [dict], tuple[bool, tuple[InfPath, InfPath], str]
+    ],
+) -> None:
+    """Check that three consecutive zero swaps 1, 2 and 3 gives back the
+    original path at swap 2, and that the paths obtained from swap 1 and 3
+    are identical as well (for both ensembles [0-] and [0+]).
+    """
+    tmp_dir = tmp_path / "tmp2"
+    tmp_dir.mkdir()
+    ens_set0, turtle = create_ensdic_and_engine()
+    ens_set1 = ens_set0.copy()
+    # update settings
+    ens_set0["interfaces"] = (-np.inf, -0.99, -0.99)
+    ens_set1["interfaces"] = (-0.99, -0.3, 1.0)
+    ens_set0["tis_set"]["allowmaxlength"] = True
+    ens_set1["tis_set"]["allowmaxlength"] = True
+    ens_set0["tis_set"]["accept_all"] = False
+    ens_set1["tis_set"]["accept_all"] = False
+    ens_set0["name"] = "000"
+    ens_set1["name"] = "001"
+    ens_set0["start_cond"] = "R"
+    ens_set1["start_cond"] = "L"
+    ens_set0["rgen"] = np.random.default_rng(seed=123)
+    ens_set1["rgen"] = np.random.default_rng(seed=123)
+    turtle.rgen = np.random.default_rng(seed=123)
+    turtle.integrator_settings = {"beta": 1e12, "gamma": 1e-5}
+    turtle.exe_dir = str(tmp_dir)
+    engines = {-1: [turtle], 0: [turtle]}
+
+    picked = {
+        -1: {"ens": ens_set0, "traj": INP_PATH0},
+        0: {"ens": ens_set1, "traj": INP_PATH1},
+    }
+
+    # we need to shoot here because we don't have velocities in the load paths
+    # so the single step crossing would fail
+    success, old_path0, status = shoot(
+        ens_set0, INP_PATH0, turtle, start_cond=("R",)
+    )
+    success, old_path1, status = shoot(ens_set1, INP_PATH1, turtle)
+
+    for i in range(old_path0.length):
+        old_path0.phasepoints[i].vpot = 0
+
+    for i in range(old_path1.length):
+        old_path1.phasepoints[i].vpot = 0
+
+    swapped_paths0 = [old_path0]
+    swapped_paths1 = [old_path1]
+    for i in range(1, 4):
+        # run from separate folders so *.xyz files from previous runs
+        # don't mess up the zero swaps
+        pathdir = PosixPath(tmp_dir / f"{i}")
+        pathdir.mkdir()
+        turtle.exe_dir = str(pathdir.resolve())
+        picked[-1]["traj"] = old_path0
+        picked[0]["traj"] = old_path1
+        success, [new_path0, new_path1], status = zero_swap_move(
+            picked, engines
+        )
+        swapped_paths0.append(new_path0)
+        swapped_paths1.append(new_path1)
+        old_path0 = new_path0
+        old_path1 = new_path1
+
+    for swapped_paths in [swapped_paths0, swapped_paths1]:
+        print([s.status for s in swapped_paths])
+        assert swapped_paths[0].length == swapped_paths1[2].length
+        assert swapped_paths[1].length == swapped_paths1[3].length
+        assert [
+            pp.order[0] for pp in swapped_paths[0].phasepoints
+        ] == pytest.approx(
+            [pp.order[0] for pp in swapped_paths[2].phasepoints], rel=1e-5
+        )
+        assert [
+            pp.order[0] for pp in swapped_paths[1].phasepoints
+        ] == pytest.approx(
+            [pp.order[0] for pp in swapped_paths[3].phasepoints], rel=1e-5
+        )

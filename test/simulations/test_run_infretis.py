@@ -67,14 +67,15 @@ def rm_restarted_from(inp):
 def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     folder = tmp_path / "temp"
     folder.mkdir()
-    basepath = os.path.dirname(__file__)
-    load_dir = os.path.join(
-        basepath, "../../examples/turtlemd/double_well/load_copy"
-    )
-    toml_dir = os.path.join(basepath, "data/wf.toml")
+    basepath = PosixPath(__file__).parent
+    load_dir = (
+        basepath / "../../examples/turtlemd/double_well/load_copy"
+    ).resolve()
+    toml_dir = basepath / "data/wf.toml"
     # copy files from template folder
-    shutil.copytree(load_dir, str(folder) + "/load")
-    shutil.copy(toml_dir, str(folder) + "/infretis.toml")
+    shutil.copytree(str(load_dir), str(folder) + "/load")
+    shutil.copy(str(load_dir / "../orderp.py"), str(folder))
+    shutil.copy(str(toml_dir), str(folder) + "/infretis.toml")
     os.chdir(folder)
 
     success = os.system("infretisrun -i infretis.toml >| out.txt")
@@ -142,14 +143,15 @@ def test_restart_multiple_w(tmp_path: PosixPath) -> None:
     """Check that restarted workers continue the same tasks pre-restart."""
     folder = tmp_path / "temp"
     folder.mkdir()
-    basepath = os.path.dirname(__file__)
-    load_dir = os.path.join(
-        basepath, "../../examples/turtlemd/double_well/load_copy"
-    )
-    toml_dir = os.path.join(basepath, "data/wf.toml")
+    basepath = PosixPath(__file__).parent
+    load_dir = (
+        basepath / "../../examples/turtlemd/double_well/load_copy"
+    ).resolve()
+    toml_dir = basepath / "data/wf.toml"
     # copy files from template folder
-    shutil.copytree(load_dir, str(folder) + "/load")
-    shutil.copy(toml_dir, str(folder) + "/infretis.toml")
+    shutil.copytree(str(load_dir), str(folder) + "/load")
+    shutil.copy(str(load_dir / "../orderp.py"), str(folder))
+    shutil.copy(str(toml_dir), str(folder) + "/infretis.toml")
     os.chdir(folder)
 
     workers = 4
