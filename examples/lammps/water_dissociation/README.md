@@ -9,7 +9,7 @@ Water autoionization
 * [ ] make scripts for visualization
 * [x] fix lammpstrj processor
 * [x] fix xyz processor?
-* [ ] also adapt puckering exercise for cosy?
+* [ ] also adapt puckering exercise for cosy; exactly the same as here but with gromacs. Only production md run and path sampling, then visualize
 * [ ] move puckering and water dissociation README.md to infentory
 ### Aloha 👋
 In this session, we will study the autoionization of water using **path sampling**. The main outcomes of such a simulation allow us to
