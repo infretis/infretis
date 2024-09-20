@@ -13,8 +13,8 @@ Water autoionization
 ### Aloha 👋
 In this session, we will study the autoionization of water using **path sampling**. The main outcomes of such a simulation allow us to
 
-* calculate 🖥️ exactly how often a chemical reaction occurs.
-* visualize 👀 how this chemical reaction actually happens
+* calculate 🖥️ exactly how often a chemical reaction occurs
+* and visualize 👀 how this chemical reaction actually happens
 
 
 To achieve this you are going to perform the following steps:
