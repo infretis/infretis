@@ -52,9 +52,9 @@ cd cosy_workshop/water_dissociation/lammps/
 echo ========== We will perform the exercise from this folder ===============
 ```
 
-### Step 1: MD run with LAMMPS
+### Step 1: MD with LAMMPS
 
-### Step 2: Path sampling with &infin;RETIS
+### Step 2: Path sampling with &infin;RETIS + LAMMPS
 
 ### Step 3: Analysis of the results
 
