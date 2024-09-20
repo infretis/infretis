@@ -57,5 +57,4 @@ echo ========== We will perform the exercise from this folder ===============
 ### Step 2: Path sampling with &infin;RETIS + LAMMPS
 
 ### Step 3: Analysis of the results
-
-
+Interested reader: This is a reproduction of the work in cite pnas?
