@@ -27,7 +27,7 @@ bash Miniforge3-$(uname)-$(uname -m).sh -b
 
 Close and then re-open the terminal. You should now see **(base)** in the lower left of your screen.
 
-Install lammps:
+Download python and lammps:
 
 ```bash
 mamba create --name cosy_24 python==3.11 lammps
@@ -35,6 +35,7 @@ mamba create --name cosy_24 python==3.11 lammps
 
 Install infretis, and the exercise files.
 ```bash
+mamba activate cosy_24
 python -m pip install git+https://github.com/infretis/infretis.git@cosy_24
 python -m pip install git+https://github.com/infretis/inftools.git@main
 git clone https://github.com/infretis/infentory.git cosy_workshop
