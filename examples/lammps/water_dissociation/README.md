@@ -3,7 +3,8 @@ Water autoionization
 </h1>
 
 ### TODO
-* upload example to inftools
+* reduce load path size
+* upload to infentory
 * make scripts for plotting?
 * make scripts for visualization
 
