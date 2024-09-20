@@ -3,13 +3,13 @@ Water autoionization
 </h1>
 
 ### TODO
-* reduce load path size
-* upload to infentory
-* make scripts for plotting?
-* make scripts for visualization
-* fix lammpstrj processor
-* fix xyz processor?
-
+* [x] reduce load path size
+* [ ] upload to infentory
+* [ ] make scripts for plotting?
+* [ ] make scripts for visualization
+* [x] fix lammpstrj processor
+* [x] fix xyz processor?
+* [ ] also adapt puckering exercise for cosy?
 ### Aloha 👋
 In this session, we will study the autoionization of water using **path sampling**. The main outcomes of such a simulation allow us to
 
