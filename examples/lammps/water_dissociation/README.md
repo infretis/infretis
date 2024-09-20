@@ -10,6 +10,7 @@ Water autoionization
 * [x] fix lammpstrj processor
 * [x] fix xyz processor?
 * [ ] also adapt puckering exercise for cosy?
+* [ ] move puckering and water dissociation README.md to infentory
 ### Aloha 👋
 In this session, we will study the autoionization of water using **path sampling**. The main outcomes of such a simulation allow us to
 
