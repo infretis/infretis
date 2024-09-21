@@ -54,11 +54,23 @@ echo ========== We will perform the exercise from this folder ===============
 ```
 
 ### Step 1: MD with LAMMPS
-Familiarize yourself with the files in the directory `lammps_input/`.
+Familiarize yourself with the files in the directory `lammps_input/`. Can you explain what these files contain?
 
-Can you explain what these files contain?
+Now, change to the `step1_md_run` directory and modify `lammp.input` to run an MD simulation at 300K for some femtoseconds - picoseconds with a 0.5 fs timestep. We want to analyze some of the output, so write output with reasonable frequency.
 
-Now, change to the `step1_md_run` directory and modify `lammp.input` to run an MD simulation at 300K for 5 ps.
+LAMMPS can be run with the command `lmp -i lammps.input`.
+
+Does the system reach the desired temperature?
+
+Animate the trajectory by opening the .dump file in Avogadro. Use the `animation` tool and check the `Dynamic bonding?` checkbox. Do you see anything interesting?
+
+```bash
+wget Avogadro ~/
+chmod +x ~/Avogadro
+~/Avogadro
+```
+
+Now, we will calculate the order parameter for all frames in this trajectory. The value of the order parameter tells us whether we are in the reactant state (only water present), the product state (water with one OH- and one H3O+ present), or anything in between.
 
 ### Step 2: Path sampling with &infin;RETIS + LAMMPS
 
