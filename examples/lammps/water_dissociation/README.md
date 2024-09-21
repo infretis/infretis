@@ -62,13 +62,14 @@ LAMMPS can be run with the command `lmp -i lammps.input`.
 
 Does the system reach the desired temperature?
 
-Animate the trajectory by opening the .dump file in Avogadro. Use the `animation` tool and check the `Dynamic bonding?` checkbox. Do you see anything interesting?
+Animate the trajectory by opening the .dump file in Avogadro.
 
 ```bash
 wget Avogadro ~/
 chmod +x ~/Avogadro
 ~/Avogadro
 ```
+Use the `animation` tool and check the `Dynamic bonding?` checkbox. Do you see anything interesting?
 
 Now, we will calculate the order parameter for all frames in this trajectory. The value of the order parameter tells us whether we are in the reactant state (only water present), the product state (water with one OH- and one H3O+ present), or anything in between.
 
