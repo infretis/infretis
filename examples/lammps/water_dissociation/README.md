@@ -6,7 +6,7 @@ Water autoionization
 * [x] reduce load path size
 * [ ] upload to infentory
 * [ ] make scripts for plotting?
-* [ ] make scripts for visualization
+* [x] make scripts for visualization
 * [x] fix lammpstrj processor
 * [x] fix xyz processor?
 * [ ] also adapt puckering exercise for cosy; exactly the same as here but with gromacs. Only production md run and path sampling, then visualize
@@ -54,6 +54,11 @@ echo ========== We will perform the exercise from this folder ===============
 ```
 
 ### Step 1: MD with LAMMPS
+Familiarize yourself with the files in the directory `lammps_input/`.
+
+Can you explain what these files contain?
+
+Now, change to the `step1_md_run` directory and modify `lammp.input` to run an MD simulation at 300K for 5 ps.
 
 ### Step 2: Path sampling with &infin;RETIS + LAMMPS
 
