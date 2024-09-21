@@ -59,3 +59,7 @@ echo ========== We will perform the exercise from this folder ===============
 
 ### Step 3: Analysis of the results
 Interested reader: This is a reproduction of the work in cite pnas?
+
+```bash
+inft trjcat -out traj.pdb -traj trash/reactive/traj.txt -topology test_reaxff_water/initial.xyz -format lammpsdump -centersel "index 78"
+inft trjcat -out traj.pdb -traj traj.txt -topology ../../../gromacs_input/topol.tpr -centersel "element C" -selection "index 0 to 15"
