@@ -73,6 +73,10 @@ Use the `animation` tool and check the `Dynamic bonding?` checkbox. Do you see a
 
 Investigate the value of the order parameter. It tells us whether we are in the reactant state (only water present), the product state (water with one OH- and one H3O+ present), or anything in between.
 
+```bash
+inft recalculate_order -toml infretis.toml -traj md_run.dump -format 'lammpsdump'
+```
+
 [insert image here]
 
 ### Step 2: Path sampling with &infin;RETIS + LAMMPS
