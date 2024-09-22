@@ -71,7 +71,7 @@ chmod +x ~/Avogadro2-x86_64.AppImage
 # Run Avogadro
 ~/Avogadro2-x86_64.AppImage
 ```
-Use the `animation` tool and check the `Dynamic bonding?` checkbox. Do you see anything interesting?
+Use the `animation tool` and check the `Dynamic bonding?` checkbox. Do you see anything interesting? You can rotate and zoom with the `navigation tool`
 
 Investigate the value of the order parameter. It tells us whether we are in the reactant state (only water present), the product state (water with one OH- and one H3O+ present), or anything in between.
 
