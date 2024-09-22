@@ -65,9 +65,11 @@ Does the system reach the desired temperature?
 Animate the trajectory by opening the .dump file in Avogadro.
 
 ```bash
-wget Avogadro ~/
-chmod +x ~/Avogadro
-~/Avogadro
+# Download Avogadro
+wget https://github.com/OpenChemistry/avogadrolibs/releases/download/1.99.0/Avogadro2-x86_64.AppImage ~/
+chmod +x ~/Avogadro2-x86_64.AppImage
+# Run Avogadro
+~/Avogadro2-x86_64.AppImage
 ```
 Use the `animation` tool and check the `Dynamic bonding?` checkbox. Do you see anything interesting?
 
