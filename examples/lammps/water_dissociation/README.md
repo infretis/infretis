@@ -56,7 +56,7 @@ echo ========== We will perform the exercise from this folder ===============
 ### Step 1: MD with LAMMPS
 Familiarize yourself with the files in the directory `lammps_input/`. Can you explain what these files contain?
 
-Now, change to the `step1_md_run` directory and modify `lammp.input` to run an MD simulation at 300K for some femtoseconds - picoseconds with a 0.5 fs timestep. We want to analyze some of the output, so write output with reasonable frequency.
+Now, change to the `step1_md_run` directory and modify `lammp.input` to run an MD simulation at 300K for around 1 picosecond with a 0.5 fs timestep. We want to analyze some of the output, so write output with reasonable frequency.
 
 LAMMPS can be run with the command `lmp -i lammps.input`.
 
@@ -73,7 +73,7 @@ chmod +x ~/Avogadro2-x86_64.AppImage
 ```
 Use the `animation tool` and check the `Dynamic bonding?` checkbox. Do you see anything interesting? You can rotate and zoom with the `navigation tool`
 
-Investigate the value of the order parameter. It tells us whether we are in the reactant state (only water present), the product state (water with one OH- and one H3O+ present), or anything in between.
+Investigate the value of the order parameter. Values up to around 1.5 tell that we have only water present (the largest O-H bond length of all water molecules). Values greater than 1.5 tell us we have one OH- and one H3O+ present (the shortest distance between the OH- oxygen and H3O+ hydrogen).
 
 ```bash
 inft recalculate_order -toml infretis.toml -traj md_run.dump -format 'lammpsdump'
