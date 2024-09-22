@@ -75,6 +75,8 @@ Use the `animation tool` and check the `Dynamic bonding?` checkbox. Do you see a
 
 Investigate the value of the order parameter. Values up to around 1.5 tell that we have only water present (the largest O-H bond length of all water molecules). Values greater than 1.5 tell us we have one OH- and one H3O+ present (the shortest distance between the OH- oxygen and H3O+ hydrogen).
 
+![alt text](https://github.com/infretis/infentory/blob/main/orderp.jpg?raw=true)
+
 ```bash
 inft recalculate_order -toml infretis.toml -traj md_run.dump -format 'lammpsdump'
 ```
