@@ -9,8 +9,8 @@ import numpy as np
 import tomli_w
 from numpy.random import default_rng
 
-from infcore.classes.formatter import PathStorage
-from infcore.core.core import make_dirs
+from infcore.core.formatter import PathStorage
+from infcore.core.misc import make_dirs
 from infcore.core.tis import calc_cv_vector
 
 logger = logging.getLogger("main")  # pylint: disable=invalid-name

@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from infcore.classes.formatter import get_log_formatter
+from infcore.core.formatter import get_log_formatter
 
 logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)

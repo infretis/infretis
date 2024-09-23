@@ -8,8 +8,8 @@ import tomli
 from infretis.asyncrunner import aiorunner, future_list
 from infretis.repex import REPEX_state
 
-from infcore.classes.formatter import get_log_formatter
-from infcore.classes.path import load_paths_from_disk
+from infcore.core.formatter import get_log_formatter
+from infcore.core.path import load_paths_from_disk
 from infcore.core.tis import def_globals, run_md
 
 logger = logging.getLogger("main")
