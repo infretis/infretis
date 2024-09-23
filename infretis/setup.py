@@ -18,6 +18,7 @@ logger.setLevel(logging.DEBUG)
 def setup_internal(config):
     """Run the various setup functions."""
     # setup logger
+    # whad
     setup_logger()
 
     # setup repex
