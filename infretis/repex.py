@@ -9,9 +9,9 @@ import numpy as np
 import tomli_w
 from numpy.random import default_rng
 
-from infretis.classes.formatter import PathStorage
-from infretis.core.core import make_dirs
-from infretis.core.tis import calc_cv_vector
+from infcore.classes.formatter import PathStorage
+from infcore.core.core import make_dirs
+from infcore.core.tis import calc_cv_vector
 
 logger = logging.getLogger("main")  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())

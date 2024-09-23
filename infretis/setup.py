@@ -6,10 +6,11 @@ import os
 import tomli
 
 from infretis.asyncrunner import aiorunner, future_list
-from infretis.classes.formatter import get_log_formatter
-from infretis.classes.path import load_paths_from_disk
-from infretis.classes.repex import REPEX_state
-from infretis.core.tis import def_globals, run_md
+from infretis.repex import REPEX_state
+
+from infcore.classes.formatter import get_log_formatter
+from infcore.classes.path import load_paths_from_disk
+from infcore.core.tis import def_globals, run_md
 
 logger = logging.getLogger("main")
 logger.setLevel(logging.DEBUG)
