@@ -18,6 +18,7 @@ matplotlib = "^3.7.2"
 tomli = "^2.0.1"
 tomli-w = "^1.0.0"
 turtlemd = "^2023.3"
+infcore = {git = "https://github.com/infretis/infcore.git"}
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.0.282"
