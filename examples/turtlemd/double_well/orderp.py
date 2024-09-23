@@ -1,4 +1,4 @@
-from infretis.classes.orderparameter import OrderParameter
+from infcore.core.orderparameter import OrderParameter
 
 
 class PositionX(OrderParameter):
