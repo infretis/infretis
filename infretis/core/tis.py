@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from infretis.classes.engines.factory import create_engines, get_engines
+from infretis.classes.engines.factory import create_engines
 from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import paste_paths
 
@@ -28,8 +28,9 @@ def def_globals(config):
     """
     global ENGINES
 
-    ENGINES = create_engines(config)
+    ENGINES, engine_occ = create_engines(config)
     create_orderparameters(ENGINES, config)
+    return engine_occ
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -278,12 +279,14 @@ def select_shoot(
     for ens_num in picked.keys():
         pens = picked[ens_num]
         if len(picked) == 2:
-            engines[ens_num] = get_engines(
-                ENGINES, pens["eng_names"], pens["pin"]
-            )
+            engines[ens_num] = [
+                ENGINES[eng][idx] for eng, idx in pens["eng_idx"].items()
+            ]
         else:
-            engines[0] = get_engines(ENGINES, pens["eng_names"], pens["pin"])
-        msg += f"{pens['eng_names']} "
+            engines[0] = [
+                ENGINES[eng][idx] for eng, idx in pens["eng_idx"].items()
+            ]
+        msg += f"{list(pens['eng_idx'].keys())} "
     logger.info(msg + "for MC move.")
 
     # Set mdrun, rng, then clean_up.

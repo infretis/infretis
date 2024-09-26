@@ -54,8 +54,10 @@ def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
         "config": config,
     }
 
-    # setup global engines and create orderparameters
-    def_globals(config)
+    # setup global engines, the engine_occupation lists,
+    # and create orderparameters.
+    engine_occ = def_globals(config)
+    state.engine_occ = engine_occ
 
     # write pattern header
     if state.pattern:

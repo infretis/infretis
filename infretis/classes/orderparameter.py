@@ -269,7 +269,7 @@ def create_orderparameters(
 ):
     """Create orderparameters."""
     for engine_key in engines.keys():
-        for engine in engines[engine_key][1]:
+        for engine in engines[engine_key]:
             engine.order_function = create_orderparameter(settings)
 
 
