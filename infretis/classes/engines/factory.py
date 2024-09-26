@@ -51,12 +51,14 @@ def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
     We create min(n_engines_type_i, n_workers) engines in a dict
     'engines'. Each entry of engines['enginei']
     has elements:
+
         [   enginei0,    enginei1, enginei2]
+
     and each entry of 'engine_occ' has entries
 
          [workeri_pin, workerj_pin,       -1],
 
-    Where enginei0 is used by workeri, enginei1 by workerj, and
+    where enginei0 is used by workeri, enginei1 by workerj, and
     enginei2 is free (-1 tells us the engine is not used).
 
     Args:
