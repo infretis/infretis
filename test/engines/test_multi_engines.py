@@ -23,20 +23,20 @@ def get_quantis_engines():
 
 def test_quantis_potentials():
     """Test that we actually create two different potentials with quantis."""
-    engines = get_quantis_engines()
+    engines, _ = get_quantis_engines()
     # We should have 2 engines
     assert len(engines) == 2
     # The two engines should have different potentials
     assert (
-        engines["engine0"][1][0].potential[0].desc
-        != engines["engine"][1][0].potential[0].desc
+        engines["engine0"][0].potential[0].desc
+        != engines["engine"][0].potential[0].desc
     )
 
 
 def test_potential_curves():
-    engines = get_quantis_engines()
-    e0 = engines["engine0"][1][0]
-    e1 = engines["engine"][1][0]
+    engines, _ = get_quantis_engines()
+    e0 = engines["engine0"][0]
+    e1 = engines["engine"][0]
     x = np.linspace(0.3, 1.3, 50)
     e1.system.particles.pos *= 0
     en0 = []

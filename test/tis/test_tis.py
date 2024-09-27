@@ -150,9 +150,7 @@ def create_ensdic_and_engine() -> tuple[dict, TurtleMDEngine]:
     turtle = create_engine({"engine": eng_set})
     turtle.rgen = ens_set["rgen"]
     ordp_set = {"class": "Position", "index": [0, 0], "periodic": False}
-    create_orderparameters(
-        {"engine": [[-1], [turtle]]}, {"orderparameter": ordp_set}
-    )
+    create_orderparameters({"engine": [turtle]}, {"orderparameter": ordp_set})
     return ens_set, turtle
 
 
