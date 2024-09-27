@@ -45,7 +45,9 @@ def create_engine(
     return engine
 
 
-def create_engines(config: dict[str, Any]) -> dict[Any, EngineBase | None]:
+def create_engines(
+    config: dict[str, Any]
+) -> tuple[dict[Any, EngineBase], dict[Any, int]]:
     """Create the engines for a infretis simulation.
 
     We create min(n_engines_type_i, n_workers) engines in a dict
@@ -116,7 +118,9 @@ def check_engine(settings: dict[str, Any], eng_key: str) -> bool:
     return True
 
 
-def assign_engines(engine_occ: dict[str, list], eng_names, pin) -> list:
+def assign_engines(
+    engine_occ: dict[str, list], eng_names, pin
+) -> dict[Any, int]:
     """Assign non-occupied engine(s) to a worker based on the engine_occ dict.
 
     Args:

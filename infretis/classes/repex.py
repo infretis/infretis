@@ -22,10 +22,11 @@ DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 class REPEX_state:
     """Define the REPEX object."""
 
-    # dicts to hold *toml, path data and ensembles.
+    # dicts to hold *toml, path data, ensembles and engine pointers.
     config: dict = {}
     traj_data: dict = {}
     ensembles: dict = {}
+    engine_occ: dict = {}
 
     # holds counts current worker.
     cworker = None

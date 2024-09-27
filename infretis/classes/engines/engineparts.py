@@ -453,6 +453,7 @@ class ReadAndProcessOnTheFly:
         self.file_path = file_path
         self.processing_function = processing_function
         self.current_position = 0
+        self.previous_position = 0
         self.file_object: IO[Any] | None = None
         self.read_mode = read_mode
 
