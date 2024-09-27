@@ -9,6 +9,7 @@ import numpy as np
 import tomli_w
 from numpy.random import default_rng
 
+from infretis.classes.engines.factory import assign_engines
 from infretis.classes.formatter import PathStorage
 from infretis.core.core import make_dirs
 from infretis.core.tis import calc_cv_vector
@@ -21,10 +22,11 @@ DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 class REPEX_state:
     """Define the REPEX object."""
 
-    # dicts to hold *toml, path data and ensembles.
+    # dicts to hold *toml, path data, ensembles and engine pointers.
     config: dict = {}
     traj_data: dict = {}
     ensembles: dict = {}
+    engine_occ: dict = {}
 
     # holds counts current worker.
     cworker = None
@@ -181,13 +183,9 @@ class REPEX_state:
         child_rng = self.rgen.spawn(1)[0]
         for ens_num, inp_traj in zip(ens_nums, inp_trajs):
             ens_pick = self.ensembles[ens_num + 1]
-            eng_names = self.config["simulation"]["ensemble_engines"][
-                ens_num + 1
-            ]
             ens_pick["rgen"] = child_rng.spawn(1)[0]
             picked[ens_num] = {
                 "ens": ens_pick,
-                "eng_names": eng_names,
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
             }
@@ -231,12 +229,8 @@ class REPEX_state:
         for ens_num, inp_traj in zip(enss, trajs):
             ens_pick = self.ensembles[ens_num + 1]
             ens_pick["rgen"] = child_rng.spawn(1)[0]
-            eng_names = self.config["simulation"]["ensemble_engines"][
-                ens_num + 1
-            ]
             picked[ens_num] = {
                 "ens": ens_pick,
-                "eng_names": eng_names,
                 "traj": inp_traj,
                 "pn_old": inp_traj.path_number,
             }
@@ -266,6 +260,8 @@ class REPEX_state:
         md_items["ens_nums"] = list(md_items["picked"].keys())
 
         # allocate worker pin:
+        ens_engs = self.config["simulation"]["ensemble_engines"]
+        eng_names = []
         for ens_num in md_items["ens_nums"]:
             md_items["picked"][ens_num]["exe_dir"] = md_items["w_folder"]
             if self.config["runner"].get("wmdrun", False):
@@ -276,6 +272,17 @@ class REPEX_state:
             ens_rgen = md_items["picked"][ens_num]["ens"]["rgen"]
             md_items["picked"][ens_num]["rgen-eng"] = ens_rgen.spawn(1)[0]
             md_items["picked"][ens_num]["pin"] = md_items["pin"]
+            eng_names += ens_engs[ens_num + 1]
+
+        # engine assignment
+        unique_eng_names = list(set(eng_names))
+        eng_idx = assign_engines(
+            self.engine_occ, unique_eng_names, md_items["pin"]
+        )
+        for ens_num in md_items["ens_nums"]:
+            md_items["picked"][ens_num]["eng_idx"] = {
+                eng: eng_idx[eng] for eng in ens_engs[ens_num + 1]
+            }
 
         # write pattern:
         if self.pattern and self.toinitiate == -1:

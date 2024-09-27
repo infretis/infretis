@@ -453,6 +453,7 @@ class ReadAndProcessOnTheFly:
         self.file_path = file_path
         self.processing_function = processing_function
         self.current_position = 0
+        self.previous_position = 0
         self.file_object: IO[Any] | None = None
         self.read_mode = read_mode
 
@@ -463,7 +464,6 @@ class ReadAndProcessOnTheFly:
         try:
             with open(self.file_path, self.read_mode) as self.file_object:
                 self.file_object.seek(self.current_position)
-                self.previous_position = self.current_position
                 return self.processing_function(self)
         except FileNotFoundError:
             return []
@@ -489,7 +489,6 @@ def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
             # if there aren't enough values to iterate through
             # return the (possibly empty) ready trajectory frames
             if len(spl) != 4:
-                reader_class.current_position = reader_class.previous_position
                 return trajectory
             else:
                 frame_coordinates.append([float(spl[i]) for i in range(1, 4)])
@@ -497,6 +496,7 @@ def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
         # update the file object pointer to the new position
         if i % block_size == N_atoms + 1 and i > 0:
             trajectory.append(np.array(frame_coordinates))
+            reader_class.previous_position = reader_class.current_position
             reader_class.current_position = reader_class.file_object.tell()
             frame_coordinates = []
 
@@ -556,7 +556,6 @@ def lammpstrj_reader(
             # frame is not ready
             n_box_cols = len(spl)
             if n_box_cols not in [2, 3]:
-                reader_class.current_position = reader_class.previous_position
                 return trajectory, box
             else:
                 # we may have either 2 or 3 columns in box output
@@ -565,7 +564,6 @@ def lammpstrj_reader(
         elif line_nr >= 9:
             # frame is not ready
             if len(spl) != 8:
-                reader_class.current_position = reader_class.previous_position
                 return trajectory, box
             else:
                 # the atom number, which are not sorted by default in lammps
@@ -577,6 +575,7 @@ def lammpstrj_reader(
         if i % block_size == block_size - 1 and i > 0:
             trajectory.append(coordinate_snapshot)
             box.append(np.array(box_snapshot))
+            reader_class.previous_position = reader_class.current_position
             reader_class.current_position = reader_class.file_object.tell()
             # allocate memory for next frame
             coordinate_snapshot = np.zeros((N_atoms, 6))
