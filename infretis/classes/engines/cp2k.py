@@ -8,6 +8,7 @@ Important classes defined here
 CP2KEngine (:py:class:`.CP2KEngine`)
     A class responsible for interfacing CP2K.
 """
+
 from __future__ import annotations
 
 import logging
@@ -508,11 +509,12 @@ def guess_particle_mass(particle_no: int, particle_type: str) -> float:
     )
     mass = PERIODIC_TABLE.get(particle_type, None)
     if mass is None:
-        particle_mass = 1822.8884858012982
-        logger.info(
-            "-> Could not find mass. Assuming %f (internal units)",
-            particle_mass,
+        msg = (
+            f"Could not infer mass for particle number {particle_no}"
+            f" with element '{particle_type}' as its not in our periodic"
+            "table."
         )
+        raise ValueError(msg)
     else:
         particle_mass = 1822.8884858012982 * mass
         logger.info(
