@@ -85,7 +85,6 @@ class ASEEngine(EngineBase):
             self.integrator_settings = {
                 "timestep": self.timestep * units.fs,
             }
-        print(self.Integrator, langevin_fixcm)
 
         self.kb = 8.61733326e-5  # eV/K
         self._beta = 1 / (self.temperature * self.kb)

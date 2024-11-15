@@ -11,7 +11,7 @@ workers = 1
 wmdrun = [ 1,]
 
 [simulation]
-interfaces = [-0.99, 1.0]
+interfaces = [3.45, 12.0]
 steps = 10000
 seed = 0
 load_dir = "load"
@@ -35,20 +35,21 @@ langevin_fixcm = false
 langevin_friction = 0.1
 
 [engine.calculator_settings]
-module = "double-well-calculator.py"
-class = "DWCalc"
-a = 1.0
-b = 2.0
-c = 0.0
+module = "H2-calc.py"
+class = "LennardJonesCalc"
+sigma = 3.0
+epsilon = 0.25910675  # 25.0*0.01036427 kj/mol -> eV
+rc = 12.0
+smooth = false
 
 [orderparameter]
-class = "Position"
-index = [0,0]
-periodic = false
+class = "Distance"
+index = [0,1]
+periodic = true
 
 [output]
 data_dir = "./"
-screen = false
+screen = 1
 pattern = false
 delete_old = false
 delete_old_all = false
