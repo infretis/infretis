@@ -1,0 +1,54 @@
+[infinit]
+pL = 0.3
+steps_per_iter = [20,40,80,160,320]
+nskip = 10
+cstep = -1
+initial_conf = "initial.traj"
+lamres = 0.005
+
+[runner]
+workers = 1
+wmdrun = [ 1,]
+
+[simulation]
+interfaces = [-0.99, 1.0]
+steps = 10000
+seed = 0
+load_dir = "load"
+shooting_moves = ["sh", "sh"]
+
+[simulation.tis_set]
+maxlength = 20000
+allowmaxlength = false
+zero_momentum = true
+n_jumps = 2
+
+[engine]
+class = "ase"
+engine = "ase"
+input_path = "."
+temperature = 300
+timestep = 0.5
+subcycles = 1
+integrator = "langevin"
+langevin_fixcm = false
+langevin_friction = 0.1
+
+[engine.calculator_settings]
+module = "double-well-calculator.py"
+class = "DWCalc"
+a = 1.0
+b = 2.0
+c = 0.0
+
+[orderparameter]
+class = "Position"
+index = [0,0]
+periodic = false
+
+[output]
+data_dir = "./"
+screen = false
+pattern = false
+delete_old = false
+delete_old_all = false
