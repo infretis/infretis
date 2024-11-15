@@ -1,3 +1,5 @@
+"""An ASE integrator interface."""
+
 import logging
 import os
 from pathlib import Path
@@ -7,11 +9,11 @@ from ase import units
 from ase.io import read, write
 from ase.io.trajectory import Trajectory
 from ase.md.langevin import Langevin
-from ase.md.verlet import VelocityVerlet
 from ase.md.velocitydistribution import (
     MaxwellBoltzmannDistribution,
     Stationary,
 )
+from ase.md.verlet import VelocityVerlet
 
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.formatter import FileIO
@@ -24,6 +26,8 @@ logger.addHandler(logging.NullHandler())
 
 
 class ASEEngine(EngineBase):
+    """An ASE engine class."""
+
     def __init__(
         self,
         timestep: float,
@@ -32,14 +36,16 @@ class ASEEngine(EngineBase):
         input_path: str,
         integrator: str,
         calculator_settings: str,
-        langevin_friction: float = None,
-        langevin_fixcm: float = None,
+        langevin_friction: float = -1.0,
+        langevin_fixcm: float = -1.0,
         exe_path: str | Path = Path(".").resolve(),
     ):
-        """Initialize the ASE engine.
+        """
+        Initialize the ase engine.
 
-        langevin_fixcm: removes center of mass motion. Should not be used for low
-            dim systems like double well.
+        langevin_fixcm: removes center of mass motion. Should not be used for
+            low dimensional systems like double well.
+
         """
         super().__init__("ASE external engine", timestep, subcycles)
 
@@ -57,24 +63,24 @@ class ASEEngine(EngineBase):
         # integrator stuff
         integrator = integrator.lower()
         integrator_map = {
-                "langevin":Langevin,
-                "velocityverlet":VelocityVerlet
-                }
+            "langevin": Langevin,
+            "velocityverlet": VelocityVerlet,
+        }
         if integrator not in integrator_map.keys():
             raise ValueError(f"{integrator.lower()} not in integrator map.")
 
         self.Integrator = integrator_map[integrator]
         if integrator == "langevin":
-            if langevin_fixcm is None:
+            if langevin_fixcm == -1.0:
                 raise ValueError("'langevin_fixcm' not set in [engine]")
-            if langevin_friction is None:
+            if langevin_friction == -1.0:
                 raise ValueError("'langevin_friction' not set in [engine]")
             self.integrator_settings = {
                 "timestep": self.timestep * units.fs,
                 "temperature_K": self.temperature,
                 "friction": langevin_friction * units.fs,
                 "fixcm": langevin_fixcm,
-        }
+            }
         elif integrator == "velocityverlet":
             self.integrator_settings = {
                 "timestep": self.timestep * units.fs,
@@ -98,6 +104,7 @@ class ASEEngine(EngineBase):
         return atoms.positions, atoms.get_velocities(), atoms.cell.diagonal()
 
     def set_mdrun(self, md_items: dict) -> None:
+        """Set worker stuff if needed."""
         self.exe_dir = md_items["exe_dir"]
 
     def _propagate_from(
@@ -193,6 +200,11 @@ class ASEEngine(EngineBase):
     def modify_velocities(
         self, system: System, vel_settings: dict
     ) -> tuple[float, float]:
+        """Modify the velocities.
+
+        TODO: what about fixcm with langevin integrator
+            and zero_momentum?
+        """
         fname = self.dump_frame(system)
         atoms = read(fname)
         kin_old = atoms.get_kinetic_energy()
