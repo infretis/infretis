@@ -54,6 +54,7 @@ class ASEEngine(EngineBase):
         self.temperature = temperature
         self.input_path = exe_path / input_path
         self.ext = "traj"
+        self.name = "ase"
 
         # TODO: make this non-manual
         # by reading in from .toml or .py?
@@ -100,7 +101,7 @@ class ASEEngine(EngineBase):
         filename: str,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         atoms = read(filename)
-        return atoms.positions, atoms.get_velocities(), atoms.cell.diagonal()
+        return atoms.positions, atoms.get_velocities(), atoms.cell.diagonal(), None
 
     def set_mdrun(self, md_items: dict) -> None:
         """Set worker stuff if needed."""
