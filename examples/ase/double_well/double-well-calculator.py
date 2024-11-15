@@ -34,9 +34,5 @@ class DWCalc(Calculator):
         N = int(atoms.positions.shape[0])
 
         e, f = forces_and_energy_DW(atoms.positions, N, self.a, self.b, self.c)
-        print("=s=")
-        print(atoms.positions[0])
-        print(f)
-        print("=e=")
 
         self.results = {"energy": e, "forces": f, "stress": np.zeros(6)}
