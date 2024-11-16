@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 import numpy as np
+import ase
 from ase import units
 from ase.io import read, write
 from ase.io.trajectory import Trajectory
@@ -35,7 +36,7 @@ class ASEEngine(EngineBase):
         subcycles: int,
         input_path: str,
         integrator: str,
-        calculator_settings: str,
+        calculator_settings: dict,
         langevin_friction: float = -1.0,
         langevin_fixcm: float = -1.0,
         exe_path: str | Path = Path(".").resolve(),
@@ -52,7 +53,7 @@ class ASEEngine(EngineBase):
         self.timestep = timestep
         self.subcycles = subcycles
         self.temperature = temperature
-        self.input_path = exe_path / input_path
+        self.input_path = Path(exe_path) / input_path
         self.ext = "traj"
         self.name = "ase"
 
@@ -99,8 +100,10 @@ class ASEEngine(EngineBase):
     def _read_configuration(
         self,
         filename: str,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, None]:
         atoms = read(filename)
+        if isinstance(atoms, list):
+            atoms = atoms[0]
         return atoms.positions, atoms.get_velocities(), atoms.cell.diagonal(), None
 
     def set_mdrun(self, md_items: dict) -> None:
@@ -122,6 +125,8 @@ class ASEEngine(EngineBase):
 
         initial_conf = system.config[0]
         atoms = read(initial_conf)
+        if isinstance(atoms, list):
+            atoms = atoms[0]
         # TODO: Fix box stuff, now it only takes lengths andn ot angles
         order = self.calculate_order(
             system,
@@ -138,12 +143,12 @@ class ASEEngine(EngineBase):
         msg_file.write(f"# Trajectory file is: {traj_file}")
         dyn = self.Integrator(atoms, **self.integrator_settings)
         atoms.set_calculator(self.calc)
-        # we give the ase atoms object the system and order
+        # we give the calculator object the system and order
         # information in case it is needed during force calculations
         # using e.g. force mixing with quantis. Can't give it directly
-        # as atoms.order because OP is only calculated every subcycles
-        atoms.system = system
-        atoms.calculate_order = self.calculate_order
+        # because the oderparameter is only calculated every subcycles
+        self.calc.inf_system = system
+        self.calc.inf_calculate_order = self.calculate_order
         # TODO: check order, here we first calculate the forces of init conf
         # and then continue to the main loop. Is this correct?
         # This way the forces are set in self.calc.results from
@@ -207,6 +212,8 @@ class ASEEngine(EngineBase):
         """
         fname = self.dump_frame(system)
         atoms = read(fname)
+        if isinstance(atoms, list):
+            atoms = atoms[0]
         kin_old = atoms.get_kinetic_energy()
 
         MaxwellBoltzmannDistribution(atoms, temperature_K=self.temperature)
@@ -234,6 +241,8 @@ class ASEEngine(EngineBase):
 
     def _reverse_velocities(self, filename: str, outfile: str) -> None:
         atoms = read(filename)
+        if isinstance(atoms, list):
+            atoms = atoms[0]
         vel = atoms.get_velocities()
         atoms.set_velocities(-vel)
         write(outfile, atoms)
