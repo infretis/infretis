@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 
 import numpy as np
-import ase
 from ase import units
 from ase.io import read, write
 from ase.io.trajectory import Trajectory
@@ -104,7 +103,12 @@ class ASEEngine(EngineBase):
         atoms = read(filename)
         if isinstance(atoms, list):
             atoms = atoms[0]
-        return atoms.positions, atoms.get_velocities(), atoms.cell.diagonal(), None
+        return (
+            atoms.positions,
+            atoms.get_velocities(),
+            atoms.cell.diagonal(),
+            None,
+        )
 
     def set_mdrun(self, md_items: dict) -> None:
         """Set worker stuff if needed."""
