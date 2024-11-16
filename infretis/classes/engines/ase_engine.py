@@ -68,7 +68,7 @@ class ASEEngine(EngineBase):
             "velocityverlet": VelocityVerlet,
         }
         if integrator not in integrator_map.keys():
-            raise ValueError(f"{integrator.lower()} not in integrator map.")
+            raise ValueError(f"{integrator} not in integrator map.")
 
         self.Integrator = integrator_map[integrator]
         if integrator == "langevin":
@@ -131,7 +131,7 @@ class ASEEngine(EngineBase):
         atoms = read(initial_conf)
         if isinstance(atoms, list):
             atoms = atoms[0]
-        # TODO: Fix box stuff, now it only takes lengths andn ot angles
+        # TODO: Fix box stuff, now it only takes lengths and not angles
         order = self.calculate_order(
             system,
             xyz=atoms.positions,

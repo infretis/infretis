@@ -18,10 +18,10 @@ load_dir = "load"
 shooting_moves = ["sh", "sh"]
 
 [simulation.tis_set]
-maxlength = 200
+maxlength = 2000
 allowmaxlength = false
 zero_momentum = true
-n_jumps = 2
+n_jumps = 3
 
 [engine]
 class = "ase"
