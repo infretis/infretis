@@ -146,7 +146,7 @@ class ASEEngine(EngineBase):
         traj = Trajectory(traj_file, "w")
         msg_file.write(f"# Trajectory file is: {traj_file}")
         dyn = self.Integrator(atoms, **self.integrator_settings)
-        atoms.set_calculator(self.calc)
+        atoms.calc = self.calc
         # we give the calculator object the system and order
         # information in case it is needed during force calculations
         # using e.g. force mixing with quantis. Can't give it directly
@@ -166,7 +166,7 @@ class ASEEngine(EngineBase):
         for i in range(self.subcycles * path.maxlen):
             energy = self.calc.results["energy"]
             forces = self.calc.results["forces"]
-            stress = self.calc.results["stress"]
+            stress = self.calc.results.get("stress", None)
             if (i) % (self.subcycles) == 0:
                 ekin.append(atoms.get_kinetic_energy())
                 vpot.append(self.calc.results["energy"])
