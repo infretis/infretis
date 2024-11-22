@@ -140,9 +140,17 @@ def test_modify_velocities(tmp_path, engine):
 )
 @pytest.mark.heavy
 def test_modify_velicity_distribition(tmp_path, engine):
-    """Check that we generate the correct distribution with
-    the correct units by comparing std. deviations from
-    the generated velocities with the expected std. deviations"""
+    """Check that velocities are generated with the correct distribution.
+
+    We compare here the generated velocitied with standard deviations from a
+    long MD run with the given engine. This takes care of the units and other
+    settings such as zero_momentum.
+
+    However, the velocity distribution should be a normal distribution with
+    std.dev = (Temp*u.K*u.k_B*1/(mass*u.atomic_mass_constant))**0.5
+    and zero mean. For zero_momentum = True, the distribution should be
+    divided by sqrt(1/1.008 + 1/1.008) for the H2 system.
+    """
     # folder we wil run from
     folder = tmp_path / "temp"
     folder.mkdir()
