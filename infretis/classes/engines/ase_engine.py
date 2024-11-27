@@ -59,7 +59,7 @@ class ASEEngine(EngineBase):
         # TODO: make this non-manual
         # by reading in from .toml or .py?
         # Create calculator
-        self.calc = create_external(calculator_settings, "ase", ["calculate"])
+        self.calc = create_external(calculator_settings, "ASE calculator", [])
 
         # integrator stuff
         integrator = integrator.lower()
