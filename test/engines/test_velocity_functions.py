@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 import tomli
 
+from infretis.classes.engines.ase_engine import ASEEngine
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.factory import create_engine
 from infretis.classes.engines.gromacs import GromacsEngine
@@ -19,6 +20,7 @@ EXPECTED_STDDEV = {
     "turtlemd": 1.57265889690332,
     "gromacs": 1.1131628,
     "lammps": 0.01573556087968066,
+    "ase": 0.1113976956951558,
 }
 
 
@@ -79,6 +81,21 @@ def return_cp2k_engine():
     }
     return engine
 
+def return_ase_engine():
+    """Set up an ase engine for the H2 system."""
+    ase_toml_path = HERE / "../../examples/ase/H2/infretis0.toml"
+    calc_path = HERE / "../../examples/ase/H2/H2-calc.py"
+    toml_file = ase_toml_path
+    with open(toml_file, "rb") as rfile:
+        config = tomli.load(rfile)
+    config["engine"]["calculator_settings"]["module"] = str(calc_path.resolve())
+    engine = create_engine(config)
+    engine.input_path = HERE / "../../examples/ase/H2"
+    engine.vel_settings = {
+        "zero_momentum": True,
+    }
+    return engine
+
 
 @pytest.mark.parametrize(
     "engine",
@@ -87,6 +104,7 @@ def return_cp2k_engine():
         return_lammps_engine(),
         return_cp2k_engine(),
         return_turtlemd_engine(),
+        return_ase_engine(),
     ],
 )
 def test_modify_velocities(tmp_path, engine):
@@ -117,13 +135,22 @@ def test_modify_velocities(tmp_path, engine):
         return_lammps_engine(),
         return_cp2k_engine(),
         return_turtlemd_engine(),
+        return_ase_engine(),
     ],
 )
 @pytest.mark.heavy
 def test_modify_velicity_distribition(tmp_path, engine):
-    """Check that we generate the correct distribution with
-    the correct units by comparing std. deviations from
-    the generated velocities with the expected std. deviations"""
+    """Check that velocities are generated with the correct distribution.
+
+    We compare here the generated velocitied with standard deviations from a
+    long MD run with the given engine. This takes care of the units and other
+    settings such as zero_momentum.
+
+    However, the velocity distribution should be a normal distribution with
+    std.dev = (Temp*u.K*u.k_B*1/(mass*u.atomic_mass_constant))**0.5
+    and zero mean. For zero_momentum = True, the distribution should be
+    divided by sqrt(1/1.008 + 1/1.008) for the H2 system.
+    """
     # folder we wil run from
     folder = tmp_path / "temp"
     folder.mkdir()

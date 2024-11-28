@@ -237,7 +237,7 @@ def create_external(
     if os.path.isfile(module):
         obj = import_from(module, klass)
     else:
-        if "exe_path" in settings["simulation"]:
+        if "exe_path" in settings.get("simulation", []):
             module = os.path.join(settings["simulation"]["exe_path"], module)
             obj = import_from(module, klass)
         else:
