@@ -51,7 +51,6 @@ def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
         "mc_moves": state.mc_moves,
         "interfaces": state.interfaces,
         "cap": state.cap,
-        "config": config,
     }
 
     # setup global engines, the engine_occupation lists,
