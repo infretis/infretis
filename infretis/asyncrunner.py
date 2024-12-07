@@ -230,17 +230,22 @@ class future_list:
         self._futures.append(future)
 
     def as_completed(self) -> asyncio.Future | None:
-        """Get future as they are done.
+        """Get future as they are done in order of completion times.
 
         Return:
             return a future from the list, whenever it is done
             or return None when the list is empty.
         """
-        future_out = None
+        future_out = []
+        end_times = []
         while len(self._futures) > 0 and not future_out:
             for fut in list(self._futures):
                 if fut.done():
-                    future_out = fut
-                    self._futures.remove(fut)
-                    break
-        return future_out
+                    end_times.append(fut.result()["wmd_end"])
+                    future_out.append(fut)
+
+        # process the first one to finish first
+        index_min = min(range(len(end_times)), key=end_times.__getitem__)
+        fut = future_out[index_min]
+        self._futures.remove(fut)
+        return fut
