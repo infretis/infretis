@@ -233,19 +233,25 @@ class future_list:
         """Get future as they are done in order of completion times.
 
         Return:
-            return a future from the list, whenever it is done
+            return the first-to-complete future from the list
             or return None when the list is empty.
         """
-        future_out = []
+        future_out = None
+        done_futures: list[asyncio.Future] = []
         end_times = []
-        while len(self._futures) > 0 and not future_out:
+        while len(self._futures) > 0 and not done_futures:
             for fut in list(self._futures):
                 if fut.done():
-                    end_times.append(fut.result()["wmd_end"])
-                    future_out.append(fut)
+                    if fut.exception() is None:
+                        end_times.append(fut.result().get("wmd_end",0.0))
+                        done_futures.append(fut)
+                    else:
+                        return fut
 
         # process the first one to finish first
-        index_min = min(range(len(end_times)), key=end_times.__getitem__)
-        fut = future_out[index_min]
-        self._futures.remove(fut)
-        return fut
+        if len(done_futures) > 0:
+            index_min = min(range(len(end_times)), key=end_times.__getitem__)
+            future_out = done_futures[index_min]
+            self._futures.remove(future_out)
+
+        return future_out
