@@ -243,7 +243,7 @@ class future_list:
             for fut in list(self._futures):
                 if fut.done():
                     if fut.exception() is None:
-                        end_times.append(fut.result().get("wmd_end",0.0))
+                        end_times.append(fut.result().get("wmd_end", 0.0))
                         done_futures.append(fut)
                     else:
                         return fut
