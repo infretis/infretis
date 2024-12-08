@@ -237,21 +237,17 @@ class future_list:
             or return None when the list is empty.
         """
         future_out = None
-        done_futures: list[asyncio.Future] = []
-        end_times = []
-        while len(self._futures) > 0 and not done_futures:
+        min_end_time = float("inf")
+        while len(self._futures) > 0 and not future_out:
             for fut in list(self._futures):
                 if fut.done():
-                    if fut.exception() is None:
-                        end_times.append(fut.result().get("wmd_end", 0.0))
-                        done_futures.append(fut)
-                    else:
-                        return fut
-
-        # process the first one to finish first
-        if len(done_futures) > 0:
-            index_min = min(range(len(end_times)), key=end_times.__getitem__)
-            future_out = done_futures[index_min]
+                    if fut.exception():
+                        future_out = fut
+                        break
+                    end_time = fut.result().get("wmd_end", 0.0)
+                    if end_time < min_end_time:
+                        future_out = fut
+                        min_end_time = end_time
+        if future_out:
             self._futures.remove(future_out)
-
         return future_out
