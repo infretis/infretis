@@ -96,6 +96,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
             trial.weights = calc_cv_vector(
                 trial,
                 md_items["interfaces"],
+                md_items["lambda_minus_one"],
                 md_items["mc_moves"],
                 cap=md_items["cap"],
                 minus=minus,
@@ -109,6 +110,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
 def calc_cv_vector(
     path: InfPath,
     interfaces: list[float],
+    lambda_minus_one: float,
     moves: list[str],
     cap: float | None = None,
     minus: bool = False,
@@ -129,7 +131,10 @@ def calc_cv_vector(
 
     cv = []
     if minus:
-        return (1.0 if interfaces[0] <= path_max else 0.0,)
+        if lambda_minus_one != None:
+            return (1.0 if lambda_minus_one <= path_max else 0.0,)
+        else:
+            return (1.0 if interfaces[0] <= path_max else 0.0,)
 
     for idx, intf_i in enumerate(interfaces[:-1]):
         if moves[idx + 1] == "wf":
@@ -900,15 +905,13 @@ def retis_swap_zero(
     logger.info("Point is %s", phase_point.order)
     engine1.dump_phasepoint(phase_point, "second")
     path0.append(phase_point)
-    if path0.length == maxlen0:
+    # Reject the zero swap with status 0-L when the 0- path is RML or LML (Sina) 
+    if "L" in path_old0.check_interfaces(ens_set0["interfaces"])[1:2]:
+        path0.status = "0-L"
+    elif path0.length == maxlen0:
         path0.status = "BTX"
     elif path0.length < 3:
         path0.status = "BTS"
-    elif (
-        "L" not in set(ens_set0["start_cond"])
-        and "L" in path0.check_interfaces(ens_set0["interfaces"])[:2]
-    ):
-        path0.status = "0-L"
     else:
         path0.status = "ACC"
     # print(path0.status)

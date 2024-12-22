@@ -300,6 +300,8 @@ class REPEX_state:
         for key in ["moves", "trial_len", "trial_op", "generated"]:
             md_items[key] = []
 
+        md_items["lambda_minus_one"] = self.config["simulation"].get("lambda_minus_one", None)
+        
         return md_items
 
     def add_traj(self, ens, traj, valid, count=True, n=0):
@@ -964,6 +966,7 @@ class REPEX_state:
             paths[i + 1].weights = calc_cv_vector(
                 paths[i + 1],
                 self.config["simulation"]["interfaces"],
+                self.config["simulation"].get("lambda_minus_one", None),
                 self.mc_moves,
                 cap=self.cap,
             )
@@ -1020,10 +1023,14 @@ class REPEX_state:
     def initiate_ensembles(self):
         """Create all the ensemble dicts from the *toml config dict."""
         intfs = self.config["simulation"]["interfaces"]
+        lambda_minus_one = self.config["simulation"].get("lambda_minus_one", None)        
         ens_intfs = []
 
         # set intfs for [0-] and [0+]
-        ens_intfs.append([float("-inf"), intfs[0], intfs[0]])
+        if lambda_minus_one != None:
+            ens_intfs.append([lambda_minus_one, (lambda_minus_one + intfs[0])/2, intfs[0]])
+        else:
+            ens_intfs.append([float("-inf"), intfs[0], intfs[0]])
         ens_intfs.append([intfs[0], intfs[0], intfs[-1]])
 
         # set interfaces and set detect for [1+], [2+], ...
@@ -1040,7 +1047,7 @@ class REPEX_state:
                 "tis_set": self.config["simulation"]["tis_set"],
                 "mc_move": self.config["simulation"]["shooting_moves"][i],
                 "ens_name": f"{i:03d}",
-                "start_cond": "R" if i == 0 else "L",
+                "start_cond": ["L", "R"] if lambda_minus_one != None and i == 0 else ("R" if i == 0 else "L"),
             }
 
         self.ensembles = pensembles
