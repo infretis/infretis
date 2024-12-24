@@ -368,19 +368,24 @@ class LAMMPSEngine(EngineBase):
                 import indexed_gzip as igzip
                 import gzip as gzip
                 global gzip, igzip
-                print('botato')
             except ImportError as error:
                 raise ValueError(error)
             dump_line = self._read_input_settings(
                     self.input_files["input"],
                     key="${name}.lammpstrj"
             )
+            msg = "As 'compressed' is set to 'true' in the toml input file,"
             if "${name}.lammpstrj.gz" not in dump_line:
-                msg = (
-                    "'compressed' is set to 'true' in the toml input file,"
-                    + " so ${name}.lammpstrj in the lammps input file must"
-                    + " be set to ${name}.lammpstrj.gz."
+                msg += (
+                    "'${name}.lammpstrj' in the lammps input file must"
+                    + " be set to '${name}.lammpstrj.gz'. "
                 )
+            if "custom/gz" not in dump_line:
+                msg += (
+                    "'custom' in the lammps input file must"
+                    + " be set to 'custom/gz'."
+                )
+            if "must" in msg:
                 raise ValueError(msg)
         self.ext = "lammpstrj"
         self.ext += ".gz" if self.compressed else ""
