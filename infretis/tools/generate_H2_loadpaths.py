@@ -6,6 +6,7 @@ Usage:
     # e.g. from infretis/examples/gromacs/H2
     python ../../../infretis/tools/generate_H2_loadpaths.py
 """
+
 from pathlib import Path
 
 import numpy as np

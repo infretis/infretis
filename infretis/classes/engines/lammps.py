@@ -1,4 +1,5 @@
 """Define the engine for using LAMMPS."""
+
 from __future__ import annotations
 
 import logging

@@ -1,4 +1,5 @@
 """Defines the snapshot system class."""
+
 from __future__ import annotations
 
 import logging

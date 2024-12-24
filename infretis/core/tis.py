@@ -131,7 +131,7 @@ def calc_cv_vector(
 
     cv = []
     if minus:
-        if lambda_minus_one != None:
+        if lambda_minus_one is not None:
             return (1.0 if lambda_minus_one <= path_max else 0.0,)
         else:
             return (1.0 if interfaces[0] <= path_max else 0.0,)
@@ -876,6 +876,11 @@ def retis_swap_zero(
     # if allowed:
     #     swap_ensemble_attributes(ensemble0, ensemble1, settings)
 
+    # if lambda_minus_one, reject early if path_old0
+    if set(ens_set0["start_cond"]) == set(["L", "R"]):
+        if path_old0.check_interfaces(ens_set0["interfaces"])[1] == "L":
+            return False, [path_old0, path_old1], "0-L"
+
     # 1. Generate path for [0^-] from [0^+]:
     # We generate from the first point of the path in [0^+]:
     logger.info("Swapping [0^-] <-> [0^+]")
@@ -905,23 +910,15 @@ def retis_swap_zero(
     logger.info("Point is %s", phase_point.order)
     engine1.dump_phasepoint(phase_point, "second")
     path0.append(phase_point)
-
-    if (
-        (
-            "L" not in set(ens_set0["start_cond"])  # if not lambda_minus_one, 0- start_cond is ['R']
-            and "L" in path0.check_interfaces(ens_set0["interfaces"])[:2]
-        ) 
-        or (
-            "L" in set(ens_set0["start_cond"])      # if lambda_minus_one, 0- start_cond is ['L', 'R']
-            and "R" in set(ens_set0["start_cond"]) 
-            and "L" in path_old0.check_interfaces(ens_set0["interfaces"])[1:2] # reject 0- RML and LML swap with 0+
-        )
-    ):
-        path0.status = "0-L"
-    elif path0.length == maxlen0:
+    if path0.length == maxlen0:
         path0.status = "BTX"
     elif path0.length < 3:
-        path0.status = "BTS"       
+        path0.status = "BTS"
+    elif (
+        "L" not in set(ens_set0["start_cond"])
+        and "L" in path0.check_interfaces(ens_set0["interfaces"])[:2]
+    ):
+        path0.status = "0-L"
     else:
         path0.status = "ACC"
 
