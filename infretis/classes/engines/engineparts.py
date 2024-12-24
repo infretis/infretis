@@ -6,7 +6,6 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import IO, Any
 import gzip
-import indexed_gzip as igzip
 
 import numpy as np
 
@@ -461,15 +460,11 @@ class ReadAndProcessOnTheFly:
 
     def read_and_process_content(self) -> Any:
         """Read and process content from a file."""
-        # read a zipped file, self.file_object is set in LAMMPS engine already
-        print('gere a')
-        import indexed_gzip as igzip
-        if self.file_object and self.file_path[-3:] == ".gz":
-            print('gere b')
+        # if ".gz", read in an alternative way (curently for LAMMPS)
+        if self.file_path[-3:] == ".gz":
+            import indexed_gzip as igzip
             self.file_object = igzip.IndexedGzipFile(self.file_path)
             self.file_object.seek(self.current_position)
-            # return self.processing_function(self)
-            # self.file_object.seek(self.current_position)
             return self.processing_function(self)
 
         # we may open at a time where the file

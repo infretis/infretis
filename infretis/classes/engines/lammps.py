@@ -6,6 +6,7 @@ import os
 import shlex
 import signal
 import subprocess
+import gzip
 from pathlib import Path
 from time import sleep
 from typing import TYPE_CHECKING, Any
@@ -74,11 +75,7 @@ ITEM: BOX BOUNDS pp pp pp\n"
                 + " ".join(v.astype(str))
                 + "\n"
             )
-        print("hella", type(to_write))
-        if compressed:
-            writefile.write(to_write.encode())
-        else:
-            writefile.write(to_write)
+        writefile.write(to_write.encode() if compressed else to_write)
 
 
 def read_lammpstrj(
@@ -168,7 +165,6 @@ def write_for_run(
     infile: str | Path,
     outfile: str | Path,
     input_settings: dict[str, Any] | None = None,
-    compress: bool = True
 ) -> None:
     """Create input file to perform n steps with LAMMPS.
 
@@ -205,9 +201,6 @@ def write_for_run(
                         line = line.replace(var, str(input_settings[var]))
                         # remove found item from dict
                         not_found.pop(var)
-                        if var == "infretis_name" and compress:
-                            line = line.replace(var, "custom/gz")
-                            print("ccompress", line)
                 writefile.write(line)
     # check if we found all keys
     if len(not_found.keys()) != 0:
@@ -357,6 +350,7 @@ class LAMMPSEngine(EngineBase):
         self.sleep = sleep
         self.exe_path = exe_path
         self.input_path = (Path(exe_path) / input_path).resolve()
+        self.ext = "lammpstrj"
         self.input_files = {
             "data": self.input_path / "lammps.data",
             "input": self.input_path / "lammps.input",
@@ -364,12 +358,7 @@ class LAMMPSEngine(EngineBase):
 
         self.compressed = compressed
         if self.compressed:
-            try:
-                import indexed_gzip as igzip
-                import gzip as gzip
-                global gzip, igzip
-            except ImportError as error:
-                raise ValueError(error)
+            self.ext += ".gz"
             dump_line = self._read_input_settings(
                     self.input_files["input"],
                     key="${name}.lammpstrj"
@@ -387,8 +376,6 @@ class LAMMPSEngine(EngineBase):
                 )
             if "must" in msg:
                 raise ValueError(msg)
-        self.ext = "lammpstrj"
-        self.ext += ".gz" if self.compressed else ""
 
         self.atom_style = atom_style
         self.mass = get_atom_masses(self.input_files["data"], self.atom_style)
@@ -396,7 +383,6 @@ class LAMMPSEngine(EngineBase):
         self.temperature = temperature
         self.kb = 1.987204259e-3  # kcal/(mol*K)
         self._beta = 1 / (self.kb * self.temperature)
-
 
     def _propagate_from(
         self,
@@ -451,7 +437,6 @@ class LAMMPSEngine(EngineBase):
         return_code = None
         lammps_was_terminated = False
         step_nr = 0
-        print('start a')
         with open(out_name, "wb") as fout, open(err_name, "wb") as ferr:
             exe = subprocess.Popen(
                 cmd,
@@ -462,7 +447,6 @@ class LAMMPSEngine(EngineBase):
                 cwd=cwd,
                 preexec_fn=os.setsid,
             )
-            print('start b', traj_file)
             # wait for trajectories to appear
             while not os.path.exists(traj_file):
                 sleep(self.sleep)
@@ -470,18 +454,12 @@ class LAMMPSEngine(EngineBase):
                     logger.debug("LAMMPS execution stopped")
                     break
 
-            print('start c')
             # LAMMPS may have finished after last processing the files
             # or it may have crashed without writing to the files
             if exe.poll() is None or exe.returncode == 0:
                 traj_reader = ReadAndProcessOnTheFly(
                     traj_file, lammpstrj_reader
                 )
-                # use the igzip package to read trajs if self.compressed
-                print('bro a', self.compressed)
-                if self.compressed:
-                    print('fine', traj_file)
-                    traj_reader.file_object = igzip.IndexedGzipFile(traj_file)
                 # start reading on the fly as LAMMPS is still running
                 # if it stops, perform one more iteration to read
                 # the remaining content in the files.
@@ -492,7 +470,6 @@ class LAMMPSEngine(EngineBase):
                 while exe.poll() is None or iterations_after_stop <= 1:
                     # we may still have some data in the trajectory
                     # so use += here
-                    print("pineapple")
                     frames = traj_reader.read_and_process_content()
                     trajectory += frames[0]
                     box_trajectory += frames[1]
@@ -627,7 +604,6 @@ class LAMMPSEngine(EngineBase):
         # so we need to scale the velocities by this factor
         scale = 48.88821290839617
         pos = self.dump_frame(system)
-        print("snow", system.config)
         id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
         kin_old = kinetic_energy(vel, mass)[0]
         vel, _ = self.draw_maxwellian_velocities(vel, mass, self.beta)
@@ -657,7 +633,7 @@ class LAMMPSEngine(EngineBase):
         """Set the executional directory for workers."""
         self.exe_dir = md_items["exe_dir"]
 
-    def _read_input_settings(self, 
+    def _read_input_settings(self,
         sourcefile: str | Path, key: str = "="
     ) -> dict[str, Any]:
         """Read input settings for lammps input run file.
