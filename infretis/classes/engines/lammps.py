@@ -103,7 +103,6 @@ def read_lammpstrj(
             (index-based) order calculations are correct.
     """
     block_size = n_atoms + 9
-    print('boing', n_atoms, block_size * frame + 5, infile)
     box = np.genfromtxt(infile, skip_header=block_size * frame + 5, max_rows=3)
     posvel = np.genfromtxt(
         infile, skip_header=block_size * frame + 9, max_rows=n_atoms
@@ -367,7 +366,9 @@ class LAMMPSEngine(EngineBase):
         if self.compressed:
             try:
                 import indexed_gzip as igzip
-                import gzip as igzip
+                import gzip as gzip
+                global gzip, igzip
+                print('botato')
             except ImportError as error:
                 raise ValueError(error)
             dump_line = self._read_input_settings(
@@ -474,7 +475,7 @@ class LAMMPSEngine(EngineBase):
                 # use the igzip package to read trajs if self.compressed
                 print('bro a', self.compressed)
                 if self.compressed:
-                    print('fine')
+                    print('fine', traj_file)
                     traj_reader.file_object = igzip.IndexedGzipFile(traj_file)
                 # start reading on the fly as LAMMPS is still running
                 # if it stops, perform one more iteration to read

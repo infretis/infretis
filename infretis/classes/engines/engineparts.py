@@ -463,12 +463,13 @@ class ReadAndProcessOnTheFly:
         """Read and process content from a file."""
         # read a zipped file, self.file_object is set in LAMMPS engine already
         print('gere a')
+        import indexed_gzip as igzip
         if self.file_object and self.file_path[-3:] == ".gz":
             print('gere b')
-            # self.file_object = igzip.IndexedGzipFile(self.file_path)
-            # self.file_object.seek(self.current_position)
-            # return self.processing_function(self)
+            self.file_object = igzip.IndexedGzipFile(self.file_path)
             self.file_object.seek(self.current_position)
+            # return self.processing_function(self)
+            # self.file_object.seek(self.current_position)
             return self.processing_function(self)
 
         # we may open at a time where the file
@@ -552,7 +553,6 @@ def lammpstrj_reader(
     coordinate_snapshot = np.zeros(1)
     if reader_class.file_object is None:
         return trajectory, box
-    print('fish', reader_class.file_object.readline)
     for i, line in enumerate(iter(reader_class.file_object.readline, "")):
         spl = line.split()
         if i == 3 and spl:
