@@ -51,7 +51,7 @@ def write_lammpstrj(
         append: If True, the `outfile` will be appended to,
             otherwise, `outfile` will be overwritten.
     """
-    compressed = True if outfile[-3:] == ".gz" else False
+    compressed = True if str(outfile)[-3:] == ".gz" else False
     filemode = "a" if append else "w"
     filemode += "b" if filemode =='w' and compressed else ""
     oopen = open if not compressed else gzip.open
