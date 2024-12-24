@@ -50,8 +50,11 @@ def write_lammpstrj(
         append: If True, the `outfile` will be appended to,
             otherwise, `outfile` will be overwritten.
     """
+    compressed = True if outfile[-3:] == ".gz" else False
     filemode = "a" if append else "w"
-    with open(outfile, filemode) as writefile:
+    filemode += "b" if filemode =='w' and compressed else ""
+    oopen = open if not compressed else gzip.open
+    with oopen(outfile, filemode) as writefile:
         to_write = (
             f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n\
 ITEM: BOX BOUNDS pp pp pp\n"
@@ -71,7 +74,11 @@ ITEM: BOX BOUNDS pp pp pp\n"
                 + " ".join(v.astype(str))
                 + "\n"
             )
-        writefile.write(to_write)
+        print("hella", type(to_write))
+        if compressed:
+            writefile.write(to_write.encode())
+        else:
+            writefile.write(to_write)
 
 
 def read_lammpstrj(
@@ -96,6 +103,7 @@ def read_lammpstrj(
             (index-based) order calculations are correct.
     """
     block_size = n_atoms + 9
+    print('boing', n_atoms, block_size * frame + 5, infile)
     box = np.genfromtxt(infile, skip_header=block_size * frame + 5, max_rows=3)
     posvel = np.genfromtxt(
         infile, skip_header=block_size * frame + 9, max_rows=n_atoms
@@ -161,6 +169,7 @@ def write_for_run(
     infile: str | Path,
     outfile: str | Path,
     input_settings: dict[str, Any] | None = None,
+    compress: bool = True
 ) -> None:
     """Create input file to perform n steps with LAMMPS.
 
@@ -197,7 +206,9 @@ def write_for_run(
                         line = line.replace(var, str(input_settings[var]))
                         # remove found item from dict
                         not_found.pop(var)
-
+                        if var == "infretis_name" and compress:
+                            line = line.replace(var, "custom/gz")
+                            print("ccompress", line)
                 writefile.write(line)
     # check if we found all keys
     if len(not_found.keys()) != 0:
@@ -318,6 +329,7 @@ class LAMMPSEngine(EngineBase):
         timestep: float,
         subcycles: int,
         temperature: float,
+        compressed: bool,
         atom_style: str = "full",
         exe_path: Path = Path(".").resolve(),
         sleep: float = 0.1,
@@ -346,18 +358,39 @@ class LAMMPSEngine(EngineBase):
         self.sleep = sleep
         self.exe_path = exe_path
         self.input_path = (Path(exe_path) / input_path).resolve()
-        self.ext = "lammpstrj"
-
         self.input_files = {
             "data": self.input_path / "lammps.data",
             "input": self.input_path / "lammps.input",
         }
+
+        self.compressed = compressed
+        if self.compressed:
+            try:
+                import indexed_gzip as igzip
+                import gzip as igzip
+            except ImportError as error:
+                raise ValueError(error)
+            dump_line = self._read_input_settings(
+                    self.input_files["input"],
+                    key="${name}.lammpstrj"
+            )
+            if "${name}.lammpstrj.gz" not in dump_line:
+                msg = (
+                    "'compressed' is set to 'true' in the toml input file,"
+                    + " so ${name}.lammpstrj in the lammps input file must"
+                    + " be set to ${name}.lammpstrj.gz."
+                )
+                raise ValueError(msg)
+        self.ext = "lammpstrj"
+        self.ext += ".gz" if self.compressed else ""
+
         self.atom_style = atom_style
         self.mass = get_atom_masses(self.input_files["data"], self.atom_style)
         self.n_atoms = self.mass.shape[0]
         self.temperature = temperature
         self.kb = 1.987204259e-3  # kcal/(mol*K)
         self._beta = 1 / (self.kb * self.temperature)
+
 
     def _propagate_from(
         self,
@@ -412,6 +445,7 @@ class LAMMPSEngine(EngineBase):
         return_code = None
         lammps_was_terminated = False
         step_nr = 0
+        print('start a')
         with open(out_name, "wb") as fout, open(err_name, "wb") as ferr:
             exe = subprocess.Popen(
                 cmd,
@@ -422,6 +456,7 @@ class LAMMPSEngine(EngineBase):
                 cwd=cwd,
                 preexec_fn=os.setsid,
             )
+            print('start b', traj_file)
             # wait for trajectories to appear
             while not os.path.exists(traj_file):
                 sleep(self.sleep)
@@ -429,12 +464,18 @@ class LAMMPSEngine(EngineBase):
                     logger.debug("LAMMPS execution stopped")
                     break
 
+            print('start c')
             # LAMMPS may have finished after last processing the files
             # or it may have crashed without writing to the files
             if exe.poll() is None or exe.returncode == 0:
                 traj_reader = ReadAndProcessOnTheFly(
                     traj_file, lammpstrj_reader
                 )
+                # use the igzip package to read trajs if self.compressed
+                print('bro a', self.compressed)
+                if self.compressed:
+                    print('fine')
+                    traj_reader.file_object = igzip.IndexedGzipFile(traj_file)
                 # start reading on the fly as LAMMPS is still running
                 # if it stops, perform one more iteration to read
                 # the remaining content in the files.
@@ -445,6 +486,7 @@ class LAMMPSEngine(EngineBase):
                 while exe.poll() is None or iterations_after_stop <= 1:
                     # we may still have some data in the trajectory
                     # so use += here
+                    print("pineapple")
                     frames = traj_reader.read_and_process_content()
                     trajectory += frames[0]
                     box_trajectory += frames[1]
@@ -579,6 +621,7 @@ class LAMMPSEngine(EngineBase):
         # so we need to scale the velocities by this factor
         scale = 48.88821290839617
         pos = self.dump_frame(system)
+        print("snow", system.config)
         id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
         kin_old = kinetic_energy(vel, mass)[0]
         vel, _ = self.draw_maxwellian_velocities(vel, mass, self.beta)
@@ -607,3 +650,15 @@ class LAMMPSEngine(EngineBase):
     def set_mdrun(self, md_items: dict[str, Any]) -> None:
         """Set the executional directory for workers."""
         self.exe_dir = md_items["exe_dir"]
+
+    def _read_input_settings(self, 
+        sourcefile: str | Path, key: str = "="
+    ) -> dict[str, Any]:
+        """Read input settings for lammps input run file.
+
+        For now, a very simple parser.
+        """
+        with open(sourcefile, encoding="utf-8") as infile:
+            for line in infile:
+                if key in line:
+                    return line

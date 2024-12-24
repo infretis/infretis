@@ -459,7 +459,7 @@ class EngineBase(metaclass=ABCMeta):
             delim: The delimiter used for separation keywords from settings.
 
         Returns:
-            settings: The settings found in the file.
+         : The settings found in the file.
 
         Note:
             This method assumes **only one keyword per line**.
@@ -471,7 +471,8 @@ class EngineBase(metaclass=ABCMeta):
                 key = reg.match(line)
                 if key:
                     keyword_strip = key.group(1).strip()
-                    settings[keyword_strip] = line.split(delim)[1].strip()
+                    print('blower', line.split(delim))
+                    settings[keyword_strip] = line.split(delim)[1:]
         return settings
 
     def execute_command(

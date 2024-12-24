@@ -229,7 +229,7 @@ def check_config(config: dict) -> None:
         if key1 not in config.keys():
             raise TOMLConfigError(f"Engine '{key1}' not defined!")
 
-    # gromacs check
+    # engine checks 2
     for key1 in unique_engines:
         if config[key1]["class"] == "gromacs":
             eng1 = config[key1].copy()
@@ -243,6 +243,24 @@ def check_config(config: dict) -> None:
                         + "al 'input_path'. This would overwrite the"
                         + " settings of one of the engines in"
                         + " 'infretis.mdp'!"
+                    )
+        if config[key1]["class"] == "lammps":
+            if "compressed" not in config[key1]:
+                raise TOMLConfigError(
+                    "'compressed' must be set in the *.toml LAMMPS engine"
+                    + " setting! if False, trajectories will be saved as"
+                    + " lammpstrj text files. If True, compressed lammpstrj.gz"
+                    + " files will be saved instead, but require the optional"
+                    + " python package 'indexed_gzip' to be installed."
+                )
+            if config[key1].get("compressed", False):
+                try:
+                    import indexed_gzip
+                except ImportError as error:
+                    raise TOMLConfigError(
+                        "LAMMPS engine is ran 'compressed=true' but the "
+                        + "indexed_gzip package is not installed! Either"
+                        + " run with 'false' or install the package."
                     )
 
 
