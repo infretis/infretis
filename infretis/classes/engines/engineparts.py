@@ -464,8 +464,36 @@ class ReadAndProcessOnTheFly:
         if self.file_path[-3:] == ".gz":
             import indexed_gzip as igzip
             self.file_object = igzip.IndexedGzipFile(self.file_path)
+            # The creation of a correct .gz file may require time.
+            # Try to read a line:
+            # try:
+            #     self.file_object.readline()
+            # except:
+            #     #
+            #     return []
             self.file_object.seek(self.current_position)
-            return self.processing_function(self)
+
+            try:
+                return self.processing_function(self)
+            except:
+                # The except error is usually related to igzip, so we
+                # just leave it empty.
+                return []
+
+            # if self.current_position == 0:
+            #     print('cheezeee')
+            # for line in self.file_object:
+            #     print(line)
+
+            # if self.current_position:
+            # try:
+            #     with open(self.file_path, self.read_mode) as _:
+            #         self.file_object.seek(self.current_position)
+            #         print("probe", self.current_position, self.file_path)
+            #         # sleep(0.4)
+            #         return self.processing_function(self)
+            # except FileNotFoundError:
+            #     return []
 
         # we may open at a time where the file
         # is currently not open for reading

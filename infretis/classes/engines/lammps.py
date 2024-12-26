@@ -363,18 +363,11 @@ class LAMMPSEngine(EngineBase):
                     self.input_files["input"],
                     key="${name}.lammpstrj"
             )
-            msg = "As 'compressed' is set to 'true' in the toml input file,"
             if "${name}.lammpstrj.gz" not in dump_line:
-                msg += (
-                    "'${name}.lammpstrj' in the lammps input file must"
-                    + " be set to '${name}.lammpstrj.gz'. "
+                msg = ("As 'compressed' is set to 'true' in the toml input"
+                    + " file, '${name}.lammpstrj' in the lammps input file"
+                    + " must be set to '${name}.lammpstrj.gz'."
                 )
-            if "custom/gz" not in dump_line:
-                msg += (
-                    "'custom' in the lammps input file must"
-                    + " be set to 'custom/gz'."
-                )
-            if "must" in msg:
                 raise ValueError(msg)
 
         self.atom_style = atom_style
@@ -471,8 +464,9 @@ class LAMMPSEngine(EngineBase):
                     # we may still have some data in the trajectory
                     # so use += here
                     frames = traj_reader.read_and_process_content()
-                    trajectory += frames[0]
-                    box_trajectory += frames[1]
+                    if frames:
+                        trajectory += frames[0]
+                        box_trajectory += frames[1]
                     # loop over the frames that are ready
                     for frame in range(len(trajectory)):
                         posvel = trajectory.pop(0)
