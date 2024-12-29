@@ -96,8 +96,8 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
             trial.weights = calc_cv_vector(
                 trial,
                 md_items["interfaces"],
-                md_items["lambda_minus_one"],
                 md_items["mc_moves"],
+                md_items["lambda_minus_one"],                
                 cap=md_items["cap"],
                 minus=minus,
             )
@@ -110,8 +110,8 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
 def calc_cv_vector(
     path: InfPath,
     interfaces: list[float],
-    lambda_minus_one: float,
     moves: list[str],
+    lambda_minus_one: float | None = None,
     cap: float | None = None,
     minus: bool = False,
 ) -> tuple[float, ...]:
@@ -120,6 +120,7 @@ def calc_cv_vector(
     Args:
         path: The path to calculate weights for.
         interfaces: The positions of the interfaces.
+        lambda_minus_one: For permeability calculations
         moves: The MC moves performed.
         cap: The cap value for the Wire Fencing (wf) move.
         minus: Indicate if the math is a minus path or not.
