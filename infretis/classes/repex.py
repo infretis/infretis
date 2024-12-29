@@ -1030,7 +1030,7 @@ class REPEX_state:
         ens_intfs = []
 
         # set intfs for [0-] and [0+]
-        if lambda_minus_one is not None:
+        if lambda_minus_one is not False:
             ens_intfs.append(
                 [lambda_minus_one, (lambda_minus_one + intfs[0]) / 2, intfs[0]]
             )
@@ -1054,7 +1054,7 @@ class REPEX_state:
                 "ens_name": f"{i:03d}",
                 "start_cond": (
                     ["L", "R"]
-                    if lambda_minus_one is not None and i == 0
+                    if lambda_minus_one is not False and i == 0
                     else ("R" if i == 0 else "L")
                 ),
             }

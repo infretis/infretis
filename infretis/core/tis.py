@@ -93,7 +93,6 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
         md_items["generated"].append(trial.generated)
         if status == "ACC":
             minus = True if ens_num < 0 else False
-            print(picked[ens_num])
             trial.weights = calc_cv_vector(
                 trial,
                 md_items["interfaces"],
@@ -133,7 +132,7 @@ def calc_cv_vector(
 
     cv = []
     if minus:
-        if lambda_minus_one is not None:
+        if lambda_minus_one is not False:
             return (1.0 if lambda_minus_one <= path_max else 0.0,)
         else:
             return (1.0 if interfaces[0] <= path_max else 0.0,)

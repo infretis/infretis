@@ -197,10 +197,10 @@ def check_config(config: dict) -> None:
     intf_cap = config["simulation"]["tis_set"].get("interface_cap", False)
     quantis = config["simulation"]["tis_set"].get("quantis", False)
     lambda_minus_one = config["simulation"]["tis_set"].get(
-        "lambda_minus_one", None
+        "lambda_minus_one", False
     )
 
-    if lambda_minus_one is not None and lambda_minus_one >= intf[0]:
+    if lambda_minus_one is not False and lambda_minus_one >= intf[0]:
         raise TOMLConfigError(
             "lambda_minus_one interface must be less than the first interface!"
         )
