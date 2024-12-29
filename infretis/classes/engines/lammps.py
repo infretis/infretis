@@ -321,7 +321,7 @@ class LAMMPSEngine(EngineBase):
         timestep: float,
         subcycles: int,
         temperature: float,
-        compressed: bool,
+        compressed: bool = False,
         atom_style: str = "full",
         exe_path: Path = Path(".").resolve(),
         sleep: float = 0.1,
@@ -356,17 +356,24 @@ class LAMMPSEngine(EngineBase):
             "input": self.input_path / "lammps.input",
         }
 
+        dump_line = self._read_input_settings(
+                self.input_files["input"],
+                key="${name}.lammpstrj"
+        )
         self.compressed = compressed
         if self.compressed:
             self.ext += ".gz"
-            dump_line = self._read_input_settings(
-                    self.input_files["input"],
-                    key="${name}.lammpstrj"
-            )
             if "${name}.lammpstrj.gz" not in dump_line:
                 msg = ("As 'compressed' is set to 'true' in the toml input"
                     + " file, '${name}.lammpstrj' in the lammps input file"
                     + " must be set to '${name}.lammpstrj.gz'."
+                )
+                raise ValueError(msg)
+        else:
+            if "${name}.lammpstrj.gz" in dump_line:
+                msg = ("As 'compressed' is set to 'false' in the toml input"
+                    + " file, '${name}.lammpstrj.gz' in the lammps input file"
+                    + " must be set to '${name}.lammpstrj'."
                 )
                 raise ValueError(msg)
 

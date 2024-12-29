@@ -245,14 +245,6 @@ def check_config(config: dict) -> None:
                         + " 'infretis.mdp'!"
                     )
         if config[key1]["class"] == "lammps":
-            if "compressed" not in config[key1]:
-                raise TOMLConfigError(
-                    "'compressed' must be set in the *.toml LAMMPS engine"
-                    + " setting! if False, trajectories will be saved as"
-                    + " lammpstrj text files. If True, compressed lammpstrj.gz"
-                    + " files will be saved instead, but require the optional"
-                    + " python package 'indexed_gzip' to be installed."
-                )
             if config[key1].get("compressed", False):
                 try:
                     import indexed_gzip

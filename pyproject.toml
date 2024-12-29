@@ -58,6 +58,7 @@ infretisrun = "infretis.bin:infretisrun"
 [tool.pytest.ini_options]
 markers = [
     "heavy: mark test as heavy.",
+    "local: mark test as local.",
 ]
 
 [build-system]
