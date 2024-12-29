@@ -97,7 +97,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
                 trial,
                 md_items["interfaces"],
                 md_items["mc_moves"],
-                md_items["lambda_minus_one"],                
+                md_items["lambda_minus_one"],
                 cap=md_items["cap"],
                 minus=minus,
             )
