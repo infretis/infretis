@@ -111,7 +111,7 @@ def calc_cv_vector(
     path: InfPath,
     interfaces: list[float],
     moves: list[str],
-    lambda_minus_one: float | None = None,
+    lambda_minus_one: float | bool = False,
     cap: float | None = None,
     minus: bool = False,
 ) -> tuple[float, ...]:
