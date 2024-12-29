@@ -93,11 +93,12 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
         md_items["generated"].append(trial.generated)
         if status == "ACC":
             minus = True if ens_num < 0 else False
+            print(picked[ens_num])
             trial.weights = calc_cv_vector(
                 trial,
                 md_items["interfaces"],
                 md_items["mc_moves"],
-                md_items["lambda_minus_one"],
+                picked[ens_num]["ens"]["tis_set"]["lambda_minus_one"],
                 cap=md_items["cap"],
                 minus=minus,
             )

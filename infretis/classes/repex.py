@@ -115,13 +115,6 @@ class REPEX_state:
         return self.config["simulation"]["tis_set"].get("interface_cap", None)
 
     @property
-    def lambda_minus_one(self):
-        """Retrieve lambda_minus_one from config dict."""
-        return self.config["simulation"]["tis_set"].get(
-            "lambda_minus_one", None
-        )
-
-    @property
     def pattern(self):
         """Retrieve pattern_file from config dict."""
         return self.config["output"].get("pattern", False)
@@ -307,8 +300,6 @@ class REPEX_state:
         # empty / update md_items:
         for key in ["moves", "trial_len", "trial_op", "generated"]:
             md_items[key] = []
-
-        md_items["lambda_minus_one"] = self.lambda_minus_one
 
         return md_items
 
@@ -975,7 +966,9 @@ class REPEX_state:
                 paths[i + 1],
                 self.config["simulation"]["interfaces"],
                 self.mc_moves,
-                lambda_minus_one=self.lambda_minus_one,
+                lambda_minus_one=self.config["simulation"]["tis_set"][
+                    "lambda_minus_one"
+                ],
                 cap=self.cap,
             )
             self.add_traj(
@@ -1031,7 +1024,9 @@ class REPEX_state:
     def initiate_ensembles(self):
         """Create all the ensemble dicts from the *toml config dict."""
         intfs = self.config["simulation"]["interfaces"]
-        lambda_minus_one = self.lambda_minus_one
+        lambda_minus_one = self.config["simulation"]["tis_set"][
+            "lambda_minus_one"
+        ]
         ens_intfs = []
 
         # set intfs for [0-] and [0+]

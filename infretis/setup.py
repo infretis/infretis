@@ -169,6 +169,10 @@ def setup_config(
     # set the keywords once
     quantis = config["simulation"]["tis_set"].get("quantis", False)
     config["simulation"]["tis_set"]["quantis"] = quantis
+
+    l_1 = config["simulation"]["tis_set"].get("lambda_minus_one", False)
+    config["simulation"]["tis_set"]["lambda_minus_one"] = l_1
+
     if quantis and not has_ens_engs:
         config["simulation"]["ensemble_engines"][0] = ["engine0"]
     accept_all = config["simulation"]["tis_set"].get("accept_all", False)
