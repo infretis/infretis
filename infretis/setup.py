@@ -1,5 +1,6 @@
 """Setup all that is needed for the infretis simulation."""
 
+import importlib
 import logging
 import os
 
@@ -246,9 +247,8 @@ def check_config(config: dict) -> None:
                     )
         if config[key1]["class"] == "lammps":
             if config[key1].get("compressed", False):
-                try:
-                    import indexed_gzip
-                except ImportError as error:
+                indexed = importlib.util.find_spec("indexed_gzip")
+                if indexed is None:
                     raise TOMLConfigError(
                         "LAMMPS engine is ran 'compressed=true' but the "
                         + "indexed_gzip package is not installed! Either"

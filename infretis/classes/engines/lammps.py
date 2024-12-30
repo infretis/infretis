@@ -1,12 +1,12 @@
 """Define the engine for using LAMMPS."""
 from __future__ import annotations
 
+import gzip
 import logging
 import os
 import shlex
 import signal
 import subprocess
-import gzip
 from pathlib import Path
 from time import sleep
 from typing import TYPE_CHECKING, Any
@@ -53,7 +53,7 @@ def write_lammpstrj(
     """
     compressed = True if str(outfile)[-3:] == ".gz" else False
     filemode = "a" if append else "w"
-    filemode += "b" if filemode =='w' and compressed else ""
+    filemode += "b" if filemode == "w" and compressed else ""
     oopen = open if not compressed else gzip.open
     with oopen(outfile, filemode) as writefile:
         to_write = (
@@ -357,21 +357,22 @@ class LAMMPSEngine(EngineBase):
         }
 
         dump_line = self._read_input_settings(
-                self.input_files["input"],
-                key="${name}.lammpstrj"
+            self.input_files["input"], key="${name}.lammpstrj"
         )
         self.compressed = compressed
         if self.compressed:
             self.ext += ".gz"
             if "${name}.lammpstrj.gz" not in dump_line:
-                msg = ("As 'compressed' is set to 'true' in the toml input"
+                msg = (
+                    "As 'compressed' is set to 'true' in the toml input"
                     + " file, '${name}.lammpstrj' in the lammps input file"
                     + " must be set to '${name}.lammpstrj.gz'."
                 )
                 raise ValueError(msg)
         else:
             if "${name}.lammpstrj.gz" in dump_line:
-                msg = ("As 'compressed' is set to 'false' in the toml input"
+                msg = (
+                    "As 'compressed' is set to 'false' in the toml input"
                     + " file, '${name}.lammpstrj.gz' in the lammps input file"
                     + " must be set to '${name}.lammpstrj'."
                 )
@@ -634,8 +635,8 @@ class LAMMPSEngine(EngineBase):
         """Set the executional directory for workers."""
         self.exe_dir = md_items["exe_dir"]
 
-    def _read_input_settings(self,
-        sourcefile: str | Path, key: str = "="
+    def _read_input_settings(
+        self, sourcefile: str | Path, key: str = "="
     ) -> dict[str, Any]:
         """Read input settings for lammps input run file.
 

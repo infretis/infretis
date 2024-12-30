@@ -5,7 +5,6 @@ import os
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import IO, Any
-import gzip
 
 import numpy as np
 
@@ -463,11 +462,12 @@ class ReadAndProcessOnTheFly:
         # if ".gz", read in an alternative way (curently for LAMMPS)
         if self.file_path[-3:] == ".gz":
             import indexed_gzip as igzip
+
             self.file_object = igzip.IndexedGzipFile(self.file_path)
             self.file_object.seek(self.current_position)
             try:
                 return self.processing_function(self)
-            except:
+            except Exception:
                 # The except error is usually related to igzip, so we
                 # just leave it empty.
                 return []
