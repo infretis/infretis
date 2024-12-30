@@ -1,4 +1,5 @@
 """Base engine class."""
+
 from __future__ import annotations
 
 import logging
@@ -426,9 +427,10 @@ class EngineBase(metaclass=ABCMeta):
         """
         reg = re.compile(rf"(.*?){delim}")
         written = set()
-        with open(sourcefile, encoding="utf-8") as infile, open(
-            outputfile, mode="w", encoding="utf-8"
-        ) as outfile:
+        with (
+            open(sourcefile, encoding="utf-8") as infile,
+            open(outputfile, mode="w", encoding="utf-8") as outfile,
+        ):
             for line in infile:
                 to_write = line
                 match = reg.match(line)

@@ -68,6 +68,7 @@ allowmaxlength = false
 zero_momentum = false
 n_jumps = 6
 quantis = false
+lambda_minus_one = false
 accept_all = false
 
 [engine]

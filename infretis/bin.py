@@ -1,4 +1,5 @@
 """The functions to be used to run infretis via the terminal."""
+
 import argparse
 
 from infretis.scheduler import scheduler
