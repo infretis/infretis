@@ -56,8 +56,6 @@ def test_lammps_sim(tmp_path: pathlib.PosixPath) -> None:
     success = os.system(f"{python} generate_H2_loadpaths.py")
     assert success == 0
 
-    # import infretis.tools.generate_H2_loadpaths
-
     copy_tree("temporary_load", "load_un")
     copy_tree("temporary_load", "load_co")
 
@@ -89,6 +87,6 @@ def test_lammps_sim(tmp_path: pathlib.PosixPath) -> None:
 
         # check if files are there
         for file in set(data_un[:, 1]):
-            os.path.isfile(f"load_un/{pn}/accepted/{file}")
+            assert os.path.isfile(f"load_un/{pn}/accepted/{file}")
         for file in set(data_co[:, 1]):
-            os.path.isfile(f"load_co/{pn}/accepted/{file}")
+            assert os.path.isfile(f"load_co/{pn}/accepted/{file}")
