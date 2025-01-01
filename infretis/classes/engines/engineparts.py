@@ -460,6 +460,19 @@ class ReadAndProcessOnTheFly:
 
     def read_and_process_content(self) -> Any:
         """Read and process content from a file."""
+        # if ".gz", read in an alternative way (curently for LAMMPS)
+        if self.file_path[-3:] == ".gz":
+            import indexed_gzip as igzip
+
+            self.file_object = igzip.IndexedGzipFile(self.file_path)
+            self.file_object.seek(self.current_position)
+            try:
+                return self.processing_function(self)
+            except Exception:
+                # The except error is usually related to igzip, so we
+                # just leave it empty.
+                return []
+
         # we may open at a time where the file
         # is currently not open for reading
         try:

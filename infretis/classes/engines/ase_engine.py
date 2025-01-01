@@ -79,7 +79,7 @@ class ASEEngine(EngineBase):
             self.integrator_settings = {
                 "timestep": self.timestep * units.fs,
                 "temperature_K": self.temperature,
-                "friction": langevin_friction * units.fs,
+                "friction": langevin_friction / units.fs,
                 "fixcm": langevin_fixcm,
             }
         elif integrator == "velocityverlet":
