@@ -32,7 +32,7 @@ timestep = 0.2 # fs
 subcycles = 10
 integrator = "langevin" # or 'velocityverlet'
 langevin_fixcm = true
-langevin_friction = 0.01 # fs
+langevin_friction = 0.001 # 1/fs
 
 [engine.calculator_settings]
 module = "H2-calc.py"
