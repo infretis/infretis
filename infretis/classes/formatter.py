@@ -7,8 +7,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
-from typing import IO, TYPE_CHECKING, Any, TypedDict
-
+from typing import IO, TYPE_CHECKING, Any, TypedDict, Union, Optional, Tuple, Dict, List, Dict
 import numpy as np
 
 from infretis.core.core import make_dirs
@@ -29,7 +28,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 def _read_line_data(
     ncol: int, stripline: str, line_parser: Callable[[str], Any]
-) -> tuple[Any, bool, int]:
+) -> Tuple[Any, bool, int]:
     """Read data for :py:func:`.read_some_lines.`.
 
     Args
@@ -65,7 +64,7 @@ def _read_line_data(
 
 def read_some_lines(
     filename: str, line_parser: Callable[[str], Any], block_label: str = "#"
-) -> Iterable[dict[str, Any]]:
+) -> Iterable[Dict[str, Any]]:
     """Open a file and try to read as many lines as possible.
 
     This method will read a file using the given `line_parser`.
@@ -88,7 +87,7 @@ def read_some_lines(
         data.
     """
     ncol = -1  # The number of columns
-    new_block: dict[str, Any] = {"comment": [], "data": []}
+    new_block: Dict[str, Any] = {"comment": [], "data": []}
     yield_block = False
     read_comment = False
     with open(filename, encoding="utf-8") as fileh:
@@ -129,7 +128,7 @@ def read_some_lines(
         yield new_block
 
 
-def _make_header(labels: list[str], width: list[int], spacing: int = 1) -> str:
+def _make_header(labels: List[str], width: List[int], spacing: int = 1) -> str:
     """Format a table header with the given labels.
 
     Args
@@ -169,7 +168,7 @@ class OutputFormatter:
 
     _FMT = "{}"
 
-    def __init__(self, name: str, header: dict[str, Any] | None = None):
+    def __init__(self, name: str, header: Optional[Dict[str, Any]] = None):
         """Initialise the formatter.
 
         Args:
@@ -214,7 +213,8 @@ class OutputFormatter:
         yield " ".join(out)
 
     @staticmethod
-    def parse(line: str) -> list[int] | list[float] | list[str]:
+
+    def parse(line: str) -> Union[List[int], List[float], List[str]]:
         """Parse formatted data to numbers.
 
         This method is intended to be the "inverse" of the :py:meth:`.format`
@@ -232,7 +232,7 @@ class OutputFormatter:
             for i, col in enumerate(line.split())
         ]
 
-    def load(self, filename: str) -> Iterable[dict[str, Any]]:
+    def load(self, filename: str) -> Iterable[Dict[str, Any]]:
         """Read generic data from a file.
 
         This method will read entire blocks of data from a file into
@@ -284,7 +284,7 @@ class OrderFormatter(OutputFormatter):
         header = {"labels": ["Time", "Orderp"], "width": [10, 12]}
         super().__init__(name, header=header)
 
-    def format_data(self, step: int, orderdata: list[float]) -> str:
+    def format_data(self, step: int, orderdata: List[float]) -> str:
         """Format order parameter data.
 
         Args:
@@ -301,11 +301,11 @@ class OrderFormatter(OutputFormatter):
         out = " ".join(towrite)
         return out
 
-    def format(self, step: int, data: list[float]) -> Iterable[str]:
+    def format(self, step: int, data: List[float]) -> Iterable[str]:
         """Yield formatted order parameters. See :py:meth:`.format_data`."""
         yield self.format_data(step, data)
 
-    def load(self, filename: str) -> Iterable[dict[str, Any]]:
+    def load(self, filename: str) -> Iterable[Dict[str, Any]]:
         """Read order parameter data from the given file."""
         for blocks in read_some_lines(filename, self.parse):
             data_dict = {
@@ -323,7 +323,7 @@ class OrderPathFormatter(OrderFormatter):
         super().__init__(name="OrderPathFormatter")
         self.print_header = False
 
-    def format(self, step: int, data: list[Any]) -> Iterable[str]:
+    def format(self, step: int, data: List[Any]) -> Iterable[str]:
         """Format the order parameter dat for a path.
 
         Args:
@@ -359,7 +359,7 @@ class OutputBase(metaclass=ABCMeta):
         self.formatter = formatter
         self.first_write = True
 
-    def output(self, step: int, data: list[Any]) -> Any:
+    def output(self, step: int, data: List[Any]) -> Any:
         """Use the formatter to write data to the file.
 
         Args:
@@ -433,12 +433,12 @@ class FileIO(OutputBase):
             self.backup = True
         else:
             self.backup = backup
-        self.fileh: IO[Any] | None = None
+        self.fileh: Union[IO[Any], None] = None
         if self.file_mode.startswith("a") and self.formatter is not None:
             self.formatter.print_header = False
-        self.last_flush: datetime | None = None
+        self.last_flush: Optional[datetime] = None
 
-    def open_file_read(self) -> IO[Any] | None:
+    def open_file_read(self) -> Optional[IO[Any]]:
         """Open a file for reading."""
         if not self.file_mode.startswith("r"):
             raise ValueError(
@@ -456,7 +456,7 @@ class FileIO(OutputBase):
                 )
         return self.fileh
 
-    def open_file_write(self) -> IO[Any] | None:
+    def open_file_write(self) -> Optional[IO[Any]]:
         """Open a file for writing and handle backup."""
         if self.file_mode[0] not in ("a", "w"):
             raise ValueError(
@@ -480,7 +480,7 @@ class FileIO(OutputBase):
             logger.critical("I/O error (%d): %d", error.errno, error.strerror)
         return self.fileh
 
-    def open(self) -> IO[Any] | None:
+    def open(self) -> Optional[IO[Any]]:
         """Open a file for reading or writing."""
         if self.fileh is not None:
             logger.debug(
@@ -494,7 +494,7 @@ class FileIO(OutputBase):
             return self.open_file_write()
         raise ValueError(f'Unknown file mode "{self.file_mode}"')
 
-    def load(self) -> Iterable[dict[str, Any]]:
+    def load(self) -> Iterable[Dict[str, Any]]:
         """Read blocks or lines from the file."""
         return self.formatter.load(self.filename)
 
@@ -554,7 +554,7 @@ class FileIO(OutputBase):
             self.fileh.flush()
             os.fsync(self.fileh.fileno())
 
-    def output(self, step: int, data: list[Any]) -> Any:
+    def output(self, step: int, data: List[Any]) -> Any:
         """Open file before first write."""
         if self.first_write:
             self.open()
@@ -657,7 +657,7 @@ class EnergyFormatter(OutputFormatter):
         """Yield formatted energy data. See :py:meth:.`apply_format`."""
         yield self.apply_format(step, data)
 
-    def load(self, filename: str) -> Iterable[dict[str, Any]]:
+    def load(self, filename: str) -> Iterable[Dict[str, Any]]:
         """Load entire energy blocks into memory.
 
         Args:
@@ -746,7 +746,7 @@ class PathExtFormatter(OutputFormatter):
         super().__init__("PathExtFormatter", header=header)
         self.print_header = False
 
-    def format(self, step: int, data: list[Any]) -> Iterable[str]:
+    def format(self, step: int, data: List[Any]) -> Iterable[str]:
         """Format path data for external paths.
 
         Args:
@@ -772,7 +772,7 @@ class PathExtFormatter(OutputFormatter):
             yield self.FMT.format(i, filename_short, idx, vel)
 
     @staticmethod
-    def parse(line: str) -> list[str]:
+    def parse(line: str) -> List[str]:
         """Parse the line data by splitting the given text on spaces."""
         return [i for i in line.split()]
 
@@ -808,7 +808,7 @@ class PathStorage(OutputBase):
     """
 
     target = "file-archive"
-    formatters: dict[str, FormattersEntry] = {
+    formatters: Dict[str, FormattersEntry] = {
         "order": {"fmt": OrderPathFormatter(), "file": "order.txt"},
         "energy": {"fmt": EnergyPathFormatter(), "file": "energy.txt"},
         "traj": {"fmt": PathExtFormatter(), "file": "traj.txt"},
@@ -828,8 +828,8 @@ class PathStorage(OutputBase):
         self.keep_traj_fnames = keep_traj_fnames
 
     def output_path_files(
-        self, step: int, data: list[Any], target_dir: str
-    ) -> list[tuple[str, str]]:
+        self, step: int, data: List[Any], target_dir: str
+    ) -> List[Tuple[str, str]]:
         """Write the output files for energy, path and order parameter.
 
         Args:
@@ -865,7 +865,7 @@ class PathStorage(OutputBase):
         path: InfPath,
         target_dir: str,
         keep_traj_fnames: list,
-        prefix: str | None = None,
+        prefix: Optional[str] = None,
     ) -> InfPath:
         """Copy a path to a given target directory.
 
@@ -980,8 +980,8 @@ class LogFormatter(logging.Formatter):  # pragma: no cover
 
 
 def _generate_file_names(
-    path: InfPath, target_dir: str, prefix: str | None = None
-) -> tuple[list[tuple[str, int]], dict[str, str]]:
+    path: InfPath, target_dir: str, prefix: Optional[str] = None
+) -> Tuple[List[Tuple[str, int]], Dict[str, str]]:
     """Generate new file names for moving or copying paths.
 
     Args:

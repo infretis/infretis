@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from copy import copy
+from typing import Optional, Tuple, Dict, List
 
 import numpy as np
 
@@ -20,21 +21,21 @@ class System:
 
     def __init__(self) -> None:
         """Initiate class."""
-        self.config: tuple[str, int] = ("", -1)
-        self.order: list[float] = [-float("nan")]
+        self.config: Tuple[str, int] = ("", -1)
+        self.order: List[float] = [-float("nan")]
         self.pos: np.ndarray = np.zeros(0)
         self.vel: np.ndarray = np.zeros(0)
         self.vel_rev: bool = False
-        self.ekin: float | None = None
-        self.vpot: float | None = None
-        self.box: np.ndarray | None = np.zeros((3, 3))
-        self.temperature: dict[str, float] = {}
+        self.ekin: Optional[float] = None
+        self.vpot: Optional[float] = None
+        self.box: Optional[np.ndarray] = np.zeros((3, 3))
+        self.temperature: Dict[str, float] = {}
 
     def copy(self) -> System:
         """Return a copy of this system."""
         system_copy = copy(self)
         return system_copy
 
-    def set_pos(self, pos: tuple[str, int]) -> None:
+    def set_pos(self, pos: Tuple[str, int]) -> None:
         """Set positions for the particles."""
         self.config = (pos[0], pos[1])

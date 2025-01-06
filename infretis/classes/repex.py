@@ -9,7 +9,7 @@ from datetime import datetime
 import numpy as np
 import tomli_w
 from numpy.random import default_rng
-
+from typing import Dict
 from infretis.classes.engines.factory import assign_engines
 from infretis.classes.formatter import PathStorage
 from infretis.core.core import make_dirs
@@ -24,10 +24,10 @@ class REPEX_state:
     """Define the REPEX object."""
 
     # dicts to hold *toml, path data, ensembles and engine pointers.
-    config: dict = {}
-    traj_data: dict = {}
-    ensembles: dict = {}
-    engine_occ: dict = {}
+    config: Dict = {}
+    traj_data: Dict = {}
+    ensembles: Dict = {}
+    engine_occ: Dict = {}
 
     # holds counts current worker.
     cworker = None

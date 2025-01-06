@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional, Union, List, Dict, Tuple
 
 import numpy as np
 
@@ -40,11 +40,11 @@ class Path:
         """
         self.maxlen = maxlen
         self.status: str = ""
-        self.generated: tuple[str, float, int, int] | str | None = None
+        self.generated: Optional[Union[Tuple[str, float, int, int], str]] = None
         self.path_number = None
-        self.weights: tuple[float, ...] | None = None
+        self.weights: Optional[Tuple[float, ...]] = None
         self.weight: float = 0.0
-        self.phasepoints: list[System] = []
+        self.phasepoints: List[System] = []
         self.time_origin = time_origin
 
     @property
@@ -53,13 +53,13 @@ class Path:
         return len(self.phasepoints)
 
     @property
-    def ordermin(self) -> tuple[float, np.intp]:
+    def ordermin(self) -> Tuple[float, np.intp]:
         """Compute the minimum order parameter of the path."""
         idx = np.argmin([i.order[0] for i in self.phasepoints])
         return (self.phasepoints[idx].order[0], idx)
 
     @property
-    def ordermax(self) -> tuple[float, np.intp]:
+    def ordermax(self) -> Tuple[float, np.intp]:
         """Compute the maximum order parameter of the path."""
         idx = np.argmax([i.order[0] for i in self.phasepoints])
         return (self.phasepoints[idx].order[0], idx)
@@ -71,8 +71,8 @@ class Path:
         return adresses
 
     def check_interfaces(
-        self, interfaces: list[float]
-    ) -> tuple[str | None, str | None, str, list[bool]]:
+        self, interfaces: List[float]
+    ) -> Tuple[Optional[str], Optional[str], str, List[bool]]:
         """Check interfaces."""
         if self.length < 1:
             logger.warning("Path is empty!")
@@ -87,8 +87,8 @@ class Path:
         return start, end, middle, cross
 
     def get_end_point(
-        self, left: float, right: float | None = None
-    ) -> str | None:
+        self, left: float, right: Optional[float] = None
+    ) -> Optional[str]:
         """Return the end point of the path as a string.
 
         The end point is either to the left of the `left` interface or
@@ -116,7 +116,7 @@ class Path:
             logger.debug("Undefined end point.")
         return end
 
-    def get_start_point(self, left: float, right: float | None = None) -> str:
+    def get_start_point(self, left: float, right: Optional[float] = None) -> str:
         """Return the start point of the path as a string.
 
         The start point is either to the left of the `left` interface or
@@ -142,7 +142,7 @@ class Path:
             logger.debug("Undefined starting point.")
         return start
 
-    def get_shooting_point(self, rgen: Generator) -> tuple[System, int]:
+    def get_shooting_point(self, rgen: Generator) -> Tuple[System, int]:
         """Pick a random shooting point from the path."""
         ### TODO: probably need an unittest for this to check if correct.
         ### idx = rgen.random_integers(1, self.length - 2)
@@ -159,7 +159,7 @@ class Path:
         logger.debug("Max length exceeded. Could not append to path.")
         return False
 
-    def get_move(self) -> str | None:
+    def get_move(self) -> Optional[str]:
         """Return the move used to generate the path."""
         if self.generated is None:
             return None
@@ -215,7 +215,7 @@ class Path:
         system.vel_rev = not system.vel_rev
 
     def reverse(
-        self, order_function: OrderParameter | None, rev_v: bool = True
+        self, order_function: Optional[OrderParameter], rev_v: bool = True
     ) -> Path:
         """Reverse a path and return the reverse path as a new path.
 
@@ -298,7 +298,7 @@ class Path:
         return not self == other
 
     def update_energies(
-        self, ekin: np.ndarray | list[float], vpot: np.ndarray | list[float]
+        self, ekin: Union[np.ndarray, List[float]], vpot: Union[np.ndarray, List[float]]
     ) -> None:
         """Update the energies for the phase points.
 
@@ -347,7 +347,7 @@ def paste_paths(
     path_back: Path,
     path_forw: Path,
     overlap: bool = True,
-    maxlen: int | None = None,
+    maxlen: Optional[int] = None,
 ) -> Path:
     """Merge a backward with a forward path into a new path.
 
@@ -473,7 +473,7 @@ def _load_energies_for_path(path: Path, dirname: str) -> None:
         pass
 
 
-def load_paths_from_disk(config: dict[str, Any]) -> list[Path]:
+def load_paths_from_disk(config: Dict[str, Any]) -> List[Path]:
     """Load paths from disk."""
     load_dir = config["simulation"]["load_dir"]
     paths = []
