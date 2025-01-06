@@ -6,6 +6,7 @@ import os
 import tomli
 
 from infretis.asyncrunner import aiorunner, future_list
+from typing import Tuple, Optional
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
@@ -22,8 +23,7 @@ class TOMLConfigError(Exception):
     # def __init__(self, message):
     #    super().__init__(message)
 
-
-def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
+def setup_internal(config: dict) -> Tuple[dict, REPEX_state]:
     """Run the various setup functions.
 
     Args
@@ -66,7 +66,7 @@ def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
     return md_items, state
 
 
-def setup_runner(state: REPEX_state) -> tuple[aiorunner, future_list]:
+def setup_runner(state: REPEX_state) -> Tuple[aiorunner, future_list]:
     """Set the task runner class up.
 
     Args:
@@ -87,7 +87,7 @@ def setup_runner(state: REPEX_state) -> tuple[aiorunner, future_list]:
 
 def setup_config(
     inp: str = "infretis.toml", re_inp: str = "restart.toml"
-) -> dict | None:
+) -> Optional[dict]:
     """Set dict from *toml file up.
 
     Arg
