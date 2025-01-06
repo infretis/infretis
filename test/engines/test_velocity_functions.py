@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import tomli
 
-from infretis.classes.engines.ase_engine import ASEEngine
+from infretis.classes.engines.ams import AMSEngine
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.factory import create_engine
 from infretis.classes.engines.gromacs import GromacsEngine
@@ -21,6 +21,7 @@ EXPECTED_STDDEV = {
     "gromacs": 1.1131628,
     "lammps": 0.01573556087968066,
     "ase": 0.1113976956951558,
+    "ams": 1.1131628,
 }
 
 
@@ -96,6 +97,19 @@ def return_ase_engine():
     }
     return engine
 
+def return_ams_engine():
+    """Set up an ams engine for the H2 system."""
+    ams_input_path = pathlib.Path("ams_inp/")
+    
+    engine = AMSEngine(ams_input_path, 0.001,1)
+    engine.vel_settings = {
+        "zero_momentum": True,
+        "aimless": True
+
+    }
+    engine.ens_name = "test"
+    return engine
+
 
 @pytest.mark.parametrize(
     "engine",
@@ -105,6 +119,7 @@ def return_ase_engine():
         return_cp2k_engine(),
         return_turtlemd_engine(),
         return_ase_engine(),
+        return_ams_engine(),
     ],
 )
 def test_modify_velocities(tmp_path, engine):
@@ -113,7 +128,10 @@ def test_modify_velocities(tmp_path, engine):
     # folder we wil run from
     folder = tmp_path / "temp"
     folder.mkdir()
-    initial_conf = engine.input_path / f"conf.{engine.ext}"
+    if type(engine.input_path) == str:
+        initial_conf = pathlib.Path(engine.input_path + f"/conf.{engine.ext}")
+    else:
+        initial_conf = engine.input_path / f"conf.{engine.ext}"
     engine.exe_dir = folder
 
     system = System()
@@ -136,10 +154,11 @@ def test_modify_velocities(tmp_path, engine):
         return_cp2k_engine(),
         return_turtlemd_engine(),
         return_ase_engine(),
+        return_ams_engine(),
     ],
 )
 @pytest.mark.heavy
-def test_modify_velicity_distribition(tmp_path, engine):
+def test_modify_velocity_distribition(tmp_path, engine):
     """Check that velocities are generated with the correct distribution.
 
     We compare here the generated velocitied with standard deviations from a
@@ -154,7 +173,12 @@ def test_modify_velicity_distribition(tmp_path, engine):
     # folder we wil run from
     folder = tmp_path / "temp"
     folder.mkdir()
-    initial_conf = engine.input_path / f"conf.{engine.ext}"
+
+    if type(engine.input_path) == str:
+        initial_conf = pathlib.Path(engine.input_path + f"/conf.{engine.ext}")
+    else:
+        initial_conf = engine.input_path / f"conf.{engine.ext}"    
+        
     engine.exe_dir = folder
 
     system = System()

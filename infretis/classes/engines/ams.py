@@ -655,22 +655,29 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         del self.states[source]
 
     def _copystate(self, source, dest, idx=None):
-        if dest in self.states:
-            self._deletestate(dest)
-
-        if idx is None:
-            logger.info("AMS Copying snap to snap: %s -> %s", source, dest)
-            self.states[dest] = [copy.deepcopy(self.states[source][0])]
-            self.worker.CopyMDState(source, dest)
+        if source == dest:
+            print('-----------------------------------------------------------------------------')
+            print('WARNING: source == dest in ams._copystate')
+            print('This should only happen in pytest')
+            print('-----------------------------------------------------------------------------')
+            pass 
         else:
-            logger.info(
-                "AMS Copying traj snap to snap: %s, %i -> %s",
-                source,
-                idx,
-                dest,
-            )
-            self.states[dest] = [copy.deepcopy(self.states[source][idx])]
-            self.worker.CopyMDState(source + "_" + str(idx), dest)
+            if dest in self.states:
+                self._deletestate(dest)
+
+            if idx is None:
+                logger.info("AMS Copying snap to snap: %s -> %s", source, dest)
+                self.states[dest] = [copy.deepcopy(self.states[source][0])]
+                self.worker.CopyMDState(source, dest)
+            else:
+                logger.info(
+                    "AMS Copying traj snap to snap: %s, %i -> %s",
+                    source,
+                    idx,
+                    dest,
+                )
+                self.states[dest] = [copy.deepcopy(self.states[source][idx])]
+                self.worker.CopyMDState(source + "_" + str(idx), dest)
 
     def _deletestate(self, filename):
         """
