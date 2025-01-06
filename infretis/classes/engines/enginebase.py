@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Tuple, Dict, List, Union, Optional
 
 import numpy as np
 
@@ -45,8 +45,8 @@ class EngineBase(metaclass=ABCMeta):
         self.timestep: float = timestep
         self.subcycles: int = subcycles
         self.ext: str = "xyz"
-        self.input_files: dict[str, str | Path] = {}
-        self.order_function: OrderParameter | None = None
+        self.input_files: Dict[str, Union[str, Path]] = {}
+        self.order_function: Optional[OrderParameter] = None
 
     @property
     def beta(self):
@@ -77,7 +77,7 @@ class EngineBase(metaclass=ABCMeta):
     @staticmethod
     def add_to_path(
         path: InfPath, phase_point: System, left: float, right: float
-    ) -> tuple[str, bool, bool, bool]:
+    ) -> Tuple[str, bool, bool, bool]:
         """Add a phase point and perform some checks.
 
         This method is intended to be used by the propagate methods
@@ -116,8 +116,8 @@ class EngineBase(metaclass=ABCMeta):
 
     @abstractmethod
     def modify_velocities(
-        self, ensemble: System, vel_settings: dict[str, Any]
-    ) -> tuple[float, float]:
+        self, ensemble: System, vel_settings: Dict[str, Any]
+    ) -> Tuple[float, float]:
         """Modify the velocities of the current state.
 
         Args:
@@ -133,16 +133,16 @@ class EngineBase(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def set_mdrun(self, md_items: dict[str, Any]) -> None:
+    def set_mdrun(self, md_items: Dict[str, Any]) -> None:
         """Set exe_dir and worker terminal command to be run."""
 
     def calculate_order(
         self,
         system: System,
-        xyz: np.ndarray | None = None,
-        vel: np.ndarray | None = None,
-        box: np.ndarray | None = None,
-    ) -> list[float]:
+        xyz: Optional[np.ndarray] = None,
+        vel: Optional[np.ndarray] = None,
+        box: Optional[np.ndarray] = None,
+    ) -> List[float]:
         """Calculate the order parameter of the current system.
 
         Note, if ``xyz``, ``vel`` or ``box`` are given, we will
@@ -200,7 +200,7 @@ class EngineBase(metaclass=ABCMeta):
         return os.path.join(self.exe_dir, out_file)
 
     def dump_config(
-        self, config: tuple[str, int], deffnm: str = "conf"
+        self, config: Tuple[str, int], deffnm: str = "conf"
     ) -> str:
         """Extract configuration frame from a system if needed.
 
@@ -252,10 +252,10 @@ class EngineBase(metaclass=ABCMeta):
     def propagate(
         self,
         path: InfPath,
-        ens_set: dict[str, Any],
+        ens_set: Dict[str, Any],
         system: System,
         reverse: bool = False,
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         """Propagate the equations of motion with the external code.
 
         This method will explicitly do the common set-up, before
@@ -280,7 +280,10 @@ class EngineBase(metaclass=ABCMeta):
         """
         logger.debug('Running propagate with: "%s"', self.description)
 
-        prefix = ens_set["ens_name"] + "_" + str(counter())
+        prefix = (
+            ens_set["ens_name"] + "_" + str(os.getpid()) + "_" + str(counter())
+        )
+
         if reverse:
             logger.debug("Running backward in time.")
             name = prefix + "_trajB"
@@ -335,10 +338,10 @@ class EngineBase(metaclass=ABCMeta):
         name: str,
         path: InfPath,
         system: System,
-        ensemble: dict[str, Any],
+        ensemble: Dict[str, Any],
         msg_file: FileIO,
         reverse: bool = False,
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         """Execute the actual propagation with the MD engine.
 
         This method is called from :py:meth:`.propagate` which
@@ -363,7 +366,7 @@ class EngineBase(metaclass=ABCMeta):
         """
 
     @staticmethod
-    def snapshot_to_system(system: System, snapshot: dict[str, Any]) -> System:
+    def snapshot_to_system(system: System, snapshot: Dict[str, Any]) -> System:
         """Convert a snapshot to a system object."""
         system_copy = system.copy()
         system_copy.order = snapshot.get("order", None)
@@ -380,7 +383,7 @@ class EngineBase(metaclass=ABCMeta):
     @abstractmethod
     def _read_configuration(
         self, filename: str
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
+    ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[List[str]]]:
         """Read output configuration from external software.
 
         Args:
@@ -406,9 +409,9 @@ class EngineBase(metaclass=ABCMeta):
 
     @staticmethod
     def _modify_input(
-        sourcefile: str | Path,
-        outputfile: str | Path,
-        settings: dict[str, Any],
+        sourcefile: Union[str, Path],
+        outputfile: Union[str, Path],
+        settings: Dict[str, Any],
         delim: str = "=",
     ) -> None:
         """Modify input file for external software.
@@ -427,10 +430,7 @@ class EngineBase(metaclass=ABCMeta):
         """
         reg = re.compile(rf"(.*?){delim}")
         written = set()
-        with (
-            open(sourcefile, encoding="utf-8") as infile,
-            open(outputfile, mode="w", encoding="utf-8") as outfile,
-        ):
+        with open(sourcefile, encoding="utf-8") as infile, open(outputfile, mode="w", encoding="utf-8") as outfile:
             for line in infile:
                 to_write = line
                 match = reg.match(line)
@@ -448,8 +448,8 @@ class EngineBase(metaclass=ABCMeta):
 
     @staticmethod
     def _read_input_settings(
-        sourcefile: str | Path, delim: str = "="
-    ) -> dict[str, Any]:
+        sourcefile: Union[str, Path], delim: str = "="
+    ) -> Dict[str, Any]:
         """Read input settings for simulation input files.
 
         Here we assume that the input file has a syntax consisting of
@@ -478,9 +478,9 @@ class EngineBase(metaclass=ABCMeta):
 
     def execute_command(
         self,
-        cmd: list[str],
-        cwd: str | None = None,
-        inputs: bytes | None = None,
+        cmd: List[str],
+        cwd: Optional[str] = None,
+        inputs: Optional[bytes] = None,
     ) -> int:
         """Execute an external command for the engine.
 
@@ -559,7 +559,7 @@ class EngineBase(metaclass=ABCMeta):
         shutil.copyfile(source, dest)
 
     @staticmethod
-    def _removefile(filename: str | Path) -> None:
+    def _removefile(filename: Union[str, Path]) -> None:
         """Remove a given file if it exist."""
         try:
             Path(filename).unlink(missing_ok=True)
@@ -567,7 +567,7 @@ class EngineBase(metaclass=ABCMeta):
         except OSError:
             logger.debug("Could not remove: %s", filename)
 
-    def _remove_files(self, dirname: str, files: list[str]) -> None:
+    def _remove_files(self, dirname: str, files: List[str]) -> None:
         """Remove files from a directory.
 
         Args:
@@ -632,8 +632,8 @@ class EngineBase(metaclass=ABCMeta):
         vel: np.ndarray,
         mass: np.ndarray,
         beta: float,
-        sigma_v: np.ndarray | None = None,
-    ) -> tuple[np.ndarray, np.ndarray | None]:
+        sigma_v: Optional[np.ndarray] = None,
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """Draw velocities from a Gaussian distribution.
 
         Args:
@@ -645,9 +645,7 @@ class EngineBase(metaclass=ABCMeta):
                 estimated if not explicitly given.
         """
         # TODO: Check why cp2k and turtlemd uses this differently.
-        if (
-            not sigma_v or sigma_v < 0.0
-        ):  # TODO: The check < 0.0 is not correct for an array.
+        if sigma_v is None or np.any(sigma_v < 0.0):
             kbt = 1.0 / beta
             sigma_v = np.sqrt(kbt * (1 / mass))
 

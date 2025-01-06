@@ -3,9 +3,9 @@
 import logging
 import math
 import os
-from collections.abc import Callable, Iterator
+from typing import Iterator, Dict, Callable
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, Any, Optional, Union, List, Dict
 
 import numpy as np
 
@@ -155,9 +155,11 @@ def box_vector_angles(
     return box_matrix
 
 
+from typing import Optional
+
 def box_matrix_to_list(
     matrix: np.ndarray, full: bool = False
-) -> np.ndarray | None:
+) -> Optional[np.ndarray]:
     """Flatten a box matrix to a list.
 
     This method flattens and orders a box matrix to the following order:
@@ -190,7 +192,9 @@ def box_matrix_to_list(
     )
 
 
-def get_box_from_header(header: str) -> np.ndarray | None:
+from typing import Optional
+
+def get_box_from_header(header: str) -> Optional[np.ndarray]:
     """Get box lengths from a text header.
 
     Args:
@@ -206,9 +210,11 @@ def get_box_from_header(header: str) -> np.ndarray | None:
     return None
 
 
+from typing import Tuple
+
 def read_txt_snapshots(
-    filename: str | Path, data_keys: tuple[str, ...] | None = None
-) -> Iterator[dict[str, Any]]:
+    filename: str, data_keys: Optional[Tuple[str, ...]] = None
+) -> Iterator[Dict[str, Any]]:
     """Read snapshots from a text file.
 
     Args:
@@ -221,7 +227,7 @@ def read_txt_snapshots(
             `data_keys` and the values contain the corresponding data.
     """
     lines_to_read = 0
-    snapshot: dict[str, Any] = {}
+    snapshot: Dict[str, Any] = {}
     if data_keys is None:
         data_keys = ("atomname", "x", "y", "z", "vx", "vy", "vz")
     read_header = False
@@ -255,7 +261,9 @@ def read_txt_snapshots(
         yield snapshot
 
 
-def read_xyz_file(filename: str | Path) -> Iterator[dict[str, Any]]:
+from typing import Union
+
+def read_xyz_file(filename: Union[str, Path]) -> Iterator[Dict[str, Any]]:
     """Read files in XYZ format.
 
     This method will read a XYZ file and yield the different snapshots
@@ -275,9 +283,9 @@ def write_xyz_trajectory(
     filename: str,
     pos: np.ndarray,
     vel: np.ndarray,
-    names: list[str] | None,
-    box: np.ndarray | None,
-    step: int | None = None,
+    names: Optional[List[str]],
+    box: Optional[np.ndarray],
+    step: Optional[int] = None,
     append: bool = True,
 ) -> None:
     """Write a XYZ snapshot to a trajectory file.
@@ -323,9 +331,11 @@ def write_xyz_trajectory(
             output_file.write(f"{line}\n")
 
 
+from typing import Union
+
 def convert_snapshot(
-    snapshot: dict[str, Any]
-) -> tuple[np.ndarray | None, np.ndarray, np.ndarray, list[str]]:
+    snapshot: Dict[str, Any]
+) -> Tuple[Union[np.ndarray, None], np.ndarray, np.ndarray, List[str]]:
     """Convert a XYZ snapshot to numpy arrays.
 
     Args:
@@ -352,10 +362,10 @@ def convert_snapshot(
 
 
 def look_for_input_files(
-    input_path: str | Path,
-    required_files: dict[str, str] | dict[str, Path],
-    extra_files: dict[str, str] | dict[str, Path] | None = None,
-) -> dict[str, Any]:
+    input_path: Union[str, Path],
+    required_files: Dict[str, Union[str, Path]],
+    extra_files: Optional[Dict[str, Union[str, Path]]] = None,
+) -> Dict[str, Any]:
     """Check that required files for a MD engines are present.
 
     It will first search for the default files. If not present,
@@ -387,7 +397,7 @@ def look_for_input_files(
     # Get the list of files in the input_path folder
     files_in_input_path = [i.name for i in input_path.iterdir() if i.is_file()]
 
-    input_files: dict[str, Any] = {}
+    input_files: Dict[str, Any] = {}
     # Check if the required files are present
     for file_type, file_to_check in required_files.items():
         req_ext = os.path.splitext(file_to_check)[1][1:].lower()
@@ -446,7 +456,7 @@ class ReadAndProcessOnTheFly:
 
     def __init__(
         self,
-        file_path: str | Path,
+        file_path: Union[str, Path],
         processing_function: Callable[..., Any],
         read_mode: str = "r",
     ):
@@ -455,7 +465,7 @@ class ReadAndProcessOnTheFly:
         self.processing_function = processing_function
         self.current_position = 0
         self.previous_position = 0
-        self.file_object: IO[Any] | None = None
+        self.file_object: Optional[IO[Any]] = None
         self.read_mode = read_mode
 
     def read_and_process_content(self) -> Any:
@@ -470,7 +480,7 @@ class ReadAndProcessOnTheFly:
             return []
 
 
-def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
+def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> List[np.ndarray]:
     """Read XYZ-files on the fly."""
     # trajectory of ready frames to be returned
     trajectory: list[np.ndarray] = []
@@ -506,7 +516,7 @@ def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
 
 def lammpstrj_reader(
     reader_class: ReadAndProcessOnTheFly,
-) -> tuple[list[np.ndarray], list[np.ndarray]]:
+) -> Tuple[List[np.ndarray], List[np.ndarray]]:
     """
     Return the coordinates, velocities and box bounds from a trajectory.
 
