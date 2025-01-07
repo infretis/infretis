@@ -1,5 +1,5 @@
 from infretis.classes.orderparameter import OrderParameter
-
+from typing import Tuple, List
 
 class PositionX(OrderParameter):
     """Position order parameter.
@@ -17,7 +17,7 @@ class PositionX(OrderParameter):
 
     """
 
-    def __init__(self, index: tuple[int, int], periodic: bool = True):
+    def __init__(self, index: Tuple[int, int], periodic: bool = True):
         """Initialise order parameter.
 
         Parameters
@@ -38,7 +38,7 @@ class PositionX(OrderParameter):
             raise NotImplementedError("Can't use pbc for position order yet")
         self.index = index
 
-    def calculate(self, system) -> list[float]:
+    def calculate(self, system) -> List[float]:
         """Calculate the order parameter.
 
         Here, the order parameter is just the position
@@ -60,7 +60,7 @@ class PositionX(OrderParameter):
         return [pos]
 
 
-def _verify_pair(index: tuple[int, int]):
+def _verify_pair(index: Tuple[int, int]):
     """Check that the given index contains a pair."""
     try:
         if len(index) != 2:
