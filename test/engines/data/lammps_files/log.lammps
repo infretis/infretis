@@ -1,0 +1,178 @@
+LAMMPS (29 Aug 2024 - Update 1)
+  using 1 OpenMP thread(s) per MPI task
+# variables to be replaced by infretis
+variable 	subcycles index 5
+variable	timestep index 0.5
+variable	nsteps index 5000000
+variable	initconf index /cluster/work/lukasba/sn2/quantis_aa/worker11/004_732_conf.lammpstrj
+variable	name index 004_732_trajF
+variable 	lammpsdata index /cluster/work/lukasba/sn2/lammps_input1/lammps.data
+variable	temperature index 300
+variable	seed index 3060638
+
+units real
+atom_style full
+
+dimension 3
+boundary p p p
+
+
+read_data ${lammpsdata} # add
+read_data /cluster/work/lukasba/sn2/lammps_input1/lammps.data 
+Reading data file ...
+  orthogonal box = (0 0 0) to (12.65 12.65 12.65)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  198 atoms
+  reading velocities ...
+  198 velocities
+Finding 1-2 1-3 1-4 neighbors ...
+  special bond factors lj:    0        0        0       
+  special bond factors coul:  0        0        0       
+     0 = max # of 1-2 neighbors
+     0 = max # of 1-3 neighbors
+     0 = max # of 1-4 neighbors
+     1 = max # of special neighbors
+  special bonds CPU = 0.000 seconds
+  read_data CPU = 0.004 seconds
+read_dump ${initconf} 0 x y z vx vy vz box yes # add
+read_dump /cluster/work/lukasba/sn2/quantis_aa/worker11/004_732_conf.lammpstrj 0 x y z vx vy vz box yes 
+Scanning dump file ...
+Reading snapshot from dump file ...
+  orthogonal box = (0 0 0) to (12.65 12.65 12.65)
+  198 atoms before read
+  198 atoms in snapshot
+  0 atoms purged
+  198 atoms replaced
+  0 atoms trimmed
+  0 atoms added
+  198 atoms after read
+
+pair_style deepmd /cluster/work/lukasba/sn2/lammps_input1/graph-compressed.00.pb /cluster/work/lukasba/sn2/lammps_input1/graph-compressed.01.pb /cluster/work/lukasba/sn2/lammps_input1/graph-compressed.02.pb out_file md.out out_freq ${subcycles} atomic relative 1.0
+pair_style deepmd /cluster/work/lukasba/sn2/lammps_input1/graph-compressed.00.pb /cluster/work/lukasba/sn2/lammps_input1/graph-compressed.01.pb /cluster/work/lukasba/sn2/lammps_input1/graph-compressed.02.pb out_file md.out out_freq 5 atomic relative 1.0
+Summary of lammps deepmd module ...
+  >>> Info of deepmd-kit:
+  installed to:       /cluster/home/lukasba/software/deepmd_c
+  source:             v3.0.0
+  source branch:      master
+  source commit:      e695a91c
+  source commit at:   2024-11-23 02:55:47 -0500
+  support model ver.: 1.1 
+  build variant:      cpu
+  build with tf inc:  /cluster/home/lukasba/.conda/envs/quantis/lib/python3.12/site-packages/tensorflow/include;/cluster/home/lukasba/.conda/envs/quantis/lib/python3.12/site-packages/tensorflow/include
+  build with tf lib:  /cluster/home/lukasba/.conda/envs/quantis/lib/python3.12/site-packages/tensorflow/libtensorflow_cc.so.2
+  set tf intra_op_parallelism_threads: 1
+  set tf inter_op_parallelism_threads: 1
+  >>> Info of lammps module:
+  use deepmd-kit at:  /cluster/home/lukasba/software/deepmd_c
+  source:             
+  source branch:      
+  source commit:      
+  source commit at:   
+  build with inc:     
+  build with lib:     
+pair_coeff * * C Cl H O H Cl
+neighbor	0.5 bin
+neigh_modify	every 1 delay 0 check yes
+
+fix 1 all nvt temp ${temperature} ${temperature} $(100.0*dt)
+fix 1 all nvt temp 300 ${temperature} $(100.0*dt)
+fix 1 all nvt temp 300 300 $(100.0*dt)
+fix 1 all nvt temp 300 300 100
+
+thermo ${subcycles}
+thermo 5
+thermo_style custom step ke pe etotal temp
+thermo_modify flush yes
+
+dump 1 all custom ${subcycles} ${name}.lammpstrj id type x y z vx vy vz # add
+dump 1 all custom 5 ${name}.lammpstrj id type x y z vx vy vz 
+dump 1 all custom 5 004_732_trajF.lammpstrj id type x y z vx vy vz 
+dump_modify 1 pbc yes flush yes
+
+timestep ${timestep} # add
+timestep 0.5 
+
+run ${nsteps} # add
+run 5000000 
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+
+- Type Label Framework: https://doi.org/10.1021/acs.jpcb.3c08419
+
+@Article{Gissinger24,
+ author = {Jacob R. Gissinger, Ilia Nikiforov, Yaser Afshar, Brendon Waters, Moon-ki Choi, Daniel S. Karls, Alexander Stukowski, Wonpil Im, Hendrik Heinz, Axel Kohlmeyer, and Ellad B. Tadmor},
+ title = {Type Label Framework for Bonded Force Fields in LAMMPS},
+ journal = {J. Phys. Chem. B},
+ year =    2024,
+ volume =  128,
+ number =  13,
+ pages =   {3282–-3297}
+}
+
+- USER-DEEPMD package:
+
+@article{Wang_ComputPhysCommun_2018_v228_p178,
+  author = {Wang, Han and Zhang, Linfeng and Han, Jiequn and E, Weinan},
+  doi = {10.1016/j.cpc.2018.03.016},
+  url = {https://doi.org/10.1016/j.cpc.2018.03.016},
+  year = 2018,
+  month = {jul},
+  publisher = {Elsevier {BV}},
+  volume = 228,
+  journal = {Comput. Phys. Commun.},
+  title = {{DeePMD-kit: A deep learning package for many-body potential energy representation and molecular dynamics}},
+  pages = {178--184}
+}
+@misc{Zeng_JChemPhys_2023_v159_p054801,
+  title  = {{DeePMD-kit v2: A software package for deep potential models}},
+  author =   {Jinzhe Zeng and Duo Zhang and Denghui Lu and Pinghui Mo and Zeyu Li
+         and Yixiao Chen and Mari{\'a}n Rynik and Li'ang Huang and Ziyao Li and 
+         Shaochen Shi and Yingze Wang and Haotian Ye and Ping Tuo and Jiabin
+         Yang and Ye Ding and Yifan Li and Davide Tisi and Qiyu Zeng and Han 
+         Bao and Yu Xia and Jiameng Huang and Koki Muraoka and Yibo Wang and 
+         Junhan Chang and Fengbo Yuan and Sigbj{\o}rn L{\o}land Bore and Chun
+         Cai and Yinnian Lin and Bo Wang and Jiayan Xu and Jia-Xin Zhu and 
+         Chenxing Luo and Yuzhi Zhang and Rhys E A Goodall and Wenshuo Liang
+         and Anurag Kumar Singh and Sikai Yao and Jingchao Zhang and Renata
+         Wentzcovitch and Jiequn Han and Jie Liu and Weile Jia and Darrin M
+         York and Weinan E and Roberto Car and Linfeng Zhang and Han Wang},
+  journal =  {J. Chem. Phys.},
+  volume =   159,
+  issue =    5,  
+  year =    2023,
+  pages  =   054801,
+  doi =      {10.1063/5.0155600},
+}
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Generated 0 of 15 mixed pair_coeff terms from geometric mixing rule
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 6.5
+  ghost atom cutoff = 6.5
+  binsize = 3.25, bins = 4 4 4
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair deepmd, perpetual
+      attributes: full, newton on
+      pair build: full/bin
+      stencil: full/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 6.903 | 6.903 | 6.903 Mbytes
+   Step         KinEng         PotEng         TotEng          Temp     
+         0   840.63779     -716592.17     -715751.53      1431.5561    
+         5   849.66006     -716603.02     -715753.36      1446.9205    
+        10   869.09075     -716629        -715759.91      1480.0098    
+        15   818.6732      -716588.06     -715769.39      1394.1517    
+        20   835.96235     -716619.16     -715783.19      1423.5941    
+        25   848.68126     -716648.44     -715799.76      1445.2537    
+        30   811.74666     -716629.59     -715817.84      1382.3563    
+        35   769.69304     -716604.34     -715834.64      1310.7414    
+        40   780.0135      -716631.58     -715851.57      1328.3166    
+        45   760.957       -716627.27     -715866.31      1295.8645    
+        50   748.75368     -716629.48     -715880.72      1275.083     
+        55   734.62429     -716628.49     -715893.86      1251.0214    
