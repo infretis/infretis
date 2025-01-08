@@ -247,6 +247,9 @@ def get_atom_masses(lammps_data: str | Path, atom_style) -> np.ndarray:
                 atoms = np.genfromtxt(
                     lammps_data, skip_header=i + 1, max_rows=n_atoms
                 )
+                # sort atoms according to index
+                idx = np.argsort(atoms[:, 0])
+                atoms = atoms[idx]
     # if we did not find all of the information
     if n_atoms == 0 or n_atom_types == 0:
         raise ValueError(
