@@ -38,18 +38,10 @@ ENERGIES = np.array(
         734.62429,
     ]
 )
-
 BOX = np.array([12.65, 12.65, 12.65])
 BOX_FRAMES = np.array(
     [
-        [
-            [
-                0,
-                12.65,
-            ],
-            [0, 12.65],
-            [0, 12.65],
-        ],
+        [[0, 12.65], [0, 12.65], [0, 12.65]],
         [[2, 14.65], [1, 13.65], [3, 15.65]],
     ]
 )
@@ -94,15 +86,15 @@ def test_read_lammpstrj():
     assert np.all(box == BOX_FRAMES[frame])
 
 
-def test_write_lammpstrj():
+def test_write_lammpstrj(tmp_path):
     """Test that writing a lammpstrj is identical to the originl read."""
     natoms = 9
     id_type0, pos0, vel0, box0 = read_lammpstrj(
         HERE / "data/lammps_files/traj.lammpstrj", 0, natoms
     )
-    write_lammpstrj(HERE / "test_write.lammpstrj", id_type0, pos0, vel0, box0)
+    write_lammpstrj(tmp_path / "test_write.lammpstrj", id_type0, pos0, vel0, box0)
     id_type, pos, vel, box = read_lammpstrj(
-        HERE / "test_write.lammpstrj", 0, natoms
+        tmp_path / "test_write.lammpstrj", 0, natoms
     )
     assert np.all(id_type == id_type0)
     assert np.all(pos == pos0)
