@@ -550,7 +550,7 @@ def lammpstrj_reader(
             # again
             reader_class.previous_position = reader_class.current_position
             reader_class.current_position = reader_class.file_object.tell()
-            continue
+            return trajectory, box
         spl = line.split()
         if i == 3 and spl:
             N_atoms = int(spl[0])
