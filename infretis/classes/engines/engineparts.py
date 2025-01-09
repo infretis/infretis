@@ -496,7 +496,7 @@ def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> list[np.ndarray]:
         # if we are done with one block
         # update the file object pointer to the new position
         if i % block_size == N_atoms + 1 and i > 0:
-            trajectory.append(np.array(frame_coordinates))
+            trajectory.append(np.array(frame_coordinates, dtype=np.float64))
             reader_class.previous_position = reader_class.current_position
             reader_class.current_position = reader_class.file_object.tell()
             frame_coordinates = []
@@ -515,7 +515,7 @@ def lammpstrj_reader(
 
     Note that the precision defaults to the numpy array precision.
 
-    lammps format should be `dump custom id type x y z vx vy vz`
+    lammps format should be `dump custom id type x y z vx vy vz id`
     which gives
     ITEM: TIMESTEP
     t
@@ -525,7 +525,7 @@ def lammpstrj_reader(
     xlo xhi (?)
     ylo yhi (?)
     zlo zhi (?)
-    ITEM: ATOMS id type x y z vx vy vz
+    ITEM: ATOMS id type x y z vx vy vz id
     n_atoms
     """
     # the ready frames to be returned
@@ -542,11 +542,20 @@ def lammpstrj_reader(
     if reader_class.file_object is None:
         return trajectory, box
     for i, line in enumerate(iter(reader_class.file_object.readline, "")):
+        if i == 0 and line == "\n":
+            # In case where newline wasn't written after we finished reading
+            # the whole frame (except the newline characte) so the
+            # previous_position points to the newline character, giving an
+            # extra line (which is just a newline), so we skip it here and start
+            # again
+            reader_class.previous_position = reader_class.current_position
+            reader_class.current_position = reader_class.file_object.tell()
+            continue
         spl = line.split()
         if i == 3 and spl:
             N_atoms = int(spl[0])
-            coordinate_snapshot = np.zeros((N_atoms, 6))
-            box_snapshot = np.zeros((3, 3))
+            coordinate_snapshot = np.zeros((N_atoms, 6), dtype=np.float64)
+            box_snapshot = np.zeros((3, 3), dtype=np.float64)
             # Natoms + timestep_block
             # + N_atoms_block + box_block + atoms_header
             block_size = N_atoms + 2 + 2 + 4 + 1
@@ -556,7 +565,7 @@ def lammpstrj_reader(
         if line_nr >= 5 and line_nr <= 7:
             # frame is not ready
             n_box_cols = len(spl)
-            if n_box_cols not in [2, 3]:
+            if n_box_cols not in [2, 3]:  # TODO: should be 2 and not [2,3]?
                 return trajectory, box
             else:
                 # we may have either 2 or 3 columns in box output
@@ -564,7 +573,7 @@ def lammpstrj_reader(
         # we are in the atoms block
         elif line_nr >= 9:
             # frame is not ready
-            if len(spl) != 8:
+            if len(spl) != 9 or spl[0] != spl[-1]:
                 return trajectory, box
             else:
                 # the atom number, which are not sorted by default in lammps
@@ -575,10 +584,10 @@ def lammpstrj_reader(
         # and append the box and trajectory
         if i % block_size == block_size - 1 and i > 0:
             trajectory.append(coordinate_snapshot)
-            box.append(np.array(box_snapshot))
+            box.append(box_snapshot)
             reader_class.previous_position = reader_class.current_position
             reader_class.current_position = reader_class.file_object.tell()
             # allocate memory for next frame
-            coordinate_snapshot = np.zeros((N_atoms, 6))
-            box_snapshot = np.zeros((3, 3))
+            coordinate_snapshot = np.zeros((N_atoms, 6), dtype=np.float64)
+            box_snapshot = np.zeros((3, 3), dtype=np.float64)
     return trajectory, box
