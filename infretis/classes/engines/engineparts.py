@@ -546,13 +546,17 @@ def lammpstrj_reader(
             # In case where newline wasn't written after we finished reading
             # the whole frame (except the newline characte) so the
             # previous_position points to the newline character, giving an
-            # extra line (which is just a newline), so we skip it here and start
+            # extra line (which is just a newline) so we skip it here and start
             # again
             reader_class.previous_position = reader_class.current_position
             reader_class.current_position = reader_class.file_object.tell()
             return trajectory, box
         spl = line.split()
-        if i == 3 and spl:
+        # We are in the atoms block
+        if i == 3:
+            # frame is not ready, might read wrong nr. of atoms
+            if not spl or line[-1] != "\n":
+                return trajectory, box
             N_atoms = int(spl[0])
             coordinate_snapshot = np.zeros((N_atoms, 6), dtype=np.float64)
             box_snapshot = np.zeros((3, 3), dtype=np.float64)
@@ -561,11 +565,11 @@ def lammpstrj_reader(
             block_size = N_atoms + 2 + 2 + 4 + 1
         # the line number if a single frame was extracted
         line_nr = i % block_size
-        # if we are in the box bound block
+        # we are in the box bound block
         if line_nr >= 5 and line_nr <= 7:
-            # frame is not ready
             n_box_cols = len(spl)
-            if n_box_cols not in [2, 3]:  # TODO: should be 2 and not [2,3]?
+            # frame is not read, TODO: should be 2 and not [2,3]?
+            if n_box_cols not in [2, 3] or line[-1] != "\n":
                 return trajectory, box
             else:
                 # we may have either 2 or 3 columns in box output
