@@ -29,8 +29,7 @@ from scm.plams.interfaces.adfsuite.amsworker import AMSWorker
 from scm.plams.tools.units import Units
 
 from infretis.classes.system import System
-from infretis.classes.engines.enginebase import counter
-
+import time
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
@@ -571,7 +570,8 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             logger.info(
                 "Generating velocities for %s, idx=%s", state_name, idx
             )
-            prefix = self.ens_name + str(os.getpid()) + "_" + str(counter())
+            prefix = self.ens_name + str(os.getpid()) + "_" + str(
+                int(time.time() * 1_000_000) % 1_000_000).zfill(6)           
             genvel = os.path.join(
             self.exe_dir, f"genvel_{prefix}." + self.ext
                  )
