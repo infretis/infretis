@@ -146,7 +146,7 @@ def test_modify_velocities(tmp_path, engine):
     engine.modify_velocities(system, vel_settings)
     genvel_conf = folder / f"genvel.{engine.ext}"
 
-    assert genvel_conf.is_file()
+    assert genvel_conf.is_file() or any(folder.glob("genvel_*_*.rkf"))
     # we generated velocities, so we should have non-zero kinetic energy
     assert system.ekin != 0
 
@@ -197,7 +197,8 @@ def test_modify_velocity_distribition(tmp_path, engine):
     engine.modify_velocities(system, vel_settings)
     genvel_conf = folder / f"genvel.{engine.ext}"
 
-    assert genvel_conf.is_file()
+    assert genvel_conf.is_file() or any(folder.glob("genvel_*_*.rkf"))
+
     # we generated velocities, so we should have non-zero kinetic energy
     assert system.ekin != 0
     # check that we have the correct velocity units

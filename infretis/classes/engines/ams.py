@@ -574,6 +574,11 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             genvel = os.path.join(
                 self.exe_dir, f"genvel." + self.ext
             )
+            if genvel in self.states:
+                prefix = self.ens_name + str(os.getpid()) + "_" + str(counter())
+                genvel = os.path.join(
+                self.exe_dir, f"genvel_{prefix}." + self.ext
+                 )
             if state_name in self.states:
                 # If kicking from new MD state, prepare it
                 self._copystate(state_name, genvel, idx=idx)
