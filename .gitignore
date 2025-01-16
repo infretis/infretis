@@ -133,3 +133,11 @@ dmypy.json
 
 # vim tags
 tags
+
+
+#example folder
+examples/
+
+# amsworker
+**/amsworker*/
+
