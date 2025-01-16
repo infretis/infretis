@@ -4,8 +4,9 @@ import pathlib
 import numpy as np
 import pytest
 import tomli
-
-from infretis.classes.engines.ams import AMSEngine
+import importlib.util
+if importlib.util.find_spec("scm.plams") is not None:
+    from infretis.classes.engines.ams import AMSEngine
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.factory import create_engine
 from infretis.classes.engines.gromacs import GromacsEngine
@@ -119,7 +120,11 @@ def return_ams_engine():
         return_cp2k_engine(),
         return_turtlemd_engine(),
         return_ase_engine(),
-        return_ams_engine(),
+        pytest.param(return_ams_engine(), 
+            marks=pytest.mark.skipif(
+                importlib.util.find_spec("scm.plams") is None, 
+                reason="scm.plams not installed")
+                ),
     ],
 )
 def test_modify_velocities(tmp_path, engine):
@@ -154,7 +159,11 @@ def test_modify_velocities(tmp_path, engine):
         return_cp2k_engine(),
         return_turtlemd_engine(),
         return_ase_engine(),
-        return_ams_engine(),
+        pytest.param(return_ams_engine(), 
+            marks=pytest.mark.skipif(
+                importlib.util.find_spec("scm.plams") is None, 
+                reason="scm.plams not installed")
+                ),
     ],
 )
 @pytest.mark.heavy
