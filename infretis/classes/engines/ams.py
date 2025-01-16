@@ -571,13 +571,9 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             logger.info(
                 "Generating velocities for %s, idx=%s", state_name, idx
             )
+            prefix = self.ens_name + str(os.getpid()) + "_" + str(counter())
             genvel = os.path.join(
-                self.exe_dir, f"genvel." + self.ext
-            )
-            if genvel in self.states:
-                prefix = self.ens_name + str(os.getpid()) + "_" + str(counter())
-                genvel = os.path.join(
-                self.exe_dir, f"genvel_{prefix}." + self.ext
+            self.exe_dir, f"genvel_{prefix}." + self.ext
                  )
             if state_name in self.states:
                 # If kicking from new MD state, prepare it
@@ -592,19 +588,19 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             )
 
             # Can be removed, but nice way to check velocity generation
-            logger.info(
-                "AMS Epot: %f Ekin: %f",
-                state.get_potentialenergy(unit=self.ene_unit),
-                state.get_kineticenergy(unit=self.ene_unit),
-            )
-            # Write rkf file
-            logger.info("AMS setting output file: %s", genvel)
+            # logger.info(
+            #     "AMS Epot: %f Ekin: %f",
+            #     state.get_potentialenergy(unit=self.ene_unit),
+            #     state.get_kineticenergy(unit=self.ene_unit),
+            # )
+            # # Write rkf file
+            # logger.info("AMS setting output file: %s", genvel)
             if os.path.exists(
                 genvel
             ):  # File must never be there before PrepareMD
                 self._removefile(genvel, disk_only=True)
             self.worker.PrepareMD(genvel)
-            self.worker.MolecularDynamics(genvel, nsteps=0)
+            # self.worker.MolecularDynamics(genvel, nsteps=0)
 
             # Update system
             kin_new = state.get_kineticenergy(unit=self.ene_unit)
