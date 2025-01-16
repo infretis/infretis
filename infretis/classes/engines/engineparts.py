@@ -5,7 +5,7 @@ import math
 import os
 from typing import Iterator, Dict, Callable
 from pathlib import Path
-from typing import IO, Any, Optional, Union, List, Dict
+from typing import IO, Any, Optional, Union, List, Dict, Tuple
 
 import numpy as np
 
@@ -155,8 +155,6 @@ def box_vector_angles(
     return box_matrix
 
 
-from typing import Optional
-
 def box_matrix_to_list(
     matrix: np.ndarray, full: bool = False
 ) -> Optional[np.ndarray]:
@@ -192,8 +190,6 @@ def box_matrix_to_list(
     )
 
 
-from typing import Optional
-
 def get_box_from_header(header: str) -> Optional[np.ndarray]:
     """Get box lengths from a text header.
 
@@ -209,8 +205,6 @@ def get_box_from_header(header: str) -> Optional[np.ndarray]:
         return np.array([float(i) for i in txt.split()])
     return None
 
-
-from typing import Tuple
 
 def read_txt_snapshots(
     filename: str, data_keys: Optional[Tuple[str, ...]] = None
@@ -260,8 +254,6 @@ def read_txt_snapshots(
     if snapshot:
         yield snapshot
 
-
-from typing import Union
 
 def read_xyz_file(filename: Union[str, Path]) -> Iterator[Dict[str, Any]]:
     """Read files in XYZ format.
@@ -331,8 +323,6 @@ def write_xyz_trajectory(
             output_file.write(f"{line}\n")
 
 
-from typing import Union
-
 def convert_snapshot(
     snapshot: Dict[str, Any]
 ) -> Tuple[Union[np.ndarray, None], np.ndarray, np.ndarray, List[str]]:
@@ -397,7 +387,7 @@ def look_for_input_files(
     # Get the list of files in the input_path folder
     files_in_input_path = [i.name for i in input_path.iterdir() if i.is_file()]
 
-    input_files: Dict[str, Any] = {}
+    input_files: dict[str, Any] = {}
     # Check if the required files are present
     for file_type, file_to_check in required_files.items():
         req_ext = os.path.splitext(file_to_check)[1][1:].lower()

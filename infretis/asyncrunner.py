@@ -142,6 +142,7 @@ class aiorunner:
         future: asyncio.Future = asyncio.Future()
         await self._queue.put((work_unit, future))
         return future
+    
     def submit_work(self, work_unit: Dict[str, Any]) -> Future:
         """Submit work to the runner.
 

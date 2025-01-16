@@ -644,6 +644,7 @@ class CP2KEngine(EngineBase):
         sleep: A time in seconds, used to wait for files to be ready.
 
     """
+
     def __init__(
         self,
         cp2k: str,
