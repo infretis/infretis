@@ -2,7 +2,6 @@
 
 import logging
 import os
-import sys
 import time
 from datetime import datetime
 
@@ -1079,9 +1078,6 @@ def write_to_pathens(state, pn_archive):
                 f0 = traj_data[pn]["frac"][0]
                 w0 = traj_data[pn]["weights"][0]
                 frac.append("----" if f0 == 0.0 else str(f0))
-                if weight == 0:
-                    print("tortoise", frac, weight)
-                    sys.exit("fish")
                 weight.append("----" if f0 == 0.0 else str(w0))
                 frac += ["----"] * (size - 2)
                 weight += ["----"] * (size - 2)
