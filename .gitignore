@@ -137,6 +137,36 @@ tags
 
 #example folder
 examples/
+!examples/ase/H2/conf.traj
+!examples/ase/H2/H2-calc.py
+!examples/ase/H2/infretis0.toml
+!examples/gromacs/H2_multi_engine/runner.sh
+!examples/gromacs/H2/runner.sh
+!examples/gromacs/H2/infretis.toml
+!examples/gromacs/H2_multi_engine/infretis.toml
+!examples/gromacs/H2/gromacs_input/conf.g96
+!examples/gromacs/H2/gromacs_input/grompp.mdp
+!examples/gromacs/H2/gromacs_input/topol.top
+!examples/lammps/H2/infretis.toml
+!examples/lammps/H2/runner.sh
+!examples/lammps/H2/lammps_input/conf.lammpstrj
+!examples/lammps/H2/lammps_input/lammps.data
+!examples/lammps/H2/lammps_input/lammps.input
+!examples/cp2k/H2/runner.sh
+!examples/cp2k/H2/cp2k_input/conf.xyz
+!examples/cp2k/H2/cp2k_input/cp2k.inp
+!examples/cp2k/H2/infretis.toml
+!examples/turtlemd/double_well/load_copy
+!examples/turtlemd/double_well/runner.sh
+!examples/turtlemd/H2/conf.xyz
+!examples/turtlemd/H2/infretis.toml
+!examples/turtlemd/H2_quantis/conf.xyz
+!examples/turtlemd/double_well/clean.sh
+!examples/turtlemd/H2_quantis/infretis.toml
+!examples/turtlemd/double_well/infretis.toml
+!examples/turtlemd/H2_quantis/runner.sh
+!examples/turtlemd/double_well/orderp.py
+!examples/turtlemd/H2/runner.sh
 
 # amsworker
 **/amsworker*/
