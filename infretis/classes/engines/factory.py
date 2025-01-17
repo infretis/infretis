@@ -6,8 +6,9 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional, Tuple, Dict
 
 import importlib
-if importlib.util.find_spec("scm.plams") is not None:
-    from infretis.classes.engines.ams import AMSEngine
+if importlib.util.find_spec("scm") is not None:
+    if importlib.util.find_spec("scm.plams") is not None:
+        from infretis.classes.engines.ams import AMSEngine
 from infretis.classes.engines.ase_engine import ASEEngine
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.gromacs import GromacsEngine
@@ -43,8 +44,9 @@ def create_engine(
         "lammps": {"class": LAMMPSEngine},
         "ase": {"class": ASEEngine},
     }
-    if importlib.util.find_spec("scm.plams") is not None:
-        engine_map["ams"] = {"class": AMSEngine}
+    if importlib.util.find_spec("scm") is not None:
+        if importlib.util.find_spec("scm.plams") is not None:
+            engine_map["ams"] = {"class": AMSEngine}
 
     if settings[eng_key]["class"].lower() not in engine_map:
         return create_external(settings[eng_key], "engine", ["step"])

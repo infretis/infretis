@@ -5,8 +5,9 @@ import numpy as np
 import pytest
 import tomli
 import importlib.util
-if importlib.util.find_spec("scm.plams") is not None:
-    from infretis.classes.engines.ams import AMSEngine
+if importlib.util.find_spec("scm") is not None:
+    if importlib.util.find_spec("scm.plams") is not None:
+        from infretis.classes.engines.ams import AMSEngine
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.factory import create_engine
 from infretis.classes.engines.gromacs import GromacsEngine
@@ -111,21 +112,19 @@ def return_ams_engine():
     engine.ens_name = "test"
     return engine
 
-
-@pytest.mark.parametrize(
-    "engine",
-    [
+engine = [
         return_gromacs_engine(),
         return_lammps_engine(),
         return_cp2k_engine(),
         return_turtlemd_engine(),
         return_ase_engine(),
-        pytest.param(return_ams_engine(), 
-            marks=pytest.mark.skipif(
-                importlib.util.find_spec("scm.plams") is None, 
-                reason="scm.plams not installed")
-                ),
-    ],
+    ]
+if importlib.util.find_spec("scm") is not None:
+    if importlib.util.find_spec("scm.plams") is not None:
+        engine.append(return_ams_engine())
+
+@pytest.mark.parametrize(
+    "engine", engine
 )
 def test_modify_velocities(tmp_path, engine):
     """Check that we can modify the velocities with an engine,
@@ -146,25 +145,15 @@ def test_modify_velocities(tmp_path, engine):
     engine.modify_velocities(system, vel_settings)
     genvel_conf = folder / f"genvel.{engine.ext}"
 
-    assert genvel_conf.is_file() or any(folder.glob("genvel_test?????_??????.rkf"))
-    # we generated velocities, so we should have non-zero kinetic energy
+    if engine.name == "ams":
+        assert any(folder.glob("genvel_test*_??????.rkf"))
+    else:
+        assert genvel_conf.is_file()    # we generated velocities, so we should have non-zero kinetic energy
     assert system.ekin != 0
 
 
 @pytest.mark.parametrize(
-    "engine",
-    [
-        return_gromacs_engine(),
-        return_lammps_engine(),
-        return_cp2k_engine(),
-        return_turtlemd_engine(),
-        return_ase_engine(),
-        pytest.param(return_ams_engine(), 
-            marks=pytest.mark.skipif(
-                importlib.util.find_spec("scm.plams") is None, 
-                reason="scm.plams not installed")
-                ),
-    ],
+    "engine", engine
 )
 @pytest.mark.heavy
 def test_modify_velocity_distribition(tmp_path, engine):
@@ -196,9 +185,10 @@ def test_modify_velocity_distribition(tmp_path, engine):
 
     engine.modify_velocities(system, vel_settings)
     genvel_conf = folder / f"genvel.{engine.ext}"
-
-    assert genvel_conf.is_file() or any(folder.glob("genvel_test?????_??????.rkf"))
-
+    if engine.name == "ams":
+        assert any(folder.glob("genvel_test*_??????.rkf"))
+    else:
+        assert genvel_conf.is_file()
     # we generated velocities, so we should have non-zero kinetic energy
     assert system.ekin != 0
     # check that we have the correct velocity units
