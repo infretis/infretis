@@ -1,13 +1,16 @@
 """Test velocity functions in all engines."""
+
 import pathlib
 
 import numpy as np
 import pytest
 import tomli
+
 import importlib.util
 if importlib.util.find_spec("scm") is not None:
     if importlib.util.find_spec("scm.plams") is not None:
         from infretis.classes.engines.ams import AMSEngine
+
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.factory import create_engine
 from infretis.classes.engines.gromacs import GromacsEngine
@@ -84,6 +87,7 @@ def return_cp2k_engine():
     }
     return engine
 
+
 def return_ase_engine():
     """Set up an ase engine for the H2 system."""
     ase_toml_path = HERE / "../../examples/ase/H2/infretis0.toml"
@@ -91,7 +95,9 @@ def return_ase_engine():
     toml_file = ase_toml_path
     with open(toml_file, "rb") as rfile:
         config = tomli.load(rfile)
-    config["engine"]["calculator_settings"]["module"] = str(calc_path.resolve())
+    config["engine"]["calculator_settings"]["module"] = str(
+        calc_path.resolve()
+    )
     engine = create_engine(config)
     engine.input_path = HERE / "../../examples/ase/H2"
     engine.vel_settings = {
