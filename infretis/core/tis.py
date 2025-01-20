@@ -296,7 +296,8 @@ def select_shoot(
     logger.info(msg + "for MC move.")
 
     # Set mdrun, rng, then clean_up.
-    for key in engines.keys():
+    for key, ens_num in zip(engines.keys(), picked.keys()):
+        pens = picked[ens_num]
         for engine in engines[key]:
             engine.set_mdrun(pens)
             if "rgen-eng" in pens:
