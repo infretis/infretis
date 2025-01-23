@@ -3,12 +3,14 @@
 import pathlib
 
 import numpy as np
+import pytest
 
 from infretis.classes.engines.engineparts import (
     ReadAndProcessOnTheFly,
     lammpstrj_reader,
 )
 from infretis.classes.engines.lammps import (
+    check_lammps_input,
     get_atom_masses,
     read_energies,
     read_lammpstrj,
@@ -162,6 +164,21 @@ class PartialWriter:
                 start = self.n_chars_in_write_file
                 wfile.write(self.content[start : start + n])
                 self.n_chars_in_write_file += n
+
+
+def test_check_lammps_input(tmp_path):
+    """Test reading of a good and bad lammps.input file."""
+    lmp_inp = HERE / "../../examples/lammps/H2/lammps_input/lammps.input"
+    assert check_lammps_input(lmp_inp) is None
+
+    bad_lmp_inp = tmp_path / "lammps.input"
+    with open(bad_lmp_inp, "w") as wfile:
+        with open(lmp_inp) as rfile:
+            for line in rfile:
+                if "dump" not in line:
+                    wfile.write(line)
+    with pytest.raises(ValueError):
+        check_lammps_input(bad_lmp_inp)
 
 
 def test_on_the_fly_read(tmp_path):
