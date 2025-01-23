@@ -26,7 +26,8 @@ fix 2 all langevin ${temperature} ${temperature} 500.0 ${seed}
 thermo ${subcycles}
 thermo_style custom step ke pe etotal temp
 
-dump 1 all custom ${subcycles} ${name}.lammpstrj id type x y z vx vy vz # add
+# 'id' is needed at start and end of dump to ensure correct reading of the file
+dump 1 all custom ${subcycles} ${name}.lammpstrj id type x y z vx vy vz id
 dump_modify 1 pbc yes
 # we may also want .xtc files dumped. Use 'keep_traj_fnames = [".xtc"]
 # in the output section of infretis.toml to save them
