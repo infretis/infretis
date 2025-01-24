@@ -1,4 +1,5 @@
 """Handle formatting of files."""
+
 from __future__ import annotations
 
 import logging

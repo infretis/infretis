@@ -432,3 +432,22 @@ def test_zero_swaps(
         ] == pytest.approx(
             [pp.order[0] for pp in swapped_paths[3].phasepoints], rel=1e-5
         )
+
+    # test the lambda_minus_one feature for retis_swap_zero
+    if zero_swap_move.__name__ == "retis_swap_zero":
+        pathdir = PosixPath(tmp_dir / "zero_swap_move")
+        pathdir.mkdir()
+        turtle.exe_dir = str(pathdir.resolve())
+        intf_minus = (-1.05, -1.02, -0.99)
+        picked[-1]["ens"]["interfaces"] = intf_minus
+        picked[-1]["ens"]["start_cond"] = ["L", "R"]
+
+        success, [new_path0, new_path1], status = zero_swap_move(
+            picked, engines
+        )
+
+        # LMR path should be generated
+        start, end, middle,  _ = new_path0.check_interfaces(intf_minus)
+        assert start == "L"
+        assert end == "R"
+        assert middle == "M"

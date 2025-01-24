@@ -1,7 +1,0 @@
-# a partial infretis input file we can use
-# for recalculating the orderparameter
-
-[orderparameter]
-class = 'puckering'
-index = [2, 5, 11, 8, 1, 0]
-periodic = true

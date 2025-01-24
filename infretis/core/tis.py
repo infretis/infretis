@@ -97,6 +97,7 @@ def run_md(md_items: dict[str, Any]) -> dict[str, Any]:
                 trial,
                 md_items["interfaces"],
                 md_items["mc_moves"],
+                picked[ens_num]["ens"]["tis_set"]["lambda_minus_one"],
                 cap=md_items["cap"],
                 minus=minus,
             )
@@ -110,6 +111,7 @@ def calc_cv_vector(
     path: InfPath,
     interfaces: list[float],
     moves: list[str],
+    lambda_minus_one: float | bool = False,
     cap: float | None = None,
     minus: bool = False,
 ) -> tuple[float, ...]:
@@ -118,6 +120,7 @@ def calc_cv_vector(
     Args:
         path: The path to calculate weights for.
         interfaces: The positions of the interfaces.
+        lambda_minus_one: For permeability calculations
         moves: The MC moves performed.
         cap: The cap value for the Wire Fencing (wf) move.
         minus: Indicate if the math is a minus path or not.
@@ -129,7 +132,10 @@ def calc_cv_vector(
 
     cv = []
     if minus:
-        return (1.0 if interfaces[0] <= path_max else 0.0,)
+        if lambda_minus_one is not False:
+            return (1.0 if lambda_minus_one <= path_max else 0.0,)
+        else:
+            return (1.0 if interfaces[0] <= path_max else 0.0,)
 
     for idx, intf_i in enumerate(interfaces[:-1]):
         if moves[idx + 1] == "wf":
@@ -290,7 +296,8 @@ def select_shoot(
     logger.info(msg + "for MC move.")
 
     # Set mdrun, rng, then clean_up.
-    for key in engines.keys():
+    for key, ens_num in zip(engines.keys(), picked.keys()):
+        pens = picked[ens_num]
         for engine in engines[key]:
             engine.set_mdrun(pens)
             if "rgen-eng" in pens:
@@ -871,6 +878,11 @@ def retis_swap_zero(
     # if allowed:
     #     swap_ensemble_attributes(ensemble0, ensemble1, settings)
 
+    # if lambda_minus_one, reject early if path_old0
+    if set(ens_set0["start_cond"]) == set(["L", "R"]):
+        if path_old0.check_interfaces(ens_set0["interfaces"])[1] == "L":
+            return False, [path_old0, path_old1], "0-L"
+
     # 1. Generate path for [0^-] from [0^+]:
     # We generate from the first point of the path in [0^+]:
     logger.info("Swapping [0^-] <-> [0^+]")
@@ -911,7 +923,6 @@ def retis_swap_zero(
         path0.status = "0-L"
     else:
         path0.status = "ACC"
-    # print(path0.status)
 
     # 2. Generate path for [0^+] from [0^-]:
     logger.info("Creating path for [0^+] from [0^-]")
@@ -1102,14 +1113,14 @@ def quantis_swap_zero(
         with rare event simulations [https://doi.org/10.1021/acs.jctc.5b00012]
 
     Todo:
-        * Implement the option to mix engines in [eninge] and [engine2], as
+        * Implement the option to mix engines in [eninge] and [engine2], as
         quantis now only works properly with the same engine in all ensembles
         due to different units and file formats being used. For example, to
         extract a  configuration from [0+] into [0-] requires some processing.
         * Add options to relax crossing condition and energy acceptance rule
         * Option to do 'wf' or nah?
         * After performing a swap, another swap that happens before any moves
-        in the ensembles [0-] and [0+] are performed, we get back the original
+        in the ensembles [0-] and [0+] are performed, we get back the original
         paths. Should avoid zero swap if this is the case (see retis_swap_0)
 
     """

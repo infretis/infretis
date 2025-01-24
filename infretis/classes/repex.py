@@ -1,7 +1,7 @@
 """Defines the main REPEX class for path handling and permanent calc."""
+
 import logging
 import os
-import sys
 import time
 from datetime import datetime
 
@@ -965,6 +965,9 @@ class REPEX_state:
                 paths[i + 1],
                 self.config["simulation"]["interfaces"],
                 self.mc_moves,
+                lambda_minus_one=self.config["simulation"]["tis_set"][
+                    "lambda_minus_one"
+                ],
                 cap=self.cap,
             )
             self.add_traj(
@@ -1020,10 +1023,18 @@ class REPEX_state:
     def initiate_ensembles(self):
         """Create all the ensemble dicts from the *toml config dict."""
         intfs = self.config["simulation"]["interfaces"]
+        lambda_minus_one = self.config["simulation"]["tis_set"][
+            "lambda_minus_one"
+        ]
         ens_intfs = []
 
         # set intfs for [0-] and [0+]
-        ens_intfs.append([float("-inf"), intfs[0], intfs[0]])
+        if lambda_minus_one is not False:
+            ens_intfs.append(
+                [lambda_minus_one, (lambda_minus_one + intfs[0]) / 2, intfs[0]]
+            )
+        else:
+            ens_intfs.append([float("-inf"), intfs[0], intfs[0]])
         ens_intfs.append([intfs[0], intfs[0], intfs[-1]])
 
         # set interfaces and set detect for [1+], [2+], ...
@@ -1040,7 +1051,11 @@ class REPEX_state:
                 "tis_set": self.config["simulation"]["tis_set"],
                 "mc_move": self.config["simulation"]["shooting_moves"][i],
                 "ens_name": f"{i:03d}",
-                "start_cond": "R" if i == 0 else "L",
+                "start_cond": (
+                    ["L", "R"]
+                    if lambda_minus_one is not False and i == 0
+                    else ("R" if i == 0 else "L")
+                ),
             }
 
         self.ensembles = pensembles
@@ -1063,9 +1078,6 @@ def write_to_pathens(state, pn_archive):
                 f0 = traj_data[pn]["frac"][0]
                 w0 = traj_data[pn]["weights"][0]
                 frac.append("----" if f0 == 0.0 else str(f0))
-                if weight == 0:
-                    print("tortoise", frac, weight)
-                    sys.exit("fish")
                 weight.append("----" if f0 == 0.0 else str(w0))
                 frac += ["----"] * (size - 2)
                 weight += ["----"] * (size - 2)

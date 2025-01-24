@@ -1,4 +1,5 @@
 """Define the engine for using LAMMPS."""
+
 from __future__ import annotations
 
 import gzip
@@ -249,6 +250,9 @@ def get_atom_masses(lammps_data: str | Path, atom_style) -> np.ndarray:
                 atoms = np.genfromtxt(
                     lammps_data, skip_header=i + 1, max_rows=n_atoms
                 )
+                # sort atoms according to index
+                idx = np.argsort(atoms[:, 0])
+                atoms = atoms[idx]
     # if we did not find all of the information
     if n_atoms == 0 or n_atom_types == 0:
         raise ValueError(
@@ -279,6 +283,46 @@ def shift_boxbounds(
     xyz -= box[:, 0]
     box[:, 1] -= box[:, 0]
     return xyz, box[:, 1].flatten()
+
+
+def check_lammps_input(lmp_inp):
+    """Check that the lammps input file contains the mandatory lines.
+
+    We only check that each string of the mandatory list is contained
+    within any of the lammps input lines.
+
+    Note that it cannot correct for exotic situations such as e.g. line breaks
+    in the lammps input file.
+    """
+    mandatory = [
+        "variable subcycles index infretis_subcycles",
+        "variable timestep index infretis_timestep",
+        "variable nsteps index infretis_nsteps",
+        "variable initconf index infretis_initconf",
+        "variable name index infretis_name",
+        "variable lammpsdata index infretis_lammpsdata",
+        "variable temperature index infretis_temperature",
+        "variable seed index infretis_seed",
+        "dump 1 all custom ${subcycles} ${name}.lammpstrj"  # nocomma
+        " id type x y z vx vy vz id",
+        "read_dump ${initconf} 0 x y z vx vy vz box yes",
+        "thermo ${subcycles}",
+        "thermo_style custom step ke pe etotal temp",
+        "timestep ${timestep}",
+        "run ${nsteps}",
+    ]
+
+    with open(lmp_inp) as rfile:
+        for line in rfile:
+            for i, lmp_cmd in enumerate(mandatory):
+                curr_cmd = " ".join(line.split())
+                if lmp_cmd in curr_cmd:
+                    mandatory.pop(i)
+        if len(mandatory) != 0:
+            raise ValueError(
+                f"Did not find the following commands in {lmp_inp}:\n"
+                f"{mandatory}"
+            )
 
 
 class LAMMPSEngine(EngineBase):
@@ -355,6 +399,8 @@ class LAMMPSEngine(EngineBase):
             "data": self.input_path / "lammps.data",
             "input": self.input_path / "lammps.input",
         }
+
+        check_lammps_input(self.input_files["input"])
 
         dump_line = self._read_input_settings(
             self.input_files["input"], key="${name}.lammpstrj"
