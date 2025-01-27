@@ -21,8 +21,10 @@ def infretisrun():
 
 
 def internalrun(input_file):
-    """Internal runner, infretis can now be
-    called directly without argparse."""
+    """Run internal runner.
+
+    infretis can now be called directly without argparse.
+    """
     config = setup_config(input_file)
     if config is None:
         return
