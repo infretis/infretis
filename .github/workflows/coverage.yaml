@@ -48,7 +48,7 @@ jobs:
       - name: "Install pytest"
         run: pip install pytest
 
-      - name: "Install pytest"
+      - name: "Install pytest-cov"
         run: pip install pytest-cov
 
       - name: "Run pytest"
