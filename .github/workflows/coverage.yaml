@@ -40,16 +40,10 @@ jobs:
           key: venv-${{ steps.setuppy.outputs.python-version }}-${{ hashFiles('pyproject.toml') }}
 
       - name: "Install infretis"
-        run: pip install .
+        run: poetry install
 
       - name: "Install turtlemd"
         run: pip install turtlemd
-
-      - name: "Install pytest"
-        run: pip install pytest
-
-      - name: "Install pytest-cov"
-        run: pip install pytest-cov
 
       - name: "Run pytest"
         run: poetry run pytest --junitxml=pytest.xml --cov-report=term-missing --cov=infretis test | tee pytest-coverage.txt
