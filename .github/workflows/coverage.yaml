@@ -45,8 +45,11 @@ jobs:
       - name: "Install turtlemd"
         run: pip install turtlemd
 
-      - name: "Install turtlemd"
+      - name: "Install pytest"
         run: pip install pytest
+
+      - name: "Install pytest"
+        run: pip install pytest-cov
 
       - name: "Run pytest"
         run: pytest --junitxml=pytest.xml --cov-report=term-missing --cov=infretis test | tee pytest-coverage.txt
