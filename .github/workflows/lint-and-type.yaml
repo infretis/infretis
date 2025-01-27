@@ -47,6 +47,15 @@ jobs:
       - name: "Install pytest"
         run: pip install pytest
 
+      - name: "Install black"
+        run: pip install black
+
+      - name: "Install ruff"
+        run: pip install ruff
+
+      - name: "Install mypy"
+        run: pip install mypy
+
       - name: "Run black"
         run: poetry run black --check infretis
 

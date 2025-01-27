@@ -16,7 +16,7 @@ def infretisrun():
     args_dict = vars(parser.parse_args())
     input_file = args_dict["input"]
 
-	# Run the infretis scheduler
+    # Run the infretis scheduler
     internalrun(input_file)
 
 
