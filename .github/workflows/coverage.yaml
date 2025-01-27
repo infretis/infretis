@@ -46,7 +46,7 @@ jobs:
         run: pip install turtlemd
 
       - name: "Run pytest"
-        run: poetry run pytest --junitxml=pytest.xml --cov-report=term-missing --cov=infretis test | tee pytest-coverage.txt
+        run: pytest --junitxml=pytest.xml --cov-report=term-missing --cov=infretis test | tee pytest-coverage.txt
 
       - name: "Pytest coverage comment"
         id: coverageComment
