@@ -60,7 +60,7 @@ jobs:
         run: poetry run black --check infretis
 
       - name: "Run ruff"
-        run: poetry run ruff infretis
+        run: poetry run ruff check infretis
 
       - name: "Run mypy"
         run: poetry run mypy -p infretis
