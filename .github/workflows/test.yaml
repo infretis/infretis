@@ -43,8 +43,14 @@ jobs:
           path: ./.venv
           key: venv-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
 
-      - name: "Install"
+      - name: "Install infretis"
         run: pip install .
+
+      - name: "Install turtlemd"
+        run: pip install turtlemd
+
+      - name: "Install pytest"
+        run: pip install pytest
 
       - name: "Run pytest"
         run: poetry run pytest test -m "not heavy"
