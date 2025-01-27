@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.13"]
     runs-on: ubuntu-latest
 
     steps:
@@ -41,14 +41,29 @@ jobs:
           path: ./.venv
           key: venv-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
 
-      - name: "Install"
-        run: poetry install
+      - name: "Install infretis"
+        run: pip install .
+
+      - name: "Install turtlemd"
+        run: pip install turtlemd
+
+      - name: "Install pytest"
+        run: pip install pytest
+
+      - name: "Install black"
+        run: pip install black
+
+      - name: "Install ruff"
+        run: pip install ruff
+
+      - name: "Install mypy"
+        run: pip install mypy
 
       - name: "Run black"
         run: poetry run black --check infretis
 
       - name: "Run ruff"
-        run: poetry run ruff infretis
+        run: poetry run ruff check infretis
 
       - name: "Run mypy"
         run: poetry run mypy -p infretis
