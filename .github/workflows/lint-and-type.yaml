@@ -44,6 +44,9 @@ jobs:
       - name: "Install infretis"
         run: pip install .
 
+      - name: "Install turtlemd"
+        run: pip install turtlemd
+
       - name: "Install pytest"
         run: pip install pytest
 
