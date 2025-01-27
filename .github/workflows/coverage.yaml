@@ -40,7 +40,7 @@ jobs:
           key: venv-${{ steps.setuppy.outputs.python-version }}-${{ hashFiles('pyproject.toml') }}
 
       - name: "Install infretis"
-        run: pip install .
+        run: pip install -e .
 
       - name: "Install turtlemd"
         run: pip install turtlemd
