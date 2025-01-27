@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.13"]
     runs-on: ubuntu-latest
 
     steps:
@@ -41,8 +41,11 @@ jobs:
           path: ./.venv
           key: venv-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
 
-      - name: "Install"
-        run: poetry install
+      - name: "Install infretis"
+        run: pip install .
+
+      - name: "Install pytest"
+        run: pip install pytest
 
       - name: "Run black"
         run: poetry run black --check infretis

@@ -1,5 +1,7 @@
+from pathlib import PosixPath
 from time import sleep
 from typing import Any
+import os
 
 import pytest
 
@@ -93,8 +95,9 @@ def test_runner_task_error():
         fut.result()
 
 
-def test_runner_infretis_mode():
+def test_runner_infretis_mode(tmp_path: PosixPath):
     """Test runner operating in infretis mode."""
+    os.chdir(tmp_path)
     n_workers = 2
     runner = aiorunner({}, n_workers)
     futlist = future_list()
