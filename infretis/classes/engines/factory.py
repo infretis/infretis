@@ -13,7 +13,9 @@ from infretis.classes.engines.ase_engine import ASEEngine
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.gromacs import GromacsEngine
 from infretis.classes.engines.lammps import LAMMPSEngine
-from infretis.classes.engines.turtlemdengine import TurtleMDEngine
+
+if importlib.util.find_spec("turtlemd") is not None:
+    from infretis.classes.engines.turtlemdengine import TurtleMDEngine
 from infretis.core.core import create_external, generic_factory
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -40,13 +42,15 @@ def create_engine(
     engine_map = {
         "gromacs": {"class": GromacsEngine},
         "cp2k": {"class": CP2KEngine},
-        "turtlemd": {"class": TurtleMDEngine},
         "lammps": {"class": LAMMPSEngine},
         "ase": {"class": ASEEngine},
     }
     if importlib.util.find_spec("scm") is not None:
         if importlib.util.find_spec("scm.plams") is not None:
             engine_map["ams"] = {"class": AMSEngine}
+
+    if importlib.util.find_spec("turtlemd") is not None:
+        engine_map["turtlemd"] = {"class": TurtleMDEngine}
 
     if settings[eng_key]["class"].lower() not in engine_map:
         return create_external(settings[eng_key], "engine", ["step"])
