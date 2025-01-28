@@ -1,6 +1,6 @@
 from pathlib import PosixPath
 from time import sleep
-from typing import Any
+from typing import Dict, Any
 import os
 
 import pytest
@@ -129,24 +129,20 @@ def test_runner_task_error():
 
 def test_runner_infretis_mode(tmp_path: PosixPath):
     """Test runner operating in infretis mode."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     os.chdir(tmp_path)
-    n_workers = 2
-    runner = aiorunner({}, n_workers)
-    futlist = future_list()
-    runner.set_task(sleeping)
-    runner.start()
-    loop_cnt = 0
-    n_loops = 10
-    res_dict = {}
-    while loop_cnt < n_loops + 2:
-        if loop_cnt < n_workers:
-            futlist.add(runner.submit_work({}))
-            loop_cnt = loop_cnt + 1
-        else:
-            future = futlist.as_completed()
-            if future:
-                res_dict[f"l{loop_cnt}"] = future.result()
-            if loop_cnt <= n_loops:
+    try:
+        n_workers = 2
+        runner = aiorunner({}, n_workers)
+        futlist = future_list()
+        runner.set_task(sleeping)
+        runner.start()
+        loop_cnt = 0
+        n_loops = 10
+        res_dict = {}
+        while loop_cnt < n_loops + 2:
+            if loop_cnt < n_workers:
                 futlist.add(runner.submit_work({}))
                 loop_cnt = loop_cnt + 1
             else:
