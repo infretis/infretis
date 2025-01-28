@@ -1,9 +1,9 @@
+"""Example of an external orderparameter script."""
 from infretis.classes.orderparameter import OrderParameter
 from typing import Tuple, List
 
 class PositionX(OrderParameter):
     """Position order parameter.
-
 
     Attributes
     ----------

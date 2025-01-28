@@ -20,8 +20,8 @@ DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
 def spawn_rng(rgen: np.random.Generator) -> np.random.Generator:
     """
-    Reimplementation of np.random.Generator.spawn() for numpy 1.24.4 
-    and before.
+    Reimplementation of np.random.Generator.spawn() for numpy <= 1.24.4.
+
     Spawns a new random number generator (RNG) from an existing RNG.
 
     This function creates a new instance of the same type of RNG as the input
