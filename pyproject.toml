@@ -48,6 +48,7 @@ target-version = ["py310", "py311", "py312"]
 
 [tool.mypy]
 warn_unused_ignores = true
+ignore_missing_imports = true
 show_error_codes = true
 plugins = "numpy.typing.mypy_plugin"
 
