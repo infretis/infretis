@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import logging
-from typing import TYPE_CHECKING, Any, Optional, Tuple, Dict
-
 import importlib
+import logging
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 if importlib.util.find_spec("scm") is not None:
     if importlib.util.find_spec("scm.plams") is not None:

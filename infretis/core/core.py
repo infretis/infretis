@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 from importlib import util
-from typing import TYPE_CHECKING, Any, Optional, Tuple, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable

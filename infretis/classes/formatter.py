@@ -11,14 +11,14 @@ from typing import (
     IO,
     TYPE_CHECKING,
     Any,
-    TypedDict,
-    Union,
-    Optional,
-    Tuple,
     Dict,
     List,
-    Dict,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
 )
+
 import numpy as np
 
 from infretis.core.core import make_dirs

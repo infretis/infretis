@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from copy import copy
-from typing import Optional, Tuple, Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 

@@ -10,26 +10,26 @@ Important classes defined here
 AMSEngine (:py:class:`.AMSEngine`)
     A class responsible for interfacing AMS.
 """
+import copy
 import logging
 import os
-import copy
-from typing import Any, Tuple, Dict
+import time
+import weakref
+from typing import Any, Dict, Tuple
 
 import numpy as np
-import weakref
+from scm.plams.interfaces.adfsuite.ams import AMSJob
+from scm.plams.interfaces.adfsuite.amsworker import AMSWorker
+from scm.plams.tools.units import Units
+from scm.plams.trajectories.rkffile import RKFTrajectoryFile
+
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     box_matrix_to_list,
 )
 from infretis.classes.formatter import FileIO
 from infretis.classes.path import Path as InfPath
-from scm.plams.trajectories.rkffile import RKFTrajectoryFile
-from scm.plams.interfaces.adfsuite.ams import AMSJob
-from scm.plams.interfaces.adfsuite.amsworker import AMSWorker
-from scm.plams.tools.units import Units
-
 from infretis.classes.system import System
-import time
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -256,7 +256,8 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         md_items (dict): A dictionary containing the following keys
         that are of importance here:
             - "exe_dir" (str): The directory where the executable is located.
-            - "ens" (dict): A dictionary containing ensemble information with the key:
+            - "ens" (dict): A dictionary containing ensemble information
+                with the key:
                 - "ens_name" (str): The name of the ensemble.
 
         This method performs the following actions:
@@ -621,11 +622,11 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         if kin_old is None or kin_new is None:
             dek = float("inf")
             logger.warning(
-                (
+
                     "Kinetic energy not found for previous point."
                     "\n(This happens when the initial configuration "
                     "does not contain energies.)"
-                )
+
             )
         else:
             dek = kin_new - kin_old
@@ -691,10 +692,11 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         """
         Delete the state associated with the given filename.
 
-        This method distinguishes between trajectory and snapshot files based on the presence
-        of the substring "traj" in the filename. For trajectory files, it deletes multiple states
-        indexed by appending an underscore and an index to the filename. For snapshot files, it
-        deletes the state directly.
+        This method distinguishes between trajectory and snapshot files based
+        on the presence of the substring "traj" in the filename. For trajectory
+        files, it deletes multiple states indexed by appending an underscore
+        and an index to the filename. For snapshot files, it deletes the state
+        directly.
 
         Args:
             filename (str): The name of the file whose state is to be deleted.
@@ -720,9 +722,10 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         """
         Move a file from source to destination and update internal states.
 
-        This method moves a file from the specified source path to the destination
-        path using the superclass's _movefile method. Additionally, it updates the
-        internal states if the source path is present in the states.
+        This method moves a file from the specified source path to the
+        destination path using the superclass's _movefile method. Additionally,
+        it updates the internal states if the source path is present in the
+        states.
 
         Args:
             source (str): The path of the file to be moved.
@@ -739,9 +742,10 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         """
         Copy a file from source to destination and updates the state.
 
-        This method first calls the superclass's _copyfile method to perform the actual file copy.
-        If the destination file is already in the states, it deletes the existing state.
-        Finally, it copies the state from the source to the destination.
+        This method first calls the superclass's _copyfile method to perform
+        the actual file copy. If the destination file is already in the states,
+        it deletes the existing state. Finally, it copies the state from the
+        source to the destination.
 
         Args:
             source (str): The path to the source file.
@@ -756,14 +760,14 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         """
         Remove a file from the system and optionally from the internal state.
 
-        This method removes a file by calling the superclass's _removefile method.
-        It can also remove the file from the internal state if it represents a
-        molecular dynamics (MD) state.
+        This method removes a file by calling the superclass's _removefile
+        method. It can also remove the file from the internal state if it
+        represents a molecular dynamics (MD) state.
 
         Args:
             filename (str): The name of the file to be removed.
-            disk_only (bool, optional): If True, only remove the file from the disk
-                and not from the internal state. Defaults to False.
+            disk_only (bool, optional): If True, only remove the file from the
+              disk and not from the internal state. Defaults to False.
 
         Returns:
             None

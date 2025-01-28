@@ -9,10 +9,10 @@ import shutil
 import signal
 import struct
 import subprocess
+from io import BufferedReader, BufferedWriter
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, Any, Optional, Union, Tuple, Dict, List
-from io import BufferedReader, BufferedWriter
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -1048,7 +1048,6 @@ def gromacs_settings(settings: Dict[str, Any], input_path: str) -> None:
         )
 
 
-from typing import Union
 
 
 def read_gromos96_file(

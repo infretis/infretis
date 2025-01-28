@@ -21,12 +21,12 @@ from time import sleep
 from typing import (
     TYPE_CHECKING,
     Any,
-    TypedDict,
-    Optional,
-    Union,
-    Tuple,
-    List,
     Dict,
+    List,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
 )
 
 import numpy as np
@@ -188,7 +188,7 @@ def read_cp2k_input(filename: Union[str, Path]) -> List[SectionNode]:
     """
     nodes: List[SectionNode] = []
     current_node: Optional[SectionNode] = None
-    with open(filename, "r", encoding="utf-8") as infile:
+    with open(filename, encoding="utf-8") as infile:
         for lines in infile:
             lstrip = lines.strip()
             if not lstrip:

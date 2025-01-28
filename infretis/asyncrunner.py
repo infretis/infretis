@@ -7,9 +7,9 @@ import logging
 import multiprocessing
 import threading
 import time
-from collections.abc import Callable
-from typing import Any, Dict, Optional, List
 from asyncio import Future
+from collections.abc import Callable
+from typing import Any, Dict, List, Optional
 
 from infretis.classes.formatter import get_log_formatter
 

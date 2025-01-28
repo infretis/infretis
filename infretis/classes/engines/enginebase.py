@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Tuple, Dict, List, Union, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 

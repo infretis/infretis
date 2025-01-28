@@ -2,11 +2,11 @@
 
 import logging
 import os
+from typing import Optional, Tuple
 
 import tomli
 
 from infretis.asyncrunner import aiorunner, future_list
-from typing import Tuple, Optional
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state

@@ -3,9 +3,18 @@
 import logging
 import math
 import os
-from typing import Iterator, Dict, Callable
 from pathlib import Path
-from typing import IO, Any, Optional, Union, List, Dict, Tuple
+from typing import (
+    IO,
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 

@@ -9,7 +9,7 @@ import signal
 import subprocess
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, Any, Optional, Union, Tuple, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
