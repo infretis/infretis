@@ -1,6 +1,7 @@
 """Test the ase engine."""
 
 import pathlib
+import os
 
 import ase
 import numpy as np
@@ -14,7 +15,7 @@ from infretis.classes.system import System
 HERE = pathlib.Path(__file__).resolve().parent
 
 
-def test_propagate():
+def test_propagate(tmp_path: pathlib.PosixPath):
     """Test the _proagate_from function.
 
     We do it here by setting up two particles 10 angstrom apart with one of the
@@ -28,6 +29,8 @@ def test_propagate():
     # read .toml and change som options
     with open(h2_path / "infretis0.toml", "rb") as rfile:
         config = tomli.load(rfile)
+
+    os.chdir(tmp_path)
 
     # modify some options
     config["engine"]["calculator_settings"]["module"] = str(

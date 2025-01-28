@@ -10,6 +10,7 @@ import pytest
 import tomli
 import tomli_w
 
+from infretis.bin import internalrun
 
 def get_diff_data(inp1, inp2):
     "Check the difference between two infretis_data.txt files in a simple way."
@@ -78,8 +79,8 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     shutil.copy(str(toml_dir), str(folder) + "/infretis.toml")
     os.chdir(folder)
 
-    success = os.system("infretisrun -i infretis.toml >| out.txt")
-    assert success == 0
+    isnone = internalrun("infretis.toml")
+    assert isnone is None
 
     # compare
     items = ["infretis_data.txt", "restart.toml"]
@@ -87,8 +88,8 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
         assert filecmp.cmp(f"./{item}", f"{basepath}/data/10steps_wf/{item}")
 
     change_toml_steps("restart.toml", 20)
-    success = os.system("infretisrun -i restart.toml >> out.txt")
-    assert success == 0
+    isnone = internalrun("restart.toml")
+    assert isnone is None
     rm_restarted_from("restart.toml")
 
     # compare
@@ -97,8 +98,8 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
         assert filecmp.cmp(f"./{item}", f"{basepath}/data/20steps_wf/{item}")
 
     change_toml_steps("restart.toml", 30)
-    success = os.system("infretisrun -i restart.toml >> out.txt")
-    assert success == 0
+    isnone = internalrun("restart.toml")
+    assert isnone is None
     rm_restarted_from("restart.toml")
 
     # compare
@@ -119,7 +120,7 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     with open("infretis.toml", "wb") as f:
         tomli_w.dump(config, f)
 
-    success = os.system("infretisrun -i infretis.toml >| out.txt")
+    internalrun("infretis.toml")
     assert (
         get_diff_data(
             "infretis_data_1.txt",
