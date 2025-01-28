@@ -19,7 +19,7 @@ logger.addHandler(logging.NullHandler())
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
 
-def spawn_rng(rgen: np.random.Generator) -> np.random.Generator:
+def spawn_rng(rgen):
     """
     Reimplementation of np.random.Generator.spawn() for numpy <= 1.24.4.
 

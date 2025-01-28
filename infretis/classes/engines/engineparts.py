@@ -216,7 +216,7 @@ def get_box_from_header(header: str) -> Optional[np.ndarray]:
 
 
 def read_txt_snapshots(
-    filename: str, data_keys: Optional[Tuple[str, ...]] = None
+    filename: Union[str, Path], data_keys: Optional[Tuple[str, ...]] = None
 ) -> Iterator[Dict[str, Any]]:
     """Read snapshots from a text file.
 
@@ -362,8 +362,8 @@ def convert_snapshot(
 
 def look_for_input_files(
     input_path: Union[str, Path],
-    required_files: Dict[str, Union[str, Path]],
-    extra_files: Optional[Dict[str, Union[str, Path]]] = None,
+    required_files: Union[Dict[str,str], Dict[str, Path]],
+    extra_files: Optional[Union[Dict[str,str], Dict[str, Path]]] = None,
 ) -> Dict[str, Any]:
     """Check that required files for a MD engines are present.
 
@@ -396,7 +396,7 @@ def look_for_input_files(
     # Get the list of files in the input_path folder
     files_in_input_path = [i.name for i in input_path.iterdir() if i.is_file()]
 
-    input_files: dict[str, Any] = {}
+    input_files: Dict[str, Any] = {}
     # Check if the required files are present
     for file_type, file_to_check in required_files.items():
         req_ext = os.path.splitext(file_to_check)[1][1:].lower()
@@ -482,9 +482,9 @@ class ReadAndProcessOnTheFly:
 def xyz_reader(reader_class: ReadAndProcessOnTheFly) -> List[np.ndarray]:
     """Read XYZ-files on the fly."""
     # trajectory of ready frames to be returned
-    trajectory: list[np.ndarray] = []
+    trajectory: List[np.ndarray] = []
     # holder for storing frame coordinates
-    frame_coordinates: list[list[float]] = []
+    frame_coordinates: List[List[float]] = []
     block_size = 0
     N_atoms = 0
     if reader_class.file_object is None:
@@ -539,9 +539,9 @@ def lammpstrj_reader(
     """
     # the ready frames to be returned
     # which will be a list of np.arrays
-    trajectory: list[np.ndarray] = []
+    trajectory: List[np.ndarray] = []
     # the corresponding box dimensions to be returned
-    box: list[np.ndarray] = []
+    box: List[np.ndarray] = []
     box_snapshot = np.zeros(1)
     # the number of lines each snapshot takes in the trajectory
     # It is a placeholder for now

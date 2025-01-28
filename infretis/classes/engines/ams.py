@@ -555,9 +555,6 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             The new kinetic energy.
 
         """
-        dek = None
-        kin_old = None
-        kin_new = None
         rescale = vel_settings.get(
             "rescale_energy", vel_settings.get("rescale")
         )
@@ -608,7 +605,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
 
             # Update system
             kin_new = state.get_kineticenergy(unit=self.ene_unit)
-            system.set_pos((genvel, None))
+            system.set_pos((genvel, 0))
             system.vel_rev = False
             system.ekin = kin_new
             system.vpot = state.get_potentialenergy(unit=self.ene_unit)
