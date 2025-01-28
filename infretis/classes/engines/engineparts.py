@@ -362,8 +362,8 @@ def convert_snapshot(
 
 def look_for_input_files(
     input_path: Union[str, Path],
-    required_files: Union[Dict[str,str], Dict[str, Path]],
-    extra_files: Optional[Union[Dict[str,str], Dict[str, Path]]] = None,
+    required_files: Union[Dict[str, str], Dict[str, Path]],
+    extra_files: Optional[Union[Dict[str, str], Dict[str, Path]]] = None,
 ) -> Dict[str, Any]:
     """Check that required files for a MD engines are present.
 
