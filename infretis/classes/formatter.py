@@ -7,7 +7,18 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
-from typing import IO, TYPE_CHECKING, Any, TypedDict, Union, Optional, Tuple, Dict, List, Dict
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    TypedDict,
+    Union,
+    Optional,
+    Tuple,
+    Dict,
+    List,
+    Dict,
+)
 import numpy as np
 
 from infretis.core.core import make_dirs
@@ -213,7 +224,6 @@ class OutputFormatter:
         yield " ".join(out)
 
     @staticmethod
-
     def parse(line: str) -> Union[List[int], List[float], List[str]]:
         """Parse formatted data to numbers.
 

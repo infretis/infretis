@@ -18,6 +18,7 @@ logger = logging.getLogger("main")  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
+
 def spawn_rng(rgen: np.random.Generator) -> np.random.Generator:
     """
     Reimplementation of np.random.Generator.spawn() for numpy <= 1.24.4.
@@ -33,7 +34,10 @@ def spawn_rng(rgen: np.random.Generator) -> np.random.Generator:
     Returns:
     np.random.Generator: A new random number generator instance.
     """
-    return type(rgen)(type(rgen.bit_generator)(seed=rgen.bit_generator._seed_seq.spawn(1)[0]))
+    return type(rgen)(
+        type(rgen.bit_generator)(seed=rgen.bit_generator._seed_seq.spawn(1)[0])
+    )
+
 
 class REPEX_state:
     """Define the REPEX object."""

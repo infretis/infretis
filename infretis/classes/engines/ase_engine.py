@@ -21,6 +21,7 @@ from infretis.classes.path import Path as InfPath
 from infretis.classes.system import System
 from infretis.core.core import create_external
 from typing import Union, Tuple, Dict
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 

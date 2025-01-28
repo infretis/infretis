@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional, Tuple, Dict
 
 import importlib
+
 if importlib.util.find_spec("scm") is not None:
     if importlib.util.find_spec("scm.plams") is not None:
         from infretis.classes.engines.ams import AMSEngine

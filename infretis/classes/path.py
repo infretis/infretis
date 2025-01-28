@@ -40,7 +40,9 @@ class Path:
         """
         self.maxlen = maxlen
         self.status: str = ""
-        self.generated: Optional[Union[Tuple[str, float, int, int], str]] = None
+        self.generated: Optional[Union[Tuple[str, float, int, int], str]] = (
+            None
+        )
         self.path_number = None
         self.weights: Optional[Tuple[float, ...]] = None
         self.weight: float = 0.0
@@ -116,7 +118,9 @@ class Path:
             logger.debug("Undefined end point.")
         return end
 
-    def get_start_point(self, left: float, right: Optional[float] = None) -> str:
+    def get_start_point(
+        self, left: float, right: Optional[float] = None
+    ) -> str:
         """Return the start point of the path as a string.
 
         The start point is either to the left of the `left` interface or
@@ -298,7 +302,9 @@ class Path:
         return not self == other
 
     def update_energies(
-        self, ekin: Union[np.ndarray, List[float]], vpot: Union[np.ndarray, List[float]]
+        self,
+        ekin: Union[np.ndarray, List[float]],
+        vpot: Union[np.ndarray, List[float]],
     ) -> None:
         """Update the energies for the phase points.
 

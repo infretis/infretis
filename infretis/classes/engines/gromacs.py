@@ -607,7 +607,9 @@ class GromacsEngine(EngineBase):
 
     def _read_configuration(
         self, filename: str
-    ) -> Tuple[np.ndarray, np.ndarray, Union[np.ndarray, None], Union[List[str], None]]:
+    ) -> Tuple[
+        np.ndarray, np.ndarray, Union[np.ndarray, None], Union[List[str], None]
+    ]:
         """Read output from GROMACS .g96 files.
 
         Args:
@@ -1048,6 +1050,7 @@ def gromacs_settings(settings: Dict[str, Any], input_path: str) -> None:
 
 from typing import Union
 
+
 def read_gromos96_file(
     filename: Union[str, Path],
 ) -> Tuple[Dict[str, List[str]], np.ndarray, np.ndarray, Optional[np.ndarray]]:
@@ -1417,7 +1420,6 @@ def read_remaining_trr(
                 # kept for safety
                 stop = True
                 continue
-
 
 
 def reopen_file(

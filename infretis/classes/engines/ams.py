@@ -30,6 +30,7 @@ from scm.plams.tools.units import Units
 
 from infretis.classes.system import System
 import time
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
@@ -570,11 +571,13 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             logger.info(
                 "Generating velocities for %s, idx=%s", state_name, idx
             )
-            prefix = self.ens_name + str(os.getpid()) + "_" + str(
-                int(time.time() * 1_000_000) % 1_000_000).zfill(6)           
-            genvel = os.path.join(
-            self.exe_dir, f"genvel_{prefix}." + self.ext
-                 )
+            prefix = (
+                self.ens_name
+                + str(os.getpid())
+                + "_"
+                + str(int(time.time() * 1_000_000) % 1_000_000).zfill(6)
+            )
+            genvel = os.path.join(self.exe_dir, f"genvel_{prefix}." + self.ext)
             if state_name in self.states:
                 # If kicking from new MD state, prepare it
                 self._copystate(state_name, genvel, idx=idx)
@@ -657,11 +660,15 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
 
     def _copystate(self, source, dest, idx=None):
         if source == dest:
-            print('-----------------------------------------------------------------------------')
-            print('WARNING: source == dest in ams._copystate')
-            print('This should only happen in pytest')
-            print('-----------------------------------------------------------------------------')
-            pass 
+            print(
+                "-----------------------------------------------------------------------------"
+            )
+            print("WARNING: source == dest in ams._copystate")
+            print("This should only happen in pytest")
+            print(
+                "-----------------------------------------------------------------------------"
+            )
+            pass
         else:
             if dest in self.states:
                 self._deletestate(dest)
@@ -750,12 +757,12 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         Remove a file from the system and optionally from the internal state.
 
         This method removes a file by calling the superclass's _removefile method.
-        It can also remove the file from the internal state if it represents a 
+        It can also remove the file from the internal state if it represents a
         molecular dynamics (MD) state.
 
         Args:
             filename (str): The name of the file to be removed.
-            disk_only (bool, optional): If True, only remove the file from the disk 
+            disk_only (bool, optional): If True, only remove the file from the disk
                 and not from the internal state. Defaults to False.
 
         Returns:
