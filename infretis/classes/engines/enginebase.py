@@ -383,7 +383,9 @@ class EngineBase(metaclass=ABCMeta):
     @abstractmethod
     def _read_configuration(
         self, filename: str
-    ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[List[str]]]:
+    ) -> Tuple[
+        np.ndarray, np.ndarray, Optional[np.ndarray], Optional[List[str]]
+    ]:
         """Read output configuration from external software.
 
         Args:
@@ -430,21 +432,22 @@ class EngineBase(metaclass=ABCMeta):
         """
         reg = re.compile(rf"(.*?){delim}")
         written = set()
-        with open(sourcefile, encoding="utf-8") as infile, open(outputfile, mode="w", encoding="utf-8") as outfile:
-            for line in infile:
-                to_write = line
-                match = reg.match(line)
-                if match:
-                    keyword = "".join([match.group(1), delim])
-                    keyword_strip = match.group(1).strip()
-                    if keyword_strip in settings:
-                        to_write = f"{keyword} {settings[keyword_strip]}\n"
-                    written.add(keyword_strip)
-                outfile.write(to_write)
-            # Add settings not yet written:
-            for key, value in settings.items():
-                if key not in written:
-                    outfile.write(f"{key} {delim} {value}\n")
+        with open(sourcefile, encoding="utf-8") as infile:
+            with open(outputfile, mode="w", encoding="utf-8") as outfile:
+                for line in infile:
+                    to_write = line
+                    match = reg.match(line)
+                    if match:
+                        keyword = "".join([match.group(1), delim])
+                        keyword_strip = match.group(1).strip()
+                        if keyword_strip in settings:
+                            to_write = f"{keyword} {settings[keyword_strip]}\n"
+                        written.add(keyword_strip)
+                    outfile.write(to_write)
+                # Add settings not yet written:
+                for key, value in settings.items():
+                    if key not in written:
+                        outfile.write(f"{key} {delim} {value}\n")
 
     @staticmethod
     def _read_input_settings(
