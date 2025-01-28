@@ -1048,8 +1048,6 @@ def gromacs_settings(settings: Dict[str, Any], input_path: str) -> None:
         )
 
 
-
-
 def read_gromos96_file(
     filename: Union[str, Path],
 ) -> Tuple[Dict[str, List[str]], np.ndarray, np.ndarray, Optional[np.ndarray]]:

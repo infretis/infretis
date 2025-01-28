@@ -622,11 +622,9 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         if kin_old is None or kin_new is None:
             dek = float("inf")
             logger.warning(
-
-                    "Kinetic energy not found for previous point."
-                    "\n(This happens when the initial configuration "
-                    "does not contain energies.)"
-
+                "Kinetic energy not found for previous point."
+                "\n(This happens when the initial configuration "
+                "does not contain energies.)"
             )
         else:
             dek = kin_new - kin_old
