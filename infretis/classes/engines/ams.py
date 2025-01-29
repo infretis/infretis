@@ -210,7 +210,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         self._add_state(new_state, states[-1])
         return name
 
-    def _read_configuration(self, filename, idx=None):
+    def _read_configuration(self, filename, idx=-1):
         """Read output from AMS snapshot/trajectory.
 
         Parameters
@@ -654,7 +654,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
 
         del self.states[source]
 
-    def _copystate(self, source, dest, idx=None):
+    def _copystate(self, source, dest, idx=-1):
         if source == dest:
             print(
                 "-----------------------------------------------------------------------------"
