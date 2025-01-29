@@ -59,7 +59,7 @@ def create_engine(
 
 
 def create_engines(
-    config: Dict[str, Any]
+    config: Dict[str, Any],
 ) -> Tuple[Dict[Any, EngineBase], Dict[Any, int]]:
     """Create the engines for a infretis simulation.
 

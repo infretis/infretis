@@ -275,7 +275,7 @@ def create_orderparameters(
 
 
 def create_orderparameter(
-    settings: Dict[str, Any]
+    settings: Dict[str, Any],
 ) -> Optional[OrderParameter]:
     """Create order parameters from settings.
 

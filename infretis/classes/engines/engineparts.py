@@ -333,7 +333,7 @@ def write_xyz_trajectory(
 
 
 def convert_snapshot(
-    snapshot: Dict[str, Any]
+    snapshot: Dict[str, Any],
 ) -> Tuple[Union[np.ndarray, None], np.ndarray, np.ndarray, List[str]]:
     """Convert a XYZ snapshot to numpy arrays.
 
