@@ -605,7 +605,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
 
             # Update system
             kin_new = state.get_kineticenergy(unit=self.ene_unit)
-            system.set_pos((genvel, 0))
+            system.set_pos((genvel, None))
             system.vel_rev = False
             system.ekin = kin_new
             system.vpot = state.get_potentialenergy(unit=self.ene_unit)
