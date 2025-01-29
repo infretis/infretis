@@ -1,6 +1,6 @@
 """Test methods for doing TIS."""
 import os
-from collections.abc import Callable
+from typing import Callable, Tuple
 from pathlib import PosixPath
 
 import numpy as np
@@ -143,7 +143,7 @@ def return_ensset() -> dict:
     return ens_set
 
 
-def create_ensdic_and_engine() -> tuple[dict, TurtleMDEngine]:
+def create_ensdic_and_engine() -> Tuple[dict, TurtleMDEngine]:
     eng_set = return_engset()
     ens_set = return_ensset()
     turtle = create_engine({"engine": eng_set})
@@ -352,7 +352,7 @@ def test_quantis_swap_zero_messages() -> None:
 def test_zero_swaps(
     tmp_path: PosixPath,
     zero_swap_move: Callable[
-        [dict], tuple[bool, tuple[InfPath, InfPath], str]
+        [dict], Tuple[bool, Tuple[InfPath, InfPath], str]
     ],
 ) -> None:
     """Check that three consecutive zero swaps 1, 2 and 3 gives back the

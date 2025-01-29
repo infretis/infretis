@@ -33,6 +33,10 @@ pre-commit = "^3.3.3"
 line-length = 79
 select = ["F", "E", "W", "I001", "UP"]
 ignore-init-module-imports = true
+target-version = "py38"
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
 
 [tool.ruff.pydocstyle]
 convention = "google"
@@ -43,6 +47,7 @@ target-version = ["py310", "py311", "py312"]
 
 [tool.mypy]
 warn_unused_ignores = true
+ignore_missing_imports = true
 show_error_codes = true
 plugins = "numpy.typing.mypy_plugin"
 

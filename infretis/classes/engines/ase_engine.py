@@ -3,6 +3,7 @@
 import logging
 import os
 from pathlib import Path
+from typing import Dict, Tuple, Union
 
 import numpy as np
 from ase import units
@@ -35,10 +36,10 @@ class ASEEngine(EngineBase):
         subcycles: int,
         input_path: str,
         integrator: str,
-        calculator_settings: dict,
+        calculator_settings: Dict,
         langevin_friction: float = -1.0,
         langevin_fixcm: float = -1.0,
-        exe_path: str | Path = Path(".").resolve(),
+        exe_path: Union[str, Path] = Path(".").resolve(),
     ):
         """
         Initialize the ase engine.
@@ -99,7 +100,7 @@ class ASEEngine(EngineBase):
     def _read_configuration(
         self,
         filename: str,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, None]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, None]:
         atoms = read(filename)
         if isinstance(atoms, list):
             atoms = atoms[0]
@@ -110,7 +111,7 @@ class ASEEngine(EngineBase):
             None,
         )
 
-    def set_mdrun(self, md_items: dict) -> None:
+    def set_mdrun(self, md_items: Dict) -> None:
         """Set worker stuff if needed."""
         self.exe_dir = md_items["exe_dir"]
 
@@ -119,10 +120,10 @@ class ASEEngine(EngineBase):
         name: str,
         path: InfPath,
         system: System,
-        ens_set: dict,
+        ens_set: Dict,
         msg_file: FileIO,
         reverse: bool = False,
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         logger.info(f"Propagating with ASE (reverse = {reverse})")
         interfaces = ens_set["interfaces"]
         left, _, right = interfaces
@@ -207,8 +208,8 @@ class ASEEngine(EngineBase):
         return success, status
 
     def modify_velocities(
-        self, system: System, vel_settings: dict
-    ) -> tuple[float, float]:
+        self, system: System, vel_settings: Dict
+    ) -> Tuple[float, float]:
         """Modify the velocities.
 
         TODO: what about fixcm with langevin integrator

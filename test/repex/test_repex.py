@@ -1,9 +1,8 @@
 import os
 from pathlib import PosixPath
-
 import tomli
 
-from infretis.classes.repex import REPEX_state
+from infretis.classes.repex import REPEX_state, spawn_rng
 
 
 def test_rgen_io(tmp_path: PosixPath) -> None:
@@ -27,7 +26,7 @@ def test_rgen_io(tmp_path: PosixPath) -> None:
     save_rng_child = []
     for i in range(5):
         save_rng.append(state.rgen.random())
-        child = state.rgen.spawn(1)[0]
+        child = spawn_rng(state.rgen)
         save_rng_child.append(child.random())
 
     # restart with the "restarted_from" keyword
@@ -39,5 +38,5 @@ def test_rgen_io(tmp_path: PosixPath) -> None:
     # test that the numbers are the same
     for rng, child_rng in zip(save_rng, save_rng_child):
         assert state.rgen.random() == rng
-        child = state.rgen.spawn(1)[0]
+        child = spawn_rng(state.rgen)
         assert child.random() == child_rng

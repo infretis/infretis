@@ -9,7 +9,7 @@ import signal
 import subprocess
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -34,7 +34,7 @@ def write_lammpstrj(
     id_type: np.ndarray,
     pos: np.ndarray,
     vel: np.ndarray,
-    box: np.ndarray | None,
+    box: Optional[np.ndarray],
     append: bool = False,
 ) -> None:
     """Write a LAMMPS trajectory frame in .lammpstrj format.
@@ -77,7 +77,7 @@ ITEM: BOX BOUNDS pp pp pp\n"
 
 def read_lammpstrj(
     infile: str, frame: int, n_atoms: int
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Read a single frame from a LAMMPS trajectory.
 
     Args:
@@ -108,7 +108,7 @@ def read_lammpstrj(
     return id_type, pos, vel, box
 
 
-def read_energies(filename: str) -> dict[str, np.ndarray]:
+def read_energies(filename: str) -> Dict[str, np.ndarray]:
     """Read energies from a LAMMPS log file.
 
     This method is used to read the thermodynamic output from a
@@ -121,7 +121,7 @@ def read_energies(filename: str) -> dict[str, np.ndarray]:
         A dictionary containing the data we found in the file.
     """
     energy_keys = []
-    energy_data: dict[str, list[float | int]] = {}
+    energy_data: Dict[str, List[Union[float, int]]] = {}
     read_energy = False
     with open(filename, encoding="utf-8") as logfile:
         for lines in logfile:
@@ -159,9 +159,9 @@ def read_energies(filename: str) -> dict[str, np.ndarray]:
 
 
 def write_for_run(
-    infile: str | Path,
-    outfile: str | Path,
-    input_settings: dict[str, Any] | None = None,
+    infile: Union[str, Path],
+    outfile: Union[str, Path],
+    input_settings: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Create input file to perform n steps with LAMMPS.
 
@@ -208,7 +208,7 @@ def write_for_run(
         )
 
 
-def get_atom_masses(lammps_data: str | Path, atom_style) -> np.ndarray:
+def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
     """Read atom masses from a LAMMPS data file.
 
     TODO: atom style dependent!!
@@ -265,7 +265,7 @@ def get_atom_masses(lammps_data: str | Path, atom_style) -> np.ndarray:
 
 def shift_boxbounds(
     xyz: np.ndarray, box: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray]:
     """Shift positions so that the lower box bounds are 0.
 
     Args:
@@ -358,7 +358,7 @@ class LAMMPSEngine(EngineBase):
     def __init__(
         self,
         lmp: str,
-        input_path: str | Path,
+        input_path: Union[str, Path],
         timestep: float,
         subcycles: int,
         temperature: float,
@@ -409,10 +409,10 @@ class LAMMPSEngine(EngineBase):
         name: str,
         path: InfPath,
         system: System,
-        ens_set: dict[str, Any],
+        ens_set: Dict[str, Any],
         msg_file: FileIO,
         reverse: bool = False,
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         status = f"propagating with LAMMPS (reverse = {reverse})"
         interfaces = ens_set["interfaces"]
         logger.debug(status)
@@ -570,8 +570,8 @@ class LAMMPSEngine(EngineBase):
         msg_file.write(f"# Reading energies from: {energy_file}")
         energy = read_energies(energy_file)
         end = (step_nr + 1) * self.subcycles
-        ekin: np.ndarray | list[float] = energy.get("KinEng", [])
-        vpot: np.ndarray | list[float] = energy.get("PotEng", [])
+        ekin: Union[np.ndarray, list[float]] = energy.get("KinEng", [])
+        vpot: Union[np.ndarray, list[float]] = energy.get("PotEng", [])
         path.update_energies(ekin[:end], vpot[:end])
         self._removefile(run_input)
         return success, status
@@ -583,7 +583,9 @@ class LAMMPSEngine(EngineBase):
 
     def _read_configuration(
         self, filename: str
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
+    ) -> Tuple[
+        np.ndarray, np.ndarray, Optional[np.ndarray], Optional[list[str]]
+    ]:
         """Read a configuration (a single frame trajectory)."""
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         pos, box = shift_boxbounds(pos, box)
@@ -596,8 +598,8 @@ class LAMMPSEngine(EngineBase):
         write_lammpstrj(outfile, id_type, pos, vel, box)
 
     def modify_velocities(
-        self, system: System, vel_settings: dict[str, Any]
-    ) -> tuple[float, float]:
+        self, system: System, vel_settings: Dict[str, Any]
+    ) -> Tuple[float, float]:
         """Modify the velocities of all particles.
 
         Args:
@@ -649,6 +651,6 @@ class LAMMPSEngine(EngineBase):
             dek = kin_new - kin_old
         return dek, kin_new
 
-    def set_mdrun(self, md_items: dict[str, Any]) -> None:
+    def set_mdrun(self, md_items: Dict[str, Any]) -> None:
         """Set the executional directory for workers."""
         self.exe_dir = md_items["exe_dir"]
