@@ -161,7 +161,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         """
         state, idx = system.config
 
-        if idx is None:
+        if idx == -1:
             prev_ams_state = state  # state already contains exe_dir
             new_ams_state = os.path.join(self.exe_dir, name)  # name does not
 
@@ -231,7 +231,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             The velocities.
 
         """
-        if idx is None:
+        if idx == -1:
             idx = 0
 
         state = self.states[filename][idx]
@@ -605,7 +605,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
 
             # Update system
             kin_new = state.get_kineticenergy(unit=self.ene_unit)
-            system.set_pos((genvel, None))
+            system.set_pos((genvel, -1))
             system.vel_rev = False
             system.ekin = kin_new
             system.vpot = state.get_potentialenergy(unit=self.ene_unit)
@@ -669,7 +669,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             if dest in self.states:
                 self._deletestate(dest)
 
-            if idx is None:
+            if idx == -1:
                 logger.info("AMS Copying snap to snap: %s -> %s", source, dest)
                 self.states[dest] = [copy.deepcopy(self.states[source][0])]
                 self.worker.CopyMDState(source, dest)
