@@ -1,5 +1,6 @@
 """Setup all that is needed for the infretis simulation."""
 
+import importlib
 import logging
 import os
 from typing import Optional, Tuple
@@ -246,7 +247,7 @@ def check_config(config: dict) -> None:
         if key1 not in config.keys():
             raise TOMLConfigError(f"Engine '{key1}' not defined!")
 
-    # gromacs check
+    # engine checks 2
     for key1 in unique_engines:
         if config[key1]["class"] == "gromacs":
             eng1 = config[key1].copy()
@@ -260,6 +261,15 @@ def check_config(config: dict) -> None:
                         + "al 'input_path'. This would overwrite the"
                         + " settings of one of the engines in"
                         + " 'infretis.mdp'!"
+                    )
+        if config[key1]["class"] == "lammps":
+            if config[key1].get("compressed", False):
+                indexed = importlib.util.find_spec("indexed_gzip")
+                if indexed is None:
+                    raise TOMLConfigError(
+                        "LAMMPS engine is ran 'compressed=true' but the "
+                        + "indexed_gzip package is not installed! Either"
+                        + " run with 'false' or install the package."
                     )
 
 
