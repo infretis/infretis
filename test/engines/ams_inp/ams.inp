@@ -1,0 +1,21 @@
+
+MolecularDynamics
+    TimeStep 1.0
+    Preserve CenterofMass=Yes Momentum=No AngularMomentum=No
+    Thermostat Type=none
+    InitialVelocities Type=Random Temperature=300 RandomVelocitiesMethod=Boltzmann
+End
+
+System
+    Charge 0.0
+    Atoms [A]
+        H 9.999999998053584 0.0 0.0
+        H 0.0 0.0 0.0
+
+    End
+End
+
+Engine ForceField
+    Type UFF
+    NonBondedCutoff 999.0
+EndEngine

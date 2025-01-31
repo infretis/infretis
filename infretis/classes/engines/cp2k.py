@@ -18,7 +18,16 @@ import signal
 import subprocess
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 import numpy as np
 
@@ -73,9 +82,9 @@ class SectionNode:
     def __init__(
         self,
         title: str,
-        parent: SectionNode | None,
-        settings: list[str],
-        data: dict[str, str] | None = None,
+        parent: Optional[SectionNode],
+        settings: List[str],
+        data: Optional[Dict[str, str]] = None,
     ):
         """Initialise a node.
 
@@ -94,7 +103,9 @@ class SectionNode:
             self.data = []
         self.children: set[SectionNode] = set()
         self.level = 0
-        self.parents: list[str] | None = None  # TODO: Check if this can be []
+        self.parents: Optional[List[str]] = (
+            None  # TODO: Check if this can be []
+        )
 
     def add_child(self, child: SectionNode) -> None:
         """Add a sub-section to the current section."""
@@ -110,7 +121,7 @@ class SectionNode:
         self.parents = parents[::-1]
 
 
-def dfs_print(node: SectionNode, visited: set[SectionNode]) -> list[str]:
+def dfs_print(node: SectionNode, visited: set[SectionNode]) -> List[str]:
     """Walk through the nodes and print out text.
 
     Args:
@@ -137,9 +148,9 @@ def dfs_print(node: SectionNode, visited: set[SectionNode]) -> list[str]:
     return out
 
 
-def set_parents(listofnodes: list[SectionNode]) -> dict[str, SectionNode]:
+def set_parents(listofnodes: List[SectionNode]) -> Dict[str, SectionNode]:
     """Set parents for all nodes."""
-    node_ref: dict[str, SectionNode] = {}
+    node_ref: Dict[str, SectionNode] = {}
 
     def dfs_set(node: SectionNode, vis: set[SectionNode]) -> None:
         """DFS traverse the nodes."""
@@ -166,7 +177,7 @@ def set_parents(listofnodes: list[SectionNode]) -> dict[str, SectionNode]:
     return node_ref
 
 
-def read_cp2k_input(filename: str | Path) -> list[SectionNode]:
+def read_cp2k_input(filename: Union[str, Path]) -> List[SectionNode]:
     """Read a CP2K input file.
 
     Args:
@@ -175,8 +186,8 @@ def read_cp2k_input(filename: str | Path) -> list[SectionNode]:
     Returns:
         nodes: The root section nodes found in the file.
     """
-    nodes: list[SectionNode] = []
-    current_node: SectionNode | None = None
+    nodes: List[SectionNode] = []
+    current_node: Optional[SectionNode] = None
     with open(filename, encoding="utf-8") as infile:
         for lines in infile:
             lstrip = lines.strip()
@@ -211,10 +222,10 @@ def read_cp2k_input(filename: str | Path) -> list[SectionNode]:
 
 def _add_node(
     target: str,
-    settings: list[str],
-    data: dict[str, str],
-    nodes: list[SectionNode],
-    node_ref: dict[str, SectionNode],
+    settings: List[str],
+    data: Dict[str, str],
+    nodes: List[SectionNode],
+    node_ref: Dict[str, SectionNode],
 ) -> None:
     """Just add a new node."""
     # check if this is a root node:
@@ -237,12 +248,12 @@ def _add_node(
 
 def update_node(
     target: str,
-    settings: list[str],
-    data: dict[str, str],
-    node_ref: dict[str, SectionNode],
-    nodes: list[SectionNode],
+    settings: List[str],
+    data: Dict[str, str],
+    node_ref: Dict[str, SectionNode],
+    nodes: List[SectionNode],
     replace: bool = False,
-) -> SectionNode | None:
+) -> Optional[SectionNode]:
     """Update the given target node.
 
     If the node does not exist, it will be created.
@@ -295,8 +306,8 @@ def update_node(
 
 def remove_node(
     target: str,
-    node_ref: dict[str, SectionNode],
-    root_nodes: list[SectionNode],
+    node_ref: Dict[str, SectionNode],
+    root_nodes: List[SectionNode],
 ) -> None:
     """Remove a node (and it's children) from the tree.
 
@@ -333,10 +344,10 @@ def remove_node(
 
 
 def update_cp2k_input(
-    template: str | Path,
-    output: str | Path,
-    update: dict[str, Any] | None = None,
-    remove: list[str] | None = None,
+    template: Union[str, Path],
+    output: Union[str, Path],
+    update: Optional[Dict[str, Any]] = None,
+    remove: Optional[List[str]] = None,
 ) -> None:
     """Read a template input and create a new CP2K input.
 
@@ -381,8 +392,8 @@ class BoxData(TypedDict, total=False):
 
 
 def read_box_data(
-    box_data: list[str],
-) -> tuple[np.ndarray | None, list[bool]]:
+    box_data: List[str],
+) -> Tuple[Optional[np.ndarray], List[bool]]:
     """Read the box data.
 
     Args:
@@ -432,7 +443,7 @@ def read_box_data(
     return box, periodic
 
 
-def read_cp2k_energy(energy_file: str | Path) -> dict[str, np.ndarray]:
+def read_cp2k_energy(energy_file: Union[str, Path]) -> Dict[str, np.ndarray]:
     """Read and return CP2K energies.
 
     Args:
@@ -458,8 +469,8 @@ def read_cp2k_energy(energy_file: str | Path) -> dict[str, np.ndarray]:
 
 
 def read_cp2k_box(
-    inputfile: str | Path,
-) -> tuple[np.ndarray | None, list[bool]]:
+    inputfile: Union[str, Path],
+) -> Tuple[Optional[np.ndarray], List[bool]]:
     """Read the box from a CP2K file.
 
     Args:
@@ -527,7 +538,7 @@ def guess_particle_mass(particle_no: int, particle_type: str) -> float:
 
 def kinetic_energy(
     vel: np.ndarray, mass: np.ndarray
-) -> tuple[float, np.ndarray]:
+) -> Tuple[float, np.ndarray]:
     """Obtain the kinetic energy for given velocities and masses.
 
     Args:
@@ -567,15 +578,15 @@ def reset_momentum(vel: np.ndarray, mass: np.ndarray) -> np.ndarray:
 
 
 def write_for_run_vel(
-    infile: str | Path,
-    outfile: str | Path,
+    infile: Union[str, Path],
+    outfile: Union[str, Path],
     timestep: float,
     nsteps: int,
     subcycles: int,
     posfile: str,
     vel: np.ndarray,
     name: str = "md_step",
-    print_freq: int | None = None,
+    print_freq: Optional[int] = None,
 ) -> None:
     """Create input file to perform n steps.
 
@@ -597,7 +608,7 @@ def write_for_run_vel(
     """
     if print_freq is None:
         print_freq = subcycles
-    to_update: dict[str, Any] = {
+    to_update: Dict[str, Any] = {
         "GLOBAL": {
             "data": [f"PROJECT {name}", "RUN_TYPE MD", "PRINT_LEVEL LOW"],
             "replace": True,
@@ -652,8 +663,8 @@ class CP2KEngine(EngineBase):
         timestep: float,
         subcycles: int,
         temperature: float,
-        extra_files: list[str] | None = None,
-        exe_path: str | Path = Path(".").resolve(),
+        extra_files: Optional[List[str]] = None,
+        exe_path: Union[str, Path] = Path(".").resolve(),
         sleep: float = 0.1,
     ):
         """Set up the CP2K MD engine.
@@ -762,10 +773,10 @@ class CP2KEngine(EngineBase):
         name: str,
         path: InfPath,
         system: System,
-        ens_set: dict[str, Any],
+        ens_set: Dict[str, Any],
         msg_file: FileIO,
         reverse: bool = False,
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         """
         Propagate with CP2K from the current system configuration.
 
@@ -999,8 +1010,10 @@ class CP2KEngine(EngineBase):
 
     @staticmethod
     def _read_configuration(
-        filename: str | Path,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
+        filename: Union[str, Path],
+    ) -> Tuple[
+        np.ndarray, np.ndarray, Optional[np.ndarray], Optional[List[str]]
+    ]:
         """Read a CP2K output configuration from a file.
 
         Args:
@@ -1018,7 +1031,7 @@ class CP2KEngine(EngineBase):
             break  # Stop after the first snapshot.
         return xyz, vel, box, names
 
-    def set_mdrun(self, md_items: dict[str, Any]) -> None:
+    def set_mdrun(self, md_items: Dict[str, Any]) -> None:
         """Set the execute directory."""
         # TODO: REMOVE OR RENAME?
         self.exe_dir = md_items["exe_dir"]
@@ -1038,8 +1051,8 @@ class CP2KEngine(EngineBase):
         )
 
     def modify_velocities(
-        self, system: System, vel_settings: dict[str, Any]
-    ) -> tuple[float, float]:
+        self, system: System, vel_settings: Dict[str, Any]
+    ) -> Tuple[float, float]:
         """Modify the velocities of all particles.
 
         Args:

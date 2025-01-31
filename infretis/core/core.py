@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 from importlib import util
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable
@@ -19,10 +19,10 @@ logger.addHandler(logging.NullHandler())
 
 
 def generic_factory(
-    settings: dict[str, Any],
-    object_map: dict[str, Any],
+    settings: Dict[str, Any],
+    object_map: Dict[str, Any],
     name: str = "generic",
-) -> Any | None:
+) -> Optional[Any]:
     """Create instances of classes based on settings.
 
     This method is intended as a semi-generic factory for creating
@@ -57,7 +57,7 @@ def generic_factory(
     return initiate_instance(cls, settings)
 
 
-def initiate_instance(klass: type[Any], settings: dict[str, Any]) -> Any:
+def initiate_instance(klass: type[Any], settings: Dict[str, Any]) -> Any:
     """Initialise a class with optional arguments.
 
     Args;
@@ -87,8 +87,8 @@ def initiate_instance(klass: type[Any], settings: dict[str, Any]) -> Any:
 
 
 def _pick_out_arg_kwargs(
-    klass: Any, settings: dict[str, Any]
-) -> tuple[list[Any], dict[str, Any]]:
+    klass: Any, settings: Dict[str, Any]
+) -> Tuple[List[Any], Dict[str, Any]]:
     """Extract arguments required by class initialization.
 
     Extracts arguments and keyword arguments from a settings dictionary
@@ -127,7 +127,7 @@ def _pick_out_arg_kwargs(
     return args, kwargs
 
 
-def inspect_function(function: Callable) -> dict[str, list[Any]]:
+def inspect_function(function: Callable) -> Dict[str, List[Any]]:
     """Extract arguments/kwargs of the given function.
 
     This method is intended for use where we are checking that we can
@@ -171,7 +171,7 @@ def inspect_function(function: Callable) -> dict[str, list[Any]]:
     return out
 
 
-def _arg_kind(arg: Parameter) -> str | None:
+def _arg_kind(arg: Parameter) -> Optional[str]:
     """Determine kind (positional, keyword, etc.) for a given parameter.
 
     This helper method will support :py:func:`.inspect_function` by
@@ -207,7 +207,7 @@ def _arg_kind(arg: Parameter) -> str | None:
 
 
 def create_external(
-    settings: dict[str, Any], key: str, required_methods: list[str]
+    settings: Dict[str, Any], key: str, required_methods: List[str]
 ) -> Any:
     """Create external objects from settings.
 

@@ -6,6 +6,11 @@ import numpy as np
 import pytest
 import tomli
 
+import importlib.util
+if importlib.util.find_spec("scm") is not None:
+    if importlib.util.find_spec("scm.plams") is not None:
+        from infretis.classes.engines.ams import AMSEngine
+
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.factory import create_engine
 from infretis.classes.engines.gromacs import GromacsEngine
@@ -21,6 +26,7 @@ EXPECTED_STDDEV = {
     "gromacs": 1.1131628,
     "lammps": 0.01573556087968066,
     "ase": 0.1113976956951558,
+    "ams": 1.1131628,
 }
 
 
@@ -99,16 +105,32 @@ def return_ase_engine():
     }
     return engine
 
+def return_ams_engine():
+    """Set up an ams engine for the H2 system."""
+    ams_input_path = pathlib.Path("ams_inp/")
+    
+    engine = AMSEngine(ams_input_path, 0.001,1)
+    engine.vel_settings = {
+        "zero_momentum": True,
+        "aimless": True
 
-@pytest.mark.parametrize(
-    "engine",
-    [
+    }
+    engine.ens_name = "test"
+    return engine
+
+engine = [
         return_gromacs_engine(),
         return_lammps_engine(),
         return_cp2k_engine(),
         return_turtlemd_engine(),
         return_ase_engine(),
-    ],
+    ]
+if importlib.util.find_spec("scm") is not None:
+    if importlib.util.find_spec("scm.plams") is not None:
+        engine.append(return_ams_engine())
+
+@pytest.mark.parametrize(
+    "engine", engine
 )
 def test_modify_velocities(tmp_path, engine):
     """Check that we can modify the velocities with an engine,
@@ -116,7 +138,10 @@ def test_modify_velocities(tmp_path, engine):
     # folder we wil run from
     folder = tmp_path / "temp"
     folder.mkdir()
-    initial_conf = engine.input_path / f"conf.{engine.ext}"
+    if type(engine.input_path) == str:
+        initial_conf = pathlib.Path(engine.input_path + f"/conf.{engine.ext}")
+    else:
+        initial_conf = engine.input_path / f"conf.{engine.ext}"
     engine.exe_dir = folder
 
     system = System()
@@ -126,23 +151,18 @@ def test_modify_velocities(tmp_path, engine):
     engine.modify_velocities(system, vel_settings)
     genvel_conf = folder / f"genvel.{engine.ext}"
 
-    assert genvel_conf.is_file()
-    # we generated velocities, so we should have non-zero kinetic energy
+    if engine.name == "ams":
+        assert any(folder.glob("genvel_test*_??????.rkf"))
+    else:
+        assert genvel_conf.is_file()    # we generated velocities, so we should have non-zero kinetic energy
     assert system.ekin != 0
 
 
 @pytest.mark.parametrize(
-    "engine",
-    [
-        return_gromacs_engine(),
-        return_lammps_engine(),
-        return_cp2k_engine(),
-        return_turtlemd_engine(),
-        return_ase_engine(),
-    ],
+    "engine", engine
 )
 @pytest.mark.heavy
-def test_modify_velicity_distribition(tmp_path, engine):
+def test_modify_velocity_distribition(tmp_path, engine):
     """Check that velocities are generated with the correct distribution.
 
     We compare here the generated velocitied with standard deviations from a
@@ -157,7 +177,12 @@ def test_modify_velicity_distribition(tmp_path, engine):
     # folder we wil run from
     folder = tmp_path / "temp"
     folder.mkdir()
-    initial_conf = engine.input_path / f"conf.{engine.ext}"
+
+    if type(engine.input_path) == str:
+        initial_conf = pathlib.Path(engine.input_path + f"/conf.{engine.ext}")
+    else:
+        initial_conf = engine.input_path / f"conf.{engine.ext}"    
+        
     engine.exe_dir = folder
 
     system = System()
@@ -166,8 +191,10 @@ def test_modify_velicity_distribition(tmp_path, engine):
 
     engine.modify_velocities(system, vel_settings)
     genvel_conf = folder / f"genvel.{engine.ext}"
-
-    assert genvel_conf.is_file()
+    if engine.name == "ams":
+        assert any(folder.glob("genvel_test*_??????.rkf"))
+    else:
+        assert genvel_conf.is_file()
     # we generated velocities, so we should have non-zero kinetic energy
     assert system.ekin != 0
     # check that we have the correct velocity units

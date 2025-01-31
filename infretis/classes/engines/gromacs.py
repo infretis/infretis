@@ -9,9 +9,10 @@ import shutil
 import signal
 import struct
 import subprocess
+from io import BufferedReader, BufferedWriter
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -90,17 +91,17 @@ class GromacsEngine(EngineBase):
     def __init__(
         self,
         gmx: str,
-        input_path: str | Path,
+        input_path: Union[str, Path],
         timestep: float,
         subcycles: int,
         temperature: float,
-        exe_path: str | Path = Path(".").resolve(),
+        exe_path: Union[str, Path] = Path(".").resolve(),
         maxwarn: int = 0,
         gmx_format: str = "g96",
         write_vel: bool = True,
         write_force: bool = False,
         infretis_genvel: bool = False,
-        masses: bool | list | str = False,
+        masses: Union[bool, List, str] = False,
     ):
         """Set up the GROMACS engine.
 
@@ -205,7 +206,7 @@ class GromacsEngine(EngineBase):
             elif isinstance(masses, list):
                 self.masses = np.reshape(masses, (-1, 1))
 
-        settings: dict[str, str | float | int] = {
+        settings: Dict[str, Union[str, float, int]] = {
             "dt": self.timestep,
             "gen_vel": "no",
             "ref-t": " ".join(
@@ -291,8 +292,8 @@ class GromacsEngine(EngineBase):
         return allowed_terms[terms]
 
     def _execute_grompp(
-        self, mdp_file: str | Path, config: str | Path, deffnm: str
-    ) -> dict[str, str]:
+        self, mdp_file: Union[str, Path], config: Union[str, Path], deffnm: str
+    ) -> Dict[str, str]:
         """Execute the GROMACS preprocessor.
 
         Args:
@@ -327,7 +328,7 @@ class GromacsEngine(EngineBase):
         out_files = {"tpr": tpr, "mdout": "mdout.mdp"}
         return out_files
 
-    def _execute_mdrun(self, tprfile: str, deffnm: str) -> dict[str, str]:
+    def _execute_mdrun(self, tprfile: str, deffnm: str) -> Dict[str, str]:
         """Execute GROMACS mdrun, e.g., `gmx mdrun`.
 
         Note:
@@ -349,7 +350,7 @@ class GromacsEngine(EngineBase):
         self._remove_gromacs_backup_files(self.exe_dir)
         return out_files
 
-    def _remove_gromacs_backup_files(self, dirname: str | Path) -> None:
+    def _remove_gromacs_backup_files(self, dirname: Union[str, Path]) -> None:
         """Remove GROMACS backup files (files starting with a "#").
 
         Args:
@@ -397,9 +398,9 @@ class GromacsEngine(EngineBase):
     def get_energies(
         self,
         energy_file: str,
-        begin: float | None = None,
-        end: float | None = None,
-    ) -> dict[str, np.ndarray]:
+        begin: Optional[float] = None,
+        end: Optional[float] = None,
+    ) -> Dict[str, np.ndarray]:
         """Return energies from a GROMACS run.
 
         Args:
@@ -430,10 +431,10 @@ class GromacsEngine(EngineBase):
         name: str,
         path: InfPath,
         system: System,
-        ens_set: dict[str, Any],
+        ens_set: Dict[str, Any],
         msg_file: FileIO,
         reverse: bool = False,
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         """Propagate with GROMACS from the given configuration.
 
         This method is assumed to be called after the `propagate()` has been
@@ -554,7 +555,7 @@ class GromacsEngine(EngineBase):
 
     def _prepare_shooting_point(
         self, input_file: str
-    ) -> tuple[str, dict[str, np.ndarray]]:
+    ) -> Tuple[str, Dict[str, np.ndarray]]:
         """Create the initial configuration for a shooting move.
 
         This creates a new initial configuration with random velocities.
@@ -575,7 +576,7 @@ class GromacsEngine(EngineBase):
             logger.debug("%s found. Re-using it!", gen_mdp)
         else:
             # Create output file to generate velocities:
-            settings: dict[str, str | int | float] = {
+            settings: Dict[str, Union[str, int, float]] = {
                 "gen_vel": "yes",
                 "gen_seed": -1,
                 "nsteps": 0,
@@ -598,7 +599,7 @@ class GromacsEngine(EngineBase):
         self._remove_files(self.exe_dir, remove)
         return confout, energy
 
-    def set_mdrun(self, md_items: dict[str, Any]) -> None:
+    def set_mdrun(self, md_items: Dict[str, Any]) -> None:
         """Set the worker terminal command to execute."""
         base = md_items["wmdrun"]
         self.mdrun = base + " -s {} -deffnm {} -c {}"
@@ -606,7 +607,9 @@ class GromacsEngine(EngineBase):
 
     def _read_configuration(
         self, filename: str
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str] | None]:
+    ) -> Tuple[
+        np.ndarray, np.ndarray, Union[np.ndarray, None], Union[List[str], None]
+    ]:
         """Read output from GROMACS .g96 files.
 
         Args:
@@ -644,8 +647,8 @@ class GromacsEngine(EngineBase):
         write_gromos96_file(outfile, txt, xyz, -1 * vel)
 
     def modify_velocities(
-        self, system: System, vel_settings: dict[str, Any]
-    ) -> tuple[float, float]:
+        self, system: System, vel_settings: Dict[str, Any]
+    ) -> Tuple[float, float]:
         """Modify the velocities of the current state.
 
         Args:
@@ -737,7 +740,7 @@ class GromacsRunner:
     SLEEP: float = 0.1
 
     def __init__(
-        self, cmd: list[str], trr_file: str, edr_file: str, exe_dir: str
+        self, cmd: List[str], trr_file: str, edr_file: str, exe_dir: str
     ):
         """Set the GROMACS command and the files we need.
 
@@ -747,21 +750,21 @@ class GromacsRunner:
             edr_file: A .edr file we are going to read.
             exe_dir: Path to where we are currently running GROMACS.
         """
-        self.cmd: list[str] = cmd
+        self.cmd: List[str] = cmd
         self.trr_file: str = trr_file
         self.edr_file: str = edr_file
         self.exe_dir: str = exe_dir
         self.fileh: BufferedReader
-        self.running: subprocess.Popen[bytes] | None = None
+        self.running: Optional[subprocess.Popen[bytes]] = None
         self.bytes_read: int = 0
         self.ino: int = 0
         self.stop_read: bool = True
         self.data_size: int = 0
         self.header_size: int = 0
-        self.stdout_name: str | None = None
-        self.stderr_name: str | None = None
-        self.stdout: BufferedWriter | None = None
-        self.stderr: BufferedWriter | None = None
+        self.stdout_name: Optional[str] = None
+        self.stderr_name: Optional[str] = None
+        self.stdout: Optional[BufferedWriter] = None
+        self.stderr: Optional[BufferedWriter] = None
 
     def start(self) -> None:
         """Start execution of GROMACS and wait for output file creation."""
@@ -809,7 +812,7 @@ class GromacsRunner:
         self.start()
         return self
 
-    def get_gromacs_frames(self) -> Iterator[dict[str, np.ndarray]]:
+    def get_gromacs_frames(self) -> Iterator[Dict[str, np.ndarray]]:
         """Read the GROMACS TRR file on-the-fly."""
         first_header = True
         header = None
@@ -928,7 +931,7 @@ class GromacsRunner:
         """Stop execution and close file."""
         self.stop()
 
-    def check_poll(self) -> int | None:
+    def check_poll(self) -> Optional[int]:
         """Check the current status of the running subprocess."""
         if self.running:
             poll = self.running.poll()
@@ -945,7 +948,7 @@ class GromacsRunner:
 
 def read_trr_frame(
     filename: str, index: int
-) -> tuple[dict[str, Any] | None, dict[str, np.ndarray] | None]:
+) -> Tuple[Union[Dict[str, Any], None], Union[Dict[str, np.ndarray], None]]:
     """Return a given frame from a TRR file.
 
     Args:
@@ -974,7 +977,7 @@ def read_trr_frame(
                 return None, None
 
 
-def read_trr_header(fileh: BufferedReader) -> tuple[dict[str, Any], int]:
+def read_trr_header(fileh: BufferedReader) -> Tuple[Dict[str, Any], int]:
     """Read a header from a TRR file.
 
     Args:
@@ -1023,7 +1026,7 @@ def read_trr_header(fileh: BufferedReader) -> tuple[dict[str, Any], int]:
     return header, fileh.tell() - start
 
 
-def gromacs_settings(settings: dict[str, Any], input_path: str) -> None:
+def gromacs_settings(settings: Dict[str, Any], input_path: str) -> None:
     """Read and processes GROMACS settings.
 
     Args:
@@ -1046,8 +1049,8 @@ def gromacs_settings(settings: dict[str, Any], input_path: str) -> None:
 
 
 def read_gromos96_file(
-    filename: str | Path,
-) -> tuple[dict[str, list[str]], np.ndarray, np.ndarray, np.ndarray | None]:
+    filename: Union[str, Path],
+) -> Tuple[Dict[str, List[str]], np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """Read a single configuration GROMACS .g96 file.
 
     Args:
@@ -1064,7 +1067,7 @@ def read_gromos96_file(
     """
     _len = 15
     _pos = 24
-    rawdata: dict[str, list[str]] = {
+    rawdata: Dict[str, List[str]] = {
         "TITLE": [],
         "POSITION": [],
         "VELOCITY": [],
@@ -1087,8 +1090,8 @@ def read_gromos96_file(
             if new_section:
                 continue
             rawdata[section].append(lines.rstrip())
-    txtdata: dict[str, list[str]] = {}
-    xyzdata: dict[str, list[list[float]]] = {}
+    txtdata: Dict[str, List[str]] = {}
+    xyzdata: Dict[str, List[List[float]]] = {}
     for key in ("POSITION", "VELOCITY"):
         txtdata[key] = []
         xyzdata[key] = []
@@ -1125,11 +1128,11 @@ def read_gromos96_file(
 
 
 def write_gromos96_file(
-    filename: str | Path,
-    raw: dict[str, list[str]],
+    filename: Union[str, Path],
+    raw: Dict[str, List[str]],
     xyz: np.ndarray,
-    vel: np.ndarray | None,
-    box: np.ndarray | list[float] | None = None,
+    vel: Union[np.ndarray, None],
+    box: Union[np.ndarray, List[float], None] = None,
 ) -> None:
     """Write configuration in GROMACS .g96 format.
 
@@ -1162,7 +1165,7 @@ def write_gromos96_file(
             outfile.write("END\n")
 
 
-def read_struct_buff(fileh: BufferedReader, fmt: str) -> tuple[Any, ...]:
+def read_struct_buff(fileh: BufferedReader, fmt: str) -> Tuple[Any, ...]:
     """Unpack from a file handle with a given format.
 
     Args:
@@ -1182,7 +1185,7 @@ def read_struct_buff(fileh: BufferedReader, fmt: str) -> tuple[Any, ...]:
     return struct.unpack(fmt, buff)
 
 
-def is_double(header: dict[str, Any]) -> bool:
+def is_double(header: Dict[str, Any]) -> bool:
     """Determine if we should use double precision.
 
     This method determines the precision to use when reading
@@ -1210,7 +1213,7 @@ def is_double(header: dict[str, Any]) -> bool:
     return size == _SIZE_DOUBLE
 
 
-def skip_trr_data(fileh: BufferedReader, header: dict[str, Any]) -> None:
+def skip_trr_data(fileh: BufferedReader, header: Dict[str, Any]) -> None:
     """Skip coordinates/box data in a frame.
 
     This method is used when we want to skip a data section in
@@ -1226,8 +1229,8 @@ def skip_trr_data(fileh: BufferedReader, header: dict[str, Any]) -> None:
 
 
 def read_trr_data(
-    fileh: BufferedReader, header: dict[str, Any]
-) -> dict[str, np.ndarray]:
+    fileh: BufferedReader, header: Dict[str, Any]
+) -> Dict[str, np.ndarray]:
     """Read box, coordinates etc. from a TRR file.
 
     Args:
@@ -1318,7 +1321,7 @@ def read_coord(
     return mat
 
 
-def read_xvg_file(filename: str) -> dict[str, np.ndarray]:
+def read_xvg_file(filename: str) -> Dict[str, np.ndarray]:
     """Return data from a .xvg file as numpy arrays.
 
     Args:
@@ -1350,8 +1353,8 @@ def read_xvg_file(filename: str) -> dict[str, np.ndarray]:
 
 
 def get_data(
-    fileh: BufferedReader, header: dict[str, Any]
-) -> tuple[dict[str, np.ndarray], int]:
+    fileh: BufferedReader, header: Dict[str, Any]
+) -> Tuple[Dict[str, np.ndarray], int]:
     """Read data from the TRR file.
 
     Args:
@@ -1370,7 +1373,7 @@ def get_data(
 
 def read_remaining_trr(
     filename: str, fileh: BufferedReader, start: int
-) -> Iterator[tuple[dict[str, Any], dict[str, np.ndarray], int]]:
+) -> Iterator[Tuple[Dict[str, Any], Dict[str, np.ndarray], int]]:
     """Read remaining frames from the TRR file.
 
     Args:
@@ -1418,7 +1421,7 @@ def read_remaining_trr(
 
 def reopen_file(
     filename: str, fileh: BufferedReader, inode: int, bytes_read: int
-) -> tuple[BufferedReader | None, int | None]:
+) -> Tuple[Optional[BufferedReader], Optional[int]]:
     """Reopen a file if the inode has changed.
 
     Args:

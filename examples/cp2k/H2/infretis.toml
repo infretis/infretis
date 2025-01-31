@@ -1,11 +1,8 @@
 # infretis config
 
-[dask]
-workers = 4
-wmdrun = ['0',
-	  '0',
-	  '0',
-	  '0',]
+[runner]
+workers = 1
+wmdrun = [0, 0, 0, 0]
 
 [simulation]
 interfaces = [ 3.45, 3.625, 3.777, 3.922, 4.068, 4.224, 4.399, 4.612, 4.915, 12.0]

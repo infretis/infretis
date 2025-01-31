@@ -3,6 +3,7 @@
 import importlib
 import logging
 import os
+from typing import Optional, Tuple
 
 import tomli
 
@@ -24,7 +25,7 @@ class TOMLConfigError(Exception):
     #    super().__init__(message)
 
 
-def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
+def setup_internal(config: dict) -> Tuple[dict, REPEX_state]:
     """Run the various setup functions.
 
     Args
@@ -67,7 +68,7 @@ def setup_internal(config: dict) -> tuple[dict, REPEX_state]:
     return md_items, state
 
 
-def setup_runner(state: REPEX_state) -> tuple[aiorunner, future_list]:
+def setup_runner(state: REPEX_state) -> Tuple[aiorunner, future_list]:
     """Set the task runner class up.
 
     Args:
@@ -88,7 +89,7 @@ def setup_runner(state: REPEX_state) -> tuple[aiorunner, future_list]:
 
 def setup_config(
     inp: str = "infretis.toml", re_inp: str = "restart.toml"
-) -> dict | None:
+) -> Optional[dict]:
     """Set dict from *toml file up.
 
     Arg

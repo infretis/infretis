@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from turtlemd.integrators import (
@@ -71,10 +71,10 @@ class TurtleMDEngine(EngineBase):
         subcycles: int,
         temperature: float,
         boltzmann: float,
-        integrator: dict[str, Any],
-        potential: dict[str, Any],
-        particles: dict[str, Any],
-        box: dict[str, Any],
+        integrator: Dict[str, Any],
+        potential: Dict[str, Any],
+        particles: Dict[str, Any],
+        box: Dict[str, Any],
     ):
         """Initialize the TurtleMD engine.
 
@@ -177,10 +177,10 @@ class TurtleMDEngine(EngineBase):
         name: str,
         path: Path,
         system: System,
-        ens_set: dict[str, Any],
+        ens_set: Dict[str, Any],
         msg_file: FileIO,
         reverse: bool = False,
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         """Propagate the equations of motion from the given system.
 
         We assume the following:
@@ -290,7 +290,7 @@ class TurtleMDEngine(EngineBase):
     @staticmethod
     def _read_configuration(
         filename: str,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, list[str]]:
+    ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], List[str]]:
         """Read TurtleMD output configuration.
 
         This method reads the specified TurtleMD output configuration and
@@ -313,7 +313,7 @@ class TurtleMDEngine(EngineBase):
             return xyz, vel, box, names
         raise ValueError("Missing TurtleMD configuration")
 
-    def set_mdrun(self, md_items: dict[str, Any]) -> None:
+    def set_mdrun(self, md_items: Dict[str, Any]) -> None:
         """Set the execute directory."""
         # TODO: REMOVE OR RENAME?
         self.exe_dir = md_items["exe_dir"]
@@ -333,8 +333,8 @@ class TurtleMDEngine(EngineBase):
         )
 
     def modify_velocities(
-        self, system: System, vel_settings: dict[str, Any]
-    ) -> tuple[float, float]:
+        self, system: System, vel_settings: Dict[str, Any]
+    ) -> Tuple[float, float]:
         """Modify the velocities of all particles.
 
         Args:

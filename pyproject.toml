@@ -12,11 +12,10 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-numpy = "^1.26.0"
+python = ">=3.8.12,<3.14"
+numpy = "^1.21.2"
 tomli = "^2.0.1"
 tomli-w = "^1.0.0"
-turtlemd = "^2023.3"
 ase = "^3.20.0"
 indexed-gzip = {version = "^1.9.4", optional = true}
 
@@ -35,6 +34,10 @@ pre-commit = "^3.3.3"
 line-length = 79
 select = ["F", "E", "W", "I001", "UP"]
 ignore-init-module-imports = true
+target-version = "py38"
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
 
 [tool.ruff.pydocstyle]
 convention = "google"
@@ -45,11 +48,12 @@ target-version = ["py310", "py311", "py312"]
 
 [tool.mypy]
 warn_unused_ignores = true
+ignore_missing_imports = true
 show_error_codes = true
 plugins = "numpy.typing.mypy_plugin"
 
 [[tool.mypy.overrides]]
-module = ["matplotlib.*", "scipy.optimize.*", "turtlemd.*", "tomli"]
+module = ["tomli"]
 ignore_missing_imports = true
 
 [tool.poetry.scripts]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -81,7 +81,7 @@ class OrderParameter:
             )
 
     @abstractmethod
-    def calculate(self, system: System) -> list[float]:
+    def calculate(self, system: System) -> List[float]:
         """Calculate the order parameter.
 
         All order parameters **must** implement this method.
@@ -120,7 +120,7 @@ class Distancevel(OrderParameter):
         periodic: If True, apply periodic boundaries to the distance.
     """
 
-    def __init__(self, index: tuple[int, int], periodic: bool = True):
+    def __init__(self, index: Tuple[int, int], periodic: bool = True):
         """Initialize the order parameter.
 
         Args:
@@ -138,7 +138,7 @@ class Distancevel(OrderParameter):
         self.periodic = periodic
         self.index = index
 
-    def calculate(self, system: System) -> list[float]:
+    def calculate(self, system: System) -> List[float]:
         """Calculate the order parameter.
 
         Args:
@@ -170,7 +170,7 @@ class Position(OrderParameter):
             to the position.
     """
 
-    def __init__(self, index: tuple[int, int], periodic: bool = True):
+    def __init__(self, index: Tuple[int, int], periodic: bool = True):
         """Initialize the position order parameter.
 
         Args:
@@ -191,7 +191,7 @@ class Position(OrderParameter):
             raise NotImplementedError("Can't use pbc for position order yet")
         self.index = index
 
-    def calculate(self, system: System) -> list[float]:
+    def calculate(self, system: System) -> List[float]:
         """Calculate the order parameter."""
         return [system.pos[self.index[0], self.index[1]]]
 
@@ -206,7 +206,7 @@ class Distance(OrderParameter):
             should be applied to the distance or not.
     """
 
-    def __init__(self, index: tuple[int, int], periodic: bool = True):
+    def __init__(self, index: Tuple[int, int], periodic: bool = True):
         """Initialize the order parameter.
 
         Args:
@@ -221,7 +221,7 @@ class Distance(OrderParameter):
         self.periodic = periodic
         self.index = index
 
-    def calculate(self, system: System) -> list[float]:
+    def calculate(self, system: System) -> List[float]:
         """Calculate the order parameter."""
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic and system.box is not None:
@@ -259,14 +259,14 @@ class Velocity(OrderParameter):
             logger.critical("Unknown dimension %s requested", dim)
             raise ValueError
 
-    def calculate(self, system: System) -> list[float]:
+    def calculate(self, system: System) -> List[float]:
         """Calculate the velocity order parameter."""
         return [system.vel[self.index][self.dim]]
 
 
 def create_orderparameters(
-    engines: dict[str, list],
-    settings: dict[str, Any],
+    engines: Dict[str, List],
+    settings: Dict[str, Any],
 ):
     """Create orderparameters."""
     for engine_key in engines.keys():
@@ -274,7 +274,9 @@ def create_orderparameters(
             engine.order_function = create_orderparameter(settings)
 
 
-def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
+def create_orderparameter(
+    settings: Dict[str, Any],
+) -> Optional[OrderParameter]:
     """Create order parameters from settings.
 
     Args:
@@ -306,7 +308,7 @@ def create_orderparameter(settings: dict[str, Any]) -> OrderParameter | None:
     return main_order
 
 
-def _verify_pair(index: tuple[int, int]):
+def _verify_pair(index: Tuple[int, int]):
     """Check that the given index contains a pair."""
     try:
         if len(index) != 2:
@@ -337,7 +339,7 @@ class Dihedral(OrderParameter):
     """
 
     def __init__(
-        self, index: tuple[int, int, int, int], periodic: bool = False
+        self, index: Tuple[int, int, int, int], periodic: bool = False
     ):
         """Initialize the order parameter.
 
@@ -366,7 +368,7 @@ class Dihedral(OrderParameter):
         super().__init__(description=txt)
         self.periodic = periodic
 
-    def calculate(self, system: System) -> list[float]:
+    def calculate(self, system: System) -> List[float]:
         """Calculate the dihedral angle."""
         pos = system.pos
         vector1 = pos[self.index[0]] - pos[self.index[1]]
@@ -412,7 +414,7 @@ class Puckering(OrderParameter):
 
     def __init__(
         self,
-        index: tuple[int, int, int, int, int, int],
+        index: Tuple[int, int, int, int, int, int],
         periodic: bool = False,
     ):
         """Initialize the order parameter.
@@ -445,7 +447,7 @@ class Puckering(OrderParameter):
         )
         super().__init__(description=txt)
 
-    def calculate(self, system: System) -> list[float]:
+    def calculate(self, system: System) -> List[float]:
         """Calculate the puckering angle."""
         pos = system.pos[list(self.index)]
         if self.periodic and system.box is not None:
