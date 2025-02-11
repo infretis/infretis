@@ -103,7 +103,7 @@ def read_lammpstrj(
     )
     id_sorted = np.argsort(posvel[:, 0])
     pos = posvel[id_sorted, 2:5]
-    vel = posvel[id_sorted, 5:]
+    vel = posvel[id_sorted, 5:8]
     id_type = posvel[id_sorted, :2]
     return id_type, pos, vel, box
 
