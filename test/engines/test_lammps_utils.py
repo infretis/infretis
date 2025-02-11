@@ -18,6 +18,8 @@ from infretis.classes.engines.lammps import (
     write_lammpstrj,
 )
 
+from .test_velocity_functions import return_lammps_engine
+
 HERE = pathlib.Path(__file__).resolve().parent
 
 ATOM_MASSES = np.array(
@@ -119,6 +121,19 @@ def test_write_lammpstrj(tmp_path):
     assert np.all(pos == pos0)
     assert np.all(vel == vel0)
     assert np.all(box == box0)
+
+
+def test_reverse_velocities(tmp_path):
+    """Test that reversing the velocities only changes the velocities."""
+    infile = HERE / "data/lammps_files/traj.lammpstrj"
+    outfile = tmp_path / "test_reverse.lammpstrj"
+    engine = return_lammps_engine()
+    natoms = 12
+    engine.n_atoms = natoms
+    engine._reverse_velocities(infile, outfile)
+    id_type0, pos0, vel0, box0 = read_lammpstrj(infile, 0, natoms)
+    shifted_pos1, vel1, shifted_box1, _ = engine._read_configuration(outfile)
+    assert np.all(vel0 == -vel1)
 
 
 def test_shift_boxbounds():
