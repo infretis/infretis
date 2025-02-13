@@ -588,7 +588,6 @@ def write_for_run_vel(
     name: str = "md_step",
     restart_wfn: str = "doesnotexist.wfn",
     print_freq: Optional[int] = None,
-
 ) -> None:
     """Create input file to perform n steps.
 
@@ -636,8 +635,8 @@ def write_for_run_vel(
             "data": ["BACKUP_COPIES 0"],
             "replace": True,
         },
-        'FORCE_EVAL->DFT': {
-            'data': {'WFN_RESTART_FILE_NAME': restart_wfn},
+        "FORCE_EVAL->DFT": {
+            "data": {"WFN_RESTART_FILE_NAME": restart_wfn},
         },
     }
     for veli in vel:
