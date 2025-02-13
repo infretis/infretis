@@ -55,7 +55,13 @@ PERMANENT2 = 10508395762604.0
 
 def test_matrix1():
     """Test ..."""
-    state = REPEX_state({"current": {"size": 1}, "runner": {"workers": 1}})
+    state = REPEX_state(
+        {
+            "current": {"size": 1},
+            "runner": {"workers": 1},
+            "simulation": {"seed": 0},
+        }
+    )
     p_matrix = state.permanent_prob(W_MATRIX1)
     permanent = state.fast_glynn_perm(W_MATRIX1)
     assert pytest.approx(p_matrix) == P_MATRIX1
@@ -64,7 +70,13 @@ def test_matrix1():
 
 def test_matrix2():
     """Test ..."""
-    state = REPEX_state({"current": {"size": 1}, "runner": {"workers": 1}})
+    state = REPEX_state(
+        {
+            "current": {"size": 1},
+            "runner": {"workers": 1},
+            "simulation": {"seed": 0},
+        }
+    )
     p_matrix = state.permanent_prob(W_MATRIX2)
     permanent = state.fast_glynn_perm(W_MATRIX2)
     assert pytest.approx(p_matrix) == P_MATRIX2
