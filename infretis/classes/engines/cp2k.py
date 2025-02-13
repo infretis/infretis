@@ -586,7 +586,9 @@ def write_for_run_vel(
     posfile: str,
     vel: np.ndarray,
     name: str = "md_step",
+    restart_wfn: str = "doesnotexist.wfn",
     print_freq: Optional[int] = None,
+
 ) -> None:
     """Create input file to perform n steps.
 
@@ -633,6 +635,9 @@ def write_for_run_vel(
         "FORCE_EVAL->DFT->SCF->PRINT->RESTART": {
             "data": ["BACKUP_COPIES 0"],
             "replace": True,
+        },
+        'FORCE_EVAL->DFT': {
+            'data': {'WFN_RESTART_FILE_NAME': restart_wfn},
         },
     }
     for veli in vel:
@@ -819,6 +824,11 @@ class CP2KEngine(EngineBase):
             box, _ = read_cp2k_box(self.input_files["template"])
         # Add CP2K input for N steps:
         run_input = os.path.join(self.exe_dir, "run.inp")
+
+        # get ensemble from msg_file of format "msg-ens_.."
+        ens = os.path.basename(msg_file.filename)[4:7]
+        restart_wfn = os.path.join(self.input_path, ens + ".wfn")
+
         write_for_run_vel(
             self.input_files["template"],
             run_input,
@@ -828,6 +838,7 @@ class CP2KEngine(EngineBase):
             os.path.basename(initial_conf),
             vel,
             name=name,
+            restart_wfn=restart_wfn,
         )
         # Get the order parameter before the run:
         order = self.calculate_order(system, xyz=xyz, vel=vel, box=box)
@@ -988,6 +999,11 @@ class CP2KEngine(EngineBase):
         path.update_energies(
             ekin[: end : self.subcycles], vpot[: end : self.subcycles]
         )
+
+        # copy .wfn file for future use
+        if os.path.isfile(wave_file):
+            self._copyfile(wave_file, restart_wfn)
+
         for _, files in out_files.items():
             self._removefile(files)
         self._removefile(prestart_file)
