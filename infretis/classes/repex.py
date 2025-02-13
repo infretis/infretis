@@ -68,7 +68,7 @@ class REPEX_state:
         if "restarted_from" in config["current"]:
             self.set_rgen()
         else:
-            self.rgen = default_rng(seed=config.get("seed", 0))
+            self.rgen = default_rng(seed=config["simulation"]["seed"])
 
         n = config["current"]["size"]
         if minus:

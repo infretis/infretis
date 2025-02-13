@@ -167,6 +167,9 @@ def setup_config(
         config["simulation"]["ensemble_engines"] = ens_engs
 
     # set the keywords once
+    if "seed" not in config["simulation"].keys():
+        config["simulation"]["seed"] = 0
+
     quantis = config["simulation"]["tis_set"].get("quantis", False)
     config["simulation"]["tis_set"]["quantis"] = quantis
 
