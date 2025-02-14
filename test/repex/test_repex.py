@@ -11,7 +11,7 @@ def test_rgen_io(tmp_path: PosixPath) -> None:
         {
             "current": {"size": 1, "cstep": 0},
             "runner": {"workers": 1},
-            "simulation": {},
+            "simulation": {"seed": 0},
         }
     )
     folder = tmp_path / "temp"
