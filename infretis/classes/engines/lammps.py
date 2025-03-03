@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import logging
 import os
 import shlex
@@ -51,8 +52,11 @@ def write_lammpstrj(
         append: If True, the `outfile` will be appended to,
             otherwise, `outfile` will be overwritten.
     """
+    compressed = True if str(outfile)[-3:] == ".gz" else False
     filemode = "a" if append else "w"
-    with open(outfile, filemode) as writefile:
+    filemode += "b" if filemode == "w" and compressed else ""
+    oopen = open if not compressed else gzip.open
+    with oopen(outfile, filemode) as writefile:
         to_write = (
             f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n\
 ITEM: BOX BOUNDS pp pp pp\n"
@@ -72,7 +76,7 @@ ITEM: BOX BOUNDS pp pp pp\n"
                 + " ".join(v.astype(str))
                 + "\n"
             )
-        writefile.write(to_write)
+        writefile.write(to_write.encode() if compressed else to_write)
 
 
 def read_lammpstrj(
@@ -198,7 +202,6 @@ def write_for_run(
                         line = line.replace(var, str(input_settings[var]))
                         # remove found item from dict
                         not_found.pop(var)
-
                 writefile.write(line)
     # check if we found all keys
     if len(not_found.keys()) != 0:
@@ -362,6 +365,7 @@ class LAMMPSEngine(EngineBase):
         timestep: float,
         subcycles: int,
         temperature: float,
+        compressed: bool = False,
         atom_style: str = "full",
         exe_path: Path = Path(".").resolve(),
         sleep: float = 0.1,
@@ -391,12 +395,35 @@ class LAMMPSEngine(EngineBase):
         self.exe_path = exe_path
         self.input_path = (Path(exe_path) / input_path).resolve()
         self.ext = "lammpstrj"
-
         self.input_files = {
             "data": self.input_path / "lammps.data",
             "input": self.input_path / "lammps.input",
         }
+
         check_lammps_input(self.input_files["input"])
+
+        dump_line = self._read_input_settings(
+            self.input_files["input"], key="${name}.lammpstrj"
+        )
+        self.compressed = compressed
+        if self.compressed:
+            self.ext += ".gz"
+            if "${name}.lammpstrj.gz" not in dump_line:
+                msg = (
+                    "As 'compressed' is set to 'true' in the toml input"
+                    + " file, '${name}.lammpstrj' in the lammps input file"
+                    + " must be set to '${name}.lammpstrj.gz'."
+                )
+                raise ValueError(msg)
+        else:
+            if "${name}.lammpstrj.gz" in dump_line:
+                msg = (
+                    "As 'compressed' is set to 'false' in the toml input"
+                    + " file, '${name}.lammpstrj.gz' in the lammps input file"
+                    + " must be set to '${name}.lammpstrj'."
+                )
+                raise ValueError(msg)
+
         self.atom_style = atom_style
         self.mass = get_atom_masses(self.input_files["data"], self.atom_style)
         self.n_atoms = self.mass.shape[0]
@@ -491,8 +518,9 @@ class LAMMPSEngine(EngineBase):
                     # we may still have some data in the trajectory
                     # so use += here
                     frames = traj_reader.read_and_process_content()
-                    trajectory += frames[0]
-                    box_trajectory += frames[1]
+                    if frames:
+                        trajectory += frames[0]
+                        box_trajectory += frames[1]
                     # loop over the frames that are ready
                     for frame in range(len(trajectory)):
                         posvel = trajectory.pop(0)
@@ -654,3 +682,15 @@ class LAMMPSEngine(EngineBase):
     def set_mdrun(self, md_items: Dict[str, Any]) -> None:
         """Set the executional directory for workers."""
         self.exe_dir = md_items["exe_dir"]
+
+    def _read_input_settings(
+        self, sourcefile: str | Path, key: str = "="
+    ) -> dict[str, Any]:
+        """Read input settings for lammps input run file.
+
+        For now, a very simple parser.
+        """
+        with open(sourcefile, encoding="utf-8") as infile:
+            for line in infile:
+                if key in line:
+                    return line
