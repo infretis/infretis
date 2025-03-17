@@ -20,6 +20,9 @@ jobs:
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v4
+        with:
+          # Fetch full history for proper change detection
+          fetch-depth: 0
 
       - name: "Set up Python"
         uses: actions/setup-python@v5
@@ -31,11 +34,21 @@ jobs:
 
       - name: "Get changed files"
         id: changed-files
-        uses: tj-actions/changed-files@v41
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # For PRs, compare with the base branch
+            BASE_SHA=$(git merge-base ${{ github.event.pull_request.base.sha }} HEAD)
+            CHANGED_FILES=$(git diff --name-only $BASE_SHA HEAD -- '*.py' '*.md' | xargs)
+          else
+            # For pushes to main, use the previous commit
+            CHANGED_FILES=$(git diff --name-only HEAD^ HEAD -- '*.py' '*.md' | xargs)
+          fi
+          echo "Changed files: $CHANGED_FILES"
+          echo "CHANGED_FILES=$CHANGED_FILES" >> $GITHUB_ENV
 
       - name: "Run codespell on changed files"
         env:
-          ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+          ALL_CHANGED_FILES: ${{ env.CHANGED_FILES }}
         run: |
           IFS=' ' read -r -a files_array <<< "$ALL_CHANGED_FILES"
           for file in "${files_array[@]}"; do
