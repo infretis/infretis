@@ -11,6 +11,7 @@ from pathlib import Path
 from time import sleep
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
+from ase.cell import Cell
 import numpy as np
 
 from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
@@ -27,6 +28,35 @@ if TYPE_CHECKING:  # pragma: nocover
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
+
+
+class LammpsBox(Cell):
+    """A class to handle lammps boxes."""
+
+    def __init__(self, lammps_box):
+        """Initialize an ASE box from a lammps box."""
+        self.lammps_box = lammps_box
+        # orthogonal cell
+        if lammps_box.shape[1] == 2:
+            diag = lammps_box[:,1] - lammps_box[:,0]
+            box = np.eye(3)*diag
+        # triclinic box
+        else:
+            xlo_bound, xhi_bound, xy = lammps_box[0]
+            ylo_bound, yhi_bound, xz = lammps_box[1]
+            zlo, zhi, yz = lammps_box[2]
+
+            xlo = xlo_bound - min(0.0, xy, xz, xy + xz)
+            xhi = xhi_bound - max(0.0, xy, xz, xy + xz)
+            ylo = ylo_bound - min(0.0, yz)
+            yhi = yhi_bound - max(0.0, yz)
+
+            box = np.zeros((3, 3), dtype=np.float64)
+            box[0] = xhi - xlo, 0.0, 0.0
+            box[1] = xy, yhi - ylo, 0.0
+            box[2] = xz, yz, zhi - zlo
+
+        super().__init__(box)
 
 
 def write_lammpstrj(
