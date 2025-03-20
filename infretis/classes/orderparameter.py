@@ -18,23 +18,26 @@ logger.addHandler(logging.NullHandler())
 
 
 def pbc_dist_coordinate(
-    distance: np.ndarray, box_lengths: np.ndarray
+    distance: np.ndarray, box: np.ndarray
 ) -> np.ndarray:
     """Apply periodic boundaries to a distance.
 
-    Apply periodic boundaries to a distance vector.
+    Only works for orthogonal boxes, and raise ValueError if the box is not
+    orthogonal.
 
     Args:
         distance: A distance vector.
-        box_lengths: The box lengths (one for each dimension.)
+        box: The cell array (3x3 array of cell vectors)
 
     Returns:
         The periodic-boundary wrapped distance vector (a numpy.array
             with the same shape as the `distance` parameter).
 
-    Note:
-        This method assumes an orthogonal box.
     """
+    # check if box is orthogonal
+    box_lengths = np.diagonal(box)
+    if not np.all(box == np.diag(box_lengths)):
+        raise ValueError("pbc_dist_coordinate only works with orthogonal boxes")
     box_ilengths = 1.0 / box_lengths
     pbcdist = np.zeros(distance.shape)
     for i, (length, ilength) in enumerate(zip(box_lengths, box_ilengths)):
@@ -151,7 +154,7 @@ class Distancevel(OrderParameter):
         """
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic and system.box is not None:
-            delta = pbc_dist_coordinate(delta, system.box)
+            delta = pbc_dist_coordinate(delta, system.box.array)
         lamb = np.sqrt(np.dot(delta, delta))
         # Add the velocity as an additional collective variable:
         delta_v = system.vel[self.index[1]] - system.vel[self.index[0]]
@@ -225,8 +228,7 @@ class Distance(OrderParameter):
         """Calculate the order parameter."""
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic and system.box is not None:
-            box = np.array(system.box[:3])
-            delta = pbc_dist_coordinate(delta, box)
+            delta = pbc_dist_coordinate(delta, system.box.array)
         lamb = np.sqrt(np.dot(delta, delta))
         return [lamb]
 
@@ -376,7 +378,7 @@ class Dihedral(OrderParameter):
         vector3 = pos[self.index[3]] - pos[self.index[2]]
 
         if self.periodic and system.box is not None:
-            box = np.array(system.box[:3])
+            box = system.box.array
             vector1 = pbc_dist_coordinate(vector1, box)
             vector2 = pbc_dist_coordinate(vector2, box)
             vector3 = pbc_dist_coordinate(vector3, box)
@@ -451,7 +453,7 @@ class Puckering(OrderParameter):
         """Calculate the puckering angle."""
         pos = system.pos[list(self.index)]
         if self.periodic and system.box is not None:
-            box = np.array(system.box[:3])
+            box = system.box.array
             # make 6-ring whole around atom 0
             for i in range(1, 6):
                 pos[i, :] = pbc_dist_coordinate(pos[i, :] - pos[0, :], box)
