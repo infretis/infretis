@@ -29,14 +29,13 @@ from typing import (
     Union,
 )
 
+from ase.cell import Cell
 import numpy as np
 
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     PERIODIC_TABLE,
     ReadAndProcessOnTheFly,
-    box_matrix_to_list,
-    box_vector_angles,
     convert_snapshot,
     look_for_input_files,
     read_xyz_file,
@@ -420,21 +419,11 @@ def read_box_data(
                         [float(i) for i in lines.split()[1:]]
                     )
     if all(key in data for key in ("A", "B", "C")):
-        box_matrix = np.zeros((3, 3))
-        box_matrix[:, 0] = data["A"]
-        box_matrix[:, 1] = data["B"]
-        box_matrix[:, 2] = data["C"]
-        box = np.array(box_matrix_to_list(box_matrix))
+        box = Cell.fromcellpar([data["A"], data["B"], data["C"]])
     elif "ABC" in data and "ALPHA_BETA_GAMMA" in data:
-        box_matrix = box_vector_angles(
-            data["ABC"],
-            data["ALPHA_BETA_GAMMA"][0],
-            data["ALPHA_BETA_GAMMA"][1],
-            data["ALPHA_BETA_GAMMA"][2],
-        )
-        box = np.array(box_matrix_to_list(box_matrix))
+        box = Cell.fromcellpar(*data["ABC"], *data["ALPHA_BETA_GAMMA"])
     elif "ABC" in data:
-        box = data["ABC"]
+        box = Cell.fromcellpar(data["ABC"])
     else:
         box = None
 
@@ -758,6 +747,7 @@ class CP2KEngine(EngineBase):
         for i, snapshot in enumerate(read_xyz_file(traj_file)):
             if i == idx:
                 box, xyz, vel, names = convert_snapshot(snapshot)
+                print(box)
                 if os.path.isfile(out_file):
                     logger.debug("CP2K will overwrite %s", out_file)
                 write_xyz_trajectory(
@@ -1029,6 +1019,8 @@ class CP2KEngine(EngineBase):
         for snapshot in read_xyz_file(filename):
             box, xyz, vel, names = convert_snapshot(snapshot)
             break  # Stop after the first snapshot.
+        if box is not None:
+            box = Cell.fromcellpar(box)
         return xyz, vel, box, names
 
     def set_mdrun(self, md_items: Dict[str, Any]) -> None:

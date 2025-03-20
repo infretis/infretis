@@ -16,6 +16,7 @@ from typing import (
     Union,
 )
 
+from ase.cell import Cell
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -211,7 +212,7 @@ def get_box_from_header(header: str) -> Optional[np.ndarray]:
     low = header.lower()
     if low.find("box:") != -1:
         txt = low.split("box:")[1].strip()
-        return np.array([float(i) for i in txt.split()])
+        return Cell.fromcellpar(np.array([float(i) for i in txt.split()]))
     return None
 
 
@@ -315,7 +316,7 @@ def write_xyz_trajectory(
         if step is not None:
             header.append(f"Step: {step}")
         if box is not None:
-            header.append(f'Box: {" ".join([f"{i:9.4f}" for i in box])}')
+            header.append(f'Box: {" ".join([f"{i:9.4f}" for i in box.cellpar()])}')
         header.append("\n")
         header_str = " ".join(header)
         output_file.write(header_str)
