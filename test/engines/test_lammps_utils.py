@@ -10,15 +10,15 @@ from infretis.classes.engines.engineparts import (
     lammpstrj_reader,
 )
 from infretis.classes.engines.lammps import (
+    LAMMPSEngine,
     check_lammps_input,
     get_atom_masses,
     read_energies,
     read_lammpstrj,
     shift_boxbounds,
     write_lammpstrj,
+    LammpsBox,
 )
-
-from .test_velocity_functions import return_lammps_engine
 
 HERE = pathlib.Path(__file__).resolve().parent
 
@@ -56,6 +56,7 @@ ENERGIES = np.array(
     ]
 )
 BOX = np.array([12.65, 12.65, 12.65])
+BOX1 = np.array([20.0, 20.0, 20.0])
 BOX_FRAMES = np.array(
     [
         [[0, 12.65], [0, 12.65], [0, 12.65]],
@@ -66,6 +67,16 @@ LAST_FRAME_POS = np.array([[5, 9, 4, 7, 3, 6, 1, 8, 2, 10, 11, 12]]).repeat(
     3, axis=0
 )
 LAST_FRAME_VEL = -LAST_FRAME_POS
+
+def return_lammps_engine():
+    """Set up a lammps engine for the H2 system."""
+    lammps_input_path = HERE / "../../examples/lammps/H2/lammps_input"
+    engine = LAMMPSEngine("lmp_mpi", lammps_input_path.resolve(), 0, 0, 300)
+    engine.rgen = np.random.default_rng()
+    engine.vel_settings = {
+        "zero_momentum": False,
+    }
+    return engine
 
 
 def test_read_masses():
@@ -216,3 +227,22 @@ def test_on_the_fly_read(tmp_path):
         if traj != [] and box != []:
             assert np.all(box[0][:, :2] == BOX_FRAMES[frames_correctly_read])
             frames_correctly_read += 1
+
+def test_LammpsCell():
+    """Test the LammpsCell class"""
+    # Regular orthogonal cell
+    frame = 0
+    natoms = 12
+    id_type, pos, vel, box = read_lammpstrj(
+        HERE / "data/lammps_files/traj.lammpstrj", frame, natoms
+    )
+    cell = LammpsBox(box)
+    assert np.allclose(cell.lengths(), BOX)
+
+    frame = 0
+    natoms = 22
+    id_type, pos, vel, box = read_lammpstrj(
+        HERE / "data/lammps_files/traj1.lammpstrj", frame, natoms
+    )
+    cell = LammpsBox(box)
+    assert np.allclose(cell.lengths(), BOX1)
