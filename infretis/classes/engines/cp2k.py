@@ -419,11 +419,11 @@ def read_box_data(
                         [float(i) for i in lines.split()[1:]]
                     )
     if all(key in data for key in ("A", "B", "C")):
-        box = Cell.fromcellpar([data["A"], data["B"], data["C"]])
+        box = Cell.fromcellpar([data["A"], data["B"], data["C"]]).array
     elif "ABC" in data and "ALPHA_BETA_GAMMA" in data:
-        box = Cell.fromcellpar(*data["ABC"], *data["ALPHA_BETA_GAMMA"])
+        box = Cell.fromcellpar(*data["ABC"], *data["ALPHA_BETA_GAMMA"]).array
     elif "ABC" in data:
-        box = Cell.fromcellpar(data["ABC"])
+        box = Cell.fromcellpar(data["ABC"]).array
     else:
         box = None
 
@@ -747,7 +747,6 @@ class CP2KEngine(EngineBase):
         for i, snapshot in enumerate(read_xyz_file(traj_file)):
             if i == idx:
                 box, xyz, vel, names = convert_snapshot(snapshot)
-                print(box)
                 if os.path.isfile(out_file):
                     logger.debug("CP2K will overwrite %s", out_file)
                 write_xyz_trajectory(
@@ -1020,7 +1019,7 @@ class CP2KEngine(EngineBase):
             box, xyz, vel, names = convert_snapshot(snapshot)
             break  # Stop after the first snapshot.
         if box is not None:
-            box = Cell.fromcellpar(box)
+            box = Cell.fromcellpar(box).array
         return xyz, vel, box, names
 
     def set_mdrun(self, md_items: Dict[str, Any]) -> None:

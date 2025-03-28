@@ -107,7 +107,7 @@ class ASEEngine(EngineBase):
         return (
             atoms.positions,
             atoms.get_velocities(),
-            atoms.cell.diagonal(),
+            atoms.cell.array,
             None,
         )
 
@@ -137,7 +137,7 @@ class ASEEngine(EngineBase):
             system,
             xyz=atoms.positions,
             vel=atoms.get_velocities(),
-            box=atoms.cell.diagonal(),
+            box=atoms.cell.array,
         )
 
         msg_file.write(
@@ -178,7 +178,7 @@ class ASEEngine(EngineBase):
                     system,
                     xyz=atoms.positions,
                     vel=atoms.get_velocities(),
-                    box=atoms.cell.diagonal(),
+                    box=atoms.cell.array,
                 )
                 msg_file.write(
                     f'{step_nr} {" ".join([str(j) for j in order])}'

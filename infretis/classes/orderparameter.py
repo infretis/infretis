@@ -154,7 +154,7 @@ class Distancevel(OrderParameter):
         """
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic and system.box is not None:
-            delta = pbc_dist_coordinate(delta, system.box.array)
+            delta = pbc_dist_coordinate(delta, system.box)
         lamb = np.sqrt(np.dot(delta, delta))
         # Add the velocity as an additional collective variable:
         delta_v = system.vel[self.index[1]] - system.vel[self.index[0]]
@@ -228,7 +228,7 @@ class Distance(OrderParameter):
         """Calculate the order parameter."""
         delta = system.pos[self.index[1]] - system.pos[self.index[0]]
         if self.periodic and system.box is not None:
-            delta = pbc_dist_coordinate(delta, system.box.array)
+            delta = pbc_dist_coordinate(delta, system.box)
         lamb = np.sqrt(np.dot(delta, delta))
         return [lamb]
 
@@ -378,7 +378,7 @@ class Dihedral(OrderParameter):
         vector3 = pos[self.index[3]] - pos[self.index[2]]
 
         if self.periodic and system.box is not None:
-            box = system.box.array
+            box = system.box
             vector1 = pbc_dist_coordinate(vector1, box)
             vector2 = pbc_dist_coordinate(vector2, box)
             vector3 = pbc_dist_coordinate(vector3, box)
@@ -453,7 +453,7 @@ class Puckering(OrderParameter):
         """Calculate the puckering angle."""
         pos = system.pos[list(self.index)]
         if self.periodic and system.box is not None:
-            box = system.box.array
+            box = system.box
             # make 6-ring whole around atom 0
             for i in range(1, 6):
                 pos[i, :] = pbc_dist_coordinate(pos[i, :] - pos[0, :], box)
