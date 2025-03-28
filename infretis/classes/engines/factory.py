@@ -10,6 +10,7 @@ if importlib.util.find_spec("scm") is not None:
     if importlib.util.find_spec("scm.plams") is not None:
         from infretis.classes.engines.ams import AMSEngine
 from infretis.classes.engines.ase_engine import ASEEngine
+from infretis.classes.engines.ase_external_engine import ASEExternalEngine
 from infretis.classes.engines.cp2k import CP2KEngine
 from infretis.classes.engines.gromacs import GromacsEngine
 from infretis.classes.engines.lammps import LAMMPSEngine
@@ -44,6 +45,7 @@ def create_engine(
         "cp2k": {"class": CP2KEngine},
         "lammps": {"class": LAMMPSEngine},
         "ase": {"class": ASEEngine},
+        "ase_external": {"class": ASEExternalEngine},
     }
     if importlib.util.find_spec("scm") is not None:
         if importlib.util.find_spec("scm.plams") is not None:
