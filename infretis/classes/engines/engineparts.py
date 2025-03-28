@@ -113,58 +113,6 @@ _XYZ_BIG_FMT = "{:5s}" + 3 * " {:15.9f}"
 _XYZ_BIG_VEL_FMT = _XYZ_BIG_FMT + 3 * " {:15.9f}"
 
 
-def _cos(angle: float) -> float:
-    """Return cosine of an angle in degrees.
-
-    Note:
-        If the angle is close to 90.0 we return 0.0.
-
-    Args:
-        angle: The angle in degrees.
-
-    Returns:
-        The cosine of the angle.
-    """
-    if math.isclose(angle, 90.0):
-        return 0.0
-    return math.cos(math.radians(angle))
-
-
-def box_vector_angles(
-    length: np.ndarray, alpha: float, beta: float, gamma: float
-) -> np.ndarray:
-    """Return the box matrix from given lengths and angles.
-
-    Args:
-        length: The box lengths as a 1D array.
-        alpha: The alpha angle, in degrees.
-        beta: The beta angle, in degrees.
-        gamma: The gamma angle, in degrees.
-
-    Returns:
-        The (upper triangular) box matrix.
-
-    Note:
-        The angles and box lengths follow the convention from
-        LAMMPS (https://docs.lammps.org/Howto_triclinic.html).
-    """
-    box_matrix = np.zeros((3, 3))
-    cos_alpha = _cos(alpha)
-    cos_beta = _cos(beta)
-    cos_gamma = _cos(gamma)
-    box_matrix[0, 0] = length[0]
-    box_matrix[0, 1] = length[1] * cos_gamma
-    box_matrix[0, 2] = length[2] * cos_beta
-    box_matrix[1, 1] = math.sqrt(length[1] ** 2 - box_matrix[0, 1] ** 2)
-    box_matrix[1, 2] = (
-        length[1] * length[2] * cos_alpha - box_matrix[0, 1] * box_matrix[0, 2]
-    ) / box_matrix[1, 1]
-    box_matrix[2, 2] = math.sqrt(
-        length[2] ** 2 - box_matrix[0, 2] ** 2 - box_matrix[1, 2] ** 2
-    )
-    return box_matrix
-
-
 def box_matrix_to_list(
     matrix: np.ndarray, full: bool = False
 ) -> Optional[np.ndarray]:
