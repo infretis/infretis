@@ -25,11 +25,16 @@ ens_set = read_stuff("ens_set", cwd)
 Integrator = read_stuff("Integrator", cwd)
 int_set = read_stuff("int_set", cwd)
 calc_set = read_stuff("calc_set", cwd)
-calc_set["simulation"] = {"exe_path": input_path}
-order_function = read_stuff("order_function", cwd)
+order_settings = read_stuff("order_settings", cwd)
 reverse = read_stuff("reverse", cwd)
 left = read_stuff("left", cwd)
 right = read_stuff("right", cwd)
+
+# create engine and order function
+calc_set["simulation"] = {"exe_path": input_path}
+calc = create_external(calc_set, "ASE calculator", [])
+order_settings["simulation"] = {"exe_path": input_path}
+order_function = create_external(order_settings, "Order Parameter", [])
 
 atoms = read(initial_conf)
 if isinstance(atoms, list):
@@ -37,7 +42,6 @@ if isinstance(atoms, list):
 
 dyn = Integrator(atoms, **int_set)
 traj = traj = Trajectory(traj_file, "w")
-calc = create_external(calc_set, "ASE calculator", [])
 calc.calculate(atoms)
 atoms.calc = calc
 step_nr = 0
@@ -46,6 +50,7 @@ vpot = []
 msg_file = FileIO(
     msg_file_name, "a", OutputFormatter("MSG_File"), backup=False
 )
+msg_file.open()
 # integrator step is taken at the end of every loop,
 # such that frame 0 is also written
 for i in range(subcycles * path.maxlen):

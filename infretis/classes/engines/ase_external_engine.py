@@ -172,8 +172,8 @@ class ASEExternalEngine(EngineBase):
         msg_file.close()
         cwd = self.exe_dir
         dump_stuff(
-                ["system", "path", "ens_set", "Integrator", "int_set", "calc_set", "order_function","reverse","left","right"],
-                [system, path, ens_set, self.Integrator, self.integrator_settings, self.calc_set, self.order_function, reverse,left,right],
+                ["system", "path", "ens_set", "Integrator", "int_set", "calc_set", "order_settings", "reverse", "left", "right"],
+                [system, path, ens_set, self.Integrator, self.integrator_settings, self.calc_set, self.order_settings, reverse, left, right],
                 cwd,
                 )
 
@@ -197,41 +197,10 @@ class ASEExternalEngine(EngineBase):
             out_name = os.path.join(cwd, out_name)
             err_name = os.path.join(cwd, err_name)
 
-        return_code = None
-        ase_was_terminated = False
-
         with open(out_name, "wb") as fout, open(err_name, "wb") as ferr:
-            exe = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=fout,
-                stderr=ferr,
-                shell=False,
-                cwd=cwd,
-                preexec_fn=os.setsid,
-            )
+            exe = subprocess.run(cmd, stdout=fout, stderr=ferr, cwd=cwd)
 
-            while exe.poll() is None:
-                sleep(self.sleep)
-
-        if exe.returncode != 0:
-            logger.error(
-                "Execution of external program (%s) failed!",
-                self.description,
-            )
-            logger.error("Attempted command: %s", cmd2)
-            logger.error("Execution directory: %s", cwd)
-            logger.error(
-                "Return code from external program: %i", return_code
-            )
-            logger.error("STDOUT, see file: %s", out_name)
-            logger.error("STDERR, see file: %s", err_name)
-            msg = (
-                f"Execution of external program ({self.description}) "
-                f"failed with command:\n {cmd2}.\n"
-                f"Return code: {return_code}"
-            )
-            raise RuntimeError(msg)
+        exe.check_returncode()
 
         path_new = read_stuff("path", cwd)
         for phasepoint in path_new.phasepoints:
