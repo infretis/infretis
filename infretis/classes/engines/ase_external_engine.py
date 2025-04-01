@@ -179,7 +179,7 @@ class ASEExternalEngine(EngineBase):
         with open(sfile, "w") as w:
             w.write(f"{initial_conf} {self.subcycles} {traj_file} {cwd} {msg_file.filename} {self.input_path}")
 
-        while os.path.exists(sfile):
+        while os.path.exists(sfile) and not os.path.exists("success") and not os.path.exists("status"):
             sleep(0.5)
 
         #   cmd2 = " ".join(cmd)
