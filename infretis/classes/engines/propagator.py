@@ -21,24 +21,22 @@ sys.path.append(os.path.abspath("."))
 from mace.calculators import mace_mp
 from orderparam import LinearCombination
 
+
+logger = open("logger.txt", "a")
 # calc and orderfunction only need to be set up once
 calc = mace_mp("medium")
 order_function = LinearCombination()
 
 # set exe_dir, e.g. worker0/
-cwd = sys.argv[1]
+cwd = os.path.abspath(sys.argv[1])
 if not cwd:
     raise ValueError("No exe_dir specified!")
 if not os.path.isdir(cwd):
-    print(f"Did not find {cwd}/ dir, making it now.")
+    print(f"Did not find {cwd}/ dir, making it now.", file=logger, flush=True)
     os.mkdir(cwd)
 # change directory
+print(f"Changing dir to {cwd}")
 os.chdir(cwd)
-
-if os.path.exists(START):
-    print(f"Removing {START} files.")
-    os.remove(START)
-
 
 # these do not change so we don't need to set them up more than once
 calculator = mace_mp("medium")
@@ -50,13 +48,13 @@ while True:
     # wait for start file to appear
     if not os.path.exists(START):
         time.sleep(SLEEP)
-        #print(f"Sleeping ... now been idle for {idle_time} s")
+        print(f"Sleeping ... now been idle for {idle_time} s", file = logger)
         idle_time += SLEEP
     else:
-        #print(f"Found {START} file")
+        print(f"Found {START} file", file=logger, flush=True)
         with open(START, "r") as rfile:
             line = rfile.readline()
-            #print(line)
+            print(line, file=logger, flush=True)
             initial_conf, subcycles, traj_file, cwd, msg_file_name, input_path = line.split()
             subcycles = int(subcycles)
 
@@ -87,7 +85,9 @@ while True:
         msg_file.open()
         # integrator step is taken at the end of every loop,
         # such that frame 0 is also written
+        print(f"Starting {subcycles*path.maxlen} steps", file=logger, flush=True)
         for i in range(subcycles * path.maxlen):
+            print(f"step {i} of {subcycles*path.maxlen}", file=logger, flush=True)
             energy = calc.results["energy"]
             forces = calc.results["forces"]
             stress = calc.results.get("stress", None)
