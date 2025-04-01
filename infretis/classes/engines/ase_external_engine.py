@@ -182,10 +182,6 @@ class ASEExternalEngine(EngineBase):
         while os.path.exists(sfile):
             sleep(0.5)
 
-        while not os.path.exists("success"):
-            sleep(0.5)
-            print("Waiting for success file")
-
         #   cmd2 = " ".join(cmd)
         #   logger.debug(f"Executing {cmd2}.")
 
