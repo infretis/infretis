@@ -272,7 +272,6 @@ def create_orderparameters(
     for engine_key in engines.keys():
         for engine in engines[engine_key]:
             engine.order_function = create_orderparameter(settings)
-            engine.order_settings = settings["orderparameter"]
 
 
 def create_orderparameter(

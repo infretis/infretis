@@ -83,7 +83,6 @@ class ASEExternalEngine(EngineBase):
         # TODO: make this non-manual
         # by reading in from .toml or .py?
         # Create calculator
-        self.calc_set = calculator_settings
 
         # integrator stuff
         integrator = integrator.lower()
@@ -172,35 +171,26 @@ class ASEExternalEngine(EngineBase):
         msg_file.close()
         cwd = self.exe_dir
         dump_stuff(
-                ["system", "path", "ens_set", "Integrator", "int_set", "calc_set", "order_settings", "reverse", "left", "right"],
-                [system, path, ens_set, self.Integrator, self.integrator_settings, self.calc_set, self.order_settings, reverse, left, right],
+                ["system", "path", "ens_set", "Integrator", "int_set", "reverse", "left", "right"],
+                [system, path, ens_set, self.Integrator, self.integrator_settings, reverse, left, right],
                 cwd,
                 )
+        sfile = os.path.join(self.exe_dir, "INFINITY_START")
+        with open(sfile, "w") as w:
+            w.write(f"{initial_conf} {self.subcycles} {traj_file} {cwd} {msg_file.filename} {self.input_path}")
 
-        cmd = [self.python,
-                str(HERE / "propagator.py"),
-                initial_conf,
-                str(self.subcycles),
-                traj_file,
-                cwd,
-                msg_file.filename,
-                str(self.input_path),
-                ]
+        while os.path.exists(sfile):
+            sleep(0.5)
 
-        cmd2 = " ".join(cmd)
-        logger.debug(f"Executing {cmd2}.")
+        #   cmd2 = " ".join(cmd)
+        #   logger.debug(f"Executing {cmd2}.")
 
-        out_name = "stdout.txt"
-        err_name = "stderr.txt"
+        #   out_name = "stdout.txt"
+        #   err_name = "stderr.txt"
 
-        if cwd:
-            out_name = os.path.join(cwd, out_name)
-            err_name = os.path.join(cwd, err_name)
-
-        with open(out_name, "wb") as fout, open(err_name, "wb") as ferr:
-            exe = subprocess.run(cmd, stdout=fout, stderr=ferr, cwd=cwd)
-
-        exe.check_returncode()
+        #   if cwd:
+        #       out_name = os.path.join(cwd, out_name)
+        #       err_name = os.path.join(cwd, err_name)
 
         path_new = read_stuff("path", cwd)
         for phasepoint in path_new.phasepoints:
