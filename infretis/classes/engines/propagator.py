@@ -11,6 +11,7 @@ from infretis.classes.engines.enginebase import EngineBase
 import sys
 from infretis.classes.engines.ase_external_engine import read_stuff, dump_stuff
 import time
+import pathlib
 
 # if idle for more than this nr. of seconds we shut down the engine
 # TIMEOUT = 1000
@@ -22,13 +23,15 @@ from mace.calculators import mace_mp
 from orderparam import LinearCombination
 
 
-logger = open("logger.txt", "a")
 # calc and orderfunction only need to be set up once
 calc = mace_mp("medium")
 order_function = LinearCombination()
 
+
 # set exe_dir, e.g. worker0/
 cwd = os.path.abspath(sys.argv[1])
+wname = pathlib.Path(cwd).name
+logger = open(f"{wname}_propagator.log", "a")
 if not cwd:
     raise ValueError("No exe_dir specified!")
 if not os.path.isdir(cwd):
@@ -48,15 +51,30 @@ while True:
     # wait for start file to appear
     if not os.path.exists(START):
         time.sleep(SLEEP)
-        print(f"Sleeping ... now been idle for {idle_time} s", file = logger)
+        print(f"{wname}: Sleeping ... now been idle for {idle_time} s", file = logger, flush=True)
         idle_time += SLEEP
     else:
-        print(f"Found {START} file", file=logger, flush=True)
-        with open(START, "r") as rfile:
-            line = rfile.readline()
-            print(line, file=logger, flush=True)
-            initial_conf, subcycles, traj_file, cwd, msg_file_name, input_path = line.split()
-            subcycles = int(subcycles)
+        print(f"{wname}: Found {START} file", file=logger, flush=True)
+        # try to read start file
+        while True:
+            if not os.path.exists(START):
+                print(f"{wname}: Now the START file is missing... Now idle for {idle_time}", file=logger, flush=True)
+                time.sleep(SLEEP)
+                idle_time += SLEEP
+            else:
+                with open(START, "r") as rfile:
+                    line = rfile.readline()
+                    spl = line.split()
+                    if len(spl) != 6:
+                        print(f"{wname}: STARTFILE_ERR not 6 columns in file; content is '{spl}'. Now idle for {idle_time} s", file = logger, flush=True)
+                        time.sleep(SLEEP)
+                        idle_time += SLEEP
+                    # finally escape the loop if we get 6 values
+                    else:
+                        print(f"{wname} " + line, file=logger, flush=True)
+                        initial_conf, subcycles, traj_file, cwd, msg_file_name, input_path = line.split()
+                        subcycles = int(subcycles)
+                        break
 
         system = read_stuff("system", cwd)
         path = read_stuff("path", cwd)
@@ -72,22 +90,24 @@ while True:
         if isinstance(atoms, list):
             atoms = atoms[0]
 
-        dyn = Integrator(atoms, **int_set)
-        traj = traj = Trajectory(traj_file, "w")
-        calc.calculate(atoms)
-        atoms.calc = calc
-        step_nr = 0
-        ekin = []
-        vpot = []
         msg_file = FileIO(
             msg_file_name, "a", OutputFormatter("MSG_File"), backup=False
         )
         msg_file.open()
+
+        dyn = Integrator(atoms, **int_set)
+        traj = traj = Trajectory(traj_file, "w")
+        step_nr = 0
+        ekin = []
+        vpot = []
+        calc.calculate(atoms)
+        atoms.calc = calc
+        t0 = time.time()
         # integrator step is taken at the end of every loop,
         # such that frame 0 is also written
-        print(f"Starting {subcycles*path.maxlen} steps", file=logger, flush=True)
+        print(f"{wname}: Starting {subcycles*path.maxlen} steps", file=logger, flush=True)
         for i in range(subcycles * path.maxlen):
-            print(f"step {i} of {subcycles*path.maxlen}", file=logger, flush=True)
+            #print(f"step {i} of {subcycles*path.maxlen}", file=logger, flush=True)
             energy = calc.results["energy"]
             forces = calc.results["forces"]
             stress = calc.results.get("stress", None)
@@ -118,6 +138,7 @@ while True:
                     break
                 step_nr += 1
             dyn.step(forces=forces)
+        t1 = time.time()
 
         msg_file.write("# Propagation done.")
         msg_file.close()
@@ -125,6 +146,9 @@ while True:
         path.update_energies(ekin, vpot)
         dump_stuff(["path"], [path], cwd)
         dump_stuff(["success","status"], [success, status], cwd)
-        # remove file
+        # avoid divide by zero err
+        if step_nr == 0:
+            step_nr += 1
+        print(f"{wname}: propagation done {(t1-t0)/(step_nr)} s/step.", flush=True, file=logger)
         os.remove(START)
         idle_time = 0
