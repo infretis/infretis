@@ -421,7 +421,7 @@ def read_box_data(
     if all(key in data for key in ("A", "B", "C")):
         box = Cell.fromcellpar([data["A"], data["B"], data["C"]]).array
     elif "ABC" in data and "ALPHA_BETA_GAMMA" in data:
-        box = Cell.fromcellpar(*data["ABC"], *data["ALPHA_BETA_GAMMA"]).array
+        box = Cell.fromcellpar(list(data["ABC"]) + list(data["ALPHA_BETA_GAMMA"])).array
     elif "ABC" in data:
         box = Cell.fromcellpar(data["ABC"]).array
     else:
