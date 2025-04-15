@@ -147,6 +147,32 @@ def box_matrix_to_list(
         ]
     )
 
+def box_list_to_matrix( box_list: list) -> Optional[np.ndarray]:
+    """Flatten a box matrix to a list.
+
+    This method flattens and orders a box matrix to the following order:
+    `xx, yy, zz, xy, xz, yx, yz, zx, zy`.
+
+    Args:
+        box_list: A list of 9 elements representing the box.
+
+    Returns:
+        A matrix with the box parameters.
+    """
+    if box_list is None:
+        return None
+    matrix = np.zeros((3,3))
+    matrix[0, 0] =  box_list[0]
+    matrix[1, 1] =  box_list[1]
+    matrix[2, 2] =  box_list[2]
+    matrix[0, 1] =  box_list[3]
+    matrix[0, 2] =  box_list[4]
+    matrix[1, 0] =  box_list[5]
+    matrix[1, 2] =  box_list[6]
+    matrix[2, 0] =  box_list[7]
+    matrix[2, 1] =  box_list[8]
+    return matrix
+
 
 def get_box_from_header(header: str) -> Optional[np.ndarray]:
     """Get box lengths from a text header.

@@ -20,6 +20,7 @@ from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     box_matrix_to_list,
+    box_list_to_matrix,
     look_for_input_files,
 )
 
@@ -516,7 +517,7 @@ class GromacsEngine(EngineBase):
                 # available:
                 system.pos = data["x"]
                 system.vel = data["v"]
-                system.box = box_matrix_to_list(data["box"], full=True)
+                system.box = data["box"]
                 if system.vel is not None and reverse:
                     system.vel *= -1
                 order = self.calculate_order(
@@ -628,6 +629,7 @@ class GromacsEngine(EngineBase):
             logger.error(msg)
             raise ValueError(msg)
         _, xyz, vel, box = read_gromos96_file(filename)
+        box = box_list_to_matrix(box)
         return xyz, vel, box, None
 
     def _reverse_velocities(self, filename: str, outfile: str) -> None:
@@ -1120,6 +1122,7 @@ def read_gromos96_file(
     if rawdata["BOX"]:
         # TODO: SHOULD ALL BOXES BE CONVERTED INTO THE SAME FORM ALREADY HERE?
         box = np.array([float(i) for i in rawdata["BOX"][0].split()])
+        print("=g96"*20, box)
     else:
         # TODO: IS IT BETTER TO JUST FAIL IF THE BOX IS NOT THERE?
         box = None
