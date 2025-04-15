@@ -7,10 +7,12 @@ from ase.io.trajectory import Trajectory
 from ase import units as u
 from infretis.classes.formatter import FileIO, OutputFormatter
 from infretis.core.core import create_external
+from infretis.classes.orderparameter import create_orderparameter
 from infretis.classes.engines.enginebase import EngineBase
 import sys
 from infretis.classes.engines.ase_external_engine import read_stuff, dump_stuff
 import time
+import tomli
 import pathlib
 
 # if idle for more than this nr. of seconds we shut down the engine
@@ -18,18 +20,16 @@ import pathlib
 START = "INFINITY_START"
 SLEEP = 1.5
 
-sys.path.append(os.path.abspath("."))
-from mace.calculators import mace_mp
-from orderparam import LinearCombination
-
+# read .toml settings
+with open(sys.argv[1], "rb") as rfile:
+    config = tomli.load(rfile)
 
 # calc and orderfunction only need to be set up once
-calc = mace_mp("medium")
-order_function = LinearCombination()
-
+calc = create_external(config["engine"]["calculator_settings"], "ASE_calculator", [])
+order_function = create_orderparameter(config)
 
 # set exe_dir, e.g. worker0/
-cwd = os.path.abspath(sys.argv[1])
+cwd = os.path.abspath(sys.argv[2])
 wname = pathlib.Path(cwd).name
 logger = open(f"{wname}_propagator.log", "a")
 if not cwd:
@@ -40,10 +40,6 @@ if not os.path.isdir(cwd):
 # change directory
 print(f"Changing dir to {cwd}")
 os.chdir(cwd)
-
-# these do not change so we don't need to set them up more than once
-calculator = mace_mp("medium")
-order_function = LinearCombination()
 
 idle_time = 0
 
