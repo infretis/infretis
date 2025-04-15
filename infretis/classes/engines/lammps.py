@@ -30,33 +30,31 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
 
-class LammpsBox(Cell):
-    """A class to handle lammps boxes."""
+def lammpsbox_to_array(lammps_box):
+    """Convert a lammps box into matrix format.
 
-    def __init__(self, lammps_box):
-        """Initialize an ASE box from a lammps box."""
-        self.lammps_box = lammps_box
-        # orthogonal cell
-        if lammps_box.shape[1] == 2:
-            diag = lammps_box[:,1] - lammps_box[:,0]
-            box = np.eye(3)*diag
-        # triclinic box
-        else:
-            xlo_bound, xhi_bound, xy = lammps_box[0]
-            ylo_bound, yhi_bound, xz = lammps_box[1]
-            zlo, zhi, yz = lammps_box[2]
+    Used when calcualting the orderparameter such that we use the same format
+    for all engines.
+    """
+    if lammps_box.shape[1] == 2:
+        diag = lammps_box[:,1] - lammps_box[:,0]
+        box = np.eye(3)*diag
+    # triclinic box
+    else:
+        xlo_bound, xhi_bound, xy = lammps_box[0]
+        ylo_bound, yhi_bound, xz = lammps_box[1]
+        zlo, zhi, yz = lammps_box[2]
 
-            xlo = xlo_bound - min(0.0, xy, xz, xy + xz)
-            xhi = xhi_bound - max(0.0, xy, xz, xy + xz)
-            ylo = ylo_bound - min(0.0, yz)
-            yhi = yhi_bound - max(0.0, yz)
+        xlo = xlo_bound - min(0.0, xy, xz, xy + xz)
+        xhi = xhi_bound - max(0.0, xy, xz, xy + xz)
+        ylo = ylo_bound - min(0.0, yz)
+        yhi = yhi_bound - max(0.0, yz)
 
-            box = np.zeros((3, 3), dtype=np.float64)
-            box[0] = xhi - xlo, 0.0, 0.0
-            box[1] = xy, yhi - ylo, 0.0
-            box[2] = xz, yz, zhi - zlo
-
-        super().__init__(box)
+        box = np.zeros((3, 3))
+        box[0] = xhi - xlo, 0.0, 0.0
+        box[1] = xy, yhi - ylo, 0.0
+        box[2] = xz, yz, zhi - zlo
+    return box
 
 
 def write_lammpstrj(
@@ -293,25 +291,6 @@ def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
     return masses
 
 
-def shift_boxbounds(
-    xyz: np.ndarray, box: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Shift positions so that the lower box bounds are 0.
-
-    Args:
-        xyz: The positions to shift.
-        box: The box boundaries.
-
-    Returns:
-        A tuple containing:
-            - The shifted positions.
-            - A flattended version of the upper box bounds.
-    """
-    xyz -= box[:, 0]
-    box[:, 1] -= box[:, 0]
-    return xyz, box[:, 1].flatten()
-
-
 def check_lammps_input(lmp_inp):
     """Check that the lammps input file contains the mandatory lines.
 
@@ -451,7 +430,7 @@ class LAMMPSEngine(EngineBase):
         initial_conf = system.config[0]
 
         xyzi, veli, boxi, _ = self._read_configuration(initial_conf)
-        # shift box such that lower bounds are zero
+        boxi = lammpsbox_to_array(boxi)
         order = self.calculate_order(system, xyz=xyzi, vel=veli, box=boxi)
         msg_file.write(
             f'# Initial order parameter: {" ".join([str(i) for i in order])}'
@@ -526,11 +505,9 @@ class LAMMPSEngine(EngineBase):
                     # loop over the frames that are ready
                     for frame in range(len(trajectory)):
                         posvel = trajectory.pop(0)
-                        box = box_trajectory.pop()
+                        box = lammpsbox_to_array(box_trajectory.pop())
                         pos = posvel[:, :3]
                         vel = posvel[:, 3:]
-                        # shift the box bounds
-                        pos, box = shift_boxbounds(pos, box)
                         # calculate order, check for crossings, etc
                         order = self.calculate_order(
                             system, xyz=pos, vel=vel, box=box
@@ -618,7 +595,7 @@ class LAMMPSEngine(EngineBase):
     ]:
         """Read a configuration (a single frame trajectory)."""
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
-        pos, box = shift_boxbounds(pos, box)
+        box = lammpsbox_to_array(box)
         return pos, vel, box, None
 
     def _reverse_velocities(self, filename: str, outfile: str) -> None:

@@ -15,7 +15,6 @@ from infretis.classes.engines.lammps import (
     get_atom_masses,
     read_energies,
     read_lammpstrj,
-    shift_boxbounds,
     write_lammpstrj,
     LammpsBox,
 )
@@ -145,27 +144,6 @@ def test_reverse_velocities(tmp_path):
     id_type0, pos0, vel0, box0 = read_lammpstrj(infile, 0, natoms)
     shifted_pos1, vel1, shifted_box1, _ = engine._read_configuration(outfile)
     assert np.all(vel0 == -vel1)
-
-
-def test_shift_boxbounds():
-    """Test that we can shift the box bounds."""
-    natoms = 12
-    # a shift from box [0, 12.65] should return same positions
-    id_type, pos, vel, box = read_lammpstrj(
-        HERE / "data/lammps_files/traj.lammpstrj", 0, natoms
-    )
-    new_pos, new_box = shift_boxbounds(pos, box)
-    assert np.all(new_pos == pos)
-    assert np.all(new_box == BOX)
-    id_type, pos, vel, box = read_lammpstrj(
-        HERE / "data/lammps_files/traj.lammpstrj", 1, natoms
-    )
-    new_pos, new_box = shift_boxbounds(pos, box)
-    assert np.all(new_box == BOX)
-    new_pos[:, 0] += BOX_FRAMES[1][0, 0]
-    new_pos[:, 1] += BOX_FRAMES[1][1, 0]
-    new_pos[:, 2] += BOX_FRAMES[1][2, 0]
-    assert np.all(new_pos.T == LAST_FRAME_POS)
 
 
 class PartialWriter:
