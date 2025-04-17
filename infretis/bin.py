@@ -29,3 +29,18 @@ def internalrun(input_file):
     if config is None:
         return
     scheduler(config)
+
+
+def infrepptisrun():
+    """Read input and runs infretis."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-i", "--input", help="Location of infrepptis input file", required=True
+    )
+
+    args_dict = vars(parser.parse_args())
+    input_file = args_dict["input"]
+    config = setup_config(input_file) ##PP
+    if config is None:
+        return
+    scheduler(config)

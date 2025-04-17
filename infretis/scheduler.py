@@ -9,7 +9,7 @@ def scheduler(config):
     """Run infretis loop."""
     # setup repex, runner and futures
     md_items, state = setup_internal(config)
-    runner, futures = setup_runner(state)
+    runner, futures = setup_runner(config)
 
     # submit the first number of workers
     while state.initiate():

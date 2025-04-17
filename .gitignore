@@ -167,6 +167,14 @@ examples/
 !examples/turtlemd/H2_quantis/runner.sh
 !examples/turtlemd/double_well/orderp.py
 !examples/turtlemd/H2/runner.sh
+!examples/turtlemd/ppdouble_well/analyze.sh
+!examples/turtlemd/ppdouble_well/clean.sh
+!examples/turtlemd/ppdouble_well/conv_inf_py.py
+!examples/turtlemd/ppdouble_well/fakeretis.rst
+!examples/turtlemd/ppdouble_well/infretis.toml
+!examples/turtlemd/ppdouble_well/load_copy
+!examples/turtlemd/ppdouble_well/orderp.py
+!examples/turtlemd/ppdouble_well/runner.sh
 
 # amsworker
 **/amsworker*/

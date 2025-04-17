@@ -10,6 +10,7 @@ from infretis.asyncrunner import aiorunner, future_list
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
+from infretis.classes.repex_pp import REPEX_state_pp
 from infretis.core.tis import def_globals, run_md
 
 logger = logging.getLogger("main")
@@ -24,7 +25,7 @@ class TOMLConfigError(Exception):
     #    super().__init__(message)
 
 
-def setup_internal(config: dict) -> Tuple[dict, REPEX_state]:
+def setup_internal(config: dict) -> Tuple[dict, REPEX_state | REPEX_state_pp]:
     """Run the various setup functions.
 
     Args
@@ -38,7 +39,12 @@ def setup_internal(config: dict) -> Tuple[dict, REPEX_state]:
     setup_logger()
 
     # setup repex
-    state = REPEX_state(config, minus=True)
+    # if mode pp:
+    pp = config.get("simulation", {}).get("mode", False) == "pp"
+    if config.get("simulation", {}).get("mode", False) == "pp":
+        state = REPEX_state_pp(config, minus=True)
+    else:
+        state = REPEX_state(config, minus=True)
 
     # setup ensembles
     state.initiate_ensembles()
@@ -66,14 +72,14 @@ def setup_internal(config: dict) -> Tuple[dict, REPEX_state]:
     return md_items, state
 
 
-def setup_runner(state: REPEX_state) -> Tuple[aiorunner, future_list]:
+def setup_runner(config: dict) -> Tuple[aiorunner, future_list]:
     """Set the task runner class up.
 
     Args:
         state: A REPEX state from which to get the config dict
     """
     # setup client with state.workers workers
-    runner = aiorunner(state.config, state.config["runner"]["workers"])
+    runner = aiorunner(config, config["runner"]["workers"])
 
     # Attach the run_md task and start the runner's workers
     runner.set_task(run_md)
