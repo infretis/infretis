@@ -9,44 +9,20 @@ import numpy as np
 import tomli_w
 from numpy.random import default_rng
 
-from infretis.classes.repex import REPEX_state
+from infretis.classes.repex import REPEX_state, spawn_rng
 from infretis.classes.engines.factory import assign_engines
+from infretis.classes.formatter import PathStorage
 from infretis.core.core import make_dirs
 from infretis.core.tis import calc_cv_vector
-
-from infretis.classes.formatter import PathStorage
 
 logger = logging.getLogger("main")  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 DATE_FORMAT = "%Y.%m.%d %H:%M:%S"
 
 
-def spawn_rng(rgen):
-    """
-    Reimplementation of np.random.Generator.spawn() for numpy <= 1.24.4.
-
-    Spawns a new random number generator (RNG) from an existing RNG.
-
-    This function creates a new instance of the same type of RNG as the input
-    RNG, using a seed generated from the input RNG's bit generator.
-
-    Parameters:
-    rgen (np.random.Generator): The input random number generator.
-
-    Returns:
-    np.random.Generator: A new random number generator instance.
-    """
-    return type(rgen)(
-        type(rgen.bit_generator)(seed=rgen.bit_generator._seed_seq.spawn(1)[0])
-    )
-
-
-
 class REPEX_state_pp(REPEX_state):
     """Define the REPPEX object."""
 
-    # overwrite storage object.
-    pstore = PathStorage()
 
     def __init__(self, config, minus=False):
         """Initiate REPEX given confic dict from *toml file."""
@@ -116,117 +92,6 @@ class REPEX_state_pp(REPEX_state):
                 "pn_old": inp_traj.path_number,
             }
         return picked
-
-    def pick_traj_ens(self, ens):
-        """Pick traj ens."""
-        prob = self.prob.astype("float64")[:, ens].flatten()
-        traj = self.rgen.choice(self.n, p=np.nan_to_num(prob / np.sum(prob)))
-        self.swap(traj, ens)
-        self.lock(ens)
-        return self._trajs[ens]
-
-    def pick_lock(self):
-        """Pick path and ens.
-
-        In case a crash, we pick lock locked from previous simulation.
-        """
-        if not self.locked0:
-            if "restarted_from" in self.config["current"]:
-                # get the same pick() as pre-restart. Need to set it again
-                # because current self.rgen was used for calculating self.prob.
-                self.set_rgen()
-            return self.pick()
-
-        enss = []
-        trajs = []
-        enss0, trajs0 = self.locked0.pop(0)
-        logger.info("pick locked!")
-        for ens, traj in zip(enss0, trajs0):
-            enss.append(ens - self._offset)
-            traj_idx = self.live_paths().index(int(traj))
-            self.swap(traj_idx, ens)
-            self.lock(ens)
-            trajs.append(self._trajs[ens])
-        if self.printing():
-            self.print_pick(tuple(enss), tuple(trajs0), self.cworker)
-        picked = {}
-
-        child_rng = spawn_rng(self.rgen)
-        for ens_num, inp_traj in zip(enss, trajs):
-            ens_pick = self.ensembles[ens_num + 1]
-            ens_pick["rgen"] = spawn_rng(child_rng)
-            picked[ens_num] = {
-                "ens": ens_pick,
-                "traj": inp_traj,
-                "pn_old": inp_traj.path_number,
-            }
-        return picked
-
-    def prep_md_items(self, md_items):
-        """Fill md_items with picked path and ens."""
-        # Remove previous picked
-        md_items.pop("picked", None)
-
-        # pick/lock ens & path
-        if self.toinitiate >= 0:
-            # assign pin
-            md_items.update({"pin": self.cworker})
-
-            # pick lock
-            md_items["picked"] = self.pick_lock()
-
-            # set the worker folder
-            w_folder = os.path.join(os.getcwd(), f"worker{md_items['pin']}")
-            make_dirs(w_folder)
-            md_items["w_folder"] = w_folder
-        else:
-            md_items["picked"] = self.pick()
-
-        # Record ens_nums
-        md_items["ens_nums"] = list(md_items["picked"].keys())
-
-        # allocate worker pin:
-        ens_engs = self.config["simulation"]["ensemble_engines"]
-        eng_names = []
-        for ens_num in md_items["ens_nums"]:
-            md_items["picked"][ens_num]["exe_dir"] = md_items["w_folder"]
-            if self.config["runner"].get("wmdrun", False):
-                md_items["picked"][ens_num]["wmdrun"] = self.config["runner"][
-                    "wmdrun"
-                ][md_items["pin"]]
-            # spawn rgen for all engines
-            ens_rgen = md_items["picked"][ens_num]["ens"]["rgen"]
-            md_items["picked"][ens_num]["rgen-eng"] = spawn_rng(ens_rgen)
-            md_items["picked"][ens_num]["pin"] = md_items["pin"]
-            eng_names += ens_engs[ens_num + 1]
-
-        # engine assignment
-        unique_eng_names = list(set(eng_names))
-        eng_idx = assign_engines(
-            self.engine_occ, unique_eng_names, md_items["pin"]
-        )
-        for ens_num in md_items["ens_nums"]:
-            md_items["picked"][ens_num]["eng_idx"] = {
-                eng: eng_idx[eng] for eng in ens_engs[ens_num + 1]
-            }
-
-        # write pattern:
-        if self.pattern and self.toinitiate == -1:
-            self.write_pattern(md_items)
-        else:
-            md_items["md_start"] = time.time()
-
-        # record pnum_old
-        md_items["pnum_old"] = []
-        for key in md_items["picked"].keys():
-            pnum_old = md_items["picked"][key]["traj"].path_number
-            md_items["pnum_old"].append(pnum_old)
-
-        # empty / update md_items:
-        for key in ["moves", "trial_len", "trial_op", "generated"]:
-            md_items[key] = []
-
-        return md_items
 
     def add_traj(self, ens, traj, valid, count=True, n=0):
         """Add traj to state and calculate P matrix."""

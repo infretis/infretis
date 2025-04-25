@@ -80,7 +80,7 @@ def test_run_repptis(tmp_path: PosixPath) -> None:
     os.chdir(folder)
 
     # run 10 steps
-    success = os.system("infrepptisrun -i infretis.toml >> out.txt")
+    success = os.system("infretisrun -i infretis.toml >> out.txt")
     assert success == 0
 
     # compare
@@ -89,7 +89,7 @@ def test_run_repptis(tmp_path: PosixPath) -> None:
         assert filecmp.cmp(f"./{item}", f"{basepath}/datapp/10steps/{item}")
 
     change_toml_steps("restart.toml", 20)
-    success = os.system("infrepptisrun -i restart.toml >> out.txt")
+    success = os.system("infretisrun -i restart.toml >> out.txt")
     assert success == 0
     rm_restarted_from("restart.toml")
 
@@ -99,7 +99,7 @@ def test_run_repptis(tmp_path: PosixPath) -> None:
         assert filecmp.cmp(f"./{item}", f"{basepath}/datapp/20steps/{item}")
 
     change_toml_steps("restart.toml", 30)
-    success = os.system("infrepptisrun -i restart.toml >> out.txt")
+    success = os.system("infretisrun -i restart.toml >> out.txt")
     assert success == 0
     rm_restarted_from("restart.toml")
 
@@ -121,7 +121,7 @@ def test_run_repptis(tmp_path: PosixPath) -> None:
     with open("infretis.toml", "wb") as f:
         tomli_w.dump(config, f)
 
-    success = os.system("infrepptisrun -i infretis.toml >| out.txt")
+    success = os.system("infretisrun -i infretis.toml >| out.txt")
     assert success == 0
     assert (
         get_diff_data(
