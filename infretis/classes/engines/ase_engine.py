@@ -162,6 +162,8 @@ class ASEEngine(EngineBase):
         step_nr = 0
         ekin = []
         vpot = []
+        temp = []
+        etot = []
         # integrator step is taken at the end of every loop,
         # such that frame 0 is also written
         for i in range(self.subcycles * path.maxlen):
@@ -171,6 +173,8 @@ class ASEEngine(EngineBase):
             if (i) % (self.subcycles) == 0:
                 ekin.append(atoms.get_kinetic_energy())
                 vpot.append(self.calc.results["energy"])
+                etot.append(atoms.get_total_energy())
+                temp.append(atoms.get_temperature())
                 # NOTE: Writing atoms removes all results from
                 # the calculator (and therefore atoms)!
                 traj.write(atoms, forces=forces, energy=energy, stress=stress)
@@ -204,7 +208,7 @@ class ASEEngine(EngineBase):
 
         msg_file.write("# Propagation done.")
         traj.close()
-        path.update_energies(ekin, vpot)
+        path.update_energies(ekin, vpot, etot, temp)
         return success, status
 
     def modify_velocities(

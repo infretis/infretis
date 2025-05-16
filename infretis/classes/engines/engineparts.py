@@ -17,6 +17,8 @@ from typing import (
 )
 
 import numpy as np
+from ase.atoms import Atoms
+from infretis.core.core import import_from
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -162,7 +164,6 @@ def box_vector_angles(
         length[2] ** 2 - box_matrix[0, 2] ** 2 - box_matrix[1, 2] ** 2
     )
     return box_matrix
-
 
 def box_matrix_to_list(
     matrix: np.ndarray, full: bool = False
@@ -604,3 +605,102 @@ def lammpstrj_reader(
             coordinate_snapshot = np.zeros((N_atoms, 6), dtype=np.float64)
             box_snapshot = np.zeros((3, 3), dtype=np.float64)
     return trajectory, box
+
+def kinetic_energy(
+    vel: np.ndarray, mass: np.ndarray
+) -> Tuple[float, np.ndarray]:
+    """Obtain the kinetic energy for given velocities and masses.
+
+    Args:
+        vel: The velocities
+        mass: The masses as a column vector.
+
+    Returns:
+        A tuple containing:
+            - The kinetic energy.
+            - The kinetic energy tensor.
+    """
+    mom = vel * mass.reshape(-1,1)
+    if len(mass) == 1:
+        kin = 0.5 * np.outer(mom, vel)
+    else:
+        kin = 0.5 * np.einsum("ij,ik->jk", mom, vel)
+    return kin.trace(), kin
+
+
+def reset_momentum(vel: np.ndarray, mass: np.ndarray) -> np.ndarray:
+    """Set the linear momentum of all particles to zero.
+
+    Note:
+        Velocities are modified in place **and** returned.
+
+    Args:
+        vel: The velocities of the particles in system.
+        mass: The masses of the particles in the system.
+
+    Returns:
+        The modified velocities of the particles.
+    """
+    # TODO: ?avoid creating an extra dimension by indexing array with None?
+    mom = np.sum(vel * mass, axis=0)
+    vel -= mom / mass.sum()
+    return vel
+
+
+
+def get_ase_atoms(
+    masses: Union[bool, list, Path],
+    constraint_file: Union[bool, Path],
+    engine_uses_constraints: bool = False,
+    engine_input_path: Path = Path("."),
+    ):
+    """Set up ASE atoms (with constraints) from mass and constraint files.
+
+    This is used when generating velocities internally (with or without
+    constraints). The constraints are taken care of by ASE during the velocity
+    generation.
+
+    Args:
+        masses: a list or file containg atomic masses.
+        constraint_file: a file that defines a list of ASE constraints in a
+          varaible 'ase_constraints' that can be imported from the file.
+        engine_uses_constraints: determines if the engine uses constranints
+        engine_input_path: directory containing the constraint file
+
+    """
+    # first set up atoms
+    if isinstance(masses, Path):
+        atom_masses = np.genfromtxt(engine_input_path / masses)
+    elif isinstance(masses, list):
+        atom_masses = masses
+    else:
+        msg = f"Could not create ASE atoms from the given masses: '{masses}'."
+        raise ValueError(msg)
+
+    atoms = Atoms(f"X{len(masses)}", masses = atom_masses)
+
+    # perform some checks before setting up the constraints
+    if engine_uses_constraints and not constraint_file:
+        msg = (
+            f"Found contraints in the engine input file"
+            + " and you want to generate velocities internally. But you"
+            + " did not specify a constraint file."
+            )
+        raise ValueError(msg)
+    elif not engine_uses_constraints and constraint_file:
+        msg = (
+            "Did not find constraints in the engine input files"
+            + " but you supplied a constraint file. This will generate"
+            + " velocitis at the wrong temperature."
+            )
+        raise ValueError(msg)
+
+
+    if constraint_file:
+        constraint_file = engine_input_path / constraint_file
+        if not constraint_file.isfile():
+            raise ValueError(f"Did not find {constraint_file.resolve()}")
+
+        ase_constraints = import_from(constraint_file, "ase_constraints")
+        atoms.set_constraint(ase_constraints)
+    return atoms

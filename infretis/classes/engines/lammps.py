@@ -13,11 +13,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     ReadAndProcessOnTheFly,
     lammpstrj_reader,
+    get_ase_atoms,
 )
 
 if TYPE_CHECKING:  # pragma: nocover
@@ -219,7 +219,7 @@ def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
         atom_style: The style used in lammps. Supports 'full' and 'charge'.
 
     Returns:
-        An array with the masses read from the file.
+        A list of the atomic masses read from the file.
     """
     col = {"full": 2, "charge": 1}
     if atom_style not in col:
@@ -256,11 +256,11 @@ def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
             f"Could not read atom masses from {lammps_data}. \
                          Found {n_atoms} atoms and {n_atom_types} atom_types."
         )
-    masses = np.zeros((n_atoms, 1))
+    masses = np.zeros(n_atoms)
     for atom_type in range(1, n_atom_types + 1):
         idx = np.where(atoms[:, col[atom_style]] == atom_type)[0]
         masses[idx] = atom_type_masses[atom_type - 1, 1]
-    return masses
+    return list(masses)
 
 
 def shift_boxbounds(
@@ -285,12 +285,22 @@ def shift_boxbounds(
 def check_lammps_input(lmp_inp):
     """Check that the lammps input file contains the mandatory lines.
 
+    Also checks if there are constraints defined in the lammps input.
     We only check that each string of the mandatory list is contained
     within any of the lammps input lines.
 
     Note that it cannot correct for exotic situations such as e.g. line breaks
     in the lammps input file.
     """
+    important_info = {
+            "engine_uses_constraints": False,
+            "units": "real",
+            }
+    constraint_keywords = [
+            "fix rigid",
+            "fix shake",
+            ]
+
     mandatory = [
         "variable subcycles index infretis_subcycles",
         "variable timestep index infretis_timestep",
@@ -311,15 +321,28 @@ def check_lammps_input(lmp_inp):
 
     with open(lmp_inp) as rfile:
         for line in rfile:
+            curr_cmd = " ".join(line.split())
+            # check mandatory keywords
             for i, lmp_cmd in enumerate(mandatory):
-                curr_cmd = " ".join(line.split())
                 if lmp_cmd in curr_cmd:
                     mandatory.pop(i)
+            # check if constraints present
+            for i, lmp_cmd in enumerate(constraint_keywords):
+                if lmp_cmd in curr_cmd:
+                    important_info["engine_uses_constraints"] = True
+                    logger.info(f"Found constraint command '{line}'")
+            # get lammps units
+            if curr_cmd.startswith("units"):
+                units =  curr_cmd.split()[1]
+                important_info["units"] = units
+                logger.info(f"Using LAMMPS units {units}: '{curr_cmd}'")
+
         if len(mandatory) != 0:
             raise ValueError(
                 f"Did not find the following commands in {lmp_inp}:\n"
                 f"{mandatory}"
             )
+    return important_info
 
 
 class LAMMPSEngine(EngineBase):
@@ -365,6 +388,7 @@ class LAMMPSEngine(EngineBase):
         atom_style: str = "full",
         exe_path: Path = Path(".").resolve(),
         sleep: float = 0.1,
+        constraints: Union[bool, List, str] = False,
     ):
         """Initialize the LAMMPS simulation engine.
 
@@ -383,6 +407,8 @@ class LAMMPSEngine(EngineBase):
                 in case `input_path` is a relative path.
             sleep: A time in seconds used for waiting between attempts to read
                 the LAMMPS output.
+            constraints: a python file defining ase constraints that can be
+              imported as 'ase_constraints'
         """
         super().__init__("LAMMPS external engine", timestep, subcycles)
         self.lmp = shlex.split(lmp)
@@ -396,10 +422,36 @@ class LAMMPSEngine(EngineBase):
             "data": self.input_path / "lammps.data",
             "input": self.input_path / "lammps.input",
         }
-        check_lammps_input(self.input_files["input"])
         self.atom_style = atom_style
-        self.mass = get_atom_masses(self.input_files["data"], self.atom_style)
-        self.n_atoms = self.mass.shape[0]
+        # check lammps input settings
+        input_info = check_lammps_input(self.input_files["input"])
+        # units are required when generating velocities
+        # we need the scale factors to convert distance to angstrom
+        # and velocity to angstrom/fs
+        units = input_info["units"]
+        if units  == "real":
+            # time in fs, distance in angstrom, allready correct
+            self.xyz2ase = 1.0
+            self.vel2ase = 1.0
+        elif units == "metal":
+            # time in ps, distance in angstrom
+            self.xyz2ase = 1.0
+            self.vel2ase = 0.001 # Å/ps -> 1/1000*Å/fs
+        else:
+            raise ValueError(
+            f"Scaling factors for lammps units '{units}' are not implemented"
+            " yet. This should be straightforward. Contact the developers if"
+            " in doubt."
+            )
+
+        masses = get_atom_masses(self.input_files["data"], self.atom_style)
+        self.ase_atoms = get_ase_atoms(
+            masses,
+            constraints,
+            engine_uses_constraints = input_info["engine_uses_constraints"],
+            engine_input_path = input_path,
+            )
+        self.n_atoms = len(masses)
         self.temperature = temperature
         self.kb = 1.987204259e-3  # kcal/(mol*K)
         self._beta = 1 / (self.kb * self.temperature)
@@ -572,7 +624,9 @@ class LAMMPSEngine(EngineBase):
         end = (step_nr + 1) * self.subcycles
         ekin: Union[np.ndarray, list[float]] = energy.get("KinEng", [])
         vpot: Union[np.ndarray, list[float]] = energy.get("PotEng", [])
-        path.update_energies(ekin[:end], vpot[:end])
+        etot: Union[np.ndarray, list[float]] = energy.get("TotEng", [])
+        temp: Union[np.ndarray, list[float]] = energy.get("Temp", [])
+        path.update_energies(ekin[:end], vpot[:end], etot[:end], temp[:end])
         self._removefile(run_input)
         return success, status
 
@@ -617,29 +671,17 @@ class LAMMPSEngine(EngineBase):
         Note:
             This method does **not** take care of constraints.
         """
-        mass = self.mass
-        # energy is in units kcal/mol which we want to convert
-        # to units (g/mol)*Å^2/fs (units of m*v^2), the velocity
-        # units of lammps.
-        # using Unitful:
-        #   uconvert((u"kcal/g")^0.5, 1u"Å/fs") = 48.88821290839617
-        # so we need to scale the velocities by this factor
-        scale = 48.88821290839617
         pos = self.dump_frame(system)
         id_type, xyz, vel, box = read_lammpstrj(pos, 0, self.n_atoms)
-        kin_old = kinetic_energy(vel, mass)[0]
-        vel, _ = self.draw_maxwellian_velocities(vel, mass, self.beta)
-        # convert to correct units
-        vel /= scale
-        # reset momentum is not the default in LAMMPS
-        if vel_settings.get("zero_momentum", False):
-            vel = reset_momentum(vel, mass)
-
-        conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
+        vel, kin_old, kin_new, conf_out = self.ase_modify_system_vel(
+            system,
+            self.ase_atoms,
+            xyz,
+            vel,
+            xyz2ase=self.xyz2ase,
+            vel2ase=self.vel2ase,
+        )
         write_lammpstrj(conf_out, id_type, xyz, vel, box)
-        kin_new = kinetic_energy(vel, mass)[0]
-        system.config = (conf_out, 0)
-        system.ekin = kin_new
         if kin_old == 0.0:
             dek = float("inf")
             logger.debug(

@@ -16,11 +16,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     box_matrix_to_list,
     look_for_input_files,
+    get_ase_atoms,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -102,6 +102,7 @@ class GromacsEngine(EngineBase):
         write_force: bool = False,
         infretis_genvel: bool = False,
         masses: Union[bool, List, str] = False,
+        constraints: Union[bool, List, str] = False,
     ):
         """Set up the GROMACS engine.
 
@@ -121,8 +122,9 @@ class GromacsEngine(EngineBase):
             infretis_genvel: If true we generate the velocities
                 internally by drawing random numbers from a maxwell-boltzmann
                 distribution. Mostly used for testing purposes.
-            masses: A list of particle masses or a txt file with particle
-                masses
+            masses: A list or a txt file with particle masses
+            constraints: a python file defining ase constraints that can be
+              imported as 'ase_constraints'
         """
         super().__init__("GROMACS engine zamn", timestep, subcycles)
         self.ext = gmx_format
@@ -158,8 +160,10 @@ class GromacsEngine(EngineBase):
         self.input_files = look_for_input_files(
             self.input_path, default_files, extra_files
         )
+
         # Check the input file and create new input file with
         # consistent settings:
+        engine_uses_constraints = False
         check_set = self._read_input_settings(self.input_files["input_o"])
         for key in check_set.keys():
             val = check_set[key]
@@ -182,29 +186,27 @@ class GromacsEngine(EngineBase):
                     + "from this file."
                 )
                 raise ValueError(msg)
+
+            if key == "constraints":
+                engine_uses_constraints = True
+
             if key in ["tc-grps", "tc_grps"]:
                 self.n_tc_grps = len(val.split(";")[0].split())
+
+        # for generating velocities with constraints
+        self.infretis_genvel = infretis_genvel
+
+        if self.infretis_genvel:
+            self.ase_atoms = get_ase_atoms(
+                masses,
+                constraints,
+                engine_uses_constraints = engine_uses_constraints,
+                engine_input_path = input_path
+            )
 
         self.temperature = temperature
         self.kb = 0.0083144621  # kJ/(K*mol)
         self._beta = 1 / (self.temperature * self.kb)
-
-        # get masses if generating velocites internally
-        self.infretis_genvel = infretis_genvel
-        if infretis_genvel:
-            if not masses:
-                msg = (
-                    "If you want to generate velocites internally you also "
-                    + "need to specify the particle masses either as a list "
-                    + f"or string pointing to a csv file in {self.input_path}"
-                )
-                raise ValueError(msg)
-            if isinstance(masses, str):
-                self.masses = np.reshape(
-                    np.genfromtxt(self.input_path / masses), (-1, 1)
-                )
-            elif isinstance(masses, list):
-                self.masses = np.reshape(masses, (-1, 1))
 
         settings: Dict[str, Union[str, float, int]] = {
             "dt": self.timestep,
@@ -285,7 +287,7 @@ class GromacsEngine(EngineBase):
                     )
                 )
             ).encode(),
-            "path": b"Potential\nKinetic-En.",
+            "path": b"Potential\nKinetic-En.\nTotal-Energy\nTemperature",
         }
         if terms not in allowed_terms:
             return allowed_terms["path"]
@@ -541,7 +543,7 @@ class GromacsEngine(EngineBase):
         msg_file.write("# Propagation done.")
         msg_file.write(f'# Reading energies from: {out_files["edr"]}')
         energy = self.get_energies(out_files["edr"])
-        path.update_energies(energy["kinetic en."], energy["potential"])
+        path.update_energies(energy["kinetic en."], energy["potential"], energy["total energy"], energy["temperature"])
         logger.debug("Removing GROMACS output after propagate.")
         remove = [
             val
@@ -664,10 +666,10 @@ class GromacsEngine(EngineBase):
                     the velocity modification.
                 - kin_new: The new kinetic energy of the system.
         """
-        kin_old = system.ekin
         pos = self.dump_frame(system)
         # generate velocities with gromacs
         if not self.infretis_genvel:
+            kin_old = system.ekin
             if vel_settings.get("zero_momentum", True) is False:
                 msg = (
                     "Velocitiy generation with gromacs "
@@ -680,23 +682,19 @@ class GromacsEngine(EngineBase):
             system.vel_rev = False
             system.ekin = kin_new
             system.vpot = energy["potential"][-1]
+            system.etot = energy["total energy"][-1]
+            system.temp = energy["temperature"][-1]
 
-        # generate velocities by drawing random numbers
+        # generate velocities with ASE
         else:
             txt, xyz, vel, _ = read_gromos96_file(pos)
             if not txt["VELOCITY"]:
                 print(f"{pos} did not contain velocity information.")
                 txt["VELOCITY"] = txt["POSITION"]
-            vel, _ = self.draw_maxwellian_velocities(
-                vel, self.masses, self.beta
+            vel, kin_old, kin_new, conf_out = self.ase_modify_system_vel(
+                system, self.ase_atoms, xyz, vel, xyz2ase=10.0, vel2ase=0.01,
             )
-            if vel_settings.get("zero_momentum", False):
-                vel = reset_momentum(vel, self.masses)
-            conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
             write_gromos96_file(conf_out, txt, xyz, vel)
-            kin_new = kinetic_energy(vel, self.masses)[0]
-            system.config = (conf_out, 0)
-            system.ekin = kin_new
 
         if kin_old is None or kin_new is None:
             dek = float("inf")

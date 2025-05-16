@@ -26,10 +26,11 @@ class System:
         self.pos: np.ndarray = np.zeros(0)
         self.vel: np.ndarray = np.zeros(0)
         self.vel_rev: bool = False
-        self.ekin: Optional[float] = None
         self.vpot: Optional[float] = None
+        self.ekin: Optional[float] = None
+        self.etot: Optional[float] = None
+        self.temp: Optional[float] = None
         self.box: Optional[np.ndarray] = np.zeros((3, 3))
-        self.temperature: Dict[str, float] = {}
 
     def copy(self) -> System:
         """Return a copy of this system."""

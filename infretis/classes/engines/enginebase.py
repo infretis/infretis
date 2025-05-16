@@ -14,7 +14,12 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+from ase.md.velocitydistribution import (
+MaxwellBoltzmannDistribution,
+Stationary,
+)
 from infretis.classes.formatter import FileIO, OutputFormatter
+from infretis.classes.engines.engineparts import kinetic_energy, reset_momentum
 
 if TYPE_CHECKING:  # pragma: no cover
     from infretis.classes.orderparameter import OrderParameter
@@ -135,6 +140,59 @@ class EngineBase(metaclass=ABCMeta):
     @abstractmethod
     def set_mdrun(self, md_items: Dict[str, Any]) -> None:
         """Set exe_dir and worker terminal command to be run."""
+
+    def ase_modify_system_vel(
+        self,
+        system: System,
+        atoms: Atoms,
+        xyz: np.ndarray,
+        vel: np.ndarray,
+        xyz2ase: float = 1.0,
+        vel2ase: float = 1.0,
+        vel_settings: dict = {},
+    ) -> Tuple[np.ndarray, float, str]:
+        """Draw Maxwelleian velocities for an infretis System with ASE.
+
+        ASE also takes care of constraints if present in the atoms object.
+
+        Args:
+            system: the phaepoint we modify the veloities of
+            atoms: the engines ase_atoms object (may have constraints)
+            xyz: coordinates of the phase point
+            vel: velocities of the phase point
+            xyz2ase: scaling factor to convert engine coords to angstrom
+            vel2ase: scaling factor to convert engine velocities to angstrom/fs
+            vel_settings: may contain addition information about how we modify
+              the velocities, e.g. zero_momentum or zero_rotation.
+
+        Returns:
+            vel: the positions after generating velocities
+            kin_new: the new kinetic energy after modifying velocities
+            conf_out: the filename of the new phase point (genvel.<engine_ext>)
+        """
+        masses = self.ase_atoms.get_masses()
+        kin_old = kinetic_energy(vel, masses)[0]
+        atoms.set_positions(xyz*xyz2ase)
+        atoms.set_velocities(vel*vel2ase)
+
+        MaxwellBoltzmannDistribution(
+            self.ase_atoms,
+            temperature_K = self.temperature,
+            rng = self.rgen,
+        )
+
+        if vel_settings.get("zero_momentum", False):
+            Stationary(self.ase_atoms, preserve_temperature=False)
+        #if vel_settings.get("zero_rotation", False):
+        # ZeroRotation(self.ase_atoms, preserve_tempreature=False)
+        vel = self.ase_atoms.get_velocities()/vel2ase # convert vel units back
+        kin_new = kinetic_energy(vel, masses)[0]
+        system.ekin = kin_new
+        system.etot = system.vpot + system.ekin
+        system.temp = self.ase_atoms.get_temperature()
+        conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
+        system.config = (conf_out, 0)
+        return vel, kin_old, kin_new, conf_out
 
     def calculate_order(
         self,
