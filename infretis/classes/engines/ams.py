@@ -30,6 +30,7 @@ from infretis.classes.engines.engineparts import (
 from infretis.classes.formatter import FileIO
 from infretis.classes.path import Path as InfPath
 from infretis.classes.system import System
+import time
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -340,6 +341,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                 "AMS extracting frame: %s, %i -> %s", traj_file, idx, out_file
             )
             self._copystate(traj_file, out_file, idx=idx)
+            self.worker.PrepareMD(out_file)
             self.worker.MolecularDynamics(
                 out_file, nsteps=0, setsteptozero=True
             )  # Writes traj file
@@ -352,7 +354,23 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             )
             rkf = RKFTrajectoryFile(traj_file)
             rkf.store_mddata()
+            seconds = 0 
             molecule = rkf.get_plamsmol()
+            if len(molecule.atoms) == 0:
+                print(
+                    f"Waiting for RKFTrajectoryFile to be ready: {traj_file}"
+                )
+                while len(molecule.atoms) == 0:
+                    time.sleep(1)
+                    seconds += 1
+                    print(seconds, traj_file)
+                    rkf = RKFTrajectoryFile(traj_file)
+                    rkf.store_mddata()
+                    molecule = rkf.get_plamsmol()
+        
+                print(
+                    f"Waited {seconds} seconds for RKFTrajectoryFile to be ready"
+                )
             rkf.read_frame(idx, molecule=molecule)
             if self.update_box:
                 molecule.lattice = self.molecule_lattice
@@ -363,8 +381,25 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             if out_file in self.states:
                 self._deletestate(out_file)
             self.worker.PrepareMD(out_file)
-            self.worker.CreateMDState(out_file, molecule)
+            
+
+            try: 
+                self.worker.CreateMDState(out_file, molecule)
+            except Exception as e:
+                if "MD state with given title already exists" in str(e):
+                    print("MD state with given title already exists: ", out_file)
+                    logger.error(
+                        "AMS error in CreateMDState: %s", str(e)
+                    )
+                    self.worker.DeleteMDState(out_file)
+                    self.worker.CreateMDState(out_file, molecule)
+
+                else:
+                    raise e
             if "Velocities" in rkf.mddata:
+                logger.info(
+                        "Copying Velocities: %s -> %s", traj_file, out_file
+                    )
                 vel = rkf.mddata["Velocities"]
                 vel = np.reshape(
                     vel, (-1, 3)
@@ -488,7 +523,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                 )
             )
 
-            logger.info("OP: %f", order[0])
+            logger.info("OP: %f in frame %s %i", order[0], traj_file, i)
 
             msg_file.flush()
             if stop:
@@ -589,13 +624,13 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             )
 
             # Can be removed, but nice way to check velocity generation
-            # logger.info(
-            #     "AMS Epot: %f Ekin: %f",
-            #     state.get_potentialenergy(unit=self.ene_unit),
-            #     state.get_kineticenergy(unit=self.ene_unit),
-            # )
-            # # Write rkf file
-            # logger.info("AMS setting output file: %s", genvel)
+            logger.info(
+                "AMS Epot: %f Ekin: %f",
+                state.get_potentialenergy(unit=self.ene_unit),
+                state.get_kineticenergy(unit=self.ene_unit),
+            )
+            # Write rkf file
+            logger.info("AMS setting output file: %s", genvel)
             if os.path.exists(
                 genvel
             ):  # File must never be there before PrepareMD
@@ -609,6 +644,13 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             system.vel_rev = False
             system.ekin = kin_new
             system.vpot = state.get_potentialenergy(unit=self.ene_unit)
+            logger.info(
+                "AMS after genvel Epot: %f Ekin: %f",
+                system.vpot,
+                system.ekin,
+            )
+
+
             self._add_state(genvel, state, rewrite=True)
         else:  # Soft velocity change, from a Gaussian distribution:
             msgtxt = "AMS engine only support aimless shooting!"
@@ -709,7 +751,19 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                 self.worker.DeleteMDState(filename + "_" + str(i))
         else:
             logger.info("AMS Deleting snap: %s", filename)
-            self.worker.DeleteMDState(filename)
+            try:
+                self.worker.DeleteMDState(filename)
+            except Exception as e:
+                if "MD state with given title not found" in str(e):
+                    print(
+                        "MD state with given title not found: ", filename
+                    )
+                    logger.error(
+                        "AMS error in DeleteMDState: %s", str(e)
+                    )
+                else:
+                    print('else: tried but failed but wrong')
+                    raise e
 
         del self.states[filename]
 
