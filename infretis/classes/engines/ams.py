@@ -356,7 +356,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             seconds = 0 
             molecule = rkf.get_plamsmol()
             if len(molecule.atoms) == 0:
-                print(
+                logger.info(
                     f"Waiting for RKFTrajectoryFile to be ready: {traj_file}"
                 )
                 while len(molecule.atoms) == 0:
@@ -367,8 +367,8 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                     rkf.store_mddata()
                     molecule = rkf.get_plamsmol()
         
-                print(
-                    f"Waited {seconds} seconds for RKFTrajectoryFile to be ready"
+                logger.info(
+                    f"Waited {seconds} seconds"
                 )
             rkf.read_frame(idx, molecule=molecule)
             if self.update_box:
