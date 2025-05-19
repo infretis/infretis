@@ -30,7 +30,6 @@ from infretis.classes.engines.engineparts import (
 from infretis.classes.formatter import FileIO
 from infretis.classes.path import Path as InfPath
 from infretis.classes.system import System
-import time
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -644,13 +643,6 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             system.vel_rev = False
             system.ekin = kin_new
             system.vpot = state.get_potentialenergy(unit=self.ene_unit)
-            logger.info(
-                "AMS after genvel Epot: %f Ekin: %f",
-                system.vpot,
-                system.ekin,
-            )
-
-
             self._add_state(genvel, state, rewrite=True)
         else:  # Soft velocity change, from a Gaussian distribution:
             msgtxt = "AMS engine only support aimless shooting!"
