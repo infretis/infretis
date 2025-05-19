@@ -30,6 +30,7 @@ from infretis.classes.engines.engineparts import (
 from infretis.classes.formatter import FileIO
 from infretis.classes.path import Path as InfPath
 from infretis.classes.system import System
+import time
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -267,7 +268,10 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         4. Updates the list of old states to the current states.
         """
         self.exe_dir = md_items["exe_dir"]
-        self.ens_name = md_items["ens"]["ens_name"] + "_"
+        if 'ens' in md_items.keys():
+            self.ens_name = md_items["ens"]["ens_name"] + "_"
+        else:
+            self.ens_name = 'init'
         logger.info(
             f"self.exe_dir {self.exe_dir}"
             + f" md_items['exe_dir'] {md_items['exe_dir']}"
