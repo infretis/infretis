@@ -86,6 +86,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
 
         # Add input path and the input files:
         self.input_path = os.path.abspath(input_path)
+        self.set_idx = False
 
         # Expected input files
         self.input_files = {
@@ -95,6 +96,26 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         # Read AMS input
         inpf = os.path.join(self.input_path, self.input_files["input"])
         inp = open(inpf).read()
+        # extract input geometry
+        geometry_file_line = next(
+            (line for line in inp.splitlines() if "GeometryFile" in line), None
+        )
+        if geometry_file_line is not None:
+            geometry_file_path = geometry_file_line.split()[-1].strip()
+            # get absolute path as string
+            geometry_file_path = str(os.path.abspath(
+                os.path.join(self.input_path, geometry_file_path)
+            )) 
+            if "traj" in os.path.basename(geometry_file_path):
+                print(f"ERROR: GeometryFile is not allowed to contain \'traj\'")
+                print(f"Extracted GeometryFile path: {geometry_file_path}")
+                logger.error(f"GeometryFile is not allowed to contain \'traj\'")
+                logger.error(f"Extracted GeometryFile path: {geometry_file_path}")
+                quit(1)
+        else:
+            logger.error(
+                "AMS: GeometryFile was not set in AMS input file! - Will fail in the case InfInit is used"
+            )
         job = AMSJob.from_input(inp)
         settings = job.settings
         molecule = job.molecule[""]
@@ -137,6 +158,17 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             keep_crashed_workerdir=True,
             always_keep_workerdir=True,
         )
+        # print('ninininit')
+           
+        if geometry_file_line is not None:
+            self.worker.CreateMDState(geometry_file_path, molecule)
+
+            state = self.worker.MolecularDynamics(
+                geometry_file_path, nsteps=0, setsteptozero=True
+            )  # Also writes frame into out_file
+            self._add_state(geometry_file_path, state[0])
+            # print('self.states', self.states)
+        
         self._finalize = weakref.finalize(self, self.worker.stop)
 
     def step(self, system, name, set_trajfile=True, set_step_to_zero=False):
@@ -234,6 +266,13 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         """
         if idx == -1:
             idx = 0
+        if len(self.states.keys()) == 0:
+            logger.info('Infinit requirement for 0 paths: self.set_idx = True, idx = 0')
+            self.set_idx = True
+            self.n_init = 0
+                   
+
+            
 
         state = self.states[filename][idx]
 
@@ -391,7 +430,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             except Exception as e:
                 if "MD state with given title already exists" in str(e):
                     print("MD state with given title already exists: ", out_file)
-                    logger.error(
+                    logger.info(
                         "AMS error in CreateMDState: %s", str(e)
                     )
                     self.worker.DeleteMDState(out_file)
@@ -705,9 +744,9 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             pass
         else:
             if dest in self.states:
+                logger.info("AMS snap exists delete: %s", dest)
                 self._deletestate(dest)
-
-            if idx == -1:
+            if not "traj" in os.path.basename(source):
                 logger.info("AMS Copying snap to snap: %s -> %s", source, dest)
                 self.states[dest] = [copy.deepcopy(self.states[source][0])]
                 self.worker.CopyMDState(source, dest)
@@ -754,7 +793,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                     print(
                         "MD state with given title not found: ", filename
                     )
-                    logger.error(
+                    logger.info(
                         "AMS error in DeleteMDState: %s", str(e)
                     )
                 else:
