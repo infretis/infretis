@@ -52,14 +52,12 @@ def create_initial_paths():
     config = setup_config()
     state = REPEX_state(config, minus=True)
     state.initiate_ensembles()
-    if "engine0" in config.keys():
-        config["engine"] = config["engine1"].copy()
     engine: EngineBase = create_engine(config)
     engine.order_function = create_orderparameter(config)
     interfaces = np.array(config["simulation"]["interfaces"])
     # the initial configurations for each ensemble are given by the
     # interface location + (interface1 - interface0)/100
-    delta = (interfaces[1] - interfaces[0]) / 100
+    delta = (interfaces[1] - interfaces[0]) / 10
     distances = interfaces * 1
     distances[1:] = distances[:-1] + delta
     distances[0] -= delta
