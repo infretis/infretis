@@ -167,9 +167,14 @@ def setup_config(
             ens_engs.append(["engine"])
         config["simulation"]["ensemble_engines"] = ens_engs
 
-    # set the keywords once
+    # set all keywords only once, so they appear in restart.toml
+    # and we can avoid the .get() in other parts
     if "seed" not in config["simulation"].keys():
         config["simulation"]["seed"] = 0
+
+    # [output]
+    keep_maxop_trajs = config["output"].get("keep_maxop_trajs", False)
+    config["output"]["keep_maxop_trajs"] = keep_maxop_trajs
 
     quantis = config["simulation"]["tis_set"].get("quantis", False)
     config["simulation"]["tis_set"]["quantis"] = quantis
