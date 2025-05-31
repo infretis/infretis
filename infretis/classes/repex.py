@@ -166,7 +166,7 @@ class REPEX_state:
     @property
     def maxop(self):
         """Get the maximum orderparameter seen during the simulation."""
-        return self.config["current"].get("maxop",-float("inf"))
+        return self.config["current"].get("maxop", -float("inf"))
 
     @maxop.setter
     def maxop(self, val):

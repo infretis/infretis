@@ -182,7 +182,7 @@ def setup_config(
         msg = (
             "delete_old_all=True will delete all trajectories. Set "
             "keep_maxop_trajs to False in the [output] section"
-            )
+        )
         raise TOMLConfigError(msg)
 
     quantis = config["simulation"]["tis_set"].get("quantis", False)
