@@ -166,12 +166,13 @@ class REPEX_state:
     @property
     def maxop(self):
         """Get the maximum orderparameter seen during the simulation."""
-        return self.config["current"]["maxop"]
+        return self.config["current"].get("maxop",-float("inf"))
 
     @maxop.setter
     def maxop(self, val):
-        """Update the maximum orderpameter seen druing the sumulation."""
-        self.config["current"]["maxop"] = val
+        """Update the maximum orderpameter seen during the sumulation."""
+        if self.config["output"]["keep_maxop_trajs"]:
+            self.config["current"]["maxop"] = val
 
     def pick(self):
         """Pick path and ens."""
