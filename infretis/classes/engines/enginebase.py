@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+from ase import units
 from ase.md.velocitydistribution import (
 MaxwellBoltzmannDistribution,
 Stationary,
@@ -155,6 +156,18 @@ class EngineBase(metaclass=ABCMeta):
 
         ASE also takes care of constraints if present in the atoms object.
 
+        TODO:
+            * make a test that checks that the temperature calculated by ase and
+            the temperature of the engine is the same
+            * if we remove center of mass motion (and potentially rotation) we
+            have to remove the corresponding degrees of freedom in the
+            temperature calculation. When using the ASE engine, is this done by
+            default with langevin dynamics, but not velocityverlet? I think
+            maybe not. Also, is the temperature of the shooting point even used
+            in the final path, or is it replaced by all engines due to
+            propagation? Amber I guess does not replace that, since it doesn't
+            write out the 0th frame.
+
         Args:
             system: the phaepoint we modify the veloities of
             atoms: the engines ase_atoms object (may have constraints)
@@ -172,6 +185,8 @@ class EngineBase(metaclass=ABCMeta):
         """
         masses = self.ase_atoms.get_masses()
         kin_old = kinetic_energy(vel, masses)[0]
+        xyz2ase = xyz2ase*units.Angstrom
+        vel2ase = vel2ase*units.Angstrom/units.fs
         atoms.set_positions(xyz*xyz2ase)
         atoms.set_velocities(vel*vel2ase)
 
@@ -188,7 +203,11 @@ class EngineBase(metaclass=ABCMeta):
         vel = self.ase_atoms.get_velocities()/vel2ase # convert vel units back
         kin_new = kinetic_energy(vel, masses)[0]
         system.ekin = kin_new
-        system.etot = system.vpot + system.ekin
+        if system.vpot is not None:
+            system.etot = system.vpot + system.ekin
+        else:
+            logger.debug("Phasepoint does not contain energies.")
+            system.etot = None
         system.temp = self.ase_atoms.get_temperature()
         conf_out = os.path.join(self.exe_dir, f"genvel.{self.ext}")
         system.config = (conf_out, 0)
