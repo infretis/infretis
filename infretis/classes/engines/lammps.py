@@ -36,6 +36,7 @@ def write_lammpstrj(
     vel: np.ndarray,
     box: Optional[np.ndarray],
     append: bool = False,
+    triclinic: bool = False,
 ) -> None:
     """Write a LAMMPS trajectory frame in .lammpstrj format.
 
@@ -50,12 +51,14 @@ def write_lammpstrj(
         box: The simulation box to write (if available).
         append: If True, the `outfile` will be appended to,
             otherwise, `outfile` will be overwritten.
+        triclinic: If true, write in triclinic box format.
     """
     filemode = "a" if append else "w"
+    box_header = "xy xz yz " if triclinic else ""
     with open(outfile, filemode) as writefile:
         to_write = (
             f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n\
-ITEM: BOX BOUNDS pp pp pp\n"
+ITEM: BOX BOUNDS {box_header}pp pp pp\n"
             ""
         )
 
@@ -344,6 +347,20 @@ def check_lammps_input(lmp_inp):
             )
     return important_info
 
+def check_lammps_data(lmp_data):
+    """Some checks to perform on the lammps data file.
+
+    E.g. to retrieve the box type (triclinic or not).
+    """
+    important_info = {"triclinic": False}
+    with open(lmp_data) as rfile:
+        for line in rfile:
+            processed_line = " ".join(line.split())
+            if "xy xz yz" in processed_line:
+                important_info["triclinic"] = True
+    return important_info
+
+
 
 class LAMMPSEngine(EngineBase):
     """Define a engine for running MD with LAMMPS.
@@ -389,6 +406,7 @@ class LAMMPSEngine(EngineBase):
         exe_path: Path = Path(".").resolve(),
         sleep: float = 0.1,
         constraints: Union[bool, List, str] = False,
+        triclinic: bool = False
     ):
         """Initialize the LAMMPS simulation engine.
 
@@ -425,6 +443,8 @@ class LAMMPSEngine(EngineBase):
         self.atom_style = atom_style
         # check lammps input settings
         input_info = check_lammps_input(self.input_files["input"])
+        data_info = check_lammps_data(self.input_files["data"])
+        self.triclinic = data_info["triclinic"]
         # units are required when generating velocities
         # we need the scale factors to convert distance to angstrom
         # and velocity to angstrom/fs
@@ -439,9 +459,7 @@ class LAMMPSEngine(EngineBase):
             self.vel2ase = 0.001 # Å/ps -> 1/1000*Å/fs
         else:
             raise ValueError(
-            f"Scaling factors for lammps units '{units}' are not implemented"
-            " yet. This should be straightforward. Contact the developers if"
-            " in doubt."
+            f"Scaling factors for lammps units '{units}' are not implemented."
             )
 
         masses = get_atom_masses(self.input_files["data"], self.atom_style)
@@ -633,7 +651,7 @@ class LAMMPSEngine(EngineBase):
     def _extract_frame(self, traj_file: str, idx: int, out_file: str) -> None:
         """Extract a frame from a trajectory to a new file."""
         id_type, pos, vel, box = read_lammpstrj(traj_file, idx, self.n_atoms)
-        write_lammpstrj(out_file, id_type, pos, vel, box)
+        write_lammpstrj(out_file, id_type, pos, vel, box, triclinic = self.triclinic)
 
     def _read_configuration(
         self, filename: str
@@ -649,7 +667,7 @@ class LAMMPSEngine(EngineBase):
         """Reverse the velocities of a configuration."""
         id_type, pos, vel, box = read_lammpstrj(filename, 0, self.n_atoms)
         vel *= -1.0
-        write_lammpstrj(outfile, id_type, pos, vel, box)
+        write_lammpstrj(outfile, id_type, pos, vel, box, triclinic = self.triclinic)
 
     def modify_velocities(
         self, system: System, vel_settings: Dict[str, Any]
@@ -681,7 +699,7 @@ class LAMMPSEngine(EngineBase):
             xyz2ase=self.xyz2ase,
             vel2ase=self.vel2ase,
         )
-        write_lammpstrj(conf_out, id_type, xyz, vel, box)
+        write_lammpstrj(conf_out, id_type, xyz, vel, box, triclinic = self.triclinic)
         if kin_old == 0.0:
             dek = float("inf")
             logger.debug(
