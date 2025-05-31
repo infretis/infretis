@@ -149,6 +149,7 @@ def setup_config(
             "locked": [],
             "size": size,
             "frac": {},
+            "maxop": -float("inf"),
         }
 
         # write/overwrite infretis_data.txt
