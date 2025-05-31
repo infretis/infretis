@@ -175,6 +175,16 @@ def setup_config(
     # [output]
     keep_maxop_trajs = config["output"].get("keep_maxop_trajs", False)
     config["output"]["keep_maxop_trajs"] = keep_maxop_trajs
+    delete_old = config["output"].get("delete_old", False)
+    delete_old_all = config["output"].get("delete_old_all", False)
+    if not delete_old and keep_maxop_trajs:
+        raise TOMLConfigError("keep_maxop_trajs=True requires delete_old=True")
+    if delete_old_all and keep_maxop_trajs:
+        msg = (
+            "delete_old_all=True will delete all trajectories. Set "
+            "keep_maxop_trajs to False in the [output] section"
+            )
+        raise TOMLConfigError(msg)
 
     quantis = config["simulation"]["tis_set"].get("quantis", False)
     config["simulation"]["tis_set"]["quantis"] = quantis
