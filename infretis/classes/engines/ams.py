@@ -117,8 +117,8 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                 quit(1)
         else:
             logger.error(
-                "AMS: GeometryFile was not set in AMS input file! " +
-                "- Will fail in the case InfInit is used"
+                "AMS: GeometryFile was not set in AMS input file! "
+                + "- Will fail in the case InfInit is used"
             )
         job = AMSJob.from_input(inp)
         settings = job.settings
@@ -146,7 +146,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
 
         self.random_velocities_method = None
         random_velocities_method = (
-        settings.input.ams.moleculardynamics.initialvelocities.randomvelocitiesmethod
+            settings.input.ams.moleculardynamics.initialvelocities.randomvelocitiesmethod
         )
         if len(random_velocities_method) > 0:
             logger.info(
@@ -486,22 +486,22 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                         f"File {traj_file} did not appear within 1200 seconds."
                     )
                     raise RuntimeError(
-                        f"Failed to extract frame for {traj_file}, " +
-                        f"idx={idx}, after waiting for file availability"
+                        f"Failed to extract frame for {traj_file}, "
+                        + f"idx={idx}, after waiting for file availability"
                     ) from e
                 elif wait_seconds >= 1200:
                     logger.warning(
-                        f"File {traj_file} exists but still changed in " +
-                        "1200 seconds."
+                        f"File {traj_file} exists but still changed in "
+                        + "1200 seconds."
                     )
                     raise RuntimeError(
-                        f"Failed to extract frame for {traj_file}, " +
-                        f"idx={idx}, after waiting for file availability"
+                        f"Failed to extract frame for {traj_file}, "
+                        + f"idx={idx}, after waiting for file availability"
                     ) from e
                 else:
                     logger.info(
-                        "File is available and updated after " +
-                        f"{wait_seconds:.1f} seconds: {traj_file}"
+                        "File is available and updated after "
+                        + f"{wait_seconds:.1f} seconds: {traj_file}"
                     )
                     self._extract_frame_from_disk(traj_file, idx, out_file)
 
