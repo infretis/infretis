@@ -906,9 +906,6 @@ class REPEX_state:
         for ens_num in picked.keys():
             pn_old = picked[ens_num]["pn_old"]
             out_traj = picked[ens_num]["traj"]
-            # keep track of the highest order value seen during the sim
-            if ens_num != -1 and out_traj.ordermax[0] > self.maxop:
-                self.maxop = out_traj.ordermax[0]
             self.ensembles[ens_num + 1] = picked[ens_num]["ens"]
 
             for idx, lock in enumerate(self.locked):
@@ -916,6 +913,9 @@ class REPEX_state:
                     self.locked.pop(idx)
             # if path is new: number and save the path:
             if out_traj.path_number is None or md_items["status"] == "ACC":
+                # keep track of the highest order value seen during the sim
+                if ens_num != -1 and out_traj.ordermax[0] > self.maxop:
+                    self.maxop = out_traj.ordermax[0]
                 # move to accept:
                 ens_save_idx = self.traj_data[pn_old]["ens_save_idx"]
                 out_traj.path_number = traj_num
