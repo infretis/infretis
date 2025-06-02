@@ -369,10 +369,10 @@ class EngineBase(metaclass=ABCMeta):
     def snapshot_to_system(system: System, snapshot: Dict[str, Any]) -> System:
         """Convert a snapshot to a system object."""
         system_copy = system.copy()
-        system_copy.order = snapshot.get("order", None)
+        system_copy.order = snapshot.get("order", [-float("nan")])
         # # particles = system_copy.particles
-        system_copy.pos = snapshot.get("pos", None)
-        system_copy.vel = snapshot.get("vel", None)
+        system_copy.pos = snapshot.get("pos", np.zeros(0))
+        system_copy.vel = snapshot.get("vel", np.zeros(0))
         system_copy.vpot = snapshot.get("vpot", None)
         system_copy.ekin = snapshot.get("ekin", None)
         for external in ("config", "vel_rev"):
