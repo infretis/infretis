@@ -30,7 +30,6 @@ from infretis.classes.engines.engineparts import (
 from infretis.classes.formatter import FileIO
 from infretis.classes.path import Path as InfPath
 from infretis.classes.system import System
-import time
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -109,16 +108,17 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                 )
             )
             if "traj" in os.path.basename(geometry_file_path):
-                print(f"ERROR: GeometryFile is not allowed to contain 'traj'")
+                print("ERROR: GeometryFile is not allowed to contain 'traj'")
                 print(f"Extracted GeometryFile path: {geometry_file_path}")
-                logger.error(f"GeometryFile is not allowed to contain 'traj'")
+                logger.error("GeometryFile is not allowed to contain 'traj'")
                 logger.error(
                     f"Extracted GeometryFile path: {geometry_file_path}"
                 )
                 quit(1)
         else:
             logger.error(
-                "AMS: GeometryFile was not set in AMS input file! - Will fail in the case InfInit is used"
+                "AMS: GeometryFile was not set in AMS input file! " +
+                "- Will fail in the case InfInit is used"
             )
         job = AMSJob.from_input(inp)
         settings = job.settings
@@ -146,7 +146,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
 
         self.random_velocities_method = None
         random_velocities_method = (
-            settings.input.ams.moleculardynamics.initialvelocities.randomvelocitiesmethod
+        settings.input.ams.moleculardynamics.initialvelocities.randomvelocitiesmethod
         )
         if len(random_velocities_method) > 0:
             logger.info(
@@ -387,7 +387,6 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         )
         rkf = RKFTrajectoryFile(traj_file)
         rkf.store_mddata()
-        seconds = 0
         molecule = rkf.get_plamsmol()
         rkf.read_frame(idx, molecule=molecule)
 
@@ -487,18 +486,22 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                         f"File {traj_file} did not appear within 1200 seconds."
                     )
                     raise RuntimeError(
-                        f"Failed to extract frame for {traj_file}, idx={idx}, after waiting for file availability"
+                        f"Failed to extract frame for {traj_file}, " +
+                        f"idx={idx}, after waiting for file availability"
                     ) from e
                 elif wait_seconds >= 1200:
                     logger.warning(
-                        f"File {traj_file} exists but still changed in 1200 seconds."
+                        f"File {traj_file} exists but still changed in " +
+                        "1200 seconds."
                     )
                     raise RuntimeError(
-                        f"Failed to extract frame for {traj_file}, idx={idx}, after waiting for file availability"
+                        f"Failed to extract frame for {traj_file}, " +
+                        f"idx={idx}, after waiting for file availability"
                     ) from e
                 else:
                     logger.info(
-                        f"File is available and updated after {wait_seconds:.1f} seconds: {traj_file}"
+                        "File is available and updated after " +
+                        f"{wait_seconds:.1f} seconds: {traj_file}"
                     )
                     self._extract_frame_from_disk(traj_file, idx, out_file)
 
@@ -782,19 +785,19 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
     def _copystate(self, source, dest, idx=-1):
         if source == dest:
             print(
-                "-----------------------------------------------------------------------------"
+                "------------------------------------------------------------"
             )
             print("WARNING: source == dest in ams._copystate")
             print("This should only happen in pytest")
             print(
-                "-----------------------------------------------------------------------------"
+                "------------------------------------------------------------"
             )
             pass
         else:
             if dest in self.states:
                 logger.info("AMS snap exists delete: %s", dest)
                 self._deletestate(dest)
-            if not "traj" in os.path.basename(source):
+            if "traj" not in os.path.basename(source):
                 logger.info("AMS Copying snap to snap: %s -> %s", source, dest)
                 self.states[dest] = [copy.deepcopy(self.states[source][0])]
                 self.worker.CopyMDState(source, dest)
