@@ -157,9 +157,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             workerdir_root=ams_dir,
             keep_crashed_workerdir=True,
             always_keep_workerdir=True,
-        )
-        # print('ninininit')
-           
+        )         
         if geometry_file_line is not None:
             self.worker.CreateMDState(geometry_file_path, molecule)
 
@@ -360,6 +358,73 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
 
         self.worker.MolecularDynamics(outfile, nsteps=0, setsteptozero=True)
 
+    def _extract_frame_from_disk(self, traj_file, idx, out_file):
+        """Extract a frame from a trajectory file from disk.
+
+        Parameters
+        ----------
+        traj_file : string
+            The AMS file to open.
+        idx : integer
+            The frame number we look for.
+        out_file : string
+            The file to dump to.
+
+        Note
+        ----
+        This will only properly work if the frames in the input
+        trajectory are uniformly spaced in time.
+
+        """
+
+        logger.info(
+                "AMS extracting frame from disk: %s, %i -> %s",
+                traj_file,
+                idx,
+                out_file,
+        )
+        rkf = RKFTrajectoryFile(traj_file)
+        rkf.store_mddata()
+        seconds = 0 
+        molecule = rkf.get_plamsmol()
+        rkf.read_frame(idx, molecule=molecule)
+
+        if self.update_box:
+            molecule.lattice = self.molecule_lattice
+        if os.path.exists(
+        out_file
+        ):  # file must never be there before PrepareMD
+            self._removefile(out_file)
+        if out_file in self.states:
+            self._deletestate(out_file)
+        
+        self.worker.PrepareMD(out_file)
+        try: 
+            self.worker.CreateMDState(out_file, molecule)
+        except Exception as e:
+            if "MD state with given title already exists" in str(e):
+                print("MD state with given title already exists: ", out_file)
+                logger.error(
+                    "AMS error in CreateMDState: %s", str(e)
+                )
+                self.worker.DeleteMDState(out_file)
+                self.worker.CreateMDState(out_file, molecule)
+            else:
+                raise e
+        if "Velocities" in rkf.mddata:
+            vel = rkf.mddata["Velocities"]
+            vel = np.reshape(
+                vel, (-1, 3)
+            )  # RKFTrajectoryFile returns 1D array
+            self.worker.SetVelocities(
+                out_file, vel, dist_unit="bohr", time_unit="fs"
+            )  # Units used in rkf file
+
+        state = self.worker.MolecularDynamics(
+            out_file, nsteps=0, setsteptozero=True
+        )  # Also writes frame into out_file
+        self._add_state(out_file, state[0])
+
     def _extract_frame(self, traj_file, idx, out_file):
         """Extract a frame from a trajectory file.
 
@@ -378,6 +443,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         trajectory are uniformly spaced in time.
 
         """
+
         if traj_file in self.states:
             logger.info(
                 "AMS extracting frame: %s, %i -> %s", traj_file, idx, out_file
@@ -388,71 +454,47 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                 out_file, nsteps=0, setsteptozero=True
             )  # Writes traj file
         else:
-            logger.info(
-                "AMS extracting frame from disk: %s, %i -> %s",
-                traj_file,
-                idx,
-                out_file,
-            )
-            rkf = RKFTrajectoryFile(traj_file)
-            rkf.store_mddata()
-            seconds = 0 
-            molecule = rkf.get_plamsmol()
-            if len(molecule.atoms) == 0:
-                logger.info(
-                    f"Waiting for RKFTrajectoryFile to be ready: {traj_file}"
-                )
-                while len(molecule.atoms) == 0:
-                    time.sleep(1)
-                    seconds += 1
-                    print(seconds, traj_file)
-                    rkf = RKFTrajectoryFile(traj_file)
-                    rkf.store_mddata()
-                    molecule = rkf.get_plamsmol()
-        
-                logger.info(
-                    f"Waited {seconds} seconds"
-                )
-            rkf.read_frame(idx, molecule=molecule)
-            if self.update_box:
-                molecule.lattice = self.molecule_lattice
-            if os.path.exists(
-                out_file
-            ):  # file must never be there before PrepareMD
-                self._removefile(out_file)
-            if out_file in self.states:
-                self._deletestate(out_file)
-            self.worker.PrepareMD(out_file)
-            
-
-            try: 
-                self.worker.CreateMDState(out_file, molecule)
+            try:
+                self._extract_frame_from_disk(traj_file, idx, out_file)
             except Exception as e:
-                if "MD state with given title already exists" in str(e):
-                    print("MD state with given title already exists: ", out_file)
-                    logger.info(
-                        "AMS error in CreateMDState: %s", str(e)
-                    )
-                    self.worker.DeleteMDState(out_file)
-                    self.worker.CreateMDState(out_file, molecule)
-
-                else:
-                    raise e
-            if "Velocities" in rkf.mddata:
+                logger.error(
+                    f"Error extracting frame from {traj_file}, idx={idx}: {e}"
+                )
                 logger.info(
-                        "Copying Velocities: %s -> %s", traj_file, out_file
-                    )
-                vel = rkf.mddata["Velocities"]
-                vel = np.reshape(
-                    vel, (-1, 3)
-                )  # RKFTrajectoryFile returns 1D array
-                self.worker.SetVelocities(
-                    out_file, vel, dist_unit="bohr", time_unit="fs"
-                )  # Units used in rkf file
-            state = self.worker.MolecularDynamics(
-                out_file, nsteps=0, setsteptozero=True
-            )  # Also writes frame into out_file
-            self._add_state(out_file, state[0])
+                    f"Wait until file is written: {traj_file}, idx={idx}"
+                )
+                # wait until the file is ready
+                wait_seconds = 0
+                last_mtime = None
+
+                while wait_seconds < 1200:
+                    if os.path.exists(traj_file):
+                        current_mtime = os.path.getmtime(traj_file)
+                        if last_mtime is not None and current_mtime != last_mtime:
+                            # File has been updated
+                            break
+                        last_mtime = current_mtime
+                    else:
+                        last_mtime = None  # Reset if file disappeared
+
+                    time.sleep(0.1)
+                    wait_seconds += 0.1
+
+                if not os.path.exists(traj_file):
+                    logger.error(f"File {traj_file} did not appear within 1200 seconds.")
+                    raise RuntimeError(
+                    f"Failed to extract frame for {traj_file}, idx={idx}, after waiting for file availability"
+                    ) from e
+                elif wait_seconds >= 1200:
+                    logger.warning(f"File {traj_file} exists but still changed in 1200 seconds.")
+                    raise RuntimeError(
+                    f"Failed to extract frame for {traj_file}, idx={idx}, after waiting for file availability"
+                    ) from e
+                else:
+                    logger.info(f"File is available and updated after {wait_seconds:.1f} seconds: {traj_file}" 
+                                )
+                    self._extract_frame_from_disk(traj_file, idx, out_file)
+                
 
     def _propagate_from(
         self,
