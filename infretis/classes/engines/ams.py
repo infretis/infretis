@@ -103,14 +103,18 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         if geometry_file_line is not None:
             geometry_file_path = geometry_file_line.split()[-1].strip()
             # get absolute path as string
-            geometry_file_path = str(os.path.abspath(
-                os.path.join(self.input_path, geometry_file_path)
-            )) 
+            geometry_file_path = str(
+                os.path.abspath(
+                    os.path.join(self.input_path, geometry_file_path)
+                )
+            )
             if "traj" in os.path.basename(geometry_file_path):
-                print(f"ERROR: GeometryFile is not allowed to contain \'traj\'")
+                print(f"ERROR: GeometryFile is not allowed to contain 'traj'")
                 print(f"Extracted GeometryFile path: {geometry_file_path}")
-                logger.error(f"GeometryFile is not allowed to contain \'traj\'")
-                logger.error(f"Extracted GeometryFile path: {geometry_file_path}")
+                logger.error(f"GeometryFile is not allowed to contain 'traj'")
+                logger.error(
+                    f"Extracted GeometryFile path: {geometry_file_path}"
+                )
                 quit(1)
         else:
             logger.error(
@@ -157,7 +161,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             workerdir_root=ams_dir,
             keep_crashed_workerdir=True,
             always_keep_workerdir=True,
-        )         
+        )
         if geometry_file_line is not None:
             self.worker.CreateMDState(geometry_file_path, molecule)
 
@@ -166,7 +170,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             )  # Also writes frame into out_file
             self._add_state(geometry_file_path, state[0])
             # print('self.states', self.states)
-        
+
         self._finalize = weakref.finalize(self, self.worker.stop)
 
     def step(self, system, name, set_trajfile=True, set_step_to_zero=False):
@@ -265,12 +269,11 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         if idx == -1:
             idx = 0
         if len(self.states.keys()) == 0:
-            logger.info('Infinit requirement for 0 paths: self.set_idx = True, idx = 0')
+            logger.info(
+                "Infinit requirement for 0 paths: self.set_idx = True, idx = 0"
+            )
             self.set_idx = True
             self.n_init = 0
-                   
-
-            
 
         state = self.states[filename][idx]
 
@@ -305,10 +308,10 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         4. Updates the list of old states to the current states.
         """
         self.exe_dir = md_items["exe_dir"]
-        if 'ens' in md_items.keys():
+        if "ens" in md_items.keys():
             self.ens_name = md_items["ens"]["ens_name"] + "_"
         else:
-            self.ens_name = 'init'
+            self.ens_name = "init"
         logger.info(
             f"self.exe_dir {self.exe_dir}"
             + f" md_items['exe_dir'] {md_items['exe_dir']}"
@@ -377,35 +380,33 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
 
         """
         logger.info(
-                "AMS extracting frame from disk: %s, %i -> %s",
-                traj_file,
-                idx,
-                out_file,
+            "AMS extracting frame from disk: %s, %i -> %s",
+            traj_file,
+            idx,
+            out_file,
         )
         rkf = RKFTrajectoryFile(traj_file)
         rkf.store_mddata()
-        seconds = 0 
+        seconds = 0
         molecule = rkf.get_plamsmol()
         rkf.read_frame(idx, molecule=molecule)
 
         if self.update_box:
             molecule.lattice = self.molecule_lattice
         if os.path.exists(
-        out_file
+            out_file
         ):  # file must never be there before PrepareMD
             self._removefile(out_file)
         if out_file in self.states:
             self._deletestate(out_file)
-        
+
         self.worker.PrepareMD(out_file)
-        try: 
+        try:
             self.worker.CreateMDState(out_file, molecule)
         except Exception as e:
             if "MD state with given title already exists" in str(e):
                 print("MD state with given title already exists: ", out_file)
-                logger.error(
-                    "AMS error in CreateMDState: %s", str(e)
-                )
+                logger.error("AMS error in CreateMDState: %s", str(e))
                 self.worker.DeleteMDState(out_file)
                 self.worker.CreateMDState(out_file, molecule)
             else:
@@ -468,7 +469,10 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                 while wait_seconds < 1200:
                     if os.path.exists(traj_file):
                         current_mtime = os.path.getmtime(traj_file)
-                        if last_mtime is not None and current_mtime != last_mtime:
+                        if (
+                            last_mtime is not None
+                            and current_mtime != last_mtime
+                        ):
                             # File has been updated
                             break
                         last_mtime = current_mtime
@@ -479,20 +483,24 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                     wait_seconds += 0.1
 
                 if not os.path.exists(traj_file):
-                    logger.error(f"File {traj_file} did not appear within 1200 seconds.")
+                    logger.error(
+                        f"File {traj_file} did not appear within 1200 seconds."
+                    )
                     raise RuntimeError(
-                    f"Failed to extract frame for {traj_file}, idx={idx}, after waiting for file availability"
+                        f"Failed to extract frame for {traj_file}, idx={idx}, after waiting for file availability"
                     ) from e
                 elif wait_seconds >= 1200:
-                    logger.warning(f"File {traj_file} exists but still changed in 1200 seconds.")
+                    logger.warning(
+                        f"File {traj_file} exists but still changed in 1200 seconds."
+                    )
                     raise RuntimeError(
-                    f"Failed to extract frame for {traj_file}, idx={idx}, after waiting for file availability"
+                        f"Failed to extract frame for {traj_file}, idx={idx}, after waiting for file availability"
                     ) from e
                 else:
-                    logger.info(f"File is available and updated after {wait_seconds:.1f} seconds: {traj_file}" 
-                                )
+                    logger.info(
+                        f"File is available and updated after {wait_seconds:.1f} seconds: {traj_file}"
+                    )
                     self._extract_frame_from_disk(traj_file, idx, out_file)
-                
 
     def _propagate_from(
         self,
@@ -830,14 +838,10 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                 self.worker.DeleteMDState(filename)
             except Exception as e:
                 if "MD state with given title not found" in str(e):
-                    print(
-                        "MD state with given title not found: ", filename
-                    )
-                    logger.info(
-                        "AMS error in DeleteMDState: %s", str(e)
-                    )
+                    print("MD state with given title not found: ", filename)
+                    logger.info("AMS error in DeleteMDState: %s", str(e))
                 else:
-                    print('else: tried but failed but wrong')
+                    print("else: tried but failed but wrong")
                     raise e
 
         del self.states[filename]
