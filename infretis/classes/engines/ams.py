@@ -376,7 +376,6 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         trajectory are uniformly spaced in time.
 
         """
-
         logger.info(
                 "AMS extracting frame from disk: %s, %i -> %s",
                 traj_file,
@@ -443,7 +442,6 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         trajectory are uniformly spaced in time.
 
         """
-
         if traj_file in self.states:
             logger.info(
                 "AMS extracting frame: %s, %i -> %s", traj_file, idx, out_file
