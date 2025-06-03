@@ -1305,7 +1305,7 @@ def quantis_swap_zero(
     )
 
     # finished with path1, now do some extra checks
-    if new_path1.length == maxlen1 and new_path1.get_end_point:
+    if new_path1.length >= maxlen1:
         new_path1.status = "FTX"
     elif new_path1.length < 3:
         new_path1.status = "FTS"
