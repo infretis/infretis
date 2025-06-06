@@ -6,7 +6,7 @@ wmdrun = ["0","0"]
 
 [simulation]
 interfaces = [0.345, 0.4915, 1.200]
-steps = 2
+steps = 20
 seed = 1
 load_dir = 'load'
 shooting_moves = ['sh', 'sh', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf', 'wf']
@@ -19,6 +19,7 @@ n_jumps = 3
 interface_cap = 0.54
 quantis = true
 
+# engine [0-]
 [engine0]
 class = 'turtlemd'
 engine = 'turtlemd'
@@ -34,9 +35,9 @@ gamma = 10
 beta = 0.4009078751268027 # 1/(boltzmann*T)
 
 [engine0.potential]
-class = 'LennardJones'
+class = 'DoubleWellPair'
 [engine0.potential.settings]
-parameters = {1={"sigma"=0.3, "epsilon"= 25.0, "rcut"= 1.2}}
+parameters = {"rzero"=0.3367, "height"= 25.0, "width"= 0.13}
 
 [engine0.particles]
 mass = [1.008, 1.008]
@@ -48,7 +49,6 @@ periodic = [true, true, true]
 low = [0, 0, 0]
 high = [3, 3, 3]
 
-# engine [N+]
 [engine]
 class = 'turtlemd'
 engine = 'turtlemd'
@@ -64,9 +64,9 @@ gamma = 10
 beta = 0.4009078751268027 # 1/(boltzmann*T)
 
 [engine.potential]
-class = 'DoubleWellPair'
+class = 'LennardJones'
 [engine.potential.settings]
-parameters = {"rzero"=0.3367, "height"= 25.0, "width"= 0.13}
+parameters = {1={"sigma"=0.3, "epsilon"= 25.0, "rcut"= 1.2}}
 
 [engine.particles]
 mass = [1.008, 1.008]

@@ -1,7 +1,7 @@
 [infinit]
 pL = 0.3
 steps_per_iter = [20,40,80,160,320]
-nskip = 10
+skip = 0.1
 cstep = -1
 initial_conf = "conf.traj"
 lamres = 0.005

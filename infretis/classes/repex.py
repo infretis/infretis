@@ -163,6 +163,17 @@ class REPEX_state:
         """Retrieve workers from config dict."""
         return self.config["runner"]["workers"]
 
+    @property
+    def maxop(self):
+        """Get the maximum orderparameter seen during the simulation."""
+        return self.config["current"].get("maxop", -float("inf"))
+
+    @maxop.setter
+    def maxop(self, val):
+        """Update the maximum orderpameter seen during the sumulation."""
+        if self.config["output"]["keep_maxop_trajs"]:
+            self.config["current"]["maxop"] = val
+
     def pick(self):
         """Pick path and ens."""
         prob = self.prob.astype("float64").flatten()
@@ -902,6 +913,9 @@ class REPEX_state:
                     self.locked.pop(idx)
             # if path is new: number and save the path:
             if out_traj.path_number is None or md_items["status"] == "ACC":
+                # keep track of the highest order value seen during the sim
+                if ens_num != -1 and out_traj.ordermax[0] > self.maxop:
+                    self.maxop = out_traj.ordermax[0]
                 # move to accept:
                 ens_save_idx = self.traj_data[pn_old]["ens_save_idx"]
                 out_traj.path_number = traj_num
@@ -928,9 +942,16 @@ class REPEX_state:
                 ):
                     if len(self.pn_olds) > self.n - 2:
                         pn_old_del, del_dic = next(iter(self.pn_olds.items()))
-                        # delete trajectory files
-                        for adress in del_dic["adress"]:
-                            os.remove(adress)
+                        if self.config["output"]["keep_maxop_trajs"]:
+                            # delete trajectory files if low orderp (infinit)
+                            if del_dic["max_op"][0] < self.maxop:
+                                # update maxop and then delete|
+                                for adress in del_dic["adress"]:
+                                    os.remove(adress)
+                        else:
+                            # delete trajectory files
+                            for adress in del_dic["adress"]:
+                                os.remove(adress)
                         # delete txt files
                         load_dir = self.config["simulation"]["load_dir"]
                         if self.config["output"].get("delete_old_all", False):
@@ -950,6 +971,7 @@ class REPEX_state:
                     if len(self.pn_olds) <= self.n - 2:
                         self.pn_olds[str(pn_old)] = {
                             "adress": self.traj_data[pn_old]["adress"],
+                            "max_op": self.traj_data[pn_old]["max_op"],
                         }
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
@@ -1009,6 +1031,9 @@ class REPEX_state:
                 "weights": paths[i + 1].weights,
                 "frac": np.array(frac, dtype="longdouble"),
             }
+            # keep track of max op of i+ path
+            if paths[i + 1].ordermax[0] > self.maxop:
+                self.maxop = paths[i + 1].ordermax[0]
         # add minus path:
         paths[0].weights = (1.0,)
         pnum = paths[0].path_number
