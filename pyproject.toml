@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "infretis"
-version = "2023.3.dev1"
+version = "2025.4"
 description = "Infinite swapping parallel RETIS"
 authors = [
     "Daniel Zhang <daniel.t.zhang@ntnu.no>",
