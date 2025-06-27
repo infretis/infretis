@@ -69,7 +69,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         super().__init__("AMS engine", timestep, subcycles)
         self.ext = "rkf"
 
-        # Units of AMS output, must correspond to set PyRETIS units
+        # Units of AMS output, must correspond to set infRETIS units
         self.ene_unit = "kJ/mol"
         self.dist_unit = "nm"
         self.time_unit = "ps"
@@ -116,12 +116,14 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                 )
                 quit(1)
         else:
-            logger.error(
+            logger.info(
                 "AMS: GeometryFile was not set in AMS input file! "
                 + "- Will fail in the case InfInit is used"
             )
         job = AMSJob.from_input(inp)
         settings = job.settings
+        if hasattr(settings.input.ams, "System"):
+            del settings.input.ams.System
         molecule = job.molecule[""]
         if self.update_box:
             self.molecule_lattice = molecule.lattice  # Check input settings
@@ -141,7 +143,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             "fs", self.time_unit
         )
         if timestep != ams_timestep:
-            logger.error("Mismatch between AMS and Pyretis timestep!")
+            logger.error("Mismatch between AMS and InfRETIS timestep!")
             quit(1)
 
         self.random_velocities_method = None
@@ -526,7 +528,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
         ----------
         name : string
             A name to use for the trajectory we are generating.
-        path : object like :py:class:`pyretis.core.path.PathBase`
+        path : object like :py:class:`infretis.core.path.PathBase`
             This is the path we use to fill in phase-space points.
         ensemble: dict
             It contains:
