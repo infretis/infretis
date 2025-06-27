@@ -17,6 +17,7 @@ numpy = "^1.21.2"
 tomli = "^2.0.1"
 tomli-w = "^1.0.0"
 ase = "^3.20.0"
+indexed-gzip = {version = "^1.9.4", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.0.282"
@@ -61,6 +62,7 @@ infretisrun = "infretis.bin:infretisrun"
 [tool.pytest.ini_options]
 markers = [
     "heavy: mark test as heavy.",
+    "local: mark test as local.",
 ]
 
 [build-system]
