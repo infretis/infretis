@@ -223,9 +223,6 @@ def check_config(config: dict) -> None:
             "lambda_minus_one interface must be less than the first interface!"
         )
 
-    if quantis and lambda_minus_one:
-        raise TOMLConfigError("Cannot run quantis with lambda_minus_one!")
-
     if n_ens < 2:
         raise TOMLConfigError("Define at least 2 interfaces!")
 

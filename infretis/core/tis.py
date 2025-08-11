@@ -1155,7 +1155,7 @@ def quantis_swap_zero(
     )
 
     # check that we have energies in the two paths
-    if None in [shooting_point0.vpot, shooting_point1.vpot]:
+    if None in [shooting_point0.vpot, shooting_point1.vpot] and not ens_set0["tis_set"]["accept_all"]:
         message = " Shooting point in [0-] or [0+] did not contain energies!"
         logger.info(message)
         status = "QNE"
@@ -1166,6 +1166,20 @@ def quantis_swap_zero(
         tmp_path1.status = status
         logger.info(message)
         return False, [tmp_path0, tmp_path1], status
+
+    # if lambda_minus_one, reject early if path_old0
+    if set(ens_set0["start_cond"]) == set(["L", "R"]):
+        if old_path0.check_interfaces(ens_set0["interfaces"])[1] == "L":
+            # add shooting points for debugging purposes
+            message = " [0-] path ends on L side!"
+            logger.info(message)
+            status = "0-L"
+            tmp_path0.append(shooting_point0)
+            tmp_path1.append(shooting_point1)
+            tmp_path0.status = status
+            tmp_path1.status = status
+            logger.info(message)
+            return False, [tmp_path0, tmp_path1], status
 
     # check that we actually start at the left side of interface0
     # before beginning the propagation
