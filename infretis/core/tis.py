@@ -1155,7 +1155,10 @@ def quantis_swap_zero(
     )
 
     # check that we have energies in the two paths
-    if None in [shooting_point0.vpot, shooting_point1.vpot] and not ens_set0["tis_set"]["accept_all"]:
+    if (
+        None in [shooting_point0.vpot, shooting_point1.vpot]
+        and not ens_set0["tis_set"]["accept_all"]
+    ):
         message = " Shooting point in [0-] or [0+] did not contain energies!"
         logger.info(message)
         status = "QNE"
