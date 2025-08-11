@@ -213,7 +213,6 @@ def check_config(config: dict) -> None:
     sh_moves = config["simulation"]["shooting_moves"]
     n_sh_moves = len(sh_moves)
     intf_cap = config["simulation"]["tis_set"].get("interface_cap", False)
-    quantis = config["simulation"]["tis_set"].get("quantis", False)
     lambda_minus_one = config["simulation"]["tis_set"].get(
         "lambda_minus_one", False
     )
