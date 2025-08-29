@@ -107,6 +107,8 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
     return md_items
 
 
+from infretis.classes.multires_wf import multires_wire_fencing
+
 def calc_cv_vector(
     path: InfPath,
     interfaces: List[float],
@@ -138,7 +140,7 @@ def calc_cv_vector(
             return (1.0 if interfaces[0] <= path_max else 0.0,)
 
     for idx, intf_i in enumerate(interfaces[:-1]):
-        if moves[idx + 1] == "wf":
+        if moves[idx + 1] in ("wf", "mwf"):
             intf_cap = cap if cap is not None else interfaces[-1]
             intfs = [interfaces[0], intf_i, intf_cap]
             cv.append(compute_weight(path, intfs, moves[idx + 1]))
@@ -170,7 +172,7 @@ def compute_weight(path: InfPath, interfaces: List[float], move: str) -> float:
     """
     weight = 1.0
 
-    if move == "wf":
+    if move in ("wf", "mwf"):
         wf_weight, _ = wirefence_weight_and_pick(
             path, interfaces[1], interfaces[2]
         )
@@ -179,7 +181,7 @@ def compute_weight(path: InfPath, interfaces: List[float], move: str) -> float:
     if path.get_start_point(
         interfaces[0], interfaces[2]
     ) != path.get_end_point(interfaces[0], interfaces[2]):
-        if move in ("ss", "wf"):
+        if move in ("ss", "wf", "mwf"):
             weight *= 2
 
     return weight
@@ -277,6 +279,7 @@ def select_shoot(
     sh_moves: Dict[str, MoveMethod] = {
         "wf": wire_fencing,
         "sh": shoot,
+        "mwf": multires_wire_fencing,
     }
 
     # set engine, might also depend on chosen move
@@ -598,7 +601,7 @@ def subt_acceptance(
     intf = list(ens_set["interfaces"])
     move = ens_set["mc_move"]
 
-    if move == "wf":
+    if move in ("wf", "mwf"):
         intf[2] = ens_set["tis_set"].get("interface_cap", intf[2])
     trial_path.weight = compute_weight(trial_path, intf, move)
 
@@ -1004,7 +1007,7 @@ def retis_swap_zero(
         # ens_set = settings['ensemble'][i]
         move = ens_moves[i]
         path.weight = (
-            compute_weight(path, intf_w[i], move) if move in ("wf") else 1
+            compute_weight(path, intf_w[i], move) if move in ("wf", "mwf") else 1
         )
 
     return accept, [path0, path1], status

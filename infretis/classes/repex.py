@@ -947,11 +947,13 @@ class REPEX_state:
                             if del_dic["max_op"][0] < self.maxop:
                                 # update maxop and then delete|
                                 for adress in del_dic["adress"]:
-                                    os.remove(adress)
+                                    if os.path.isfile(adress):
+                                        os.remove(adress)
                         else:
                             # delete trajectory files
                             for adress in del_dic["adress"]:
-                                os.remove(adress)
+                                if os.path.isfile(adress):
+                                    os.remove(adress)
                         # delete txt files
                         load_dir = self.config["simulation"]["load_dir"]
                         if self.config["output"].get("delete_old_all", False):
