@@ -10,6 +10,7 @@ from ase import units
 from ase.io import read, write
 from ase.io.trajectory import Trajectory
 from ase.md.langevin import Langevin
+from ase.optimize.optimize import Dynamics
 from ase.md.velocitydistribution import (
     MaxwellBoltzmannDistribution,
     Stationary,
@@ -44,6 +45,15 @@ def read_stuff(name, cwd):
         name = os.path.join(cwd, name)
     with open(name, "rb") as f:
         return pickle.load(f)
+
+class ExternalIntegrator(Dynamics):
+    def __init__(self, atoms):
+        super().__init__(atoms)
+        atoms.info["not_setup"] = True
+
+    def step(self, forces = None):
+        self.atoms.calc.calculate(self.atoms)
+        pass
 
 class ASEExternalEngine(EngineBase):
     """An ASE external engine class."""
@@ -89,6 +99,7 @@ class ASEExternalEngine(EngineBase):
         integrator_map = {
             "langevin": Langevin,
             "velocityverlet": VelocityVerlet,
+            "external": ExternalIntegrator,
         }
         if integrator not in integrator_map.keys():
             raise ValueError(f"{integrator} not in integrator map.")
@@ -110,6 +121,9 @@ class ASEExternalEngine(EngineBase):
             self.integrator_settings = {
                 "timestep": self.timestep * units.fs,
             }
+        elif integrator == "external":
+            self.subcycles = 1
+            self.integrator_settings = {}
 
         self.kb = 8.61733326e-5  # eV/K
         self._beta = 1 / (self.temperature * self.kb)
