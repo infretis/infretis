@@ -109,6 +109,7 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
 
 from infretis.classes.multires_wf import multires_wire_fencing
 
+
 def calc_cv_vector(
     path: InfPath,
     interfaces: List[float],
@@ -723,6 +724,7 @@ def shoot_backwards(
         # Nope, backward trajectory end at wrong interface.
         trial_path += path_back  # Store path for analysis.
         trial_path.status = "BWI"
+        print("shoot backward failed ", "=" * 20)
         return False
     return True
 
@@ -1007,7 +1009,9 @@ def retis_swap_zero(
         # ens_set = settings['ensemble'][i]
         move = ens_moves[i]
         path.weight = (
-            compute_weight(path, intf_w[i], move) if move in ("wf", "mwf") else 1
+            compute_weight(path, intf_w[i], move)
+            if move in ("wf", "mwf")
+            else 1
         )
 
     return accept, [path0, path1], status

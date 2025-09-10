@@ -14,7 +14,7 @@ wmdrun = ['not used',
 
 [simulation]
 interfaces = [-0.99, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, 1.0]
-steps = 50
+steps = 20000
 seed = 0
 load_dir = 'load'
 shooting_moves = ['sh','sh','wf','wf','wf','wf','wf','wf']

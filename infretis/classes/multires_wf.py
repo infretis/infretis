@@ -12,21 +12,15 @@ scheme as WF is used.
 
 Configuration (TIS settings `ens_set["tis_set"]`):
     mwf_nsubpath: int                # N_subpath (default: 3)
-    n_jumps: int                     # N_subset, reuses existing WF parameter (default: 2) 
+    n_jumps: int                     # N_subset, reuses existing WF parameter (default: 2)
     mwf_subcycle_small: int          # small N_subcycle for high-res subpaths (default: max(1, engine.subcycles // 5))
     interface_cap: float             # optional, same meaning as in WF
-    
-Note: 
+
+Note:
     - Low-res subpaths automatically use engine.subcycles (like standard WF)
-    - This reduces MWF-specific parameters from 4 to 2
 
 Notes:
-- lambda_A and lambda_B are the *outer* interfaces.
-- lambda_cap is the right bound used for subpaths, like in WF.
-- "lambda_cap–lambda_cap" subpaths are rejected.
 - Any highres subpath with length L == 3 (three phase points) is rejected.
-- Subpath starts/ends relative to [lambda_i, lambda_cap] are tested using
-  the same interface classification utilities as WF.
 
 Integration with existing code:
 - Register the move key "mwf" in `tis.select_shoot`.
@@ -35,6 +29,7 @@ Integration with existing code:
   here which computes WF-weights internally).
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -54,7 +49,7 @@ try:  # pragma: no cover
     from infretis.classes.engines.enginebase import EngineBase
 except Exception:  # pragma: no cover
     InfPath = object  # type: ignore
-    System = object   # type: ignore
+    System = object  # type: ignore
     EngineBase = object  # type: ignore
 
 logger = logging.getLogger(__name__)
@@ -73,7 +68,6 @@ class _MWFSettings:
 
 @contextmanager
 def _temporary_subcycles(engine: EngineBase, new_subcycles: int):
-    """Temporarily set `engine.subcycles` and restore on exit."""
     old = getattr(engine, "subcycles", None)
     try:
         if new_subcycles is not None and old is not None:
@@ -84,7 +78,9 @@ def _temporary_subcycles(engine: EngineBase, new_subcycles: int):
             engine.subcycles = old
 
 
-def _read_mwf_settings(ens_set: Dict[str, Any], engine: EngineBase) -> _MWFSettings:
+def _read_mwf_settings(
+    ens_set: Dict[str, Any], engine: EngineBase
+) -> _MWFSettings:
     tis = ens_set["tis_set"]
     # Use existing TIS parameters where possible
     large = getattr(engine, "subcycles", 10)  # from engine, like standard WF
@@ -97,98 +93,43 @@ def _read_mwf_settings(ens_set: Dict[str, Any], engine: EngineBase) -> _MWFSetti
     )
 
 
-def _random_internal_indices(path: InfPath, rgen, k: int) -> List[int]:
-    """Pick up to k distinct internal indices (exclude endpoints)."""
+def _pick_random_shooting_idx(path: InfPath, rgen) -> int:
     n = len(path.phasepoints)
     if n <= 2:
-        return []
-    start, stop = 1, n - 1  # [1, n-2]
-    available = list(range(start, stop))
-    rgen.shuffle(available)
-    return available[: max(0, min(k, len(available)))]
-
-
-def _pick_shooting_idx(path: InfPath, rgen, resolution: str, queue: List[int]) -> Tuple[int, List[int]]:
-    """Pick a shooting index according to resolution.
-
-    lowres: uniform among internal points
-    highres: pop from the head of `queue`; if empty, fallback to uniform
-    """
-    if resolution == "highres" and queue:
-        idx = queue.pop(0)
-        return idx, queue
-    # lowres or empty queue fallback
-    n = len(path.phasepoints)
-    if n <= 2:
-        return 0, queue
+        return 0
     idx = rgen.integers(1, n - 1)
-    return int(idx), queue
+    return int(idx)
 
 
-def _generate_segment_from_point(
+def _generate_segment_using_shoot(
     si: InfPath,
     idx: int,
     ens_set_sub: Dict[str, Any],
     engine: EngineBase,
     start_cond: Tuple[str, ...],
-    shooting_point: Optional[System] = None
 ) -> Tuple[bool, InfPath, str]:
-    """Clone WF's `shoot` but with an explicit shooting point index.
+    """Generate a segment using standard WF shoot() function.
 
-    Integrates backward and forward under `ens_set_sub['interfaces']`.
+    Uses the shooting point at idx from si. The shoot() function handles
+    velocity modification and kick checking internally.
     """
-    from infretis.core.tis import shoot_backwards  # reuse helpers
-
-    interfaces = ens_set_sub["interfaces"]
-    maxlen = ens_set_sub["tis_set"]["maxlength"]
-
-    if shooting_point is None: 
-        shooting_point = si.phasepoints[idx].copy()
+    from infretis.core.tis import shoot  # use standard WF shoot
 
     if idx <= 0 or idx >= len(si.phasepoints) - 1:
+        maxlen = ens_set_sub["tis_set"]["maxlength"]
         return False, si.empty_path(maxlen=maxlen), "IDX"
 
-    trial_path = si.empty_path(maxlen=maxlen)
-    trial_path.generated = ("mwf-sh", shooting_point.order[0], idx, 0)
-    trial_path.time_origin = si.time_origin + idx
-    # Ensure intermediate mwf-sh paths never get path numbers (prevent file saving)
-    trial_path.path_number = None
+    # Get shooting point from the path - let shoot() handle velocity modification
+    shooting_point = si.phasepoints[idx].copy()
+    shooting_point.idx = idx
 
-    # Backward
-    path_back = si.empty_path(maxlen=maxlen - 1)
-    shpt_copy = shooting_point.copy()
-    if not shoot_backwards(path_back, trial_path, shpt_copy, ens_set_sub, engine, start_cond):
-        return False, trial_path, trial_path.status
-
-    # Forward
-    path_forw = si.empty_path(maxlen=(maxlen - path_back.length + 1))
-    shpt_copy = shooting_point.copy()
-    success_forw, _ = engine.propagate(path_forw, ens_set_sub, shpt_copy, reverse=False)
-    path_forw.time_origin = trial_path.time_origin
-
-    trial_path = paste_paths(
-        path_back, path_forw, overlap=True, maxlen=maxlen
+    # Use standard WF shoot function - it handles velocity kick and validation
+    success, trial_path, status = shoot(
+        ens_set_sub, si, engine, shooting_point, start_cond
     )
+    print("Generate_", status)
 
-    trial_path.generated = ("mwf-sh", shooting_point.order[0], idx, path_back.length - 1)
-    # Ensure intermediate mwf-sh paths never get path numbers (prevent file saving)
-    trial_path.path_number = None
-
-    if not success_forw:
-        trial_path.status = "FTL"
-        if trial_path.length == maxlen:
-            trial_path.status = "FTX"
-        return False, trial_path, trial_path.status
-
-    # Reject if wrong lambda0 crossing rules apply within sub-interfaces:
-    # (We allow start anywhere for subpath generation)
-    # Ensure we crossed the middle sub-interface:
-    if not trial_path.check_interfaces(interfaces)[-1][1]:
-        trial_path.status = "NCR"
-        return False, trial_path, trial_path.status
-
-    trial_path.status = "ACC"
-    return True, trial_path, trial_path.status
+    return success, trial_path, status
 
 
 def multires_wire_fencing(
@@ -197,10 +138,6 @@ def multires_wire_fencing(
     engine: EngineBase,
     start_cond: Tuple[str, ...] = ("L",),
 ) -> Tuple[bool, InfPath, str]:
-    """Perform the Multiresolution Wire Fencing (MWF) move.
-
-    Returns (accept, path, status) just like `wire_fencing`.
-    """
     # Import WF helpers lazily to avoid circular imports
     from infretis.core.tis import (
         wirefence_weight_and_pick,
@@ -211,7 +148,11 @@ def multires_wire_fencing(
 
     interfaces_full = ens_set["interfaces"]  # [lambda_A, lambda_i, lambda_B]
     lambda_cap = ens_set["tis_set"].get("interface_cap", interfaces_full[2])
-    wf_int = [interfaces_full[1], interfaces_full[1], lambda_cap]  # [i, i, cap]
+    wf_int = [
+        interfaces_full[1],
+        interfaces_full[1],
+        lambda_cap,
+    ]  # [i, i, cap]
 
     # Step 1: pick s0 between lambda_i and lambda_cap (exclude cap-cap)
     n_frames, s0 = wirefence_weight_and_pick(
@@ -237,63 +178,71 @@ def multires_wire_fencing(
 
     # Counters and state (Step 2)
     countset = 1
-    current_resolution = "lowres"  # Step 2
+    succ_sets = 0
 
-    # For carrying the last *accepted* subpath and its queue
+    # Check if s0 is valid for shooting
+    if len(s0.phasepoints) <= 2:
+        # s0 too short, fail immediately
+        trial_path.status = "NSG"
+        return False, trial_path, trial_path.status
+
+    # For carrying the last *accepted* subpath
     si = s0.copy()
     last_acc_si = si.copy()
-    last_acc_queue: List[int] = []
 
     # Iterate over sets (Step 12)
     while True:
+        logger.debug(f"MWF: Starting set {countset}/{mwf.nsubset}")
         i = 0
         set_rejected = False
-        shooting_queue: List[int] = []
+        succ_subpaths = 0  # Track successful subpaths in this set
         si = si.copy()  # start this set from current s0
 
         # Generate up to Nsubpath subpaths
         while i < mwf.nsubpath:
-            # Step 3: pick shooting point by resolution rule
-            idx, shooting_queue = _pick_shooting_idx(si, sub_ens["rgen"], current_resolution, shooting_queue)
+            # Step 3: pick random shooting point (like WF)
+            idx = _pick_random_shooting_idx(si, sub_ens["rgen"])
 
-            # Step 4: new velocities (Maxwell–Boltzmann)
-            shpt = si.phasepoints[idx].copy()
-            _, _ = engine.modify_velocities(shpt, sub_ens["tis_set"])  # dek not used for now
-            shpt.order = engine.calculate_order(shpt)
-
-            # Sanity check kick (same as WF)
-            if not check_kick(shpt, wf_int, si.empty_path(maxlen=sub_ens["tis_set"]["maxlength"]), sub_ens["rgen"], 0.0):
-                # KOB: treat as immediate subpath rejection pathway
+            # Check if path is too short for shooting
+            if (
+                len(si.phasepoints) <= 2
+                or idx <= 0
+                or idx >= len(si.phasepoints) - 1
+            ):
                 gen_success = False
                 seg = si.empty_path(maxlen=sub_ens["tis_set"]["maxlength"])
-                status = "KOB"
+                status = "SHP"  # Short path
             else:
+                # Step 4: Generate new velocities for shooting point (done inside shoot function)
                 # Step 5: i = i + 1
                 i += 1
 
-                # Step 6: decide resolution used for *integration* (current resolution determines subcycles)
-                # Use current resolution for subcycle choice: lowres = large subcycles, highres = small subcycles
-                subcycles = mwf.subcycle_large if current_resolution == "lowres" else mwf.subcycle_small
-                
-                # Decide next resolution for subsequent shooting point selection
-                next_resolution = "highres" if i < mwf.nsubpath else "lowres"
+                # Step 6: decide subcycles - last subpath uses lowres, others use highres
+                if i == mwf.nsubpath:  # Last subpath
+                    subcycles = mwf.subcycle_large  # lowres subcycles
+                else:  # All other subpaths
+                    subcycles = mwf.subcycle_small  # highres subcycles
 
                 # Step 7: generate si by integrating to [i, cap] using chosen resolution
+                # The shoot() function handles velocity modification and kick checking internally
                 with _temporary_subcycles(engine, subcycles):
-                    gen_success, seg, status = _generate_segment_from_point(
-                        si, idx, sub_ens, engine, start_cond=("L", "R"), shooting_point=shpt
+                    gen_success, seg, status = _generate_segment_using_shoot(
+                        si,
+                        idx,
+                        sub_ens,
+                        engine,
+                        start_cond=("L", "R"),
                     )
 
-                # After generation, build/update the shooting list for *next* pick
-                # Store Nsubpath - i random internal indices
-                k = max(0, mwf.nsubpath - i)
-                shooting_queue = _random_internal_indices(seg, sub_ens["rgen"], k)
-
             # Step 8: rejection checks specific to MWF
+            # if status == "BWI":
+            print("MWF okidoki: backward integration failed", gen_success)
             if gen_success:
                 start_side, end_side, _, _ = seg.check_interfaces(wf_int)
-                is_cap_cap = (start_side == "R" and end_side == "R")
-                is_len3_highres = (current_resolution == "highres" and seg.length == 3)
+                is_cap_cap = start_side == "R" and end_side == "R"
+                is_len3_highres = (
+                    subcycles == mwf.subcycle_small and seg.length == 3
+                )
                 if is_cap_cap or is_len3_highres:
                     gen_success = False
                     status = "CCP" if is_cap_cap else "L3H"
@@ -301,74 +250,70 @@ def multires_wire_fencing(
             if not gen_success:
                 # Step 9: Reject subpath
                 if i == 1 or i == mwf.nsubpath:
-                    # Step 11: Reject set, restart from last accepted lowres path s0
+                    # First or last subpath failed - always reject set and restart from s0
                     set_rejected = True
                     si = s0.copy()
-                    si.path_number = None
+                    if status == "BWI":
+                        print(
+                            "A set has been rejected my lord, pathetic",
+                            gen_success,
+                        )
                     break
                 else:
-                    # Replace with last accepted subpath and repeat step 3 (i unchanged)
+                    # Replace with last accepted subpath and repeat step 3
                     si = last_acc_si.copy()
-                    si.path_number = None
-                    shooting_queue = list(last_acc_queue)
+                    i -= 1
+                    if status == "BWI":
+                        print("A subpath has been rejected my lord, pathetic")
                     continue
             else:
                 # Step 10: Accept subpath
+                succ_subpaths += 1  # Count successful subpath
                 last_acc_si = seg.copy()
-                # Ensure copied intermediate paths don't retain path numbers
-                last_acc_si.path_number = None
-                last_acc_queue = list(shooting_queue)
                 si = seg.copy()
-                si.path_number = None
-
+                if status == "BWI":
+                    print(
+                        "A subpath has been accepted, Very nice - Borat Sagdiyev",
+                        gen_success,
+                    )
                 if i == mwf.nsubpath:
                     # proceed to evaluate set (Step 12)
+                    if status == "BWI":
+                        print(
+                            "A subpath has been accepted, ready for extension, Great success- Borat Sagdiyev",
+                            gen_success,
+                        )
                     break
 
-            # On next loop, picking uses *current* resolution variable
-            current_resolution = next_resolution
-
-        # Step 11 handled inside loop via set_rejected flag
         # Step 12: Evaluate set
         if countset == mwf.nsubset:
-            # Determine which path to extend: last accepted subpath or fallback s0
-            path_to_extend = s0 if set_rejected else last_acc_si
-            # Step 13: extend last accepted subpath to full A/B using large subcycles
-            # Use standard extender but with large subcycles and full interface set
-            extension_ens = dict(ens_set)
-            extension_ens["interfaces"] = interfaces_full  # Ensure full A/B interfaces for extension
-            with _temporary_subcycles(engine, mwf.subcycle_large):
-                ok, full_path, _ = extender(path_to_extend, engine, extension_ens, start_cond)
+
+            path_to_extend = last_acc_si
+
+            ok, full_path, _ = extender(
+                path_to_extend, engine, ens_set, start_cond
+            )
             if not ok:
-                # Could be FTX etc. Pass through status from extender in full_path
                 return False, full_path, full_path.status
 
-            # Orientation and weight (use the same scheme as WF)
-            # The subt_acceptance function already handles "mwf" moves properly
-            success, accepted = subt_acceptance(full_path, ens_set, engine, start_cond)
-            accepted.generated = ("mwf", 9001, mwf.nsubpath, accepted.length)
+            success, accepted = subt_acceptance(
+                full_path, ens_set, engine, start_cond
+            )
+            accepted.generated = ("mwf", 9001, succ_sets, accepted.length)
             if not success:
                 return False, accepted, accepted.status
 
-            # Extra step 13 rules on terminal types
-            left, _, right = interfaces_full
-            start_side = accepted.get_start_point(left, right)
-            end_side = accepted.get_end_point(left, right)
-            if start_side == "R" and end_side == "R":
-                # Step 14: Reject WF move
-                trial_path.status = "BBB"
-                return False, trial_path, trial_path.status
-            if start_side == "R" and end_side == "L":
-                # Reverse to make it A->B
-                accepted = accepted.reverse(engine.order_function)
-
-            accepted.status = "ACC"
+            logger.debug("MWF: Successfully returning accepted path")
             return True, accepted, accepted.status
 
-        # Move to next set
         countset += 1
+        logger.debug(
+            f"MWF: Moving to next set {countset}/{mwf.nsubset}, set_rejected={set_rejected}"
+        )
         if not set_rejected:
-            s0 = si.copy()  # last accepted lowres (after successful set) becomes new s0
-            s0.path_number = None
-        current_resolution = "lowres"
-        # Loop back to new set
+            # Set completed successfully, increment succ_sets
+            succ_sets += 1
+            s0 = (
+                si.copy()
+            )  # last accepted lowres (after successful set) becomes new s0
+        logger.debug("MWF: Continuing to next set iteration")
