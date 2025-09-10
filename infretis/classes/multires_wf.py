@@ -179,6 +179,7 @@ def multires_wire_fencing(
     # Counters and state (Step 2)
     countset = 1
     succ_sets = 0
+    total_succ_subpaths = 0  # Track total successful subpaths across all sets
 
     # Check if s0 is valid for shooting
     if len(s0.phasepoints) <= 2:
@@ -195,7 +196,6 @@ def multires_wire_fencing(
         logger.debug(f"MWF: Starting set {countset}/{mwf.nsubset}")
         i = 0
         set_rejected = False
-        succ_subpaths = 0  # Track successful subpaths in this set
         si = si.copy()  # start this set from current s0
 
         # Generate up to Nsubpath subpaths
@@ -268,7 +268,7 @@ def multires_wire_fencing(
                     continue
             else:
                 # Step 10: Accept subpath
-                succ_subpaths += 1  # Count successful subpath
+                total_succ_subpaths += 1  # Count total across all sets
                 last_acc_si = seg.copy()
                 si = seg.copy()
                 if status == "BWI":
@@ -287,6 +287,10 @@ def multires_wire_fencing(
 
         # Step 12: Evaluate set
         if countset == mwf.nsubset:
+            # Check if no successful subpaths were generated (like WF succ_seg == 0 check)
+            if total_succ_subpaths == 0:
+                trial_path.status = "NSG"
+                return False, trial_path, trial_path.status
 
             path_to_extend = last_acc_si
 
