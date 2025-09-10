@@ -262,7 +262,7 @@ def multires_wire_fencing(
                 else:
                     # Replace with last accepted subpath and repeat step 3
                     si = last_acc_si.copy()
-                    i -= 1
+                    #####i -= 1
                     if status == "BWI":
                         print("A subpath has been rejected my lord, pathetic")
                     continue
