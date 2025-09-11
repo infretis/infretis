@@ -198,6 +198,7 @@ def multires_wire_fencing(
         i = 0
         set_rejected = False
         si = si.copy()  # start this set from current s0
+        last_acc_in_set = si.copy()  # Track last accepted subpath within this set
 
         # Generate up to Nsubpath subpaths
         while i < mwf.nsubpath:
@@ -258,16 +259,16 @@ def multires_wire_fencing(
                     logger.info(f"step 9: Set {i} was rejected: si = {[i.split('/')[-1] for i in seg.adress]} {seg.ordermax}")
                     break
                 else:
-                    # Replace with last accepted subpath and repeat step 3
-                    si = last_acc_si.copy()
+                    # Replace with last accepted subpath within current set and repeat step 3
+                    si = last_acc_in_set.copy()
                     #####i -= 1
-                    logger.info(f"Replace and reapeat 3, si={[i.split('/')[-1] for i in seg.adress]} {seg.ordermax}")
+                    logger.info(f"Replace and reapeat 3, si={[i.split('/')[-1] for i in last_acc_in_set.adress]} {last_acc_in_set.ordermax}")
                     continue
             else:
                 # Step 10: Accept subpath
                 total_succ_subpaths += 1  # Count total across all sets
-                last_acc_si = seg.copy()
                 si = seg.copy()
+                last_acc_in_set = seg.copy()  # Update last accepted within current set
                 logger.info(f"Step 10: Accept subpath: {[i.split('/')[-1] for i in seg.adress]} {seg.ordermax}")
                 if i == mwf.nsubpath:
                     # proceed to evaluate set (Step 12)
@@ -276,13 +277,13 @@ def multires_wire_fencing(
 
         # Step 12: Evaluate set
         if countset == mwf.nsubset:
-            # Check if no successful subpaths were generated (like WF succ_seg == 0 check)
-            if total_succ_subpaths == 0:
+            # Check if no successful subpaths or sets were generated (like WF succ_seg == 0 check)
+            if total_succ_subpaths == 0 or succ_sets == 0:
                 trial_path.status = "NSG"
                 return False, trial_path, trial_path.status
 
             path_to_extend = last_acc_si
-            logger.info(f"path_to_extend {[i.split('/')[-1] for i in seg.adress]} {seg.ordermax}")
+            logger.info(f"path_to_extend {[i.split('/')[-1] for i in path_to_extend.adress]} {path_to_extend.ordermax}")
 
             ok, full_path, _ = extender(
                 path_to_extend, engine, ens_set, start_cond
@@ -307,6 +308,7 @@ def multires_wire_fencing(
         if not set_rejected:
             # Set completed successfully, increment succ_sets
             succ_sets += 1
+            last_acc_si = si.copy()  # Update last_acc_si only when set succeeds
             s0 = (
                 si.copy()
             )  # last accepted lowres (after successful set) becomes new s0
