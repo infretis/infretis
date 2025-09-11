@@ -190,10 +190,11 @@ def multires_wire_fencing(
     # For carrying the last *accepted* subpath
     si = s0.copy()
     last_acc_si = si.copy()
+    logger.info(f"si={[i.split('/')[-1] for i in si.adress]} {si.ordermax}, last_acc={[i.split('/')[-1] for i in last_acc_si.adress]} {last_acc_si.ordermax}")
 
     # Iterate over sets (Step 12)
     while True:
-        logger.debug(f"MWF: Starting set {countset}/{mwf.nsubset}")
+        logger.info(f"MWF: Starting set {countset}/{mwf.nsubset}")
         i = 0
         set_rejected = False
         si = si.copy()  # start this set from current s0
@@ -225,6 +226,7 @@ def multires_wire_fencing(
 
                 # Step 7: generate si by integrating to [i, cap] using chosen resolution
                 # The shoot() function handles velocity modification and kick checking internally
+                logger.info(f"Shooting from {si.path_number} {[i.split('/')[-1] for i in si.adress]}")
                 with _temporary_subcycles(engine, subcycles):
                     gen_success, seg, status = _generate_segment_using_shoot(
                         si,
@@ -233,10 +235,10 @@ def multires_wire_fencing(
                         engine,
                         start_cond=("L", "R"),
                     )
+                logger.info(f"Generated {seg.path_number} {[i.split('/')[-1] for i in seg.adress]}")
 
             # Step 8: rejection checks specific to MWF
             # if status == "BWI":
-            print("MWF okidoki: backward integration failed", gen_success)
             if gen_success:
                 start_side, end_side, _, _ = seg.check_interfaces(wf_int)
                 is_cap_cap = start_side == "R" and end_side == "R"
@@ -253,36 +255,23 @@ def multires_wire_fencing(
                     # First or last subpath failed - always reject set and restart from s0
                     set_rejected = True
                     si = s0.copy()
-                    if status == "BWI":
-                        print(
-                            "A set has been rejected my lord, pathetic",
-                            gen_success,
-                        )
+                    logger.info(f"step 9: Set {i} was rejected: si = {[i.split('/')[-1] for i in seg.adress]} {seg.ordermax}")
                     break
                 else:
                     # Replace with last accepted subpath and repeat step 3
                     si = last_acc_si.copy()
                     #####i -= 1
-                    if status == "BWI":
-                        print("A subpath has been rejected my lord, pathetic")
+                    logger.info(f"Replace and reapeat 3, si={[i.split('/')[-1] for i in seg.adress]} {seg.ordermax}")
                     continue
             else:
                 # Step 10: Accept subpath
                 total_succ_subpaths += 1  # Count total across all sets
                 last_acc_si = seg.copy()
                 si = seg.copy()
-                if status == "BWI":
-                    print(
-                        "A subpath has been accepted, Very nice - Borat Sagdiyev",
-                        gen_success,
-                    )
+                logger.info(f"Step 10: Accept subpath: {[i.split('/')[-1] for i in seg.adress]} {seg.ordermax}")
                 if i == mwf.nsubpath:
                     # proceed to evaluate set (Step 12)
-                    if status == "BWI":
-                        print(
-                            "A subpath has been accepted, ready for extension, Great success- Borat Sagdiyev",
-                            gen_success,
-                        )
+                    logger.info( "A subpath has been accepted, ready for extension")
                     break
 
         # Step 12: Evaluate set
@@ -293,6 +282,7 @@ def multires_wire_fencing(
                 return False, trial_path, trial_path.status
 
             path_to_extend = last_acc_si
+            logger.info(f"path_to_extend {[i.split('/')[-1] for i in seg.adress]} {seg.ordermax}")
 
             ok, full_path, _ = extender(
                 path_to_extend, engine, ens_set, start_cond
@@ -307,11 +297,11 @@ def multires_wire_fencing(
             if not success:
                 return False, accepted, accepted.status
 
-            logger.debug("MWF: Successfully returning accepted path")
+            logger.info("MWF: Successfully returning accepted path")
             return True, accepted, accepted.status
 
         countset += 1
-        logger.debug(
+        logger.info(
             f"MWF: Moving to next set {countset}/{mwf.nsubset}, set_rejected={set_rejected}"
         )
         if not set_rejected:
@@ -320,4 +310,4 @@ def multires_wire_fencing(
             s0 = (
                 si.copy()
             )  # last accepted lowres (after successful set) becomes new s0
-        logger.debug("MWF: Continuing to next set iteration")
+        logger.info("MWF: Continuing to next set iteration")
