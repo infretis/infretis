@@ -125,6 +125,8 @@ class GromacsEngine(EngineBase):
                 masses
         """
         super().__init__("GROMACS engine zamn", timestep, subcycles)
+        self.write_vel = write_vel
+        self.write_force = write_force
         self.ext = gmx_format
         self.name = "gromacs"
         if self.ext != "g96":
@@ -481,6 +483,20 @@ class GromacsEngine(EngineBase):
             "nsteps": path.maxlen * self.subcycles,
             "continuation": "no",
         }
+        # update subcycle if changed
+        for key in (
+            "nstxout",
+            "nstvout",
+            "nstfout",
+            "nstlog",
+            "nstcalcenergy",
+            "nstenergy",
+        ):
+            settings[key] = self.subcycles
+        if not self.write_vel:
+            settings["nstvout"] = 0
+        if not self.write_force:
+            settings["nstfout"] = 0
         mdp_file = os.path.join(self.exe_dir, f"{name}.mdp")
         self._modify_input(
             self.input_files["input"], mdp_file, settings, delim="="
@@ -566,7 +582,7 @@ class GromacsEngine(EngineBase):
             input_file: The input configuration to generate velocities for.
 
         Returns:
-            A tuple containing:
+            uA tuple containing:
                 - The name of the file created.
                 - The energy terms read from the GROMACS .edr file.
         """
