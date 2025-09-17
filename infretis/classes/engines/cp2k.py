@@ -105,9 +105,9 @@ class SectionNode:
             self.data = []
         self.children: set[SectionNode] = set()
         self.level = 0
-        self.parents: Optional[
-            List[str]
-        ] = None  # TODO: Check if this can be []
+        self.parents: Optional[List[str]] = (
+            None  # TODO: Check if this can be []
+        )
 
     def add_child(self, child: SectionNode) -> None:
         """Add a sub-section to the current section."""
