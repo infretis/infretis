@@ -604,3 +604,44 @@ def lammpstrj_reader(
             coordinate_snapshot = np.zeros((N_atoms, 6), dtype=np.float64)
             box_snapshot = np.zeros((3, 3), dtype=np.float64)
     return trajectory, box
+
+
+def kinetic_energy(
+    vel: np.ndarray, mass: np.ndarray
+) -> Tuple[float, np.ndarray]:
+    """Obtain the kinetic energy for given velocities and masses.
+
+    Args:
+        vel: The velocities
+        mass: The masses as a column vector.
+
+    Returns:
+        A tuple containing:
+            - The kinetic energy.
+            - The kinetic energy tensor.
+    """
+    mom = vel * mass.reshape(-1, 1)
+    if len(mass) == 1:
+        kin = 0.5 * np.outer(mom, vel)
+    else:
+        kin = 0.5 * np.einsum("ij,ik->jk", mom, vel)
+    return kin.trace(), kin
+
+
+def reset_momentum(vel: np.ndarray, mass: np.ndarray) -> np.ndarray:
+    """Set the linear momentum of all particles to zero.
+
+    Note:
+        Velocities are modified in place **and** returned.
+
+    Args:
+        vel: The velocities of the particles in system.
+        mass: The masses of the particles in the system.
+
+    Returns:
+        The modified velocities of the particles.
+    """
+    # TODO: ?avoid creating an extra dimension by indexing array with None?
+    mom = np.sum(vel * mass, axis=0)
+    vel -= mom / mass.sum()
+    return vel

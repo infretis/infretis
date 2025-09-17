@@ -25,11 +25,12 @@ from turtlemd.system.box import Box as TBox
 from turtlemd.system.particles import Particles as TParticles
 from turtlemd.system.system import System as TSystem
 
-from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     convert_snapshot,
+    kinetic_energy,
     read_xyz_file,
+    reset_momentum,
     write_xyz_trajectory,
 )
 
@@ -208,14 +209,13 @@ class TurtleMDEngine(EngineBase):
         tmd_system = TSystem(
             box=self.box, particles=particles, potentials=self.potential
         )
-        if hasattr(self, "rgen"):
-            seed = self.rgen.integers(0, 1e9)
-        else:
+        if not hasattr(self, "rgen"):
             raise ValueError("Missing random generator!")
         tmd_simulation = MDSimulation(
             system=tmd_system,
             integrator=self.integrator(
-                timestep=self.timestep, **self.integrator_settings, seed=seed
+                timestep=self.timestep,
+                **self.integrator_settings,  # , seed=seed
             ),
             steps=path.maxlen * self.subcycles,
         )
@@ -284,7 +284,9 @@ class TurtleMDEngine(EngineBase):
         msg_file.write("# Propagation done.")
         ekin = np.array(thermo["ekin"]) * tmd_system.particles.npart
         vpot = np.array(thermo["vpot"]) * tmd_system.particles.npart
-        path.update_energies(ekin, vpot)
+        etot = ekin + vpot
+        temp = np.array(thermo["temperature"])
+        path.update_energies(ekin, vpot, etot, temp)
         return success, status
 
     @staticmethod
