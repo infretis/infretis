@@ -209,13 +209,17 @@ class TurtleMDEngine(EngineBase):
         tmd_system = TSystem(
             box=self.box, particles=particles, potentials=self.potential
         )
-        if not hasattr(self, "rgen"):
+        if hasattr(self, "rgen"):
+            seed = self.rgen.integers(0, 1e9)
+        else:
             raise ValueError("Missing random generator!")
+
         tmd_simulation = MDSimulation(
             system=tmd_system,
             integrator=self.integrator(
                 timestep=self.timestep,
-                **self.integrator_settings,  # , seed=seed
+                **self.integrator_settings,
+                seed=seed,
             ),
             steps=path.maxlen * self.subcycles,
         )
