@@ -40,9 +40,9 @@ class Path:
         """
         self.maxlen = maxlen
         self.status: str = ""
-        self.generated: Optional[Union[Tuple[str, float, int, int], str]] = (
-            None
-        )
+        self.generated: Optional[
+            Union[Tuple[str, float, int, int], str]
+        ] = None
         self.path_number = None
         self.weights: Optional[Tuple[float, ...]] = None
         self.weight: float = 0.0
@@ -305,6 +305,8 @@ class Path:
         self,
         ekin: Union[np.ndarray, List[float]],
         vpot: Union[np.ndarray, List[float]],
+        etot: Union[np.ndarray, List[float]],
+        temp: Union[np.ndarray, List[float]],
     ) -> None:
         """Update the energies for the phase points.
 
@@ -315,38 +317,26 @@ class Path:
         Args:
             ekin : The kinetic energies to set.
             vpot : The potential energies to set.
+            etot : The total energies to set.
+            temp : The temperature to set.
         """
-        if len(ekin) != len(vpot):
-            logger.debug(
-                "Kinetic and potential energies have different length."
-            )
-        if len(ekin) != len(self.phasepoints):
-            logger.debug(
-                "Length of kinetic energy and phase points differ %d != %d.",
-                len(ekin),
-                len(self.phasepoints),
-            )
-        if len(vpot) != len(self.phasepoints):
-            logger.debug(
-                "Length of potential energy and phase points differ %d != %d.",
-                len(vpot),
-                len(self.phasepoints),
-            )
-        for i, phasepoint in enumerate(self.phasepoints):
-            try:
-                vpoti = vpot[i]
-            except IndexError:
-                logger.warning(
-                    "Ran out of potential energies, setting to None."
+        energies = [ekin, vpot, etot, temp]
+        names = ["ekin", "vpot", "etot", "temp"]
+
+        len_p = len(self.phasepoints)
+        for ene, name in zip(energies, names):
+            len_e = len(ene)
+            if len_e != len_p:
+                logger.debug(
+                    f"Length of {name} and phasepoints differ {len_e}!={len_p}"
                 )
-                vpoti = None
-            try:
-                ekini = ekin[i]
-            except IndexError:
-                logger.warning("Ran out of kinetic energies, setting to None.")
-                ekini = None
-            phasepoint.vpot = vpoti
-            phasepoint.ekin = ekini
+            for i, phasepoint in enumerate(self.phasepoints):
+                try:
+                    enei = ene[i]
+                except IndexError:
+                    logger.warning(f"Ran out of {name}, setting to None.")
+                    enei = None
+                setattr(phasepoint, name, enei)
 
 
 def paste_paths(
@@ -473,7 +463,10 @@ def _load_energies_for_path(path: Path, dirname: str) -> None:
         with EnergyPathFile(energy_file_name, "r") as energyfile:
             energy = next(energyfile.load())
             path.update_energies(
-                energy["data"]["ekin"], energy["data"]["vpot"]
+                energy["data"]["ekin"],
+                energy["data"]["vpot"],
+                energy["data"]["etot"],
+                energy["data"]["temp"],
             )
     except FileNotFoundError:
         pass
