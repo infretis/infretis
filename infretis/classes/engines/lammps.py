@@ -327,7 +327,7 @@ def check_lammps_input(lmp_inp):
 
 
 def check_lammps_data(lmp_data):
-    """Some checks to perform on the lammps data file.
+    """Perform checks on a lammps.data file.
 
     E.g. to retrieve the box type (triclinic or not).
     """
@@ -419,7 +419,7 @@ class LAMMPSEngine(EngineBase):
         self.atom_style = atom_style
         self.mass = get_atom_masses(self.input_files["data"], self.atom_style)
         self.n_atoms = self.mass.shape[0]
-        # check lammps input settings
+        # check lammps.data settings for box info
         data_info = check_lammps_data(self.input_files["data"])
         self.triclinic = data_info["triclinic"]
         self.temperature = temperature
