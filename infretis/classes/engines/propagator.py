@@ -96,6 +96,8 @@ while True:
         step_nr = 0
         ekin = []
         vpot = []
+        temp = []
+        etot = []
         calc.calculate(atoms)
         atoms.calc = calc
         t0 = time.time()
@@ -110,6 +112,8 @@ while True:
             if (i) % (subcycles) == 0:
                 ekin.append(atoms.get_kinetic_energy())
                 vpot.append(calc.results["energy"])
+                etot.append(ekin[-1] + vpot[-1])
+                temp.append(atoms.get_temperature())
                 # NOTE: Writing atoms removes all results from
                 # the calculator (and therefore atoms)!
                 traj.write(atoms, forces=forces, energy=energy, stress=stress)
@@ -139,7 +143,7 @@ while True:
         msg_file.write("# Propagation done.")
         msg_file.close()
         traj.close()
-        path.update_energies(ekin, vpot)
+        path.update_energies(ekin, vpot, etot, temp)
         dump_stuff(["path"], [path], cwd)
         dump_stuff(["success","status"], [success, status], cwd)
         # avoid divide by zero err
