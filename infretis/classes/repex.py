@@ -342,6 +342,7 @@ class REPEX_state:
                 list(valid) + [0 for _ in range(self.n - self._offset)]
             )
         ens += self._offset
+        print(ens, valid)
         assert valid[ens] != 0
         # invalidate last prob
         self._last_prob = None
@@ -942,9 +943,14 @@ class REPEX_state:
                 ):
                     if len(self.pn_olds) > self.n - 2:
                         pn_old_del, del_dic = next(iter(self.pn_olds.items()))
+                        load_dir = self.config["simulation"]["load_dir"]
                         if self.config["output"]["keep_maxop_trajs"]:
+                            path_dir = os.path.join(load_dir, pn_old_del)
                             # delete trajectory files if low orderp (infinit)
-                            if del_dic["max_op"][0] < self.maxop:
+                            # and directory is not a symlink
+                            if del_dic["max_op"][
+                                0
+                            ] < self.maxop and not os.path.islink(path_dir):
                                 # update maxop and then delete|
                                 for adress in del_dic["adress"]:
                                     os.remove(adress)
@@ -953,7 +959,6 @@ class REPEX_state:
                             for adress in del_dic["adress"]:
                                 os.remove(adress)
                         # delete txt files
-                        load_dir = self.config["simulation"]["load_dir"]
                         if self.config["output"].get("delete_old_all", False):
                             for txt in ("order.txt", "traj.txt", "energy.txt"):
                                 txt_adress = os.path.join(
