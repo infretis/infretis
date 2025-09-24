@@ -16,16 +16,16 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     box_matrix_to_list,
+    kinetic_energy,
     look_for_input_files,
+    reset_momentum,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterator
-    from io import BufferedReader, BufferedWriter
 
     from infretis.classes.formatter import FileIO
     from infretis.classes.path import Path as InfPath
@@ -285,7 +285,7 @@ class GromacsEngine(EngineBase):
                     )
                 )
             ).encode(),
-            "path": b"Potential\nKinetic-En.",
+            "path": b"Potential\nKinetic-En.\nTotal-Energy\nTemperature",
         }
         if terms not in allowed_terms:
             return allowed_terms["path"]
@@ -541,7 +541,12 @@ class GromacsEngine(EngineBase):
         msg_file.write("# Propagation done.")
         msg_file.write(f'# Reading energies from: {out_files["edr"]}')
         energy = self.get_energies(out_files["edr"])
-        path.update_energies(energy["kinetic en."], energy["potential"])
+        path.update_energies(
+            energy["kinetic en."],
+            energy["potential"],
+            energy["total energy"],
+            energy["temperature"],
+        )
         logger.debug("Removing GROMACS output after propagate.")
         remove = [
             val
@@ -680,6 +685,8 @@ class GromacsEngine(EngineBase):
             system.vel_rev = False
             system.ekin = kin_new
             system.vpot = energy["potential"][-1]
+            system.etot = energy["total energy"][-1]
+            system.temp = energy["temperature"][-1]
 
         # generate velocities by drawing random numbers
         else:
