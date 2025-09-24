@@ -342,7 +342,6 @@ class REPEX_state:
                 list(valid) + [0 for _ in range(self.n - self._offset)]
             )
         ens += self._offset
-        print(ens, valid)
         assert valid[ens] != 0
         # invalidate last prob
         self._last_prob = None
