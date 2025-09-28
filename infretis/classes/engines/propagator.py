@@ -110,10 +110,10 @@ while True:
             forces = calc.results["forces"]
             stress = calc.results.get("stress", None)
             if (i) % (subcycles) == 0:
-                ekin.append(atoms.get_kinetic_energy())
+                ekin.append(calc.results.get("ekin", atoms.get_kinetic_energy()))
                 vpot.append(calc.results["energy"])
+                temp.append(calc.results.get("temp", atoms.get_temperature()))
                 etot.append(ekin[-1] + vpot[-1])
-                temp.append(atoms.get_temperature())
                 # NOTE: Writing atoms removes all results from
                 # the calculator (and therefore atoms)!
                 traj.write(atoms, forces=forces, energy=energy, stress=stress)
