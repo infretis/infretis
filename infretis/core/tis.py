@@ -103,9 +103,10 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
             picked[ens_num]["traj"] = trial
 
     md_items.update(
-        {"status": status,
-         "subcycles": int(subcycles1- subcycles0),
-         }
+        {
+            "status": status,
+            "subcycles": int(subcycles1 - subcycles0),
+        }
     )
     return md_items
 

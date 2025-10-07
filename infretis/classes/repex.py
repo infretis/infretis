@@ -776,8 +776,7 @@ class REPEX_state:
             f" with paths: {pnum_old} -> {pnum_new}"
         )
         logger.info(
-            "with status:"
-            f" {status} len: {trial_lens} op: {trial_ops} and"
+            "with status:" f" {status} len: {trial_lens} op: {trial_ops} and"
         )
         logger.info(
             f"worker: {self.cworker} total time: {simtime:.2f}s and subcycles: {subcycles}"
