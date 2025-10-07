@@ -779,7 +779,8 @@ class REPEX_state:
             "with status:" f" {status} len: {trial_lens} op: {trial_ops} and"
         )
         logger.info(
-            f"worker: {self.cworker} total time: {simtime:.2f}s and subcycles: {subcycles}"
+            f"worker: {self.cworker} total time:"
+            f"{simtime:.2f}s and subcycles: {subcycles}"
         )
         self.print_state()
 
