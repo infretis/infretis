@@ -77,9 +77,6 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
         The updated `md_items` dictionary with additional results from
         the MD simulation.
     """
-    # record start time
-    md_items["wmd_start"] = time.time()
-
     # perform the hw move:
     picked = md_items["picked"]
     subcycles0 = np.sum([i.steps for i in ENGINES["engine"]])
@@ -107,7 +104,6 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
 
     md_items.update(
         {"status": status,
-         "wmd_end": time.time(),
          "subcycles": int(subcycles1- subcycles0),
          }
     )
