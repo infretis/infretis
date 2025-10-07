@@ -136,11 +136,6 @@ class REPEX_state:
         return self.config["output"]["data_dir"]
 
     @property
-    def stats_file(self):
-        """Retrieve stats_file from config dict."""
-        return self.config["output"]["stats_file"]
-
-    @property
     def data_file(self):
         """Retrieve data_file from config dict."""
         return self.config["output"]["data_file"]
@@ -307,11 +302,8 @@ class REPEX_state:
                 eng: eng_idx[eng] for eng in ens_engs[ens_num + 1]
             }
 
-        # write stats:
-        if self.toinitiate == -1:
-            self.write_stats(md_items)
-        else:
-            md_items["md_start"] = time.time()
+        # check time:
+        md_items["md_start"] = time.time()
 
         # record pnum_old
         md_items["pnum_old"] = []
@@ -749,20 +741,6 @@ class REPEX_state:
         with open("./restart.toml", "wb") as f:
             tomli_w.dump(self.config, f)
 
-    def write_stats(self, md_items):
-        """Pattern writer."""
-        md_start = time.time()
-        ensnum = -1 if len(md_items["ens_nums"]) > 1 else md_items["ens_nums"][0]
-        move_time = md_items["md_end"] - md_items["md_start"]
-        md_time = md_items["wmd_end"] - md_items["wmd_start"]
-
-        with open(self.stats_file, "a") as fp:
-            fp.write(
-                f"{md_items['pin']:8d} {ensnum:10d}" \
-                + f"{move_time:20.2f} {md_time:20.2f}" \
-                + f"{md_items['substeps']:20d}" + "\n")
-        md_items["md_start"] = md_start
-
     def printing(self):
         """Check if print."""
         return self.screen > 0 and np.mod(self.cstep, self.screen) == 0
@@ -792,6 +770,7 @@ class REPEX_state:
         )
         status = md_items["status"]
         simtime = md_items["md_end"] - md_items["md_start"]
+        subcycles = md_items["subcycles"]
         logger.info(
             f"shooted {' '.join(moves)} in ensembles: {ens_nums}"
             f" with paths: {pnum_old} -> {pnum_new}"
@@ -799,7 +778,9 @@ class REPEX_state:
         logger.info(
             "with status:"
             f" {status} len: {trial_lens} op: {trial_ops} and"
-            f" worker: {self.cworker} total time: {simtime:.2f}"
+        )
+        logger.info(
+            f"worker: {self.cworker} total time: {simtime:.2f}s and subcycles: {subcycles}"
         )
         self.print_state()
 
@@ -984,6 +965,7 @@ class REPEX_state:
 
         self.sort_trajstate()
         self.config["current"]["traj_num"] = traj_num
+        self.config["current"]["accum_subcycles"] += md_items["subcycles"]
         self.cworker = md_items["pin"]
         if self.printing():
             self.print_shooted(md_items, pn_news)
@@ -1046,17 +1028,6 @@ class REPEX_state:
             "adress": paths[0].adress,
             "frac": np.array(frac, dtype="longdouble"),
         }
-
-    def stats_header(self):
-        """Write stats header."""
-        restarted = self.config["current"].get("restarted_from")
-        writemode = "a" if restarted else "w"
-        with open(self.stats_file, writemode) as fp:
-            fp.write(
-                f"# {'Worker':>6s} {'Ensemble':>10s}"
-                + f"{'Move Time [s]':>20s} {'MD time [s]':>20s}"
-                + f"{'Subcycles':>20s}\n"
-            )
 
     def initiate_ensembles(self):
         """Create all the ensemble dicts from the *toml config dict."""

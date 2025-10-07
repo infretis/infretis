@@ -132,7 +132,6 @@ pattern = 1
 delete_old = true
 delete_old_all = true
 data_file = "./infretis_data.txt"
-stats_file = "infretis_stats.txt"
 keep_maxop_trajs = false
 
 [current]
@@ -150,6 +149,7 @@ active = [
 ]
 locked = []
 size = 8
+accum_subcycles = 5684
 
 [current.frac]
 17 = [
