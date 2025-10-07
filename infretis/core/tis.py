@@ -82,7 +82,9 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
 
     # perform the hw move:
     picked = md_items["picked"]
+    substeps0 = np.sum([i.steps for i in ENGINES["engine"]])
     _, trials, status = select_shoot(picked)
+    substeps1 = np.sum([i.steps for i in ENGINES["engine"]])
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -103,7 +105,12 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
             )
             picked[ens_num]["traj"] = trial
 
-    md_items.update({"status": status, "wmd_end": time.time()})
+    md_items.update(
+        {"status": status,
+         "wmd_end": time.time(),
+         "substeps": substeps1 - substeps0,
+         }
+    )
     return md_items
 
 

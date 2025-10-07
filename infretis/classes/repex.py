@@ -51,9 +51,6 @@ class REPEX_state:
     # holds counts current worker.
     cworker = None
 
-    # sets simulation start time.
-    start_time = time.time()
-
     # defines storage object.
     pstore = PathStorage()
 
@@ -134,19 +131,14 @@ class REPEX_state:
         return self.config["simulation"]["tis_set"].get("interface_cap", None)
 
     @property
-    def pattern(self):
-        """Retrieve pattern_file from config dict."""
-        return self.config["output"].get("pattern", False)
-
-    @property
     def data_dir(self):
-        """Retrieve pattern_file from config dict."""
+        """Retrieve data_dir from config dict."""
         return self.config["output"]["data_dir"]
 
     @property
-    def pattern_file(self):
-        """Retrieve pattern_file from config dict."""
-        return self.config["output"]["pattern_file"]
+    def stats_file(self):
+        """Retrieve stats_file from config dict."""
+        return self.config["output"]["stats_file"]
 
     @property
     def data_file(self):
@@ -315,9 +307,9 @@ class REPEX_state:
                 eng: eng_idx[eng] for eng in ens_engs[ens_num + 1]
             }
 
-        # write pattern:
-        if self.pattern and self.toinitiate == -1:
-            self.write_pattern(md_items)
+        # write stats:
+        if self.toinitiate == -1:
+            self.write_stats(md_items)
         else:
             md_items["md_start"] = time.time()
 
@@ -757,20 +749,18 @@ class REPEX_state:
         with open("./restart.toml", "wb") as f:
             tomli_w.dump(self.config, f)
 
-    def write_pattern(self, md_items):
+    def write_stats(self, md_items):
         """Pattern writer."""
         md_start = time.time()
-        ensnums = "-".join([str(i + 1) for i in md_items["ens_nums"]])
-        with open(self.pattern_file, "a") as fp:
+        ensnum = -1 if len(md_items["ens_nums"]) > 1 else md_items["ens_nums"][0]
+        move_time = md_items["md_end"] - md_items["md_start"]
+        md_time = md_items["wmd_end"] - md_items["wmd_start"]
+
+        with open(self.stats_file, "a") as fp:
             fp.write(
-                f"{md_items['pin']}\t\t"
-                + f"{md_items['md_start'] - self.start_time:8.8f}\t"
-                + f"{md_items['wmd_start'] - self.start_time:8.8f}\t"
-                + f"{md_items['wmd_end'] - self.start_time:8.8f}\t"
-                + f"{md_items['md_end'] - self.start_time:8.8f}\t"
-                + f"{md_start - self.start_time:8.8f}\t"
-                + f"{ensnums}\n"
-            )
+                f"{md_items['pin']:8d} {ensnum:10d}" \
+                + f"{move_time:20.2f} {md_time:20.2f}" \
+                + f"{md_items['substeps']:20d}" + "\n")
         md_items["md_start"] = md_start
 
     def printing(self):
@@ -1057,17 +1047,16 @@ class REPEX_state:
             "frac": np.array(frac, dtype="longdouble"),
         }
 
-    def pattern_header(self):
-        """Write pattern0 header."""
-        if self.toinitiate == 0:
-            restarted = self.config["current"].get("restarted_from")
-            writemode = "a" if restarted else "w"
-            with open(self.pattern_file, writemode) as fp:
-                fp.write(
-                    "# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end",
-                    +"[s]\tMD_end [s]\t Dask_end [s]",
-                    +f"\tEnsembles\t{self.start_time}\n",
-                )
+    def stats_header(self):
+        """Write stats header."""
+        restarted = self.config["current"].get("restarted_from")
+        writemode = "a" if restarted else "w"
+        with open(self.stats_file, writemode) as fp:
+            fp.write(
+                f"# {'Worker':>6s} {'Ensemble':>10s}"
+                + f"{'Move Time [s]':>20s} {'MD time [s]':>20s}"
+                + f"{'Subcycles':>20s}\n"
+            )
 
     def initiate_ensembles(self):
         """Create all the ensemble dicts from the *toml config dict."""
