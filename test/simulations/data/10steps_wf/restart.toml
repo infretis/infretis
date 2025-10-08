@@ -149,7 +149,10 @@ active = [
 ]
 locked = []
 size = 8
-accum_subcycles = 1973
+wsubcycles = [
+    1973,
+]
+tsubcycles = 1973
 
 [current.frac]
 1 = [

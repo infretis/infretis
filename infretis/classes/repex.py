@@ -964,8 +964,10 @@ class REPEX_state:
             write_to_pathens(self, md_items["pnum_old"])
 
         self.sort_trajstate()
-        self.config["current"]["traj_num"] = traj_num
-        self.config["current"]["accum_subcycles"] += md_items["subcycles"]
+        cdict = self.config["current"]
+        cdict["traj_num"] = traj_num
+        cdict["wsubcycles"][md_items["pin"]] += md_items["subcycles"]
+        cdict["tsubcycles"] = int(sum(self.config["current"]["wsubcycles"]))
         self.cworker = md_items["pin"]
         if self.printing():
             self.print_shooted(md_items, pn_news)

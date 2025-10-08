@@ -145,7 +145,8 @@ def setup_config(
             "locked": [],
             "size": size,
             "frac": {},
-            "accum_subcycles": 0,
+            "wsubcycles": [0 for _ in range(config["runner"]["workers"])],
+            "tsubcycles": 0,
         }
 
         # write/overwrite infretis_data.txt
