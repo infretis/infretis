@@ -59,10 +59,6 @@ def setup_internal(config: dict) -> Tuple[dict, REPEX_state]:
     engine_occ = def_globals(config)
     state.engine_occ = engine_occ
 
-    # write pattern header
-    if state.pattern:
-        state.pattern_header()
-
     return md_items, state
 
 
@@ -149,14 +145,12 @@ def setup_config(
             "locked": [],
             "size": size,
             "frac": {},
+            "wsubcycles": [0 for _ in range(config["runner"]["workers"])],
+            "tsubcycles": 0,
         }
 
         # write/overwrite infretis_data.txt
         write_header(config)
-
-        # set pattern
-        if config["output"].get("pattern", False):
-            config["output"]["pattern_file"] = os.path.join("pattern.txt")
 
     # quantis or any other method requiring different engines in each ensemble
     has_ens_engs = config["simulation"].get("ensemble_engines", False)

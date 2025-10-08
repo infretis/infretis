@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -77,12 +76,11 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
         The updated `md_items` dictionary with additional results from
         the MD simulation.
     """
-    # record start time
-    md_items["wmd_start"] = time.time()
-
     # perform the hw move:
     picked = md_items["picked"]
+    subcycles0 = np.sum([i.steps for i in ENGINES["engine"]])
     _, trials, status = select_shoot(picked)
+    subcycles1 = np.sum([i.steps for i in ENGINES["engine"]])
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -103,7 +101,12 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
             )
             picked[ens_num]["traj"] = trial
 
-    md_items.update({"status": status, "wmd_end": time.time()})
+    md_items.update(
+        {
+            "status": status,
+            "subcycles": int(subcycles1 - subcycles0),
+        }
+    )
     return md_items
 
 
