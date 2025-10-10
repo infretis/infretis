@@ -269,6 +269,18 @@ def check_config(config: dict) -> None:
                         + " 'infretis.mdp'!"
                     )
 
+    # check wsubcycles and tsubcycles in case restarting from old version
+    if "wsubcycles" not in config["current"]:
+        list_of_zeros = [0 for _ in range(config["runner"]["workers"])]
+        config["current"]["wsubcycles"] = list_of_zeros
+    if "tsubcycles" not in config["current"]:
+        config["current"]["tsubcycles"] = 0
+    # if increased number of workers
+    wsub_num = len(config["current"]["wsubcycles"])
+    if wsub_num < config["runner"]["workers"]:
+        extra = config["runner"]["workers"] - wsub_num
+        config["current"]["wsubcycles"] += [0] * extra
+
 
 def write_header(config: dict) -> None:
     """Write infretis_data.txt header.
