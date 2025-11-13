@@ -45,7 +45,6 @@ class Path:
         )
         self.path_number = None
         self.weights: Optional[Tuple[float, ...]] = None
-        self.weight: float = 0.0
         self.phasepoints: List[System] = []
         self.time_origin = time_origin
 

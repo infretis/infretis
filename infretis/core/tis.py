@@ -449,8 +449,6 @@ def shoot(
             trial_path.status = "FTX"  # exceeds "memory".
         return False, trial_path, trial_path.status
 
-    trial_path.weight = 1.0
-
     # Deal with the rejections for path properties.
     # Make sure we did not hit the left interface on {0-}
     # Which is the only ensemble that allows paths starting in R
@@ -603,7 +601,6 @@ def subt_acceptance(
 
     if move == "wf":
         intf[2] = ens_set["tis_set"].get("interface_cap", intf[2])
-    trial_path.weight = compute_weight(trial_path, intf, move)
 
     if set(start_cond) != set(trial_path.get_start_point(intf[0], intf[2])):
         trial_path = trial_path.reverse(engine.order_function)
@@ -1006,9 +1003,6 @@ def retis_swap_zero(
 
         # ens_set = settings['ensemble'][i]
         move = ens_moves[i]
-        path.weight = (
-            compute_weight(path, intf_w[i], move) if move in ("wf") else 1
-        )
 
     return accept, [path0, path1], status
 
@@ -1336,9 +1330,5 @@ def quantis_swap_zero(
 
     if new_path1.status != "ACC":
         return False, [new_path0, new_path1], new_path1.status
-
-    # everything checked out
-    new_path0.weight = 1.0
-    new_path1.weight = 1.0
 
     return True, [new_path0, new_path1], "ACC"

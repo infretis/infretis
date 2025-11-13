@@ -326,7 +326,19 @@ class REPEX_state:
                 list(valid) + [0 for _ in range(self.n - self._offset)]
             )
         ens += self._offset
-        assert valid[ens] != 0
+
+        if valid[ens] == 0:
+            # The path is not valid in ensemble.
+            # This situation should only occur in the loading of the initial paths.
+            raise_msg = f"Path {traj.path_number} lying in {traj.adress}"
+            raise_msg += f" is not valid in ensemble {ens:03.0f}!\n"
+            cap = self.cap if self.cap is not None else self.interfaces[-1]
+            if ens > 0 and traj.ordermax[0] < cap:
+                raise_msg += f"Path {traj.path_number} has max_op {traj.ordermax[0]} "
+                raise_msg += f"and does not have any phase points between {self.interfaces[ens-1]} and {cap}."
+
+            raise ValueError(raise_msg)
+
         # invalidate last prob
         self._last_prob = None
         self._trajs[ens] = traj
