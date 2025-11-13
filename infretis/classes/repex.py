@@ -340,7 +340,7 @@ class REPEX_state:
             if ens > 0 and traj.ordermax[0] < cap:
                 raise_msg += (
                     f"Path {traj.path_number} has max_op {traj.ordermax[0]}"
-                    f"and does not have any phase points "
+                    f" and does not have any phase points "
                     f"between {self.interfaces[ens-1]} and {cap}.\n"
                 )
 
