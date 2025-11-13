@@ -337,7 +337,7 @@ class REPEX_state:
                 f"is not valid in ensemble {ens:03.0f}!\n"
             )
             cap = self.cap if self.cap is not None else self.interfaces[-1]
-            if ens > 0 and traj.ordermax[0] < cap:
+            if ens > 0:
                 raise_msg += (
                     f"Path {traj.path_number} has max_op {traj.ordermax[0]}"
                     f" and does not have any phase points "
