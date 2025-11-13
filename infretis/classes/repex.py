@@ -87,7 +87,9 @@ class REPEX_state:
         self.locked = []
 
         # determines the number of initiation loops to do.
-        self.toinitiate = self.workers
+        # either initiate all workers, or less if less steps left.
+        stepsleft = self.tsteps - self.cstep
+        self.toinitiate = min([self.workers, stepsleft])
 
         # keep track of olds in case of delete_old = True
         self.pn_olds = {}

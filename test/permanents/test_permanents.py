@@ -57,9 +57,9 @@ def test_matrix1():
     """Test ..."""
     state = REPEX_state(
         {
-            "current": {"size": 1},
+            "current": {"size": 1, "cstep": 0},
             "runner": {"workers": 1},
-            "simulation": {"seed": 0},
+            "simulation": {"seed": 0, "steps": 10},
         }
     )
     p_matrix = state.permanent_prob(W_MATRIX1)
@@ -72,9 +72,9 @@ def test_matrix2():
     """Test ..."""
     state = REPEX_state(
         {
-            "current": {"size": 1},
+            "current": {"size": 1, "cstep": 0},
             "runner": {"workers": 1},
-            "simulation": {"seed": 0},
+            "simulation": {"seed": 0, "steps": 10},
         }
     )
     p_matrix = state.permanent_prob(W_MATRIX2)
