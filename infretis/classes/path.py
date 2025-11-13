@@ -40,9 +40,9 @@ class Path:
         """
         self.maxlen = maxlen
         self.status: str = ""
-        self.generated: Optional[Union[Tuple[str, float, int, int], str]] = (
-            None
-        )
+        self.generated: Optional[
+            Union[Tuple[str, float, int, int], str]
+        ] = None
         self.path_number = None
         self.weights: Optional[Tuple[float, ...]] = None
         self.phasepoints: List[System] = []

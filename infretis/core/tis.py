@@ -991,19 +991,6 @@ def retis_swap_zero(
                 ens_moves,
             )
 
-    for i, path, _, _ in (
-        (0, path0, ens_set0["tis_set"], "s+"),
-        (1, path1, ens_set1["tis_set"], "s-"),
-    ):
-        if not accept and path.status == "ACC":
-            path.status = status
-
-        # These should be 1 unless length of paths equals 3.
-        # This technicality is not yet fixed. (An issue is open as a reminder)
-
-        # ens_set = settings['ensemble'][i]
-        move = ens_moves[i]
-
     return accept, [path0, path1], status
 
 
