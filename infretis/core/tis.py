@@ -179,11 +179,15 @@ def compute_weight(path: InfPath, interfaces: List[float], move: str) -> float:
         )
         weight = 1.0 * wf_weight
 
-    if path.get_start_point(
-        interfaces[0], interfaces[2]
-    ) != path.get_end_point(interfaces[0], interfaces[2]):
+    endp = path.get_end_point(interfaces[0], interfaces[2])
+    if path.get_start_point(interfaces[0], interfaces[2]) != endp:
         if move in ("ss", "wf"):
             weight *= 2
+
+    # In case a reactive trajectory is sampled but weight is 0.0,
+    # set weight to 1.0
+    if move == "wf" and weight == 0 and endp == "R":
+        weight = 1.0
 
     return weight
 
