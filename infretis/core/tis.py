@@ -179,11 +179,15 @@ def compute_weight(path: InfPath, interfaces: List[float], move: str) -> float:
         )
         weight = 1.0 * wf_weight
 
-    if path.get_start_point(
-        interfaces[0], interfaces[2]
-    ) != path.get_end_point(interfaces[0], interfaces[2]):
+    endp = path.get_end_point(interfaces[0], interfaces[2])
+    if path.get_start_point(interfaces[0], interfaces[2]) != endp:
         if move in ("ss", "wf"):
             weight *= 2
+
+    # In case a reactive trajectory is sampled but weight is 0.0,
+    # set weight to 1.0
+    if move == "wf" and weight == 0 and endp == "R":
+        weight = 1.0
 
     return weight
 
@@ -449,8 +453,6 @@ def shoot(
             trial_path.status = "FTX"  # exceeds "memory".
         return False, trial_path, trial_path.status
 
-    trial_path.weight = 1.0
-
     # Deal with the rejections for path properties.
     # Make sure we did not hit the left interface on {0-}
     # Which is the only ensemble that allows paths starting in R
@@ -603,7 +605,6 @@ def subt_acceptance(
 
     if move == "wf":
         intf[2] = ens_set["tis_set"].get("interface_cap", intf[2])
-    trial_path.weight = compute_weight(trial_path, intf, move)
 
     if set(start_cond) != set(trial_path.get_start_point(intf[0], intf[2])):
         trial_path = trial_path.reverse(engine.order_function)
@@ -994,22 +995,6 @@ def retis_swap_zero(
                 ens_moves,
             )
 
-    for i, path, _, _ in (
-        (0, path0, ens_set0["tis_set"], "s+"),
-        (1, path1, ens_set1["tis_set"], "s-"),
-    ):
-        if not accept and path.status == "ACC":
-            path.status = status
-
-        # These should be 1 unless length of paths equals 3.
-        # This technicality is not yet fixed. (An issue is open as a reminder)
-
-        # ens_set = settings['ensemble'][i]
-        move = ens_moves[i]
-        path.weight = (
-            compute_weight(path, intf_w[i], move) if move in ("wf") else 1
-        )
-
     return accept, [path0, path1], status
 
 
@@ -1336,9 +1321,5 @@ def quantis_swap_zero(
 
     if new_path1.status != "ACC":
         return False, [new_path0, new_path1], new_path1.status
-
-    # everything checked out
-    new_path0.weight = 1.0
-    new_path1.weight = 1.0
 
     return True, [new_path0, new_path1], "ACC"

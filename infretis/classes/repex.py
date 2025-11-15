@@ -87,7 +87,9 @@ class REPEX_state:
         self.locked = []
 
         # determines the number of initiation loops to do.
-        self.toinitiate = self.workers
+        # either initiate all workers, or less if less steps left.
+        stepsleft = self.tsteps - self.cstep
+        self.toinitiate = min([self.workers, stepsleft])
 
         # keep track of olds in case of delete_old = True
         self.pn_olds = {}
@@ -326,7 +328,24 @@ class REPEX_state:
                 list(valid) + [0 for _ in range(self.n - self._offset)]
             )
         ens += self._offset
-        assert valid[ens] != 0
+
+        if valid[ens] == 0:
+            # The path is not valid in ensemble.
+            # This situation should only occur in the initial path loading.
+            raise_msg = (
+                f"Path {traj.path_number} lying in {traj.adress} "
+                f"is not valid in ensemble {ens:03.0f}!\n"
+            )
+            cap = self.cap if self.cap is not None else self.interfaces[-1]
+            if ens > 0:
+                raise_msg += (
+                    f"Path {traj.path_number} has max_op {traj.ordermax[0]}"
+                    f" and does not have any phase points "
+                    f"between {self.interfaces[ens-1]} and {cap}.\n"
+                )
+
+            raise ValueError(raise_msg)
+
         # invalidate last prob
         self._last_prob = None
         self._trajs[ens] = traj
