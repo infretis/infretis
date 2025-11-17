@@ -7,10 +7,10 @@ from typing import Optional, Tuple
 import tomli
 
 from infretis.asyncrunner import aiorunner, future_list
+from infretis.classes.engines.factory import create_engines
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
-from infretis.classes.engines.factory import create_engines
 from infretis.core.tis import run_md
 
 logger = logging.getLogger("main")
