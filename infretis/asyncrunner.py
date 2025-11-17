@@ -46,14 +46,13 @@ class aiorunner:
             n_workers: number of workers active in the runner
         """
         self._n_workers: int = n_workers
-        ctx = multiprocessing.get_context("spawn")
-        self._counter = ctx.Value("i", 0)
+        self._counter = multiprocessing.get_context("spawn").Value("i", 0)
         self._executor: concurrent.futures.Executor = (
             concurrent.futures.ProcessPoolExecutor(
                 max_workers=n_workers,
                 initializer=worker_initializer,
                 initargs=(self._counter, config),
-                mp_context=ctx,
+                mp_context=multiprocessing.get_context("spawn"),
             )
         )
         self._stop_event = asyncio.Event()
@@ -215,6 +214,8 @@ def worker_initializer(counter, config):
     if "simulation" in config:
         engines, _ = create_engines(config)
         create_orderparameters(engines, config)
+
+        # set the ENGINES variable in the tis file for each worker
         infretis.core.tis.ENGINES = engines
     with counter.get_lock():  # Ensure that counter increment is thread-safe
         worker_id = counter.value
