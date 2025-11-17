@@ -209,7 +209,6 @@ class aiorunner:
 
 def worker_initializer(counter, config):
     """Initialize function for each worker process."""
-
     # load engines if infretis simulation
     if "simulation" in config:
         engines, _ = create_engines(config)
