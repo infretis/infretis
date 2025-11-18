@@ -8,8 +8,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from infretis.classes.engines.factory import create_engines
-from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import paste_paths
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -17,19 +15,6 @@ logger.addHandler(logging.NullHandler())
 
 
 ENGINES: dict = {}
-
-
-def def_globals(config):
-    """Define global engine and orderparameter variables.
-
-    Args:
-        config: Dictionary with .toml settings.
-    """
-    global ENGINES
-
-    ENGINES, engine_occ = create_engines(config)
-    create_orderparameters(ENGINES, config)
-    return engine_occ
 
 
 if TYPE_CHECKING:  # pragma: no cover

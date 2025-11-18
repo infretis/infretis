@@ -7,10 +7,11 @@ from typing import Optional, Tuple
 import tomli
 
 from infretis.asyncrunner import aiorunner, future_list
+from infretis.classes.engines.factory import create_engines
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
-from infretis.core.tis import def_globals, run_md
+from infretis.core.tis import run_md
 
 logger = logging.getLogger("main")
 logger.setLevel(logging.DEBUG)
@@ -54,9 +55,8 @@ def setup_internal(config: dict) -> Tuple[dict, REPEX_state]:
         "cap": state.cap,
     }
 
-    # setup global engines, the engine_occupation lists,
-    # and create orderparameters.
-    engine_occ = def_globals(config)
+    # setup the engine_occupation list
+    _, engine_occ = create_engines(config)
     state.engine_occ = engine_occ
 
     return md_items, state
