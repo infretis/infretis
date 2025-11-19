@@ -156,7 +156,7 @@ def setup_config(
     has_ens_engs = config["simulation"].get("ensemble_engines", False)
     if not has_ens_engs:
         ens_engs = []
-        for itnf in config["simulation"]["interfaces"]:
+        for _ in config["simulation"]["interfaces"]:
             ens_engs.append(["engine"])
         config["simulation"]["ensemble_engines"] = ens_engs
 
