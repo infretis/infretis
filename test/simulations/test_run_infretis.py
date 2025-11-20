@@ -12,6 +12,8 @@ import tomli_w
 
 from infretis.bin import internalrun
 
+from inftools.misc.infinit_helper import read_toml
+
 def get_diff_data(inp1, inp2):
     "Check the difference between two infretis_data.txt files in a simple way."
     diffps, diffms = [], []
@@ -26,6 +28,28 @@ def get_diff_data(inp1, inp2):
     for diffp, diffm in zip(diffps, diffms):
         diffnum += abs(diffp - diffm)
     return diffnum
+
+
+def dictolist(dic:dict, dlist:list, root:str=""):
+    """Transform a dict into list of strings for easier comparison."""
+    for key in dic:
+        if type(dic[key]) is dict:
+            dlist += dictolist(dic[key], root=f"{root}.{key}", dlist=[])
+        else:
+            dlist.append(f"{root}.{key}.{dic[key]}")
+    return dlist
+
+def compare_tomls(toml1, toml2):
+    with open(toml1, mode="rb") as f:
+        config1 = tomli.load(f)
+        list1 = dictolist(config1, root="", dlist=[])
+    with open(toml2, mode="rb") as f:
+        config2 = tomli.load(f)
+        list2 = dictolist(config2, root="", dlist=[])
+
+    diff = set(list1) ^ set(list2)
+
+    return diff
 
 
 def read_simlogw(inp, workers=4, restart=False):
@@ -65,7 +89,69 @@ def rm_restarted_from(inp):
 
 
 @pytest.mark.heavy
-def test_run_airetis_wf(tmp_path: PosixPath) -> None:
+def test_run_airetis_wf1(tmp_path: PosixPath) -> None:
+    """Restart infretis 10 steps a time, and compare without restart."""
+    folder = tmp_path / "temp"
+    folder.mkdir()
+    basepath = PosixPath(__file__).parent
+    load_dir = (
+        basepath / "../../examples/turtlemd/double_well/load_copy"
+    ).resolve()
+    toml_dir = basepath / "data/wf.toml"
+
+    # copy files from template folder
+    shutil.copytree(str(load_dir), str(folder) + "/load")
+    shutil.copy(str(load_dir / "../orderp.py"), str(folder))
+    shutil.copy(str(toml_dir), str(folder) + "/infretis.toml")
+    os.chdir(folder)
+
+    print("check", os.path.exists("restart.toml"))
+    yo = read_toml("infretis.toml")
+    print("slop", yo)
+    isnone = internalrun("infretis.toml")
+    assert isnone is None
+    yo = read_toml("restart.toml")
+    print("slop", yo["current"])
+
+    # compare
+    datap = f"{basepath}/data/10steps_wf/"
+    assert filecmp.cmp("infretis_data.txt", datap + "infretis_data.txt")
+    toml_diff = compare_tomls("restart.toml", datap + "restart.toml")
+    assert len(toml_diff) == 0
+
+    change_toml_steps("restart.toml", 20)
+    isnone = internalrun("restart.toml")
+    assert isnone is None
+
+    # compare
+    datap = f"{basepath}/data/20steps_wf/"
+    assert filecmp.cmp("infretis_data.txt", datap + "infretis_data.txt")
+    toml_diff = compare_tomls("restart.toml", datap + "restart.toml")
+    assert len(toml_diff) == 2
+    assert "restarted_from.-1" in "".join(list(toml_diff))
+    assert "restarted_from.10" in "".join(list(toml_diff))
+
+    change_toml_steps("restart.toml", 30)
+    isnone = internalrun("restart.toml")
+    assert isnone is None
+
+    # compare
+    datap = f"{basepath}/data/30steps_wf/"
+    assert filecmp.cmp("infretis_data.txt", datap + "infretis_data.txt")
+    toml_diff = compare_tomls("restart.toml", datap + "restart.toml")
+    assert len(toml_diff) == 2
+    assert "restarted_from.-1" in "".join(list(toml_diff))
+    assert "restarted_from.20" in "".join(list(toml_diff))
+
+    # check the delete_old_all setting,
+    # nb: technically num_files == 24, but due to restarts pn_olds get reset.
+    num_files = len(os.listdir("load"))
+    assert num_files < 40
+
+
+@pytest.mark.heavy
+def test_run_airetis_wf2(tmp_path: PosixPath) -> None:
+    """Compare 30 step run with old data."""
     folder = tmp_path / "temp"
     folder.mkdir()
     basepath = PosixPath(__file__).parent
@@ -79,39 +165,6 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     shutil.copy(str(toml_dir), str(folder) + "/infretis.toml")
     os.chdir(folder)
 
-    isnone = internalrun("infretis.toml")
-    assert isnone is None
-
-    # compare
-    items = ["infretis_data.txt", "restart.toml"]
-    for item in items:
-        assert filecmp.cmp(f"./{item}", f"{basepath}/data/10steps_wf/{item}")
-
-    change_toml_steps("restart.toml", 20)
-    isnone = internalrun("restart.toml")
-    assert isnone is None
-    rm_restarted_from("restart.toml")
-
-    # compare
-    items = ["infretis_data.txt", "restart.toml"]
-    for item in items:
-        assert filecmp.cmp(f"./{item}", f"{basepath}/data/20steps_wf/{item}")
-
-    change_toml_steps("restart.toml", 30)
-    isnone = internalrun("restart.toml")
-    assert isnone is None
-    rm_restarted_from("restart.toml")
-
-    # compare
-    items = ["infretis_data.txt", "restart.toml"]
-    for item in items:
-        assert filecmp.cmp(f"./{item}", f"{basepath}/data/30steps_wf/{item}")
-
-    # check the delete_old_all setting,
-    # nb: technically num_files == 24, but due to restarts pn_olds get reset.
-    num_files = len(os.listdir("load"))
-    assert num_files < 40
-
     # run 30 steps without restart
     with open("infretis.toml", mode="rb") as f:
         config = tomli.load(f)
@@ -123,7 +176,7 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     internalrun("infretis.toml")
     assert (
         get_diff_data(
-            "infretis_data_1.txt",
+            "infretis_data.txt",
             f"{basepath}/data/30steps_wf/infretis_data.txt",
         )
         < 5
@@ -134,9 +187,10 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
         config["output"]["delete_old_all"] = True
     with open("restart.toml", "wb") as f:
         tomli_w.dump(config, f)
-    assert filecmp.cmp(
-        "./restart.toml", f"{basepath}/data/30steps_wf/restart.toml"
-    )
+
+    datap = f"{basepath}/data/30steps_wf/"
+    toml_diff = compare_tomls("restart.toml", datap + "restart.toml")
+    assert len(toml_diff) == 0
 
 
 @pytest.mark.heavy
@@ -188,7 +242,10 @@ def test_restart_multiple_w(tmp_path: PosixPath) -> None:
         pass
 
     winfo2 = read_simlogw("sim.log", workers, restart=True)
+    print("workinfo", winfo1)
+    print("workinfo", winfo2)
     for work1, work2 in zip(winfo1, winfo2):
+        print("prince", work1, work2)
         assert work1 == work2
 
     # check that we have 4 worker.logs

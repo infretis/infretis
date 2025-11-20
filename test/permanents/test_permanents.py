@@ -57,7 +57,7 @@ def test_matrix1():
     """Test ..."""
     state = REPEX_state(
         {
-            "current": {"size": 1, "cstep": 0},
+            "current": {"size": 1, "cstep": 0, "restarted_from": -1},
             "runner": {"workers": 1},
             "simulation": {"seed": 0, "steps": 10},
         }
@@ -72,7 +72,7 @@ def test_matrix2():
     """Test ..."""
     state = REPEX_state(
         {
-            "current": {"size": 1, "cstep": 0},
+            "current": {"size": 1, "cstep": 0, "restarted_from": -1},
             "runner": {"workers": 1},
             "simulation": {"seed": 0, "steps": 10},
         }

@@ -13,6 +13,8 @@ from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
 from infretis.core.tis import run_md
 
+from infretis.config import FullConfig
+
 logger = logging.getLogger("main")
 logger.setLevel(logging.DEBUG)
 
@@ -117,6 +119,24 @@ def setup_config(
                 logger.info("We use {re_inp} instead.")
                 break
         config = re_config if equal else config
+
+    # validate with pydantic
+    pydant = FullConfig(**config)
+
+    # convert back to normal dic
+    config = pydant.model_dump(by_alias=True, exclude_none=True)
+
+
+    curr = config["current"]
+    if config["simulation"]["steps"] == curr.get("cstep"):
+        return None
+
+    # assign and write infretis_data.txt file
+    if "data_file" not in config["output"]:
+        write_header(config)
+
+    print(config["current"]["frac"])
+    return config
 
     # in case we restart, toml file has a 'current' subdict.
     if "current" in config:
