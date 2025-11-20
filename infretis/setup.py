@@ -103,7 +103,7 @@ def setup_config(
         logger.info("%s file not found, exit.", inp)
         return None
 
-    # check if restart.toml exist and if its runnable:
+    # check if restart.toml exist
     if inp != re_inp and os.path.isfile(re_inp):
         msg = f"Restart file '{re_inp}' found, but its not the run file!"
         raise ValueError(msg)
