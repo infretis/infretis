@@ -1,6 +1,7 @@
-from typing import List, Dict, Union, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
+
 from pydantic import BaseModel, Field, model_validator
-import tomli_w
+
 
 class TOMLConfigError(Exception):
     """Raised when there is an error in the .toml configuration."""
@@ -23,20 +24,13 @@ class RunnerConfig(BaseModel):
     wmdrun: List[str] = Field(default_factory=list)
 
 
-class RunnerConfig(BaseModel):
-    workers: int
-    wmdrun: List[str] = Field(default_factory=list)
-
-
 class BaseEngineConfig(BaseModel):
     class_: str = Field(alias="class")
     timestep: float
     subcycles: int
     temperature: float
 
-    model_config = {
-        "extra": "allow"
-    }
+    model_config = {"extra": "allow"}
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -66,6 +60,7 @@ class LammpsEngine(BaseEngineConfig):
 
 EngineType = Union[GromacsEngine, LammpsEngine, TurtleMDEngine]
 
+
 class TisSetConfig(BaseModel):
     maxlength: int
     allowmaxlength: bool
@@ -89,9 +84,8 @@ class SimulationConfig(BaseModel):
 
 class OrderParameterConfig(BaseModel):
     class_: str = Field(alias="class")
-    model_config = {
-        "extra": "allow"
-    }
+    model_config = {"extra": "allow"}
+
     def __getitem__(self, key):
         return getattr(self, key)
 
@@ -123,7 +117,7 @@ class CurrentConfig(BaseModel):
     tsubcycles: int = 0
     traj_num: int = None
     size: int = None
-    restarted_from : int = -1
+    restarted_from: int = -1
     maxop: float = -float("inf")
     frac: Dict[str, List[str]] = Field(default_factory=dict)
     active: List[int] = Field(default_factory=list)
@@ -142,9 +136,7 @@ class FullConfig(BaseModel):
     current: CurrentConfig = Field(default_factory=CurrentConfig)
 
     # allow additional dics like "engine0", "engine1" ...
-    model_config = {
-        "extra": "allow"
-    }
+    model_config = {"extra": "allow"}
 
     # allow dict-like behaviour as well, e.g. FullConfig[key]
     # instead of only FullConfig.key
@@ -165,7 +157,10 @@ class FullConfig(BaseModel):
         curr = self.current
 
         if lms is not False and lms >= sim.interfaces[0]:
-            raise TOMLConfigError("lambda_minus_one interface must be less than the first interface!")
+            raise TOMLConfigError(
+                "lambda_minus_one interface must be \
+                less than the first interface!"
+            )
 
         if n_ens < 2:
             raise TOMLConfigError("Define at least 2 interfaces!")
@@ -177,16 +172,25 @@ class FullConfig(BaseModel):
             raise TOMLConfigError("Your interfaces contain duplicate values!")
 
         if nshm < nintf:
-            raise ValueError(f"number of shooting_moves ({nshm}) must >= interfaces ({nintf})")
+            raise ValueError(
+                f"number of shooting_moves ({nshm}) \
+                must >= interfaces ({nintf})"
+            )
 
         if n_ens > nshm:
-            raise TOMLConfigError( f"N_interfaces {n_ens} > N_shooting_moves {nshm}!")
+            raise TOMLConfigError(
+                f"N_interfaces {n_ens} > N_shooting_moves {nshm}!"
+            )
 
         if cap and cap > intfs[-1]:
-            raise TOMLConfigError(f"Interface_cap {cap} > interface[-1]={intfs[-1]}")
+            raise TOMLConfigError(
+                f"Interface_cap {cap} > interface[-1]={intfs[-1]}"
+            )
 
         if cap and cap < intfs[0]:
-            raise TOMLConfigError(f"Interface_cap {cap} < interface[-2]={intfs[-2]}")
+            raise TOMLConfigError(
+                f"Interface_cap {cap} < interface[-2]={intfs[-2]}"
+            )
 
         ## build current
         if curr.traj_num is None:
@@ -197,10 +201,6 @@ class FullConfig(BaseModel):
             curr.active = list(range(n_ens))
         if not self.current.size:
             curr.size = len(self.simulation.interfaces)
-
-        # # if cstep and steps are equal, we stop here.
-        # if curr.get("cstep") == curr.get("restarted_from", -1):
-        #     return None
 
         # set "restarted_from"
         if curr.cstep > 0:
@@ -224,14 +224,27 @@ class FullConfig(BaseModel):
         if ts.quantis and has_ens_engs is None:
             sim.ensemble_engines[0] = ["engine0"]
 
+        # engine checks
+        unique_engines = []
+        for engines in sim.ensemble_engines:
+            for engine in engines:
+                if engine not in unique_engines:
+                    unique_engines.append(engine)
+        print(unique_engines)
+
+        for key1 in unique_engines:
+            if key1 not in self:
+                print(self.engine)
+                raise TOMLConfigError(f"Engine '{key1}' not defined!")
+
         #     # check all engine names exist
         #     for i, eng_list in enumerate(sim.ensemble_engines):
         #         for eng_name in eng_list:
         #             if eng_name not in self.engine:
         #                 raise ValueError(
-        #                     f"simulation.ensemble_engines[{i}] references unknown engine '{eng_name}'"
+        #                     f"simulation.ensemble_engines[{i}]
+        # references unknown engine '{eng_name}'"
         #                 )
-
 
         # # Engine-specific sanity checks
         # for eng_name, eng in self.engine.items():
@@ -266,19 +279,3 @@ class FullConfig(BaseModel):
             raise TOMLConfigError("Too many workers defined!")
 
         return self
-
-
-# from inftools.misc.infinit_helper import read_toml
-# from pathlib import Path
-# 
-# data = read_toml("/home/daniel/dump/pydan/quantis.toml")
-# cfg = FullConfig(**data)
-# 
-# cfg_dict = cfg.model_dump(by_alias=True, exclude_none=True)
-# 
-# # with open("./restart2.toml", "wb") as f:
-# #     tomli_w.dump(cfg_dict, f)
-# 
-# print(cfg.simulation.steps)
-# print(cfg.engine)
-# print(cfg.engine0)

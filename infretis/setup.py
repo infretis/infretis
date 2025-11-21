@@ -11,9 +11,8 @@ from infretis.classes.engines.factory import create_engines
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
-from infretis.core.tis import run_md
-
 from infretis.config import FullConfig
+from infretis.core.tis import run_md
 
 logger = logging.getLogger("main")
 logger.setLevel(logging.DEBUG)
@@ -126,16 +125,13 @@ def setup_config(
     # convert back to normal dic
     config = pydant.model_dump(by_alias=True, exclude_none=True)
 
-
-    curr = config["current"]
-    if config["simulation"]["steps"] == curr.get("cstep"):
+    if config["simulation"]["steps"] == config["current"].get("cstep"):
         return None
 
     # assign and write infretis_data.txt file
     if "data_file" not in config["output"]:
         write_header(config)
 
-    print(config["current"]["frac"])
     return config
 
     # in case we restart, toml file has a 'current' subdict.
