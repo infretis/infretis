@@ -1,3 +1,11 @@
+[infinit]
+pL = 0.3
+initial_conf = ""
+lamres = 0.01
+skip = 0.1
+cstep = -1
+steps_per_iter = []
+
 [runner]
 workers = 1
 wmdrun = [
@@ -122,21 +130,21 @@ periodic = false
 module = "orderp.py"
 
 [output]
-backup = "backup"
 data_dir = "./"
-order-file = 1
-energy-file = 1
-trajectory-file = -1
 screen = 1
-pattern = 1
 delete_old = true
 delete_old_all = true
+keep_traj_fnames = []
 data_file = "./infretis_data.txt"
 keep_maxop_trajs = false
 
 [current]
-traj_num = 40
 cstep = 30
+tsubcycles = 5684
+traj_num = 40
+size = 8
+restarted_from = -1
+maxop = -inf
 active = [
     24,
     35,
@@ -148,11 +156,9 @@ active = [
     39,
 ]
 locked = []
-size = 8
 wsubcycles = [
     5684,
 ]
-tsubcycles = 5684
 
 [current.frac]
 17 = [
