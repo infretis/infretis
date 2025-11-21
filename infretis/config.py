@@ -1,6 +1,6 @@
 from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
 
 class TOMLConfigError(Exception):
@@ -20,6 +20,7 @@ class InfinitConfig(BaseModel):
 
 
 class RunnerConfig(BaseModel):
+    """Workers: The number of MD simulations to be performed in parallel."""
     workers: int
     wmdrun: List[str] = Field(default_factory=list)
 
@@ -29,6 +30,7 @@ class BaseEngineConfig(BaseModel):
     timestep: float
     subcycles: int
     temperature: float
+    input_path: str = None
 
     model_config = {"extra": "allow"}
 
@@ -46,7 +48,6 @@ class GromacsEngine(BaseEngineConfig):
     class_: Literal["gromacs"] = Field(alias="class")
     engine: str
     gmx_format: str
-    input_path: str
     gmx: str
     maxwarn: int = 0
 
@@ -54,11 +55,11 @@ class GromacsEngine(BaseEngineConfig):
 class LammpsEngine(BaseEngineConfig):
     class_: Literal["lammps"] = Field(alias="class")
     engine: str
-    input_path: str
     lammps_bin: str
 
 
 EngineType = Union[GromacsEngine, LammpsEngine, TurtleMDEngine]
+EngineAdapter = TypeAdapter(EngineType)
 
 
 class TisSetConfig(BaseModel):
@@ -69,6 +70,7 @@ class TisSetConfig(BaseModel):
     quantis: bool = False
     accept_all: bool = False
     interface_cap: Optional[float] = None
+    # need to cahnge bool to float
     lambda_minus_one: Optional[bool] = False
 
 
@@ -156,11 +158,54 @@ class FullConfig(BaseModel):
         nintf = len(sim.interfaces)
         curr = self.current
 
-        if lms is not False and lms >= sim.interfaces[0]:
+        # INFINIT check
+        ## if no infinit settings
+        if self.infinit is None:
+            self.infinit = InfinitConfig(**{})
+
+        # SIMULATION check
+        has_ens_engs = sim.ensemble_engines
+        if sim.ensemble_engines is None:
+            sim.ensemble_engines = [["engine"] for _ in intfs]
+
+        if ts.quantis and has_ens_engs is None:
+            sim.ensemble_engines[0] = ["engine0"]
+
+
+        # ENGINE checks
+        ## Convert extra `engineX` blocks into EngineType models.
+        unique_engines = {"engine": self.engine}
+        for key, value in list(self.model_extra.items()):
+            if key.startswith("engine"):
+                self.model_extra[key] = EngineAdapter.validate_python(value)
+                unique_engines[key] = self.model_extra[key]
+
+
+        # check all engine names exist
+        ens_engs = sum(sim.ensemble_engines, [])
+        for ens_eng in set(ens_engs):
+            if ens_eng not in unique_engines:
+                raise TOMLConfigError(f"Engine '{ens_eng}' not defined!")
+
+        # gromacs check
+        input_paths = []
+        for key1, eng1 in unique_engines.items():
+            if self[key1].class_ == "gromacs":
+                input_paths.append(eng1.input_path)
+        if len(set(input_paths)) > 1:
             raise TOMLConfigError(
-                "lambda_minus_one interface must be \
-                less than the first interface!"
+                "Found differing engine settings with identic"
+                + "al 'input_path'. This would overwrite the"
+                + " settings of one of the engines in"
+                + " 'infretis.mdp'!"
             )
+
+        # SIMULATION checks
+        # if lms is not None and lms >= sim.interfaces[0]:
+        #     raise TOMLConfigError(
+        #         "lambda_minus_one interface must be \
+        #         less than the first interface!"
+        #     )
 
         if n_ens < 2:
             raise TOMLConfigError("Define at least 2 interfaces!")
@@ -174,7 +219,7 @@ class FullConfig(BaseModel):
         if nshm < nintf:
             raise ValueError(
                 f"number of shooting_moves ({nshm}) \
-                must >= interfaces ({nintf})"
+                must more or equal to number of interfaces ({nintf})"
             )
 
         if n_ens > nshm:
@@ -192,6 +237,8 @@ class FullConfig(BaseModel):
                 f"Interface_cap {cap} < interface[-2]={intfs[-2]}"
             )
 
+        # CURRENT check
+
         ## build current
         if curr.traj_num is None:
             curr.traj_num = n_ens
@@ -202,64 +249,9 @@ class FullConfig(BaseModel):
         if not self.current.size:
             curr.size = len(self.simulation.interfaces)
 
-        # set "restarted_from"
+        ## set "restarted_from"
         if curr.cstep > 0:
             curr.restarted_from = curr.cstep
-
-        # # check active paths:
-        # load_dir = config["simulation"].get("load_dir", "trajs")
-        # for act in config["current"]["active"]:
-        #     store_p = os.path.join(load_dir, str(act), "traj.txt")
-        #     if not os.path.isfile(store_p):
-        #         return None
-
-        # if no infinit settings
-        if self.infinit is None:
-            self.infinit = InfinitConfig(**{})
-
-        has_ens_engs = sim.ensemble_engines
-        if sim.ensemble_engines is None:
-            sim.ensemble_engines = [["engine"] for _ in intfs]
-
-        if ts.quantis and has_ens_engs is None:
-            sim.ensemble_engines[0] = ["engine0"]
-
-        # engine checks
-        unique_engines = []
-        for engines in sim.ensemble_engines:
-            for engine in engines:
-                if engine not in unique_engines:
-                    unique_engines.append(engine)
-        print(unique_engines)
-
-        for key1 in unique_engines:
-            if key1 not in self:
-                print(self.engine)
-                raise TOMLConfigError(f"Engine '{key1}' not defined!")
-
-        #     # check all engine names exist
-        #     for i, eng_list in enumerate(sim.ensemble_engines):
-        #         for eng_name in eng_list:
-        #             if eng_name not in self.engine:
-        #                 raise ValueError(
-        #                     f"simulation.ensemble_engines[{i}]
-        # references unknown engine '{eng_name}'"
-        #                 )
-
-        # # Engine-specific sanity checks
-        # for eng_name, eng in self.engine.items():
-
-        #     if isinstance(eng, GromacsEngine):
-        #         if eng.timestep <= 0:
-        #             raise ValueError(f"{eng_name}: timestep must be > 0")
-        #         if eng.subcycles < 1:
-        #             raise ValueError(f"{eng_name}: subcycles must be >= 1")
-        #         if eng.temperature <= 0:
-        #             raise ValueError(f"{eng_name}: temperature must be > 0")
-
-        #     if isinstance(eng, LammpsEngine):
-        #         if not eng.lammps_bin:
-        #             raise ValueError(f"{eng_name}: LAMMPS needs lammps_bin")
 
         # check wsubcycles
         if curr.wsubcycles is None:

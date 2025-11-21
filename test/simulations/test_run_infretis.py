@@ -12,8 +12,6 @@ import tomli_w
 
 from infretis.bin import internalrun
 
-from inftools.misc.infinit_helper import read_toml
-
 def get_diff_data(inp1, inp2):
     "Check the difference between two infretis_data.txt files in a simple way."
     diffps, diffms = [], []
@@ -105,13 +103,8 @@ def test_run_airetis_wf1(tmp_path: PosixPath) -> None:
     shutil.copy(str(toml_dir), str(folder) + "/infretis.toml")
     os.chdir(folder)
 
-    print("check", os.path.exists("restart.toml"))
-    yo = read_toml("infretis.toml")
-    print("slop", yo)
     isnone = internalrun("infretis.toml")
     assert isnone is None
-    yo = read_toml("restart.toml")
-    print("slop", yo["current"])
 
     # compare
     datap = f"{basepath}/data/10steps_wf/"
@@ -172,10 +165,6 @@ def test_run_airetis_wf2(tmp_path: PosixPath) -> None:
         config["output"]["delete_old_all"] = False
     with open("infretis.toml", "wb") as f:
         tomli_w.dump(config, f)
-
-    # remove restart.toml
-    restart_file = PosixPath("restart.toml")
-    restart_file.unlink()
 
     internalrun("infretis.toml")
     assert (
@@ -246,10 +235,7 @@ def test_restart_multiple_w(tmp_path: PosixPath) -> None:
         pass
 
     winfo2 = read_simlogw("sim.log", workers, restart=True)
-    print("workinfo", winfo1)
-    print("workinfo", winfo2)
     for work1, work2 in zip(winfo1, winfo2):
-        print("prince", work1, work2)
         assert work1 == work2
 
     # check that we have 4 worker.logs

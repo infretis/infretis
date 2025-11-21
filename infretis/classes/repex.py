@@ -754,12 +754,10 @@ class REPEX_state:
 
         # save accumulative fracs
         self.config["current"]["frac"] = {}
-        print("horse a", self.traj_data)
         for key in sorted(self.traj_data.keys()):
             fracs = [str(i) for i in self.traj_data[key]["frac"]]
             self.config["current"]["frac"][str(key)] = fracs
 
-        print("horse b", self.config["current"]["frac"])
         with open("./restart.toml", "wb") as f:
             tomli_w.dump(self.config, f)
 
