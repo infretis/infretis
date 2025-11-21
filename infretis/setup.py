@@ -104,20 +104,10 @@ def setup_config(
         logger.info("%s file not found, exit.", inp)
         return None
 
-    # check if restart.toml exist:
+    # check if restart.toml exist
     if inp != re_inp and os.path.isfile(re_inp):
-        # load restart input:
-        with open(re_inp, mode="rb") as read:
-            re_config = tomli.load(read)
-
-        # check if sim settings for the two are equal:
-        equal = True
-        for key in config.keys():
-            if config[key] != re_config.get(key, {}):
-                equal = False
-                logger.info("We use {re_inp} instead.")
-                break
-        config = re_config if equal else config
+        msg = f"Restart file '{re_inp}' found, but its not the run file!"
+        raise ValueError(msg)
 
     # validate with pydantic
     pydant = FullConfig(**config)

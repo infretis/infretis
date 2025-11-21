@@ -173,6 +173,10 @@ def test_run_airetis_wf2(tmp_path: PosixPath) -> None:
     with open("infretis.toml", "wb") as f:
         tomli_w.dump(config, f)
 
+    # remove restart.toml
+    restart_file = PosixPath("restart.toml")
+    restart_file.unlink()
+
     internalrun("infretis.toml")
     assert (
         get_diff_data(
