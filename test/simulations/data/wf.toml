@@ -66,10 +66,6 @@ module="orderp.py"
 [output]
 backup = 'backup'
 data_dir = "./"
-order-file = 1
-energy-file = 1
-trajectory-file = -1
 screen = 1
-pattern = 1
 delete_old = true
 delete_old_all = true
