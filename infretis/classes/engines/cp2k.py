@@ -38,8 +38,10 @@ from infretis.classes.engines.engineparts import (
     box_matrix_to_list,
     box_vector_angles,
     convert_snapshot,
+    kinetic_energy,
     look_for_input_files,
     read_xyz_file,
+    reset_momentum,
     write_xyz_trajectory,
     xyz_reader,
 )
@@ -536,47 +538,6 @@ def guess_particle_mass(particle_no: int, particle_type: str) -> float:
     return particle_mass
 
 
-def kinetic_energy(
-    vel: np.ndarray, mass: np.ndarray
-) -> Tuple[float, np.ndarray]:
-    """Obtain the kinetic energy for given velocities and masses.
-
-    Args:
-        vel: The velocities
-        mass: The masses as a column vector.
-
-    Returns:
-        A tuple containing:
-            - The kinetic energy.
-            - The kinetic energy tensor.
-    """
-    mom = vel * mass
-    if len(mass) == 1:
-        kin = 0.5 * np.outer(mom, vel)
-    else:
-        kin = 0.5 * np.einsum("ij,ik->jk", mom, vel)
-    return kin.trace(), kin
-
-
-def reset_momentum(vel: np.ndarray, mass: np.ndarray) -> np.ndarray:
-    """Set the linear momentum of all particles to zero.
-
-    Note:
-        Velocities are modified in place **and** returned.
-
-    Args:
-        vel: The velocities of the particles in system.
-        mass: The masses of the particles in the system.
-
-    Returns:
-        The modified velocities of the particles.
-    """
-    # TODO: ?avoid creating an extra dimension by indexing array with None?
-    mom = np.sum(vel * mass, axis=0)
-    vel -= mom / mass.sum()
-    return vel
-
-
 def write_for_run_vel(
     infile: Union[str, Path],
     outfile: Union[str, Path],
@@ -995,8 +956,13 @@ class CP2KEngine(EngineBase):
         end = (step_nr + 1) * self.subcycles
         ekin: np.ndarray = energy.get("ekin", np.array([]))
         vpot: np.ndarray = energy.get("vpot", np.array([]))
+        etot: np.ndarray = energy.get("etot", np.array([]))
+        temp: np.ndarray = energy.get("temp", np.array([]))
         path.update_energies(
-            ekin[: end : self.subcycles], vpot[: end : self.subcycles]
+            ekin[: end : self.subcycles],
+            vpot[: end : self.subcycles],
+            etot[: end : self.subcycles],
+            temp[: end : self.subcycles],
         )
 
         # copy .wfn file for future use

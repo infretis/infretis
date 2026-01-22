@@ -16,16 +16,16 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from infretis.classes.engines.cp2k import kinetic_energy, reset_momentum
 from infretis.classes.engines.enginebase import EngineBase
 from infretis.classes.engines.engineparts import (
     box_matrix_to_list,
+    kinetic_energy,
     look_for_input_files,
+    reset_momentum,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterator
-    from io import BufferedReader, BufferedWriter
 
     from infretis.classes.formatter import FileIO
     from infretis.classes.path import Path as InfPath

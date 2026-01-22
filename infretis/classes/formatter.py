@@ -694,8 +694,6 @@ class EnergyFormatter(OutputFormatter):
 class EnergyPathFormatter(EnergyFormatter):
     """A class for formatting energy data for paths."""
 
-    HEADER = {"labels": ["Time", "Potential", "Kinetic"], "width": [10, 14]}
-
     def __init__(self):
         """Initialise."""
         super().__init__(name="EnergyPathFormatter")

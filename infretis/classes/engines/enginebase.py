@@ -47,6 +47,7 @@ class EngineBase(metaclass=ABCMeta):
         self.ext: str = "xyz"
         self.input_files: Dict[str, Union[str, Path]] = {}
         self.order_function: Optional[OrderParameter] = None
+        self.steps = 0
 
     @property
     def beta(self):
@@ -327,6 +328,8 @@ class EngineBase(metaclass=ABCMeta):
         success, status = self._propagate_from(
             name, path, system, ens_set, msg_file, reverse=reverse
         )
+        self.steps += path.length
+
         # Reset to initial state:
         # ensemble['system'] = initial_state
         msg_file.close()

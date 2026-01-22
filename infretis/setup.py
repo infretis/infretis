@@ -7,10 +7,11 @@ from typing import Optional, Tuple
 import tomli
 
 from infretis.asyncrunner import aiorunner, future_list
+from infretis.classes.engines.factory import create_engines
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
-from infretis.core.tis import def_globals, run_md
+from infretis.core.tis import run_md
 
 logger = logging.getLogger("main")
 logger.setLevel(logging.DEBUG)
@@ -54,14 +55,9 @@ def setup_internal(config: dict) -> Tuple[dict, REPEX_state]:
         "cap": state.cap,
     }
 
-    # setup global engines, the engine_occupation lists,
-    # and create orderparameters.
-    engine_occ = def_globals(config)
+    # setup the engine_occupation list
+    _, engine_occ = create_engines(config)
     state.engine_occ = engine_occ
-
-    # write pattern header
-    if state.pattern:
-        state.pattern_header()
 
     return md_items, state
 
@@ -107,20 +103,10 @@ def setup_config(
         logger.info("%s file not found, exit.", inp)
         return None
 
-    # check if restart.toml exist:
+    # check if restart.toml exist
     if inp != re_inp and os.path.isfile(re_inp):
-        # load restart input:
-        with open(re_inp, mode="rb") as read:
-            re_config = tomli.load(read)
-
-        # check if sim settings for the two are equal:
-        equal = True
-        for key in config.keys():
-            if config[key] != re_config.get(key, {}):
-                equal = False
-                logger.info("We use {re_inp} instead.")
-                break
-        config = re_config if equal else config
+        msg = f"Restart file '{re_inp}' found, but its not the run file!"
+        raise ValueError(msg)
 
     # in case we restart, toml file has a 'current' subdict.
     if "current" in config:
@@ -149,14 +135,12 @@ def setup_config(
             "locked": [],
             "size": size,
             "frac": {},
+            "wsubcycles": [0 for _ in range(config["runner"]["workers"])],
+            "tsubcycles": 0,
         }
 
         # write/overwrite infretis_data.txt
         write_header(config)
-
-        # set pattern
-        if config["output"].get("pattern", False):
-            config["output"]["pattern_file"] = os.path.join("pattern.txt")
 
     # quantis or any other method requiring different engines in each ensemble
     has_ens_engs = config["simulation"].get("ensemble_engines", False)
@@ -274,6 +258,18 @@ def check_config(config: dict) -> None:
                         + " settings of one of the engines in"
                         + " 'infretis.mdp'!"
                     )
+
+    # check wsubcycles and tsubcycles in case restarting from old version
+    if "wsubcycles" not in config["current"]:
+        list_of_zeros = [0 for _ in range(config["runner"]["workers"])]
+        config["current"]["wsubcycles"] = list_of_zeros
+    if "tsubcycles" not in config["current"]:
+        config["current"]["tsubcycles"] = 0
+    # if increased number of workers
+    wsub_num = len(config["current"]["wsubcycles"])
+    if wsub_num < config["runner"]["workers"]:
+        extra = config["runner"]["workers"] - wsub_num
+        config["current"]["wsubcycles"] += [0] * extra
 
 
 def write_header(config: dict) -> None:

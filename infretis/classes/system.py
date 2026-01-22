@@ -28,6 +28,8 @@ class System:
         self.vel_rev: bool = False
         self.ekin: Optional[float] = None
         self.vpot: Optional[float] = None
+        self.etot: Optional[float] = None
+        self.temp: Optional[float] = None
         self.box: Optional[np.ndarray] = np.zeros((3, 3))
         self.temperature: Dict[str, float] = {}
 

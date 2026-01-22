@@ -51,9 +51,6 @@ class REPEX_state:
     # holds counts current worker.
     cworker = None
 
-    # sets simulation start time.
-    start_time = time.time()
-
     # defines storage object.
     pstore = PathStorage()
 
@@ -90,7 +87,9 @@ class REPEX_state:
         self.locked = []
 
         # determines the number of initiation loops to do.
-        self.toinitiate = self.workers
+        # either initiate all workers, or less if less steps left.
+        stepsleft = self.tsteps - self.cstep
+        self.toinitiate = min([self.workers, stepsleft])
 
         # keep track of olds in case of delete_old = True
         self.pn_olds = {}
@@ -134,19 +133,9 @@ class REPEX_state:
         return self.config["simulation"]["tis_set"].get("interface_cap", None)
 
     @property
-    def pattern(self):
-        """Retrieve pattern_file from config dict."""
-        return self.config["output"].get("pattern", False)
-
-    @property
     def data_dir(self):
-        """Retrieve pattern_file from config dict."""
+        """Retrieve data_dir from config dict."""
         return self.config["output"]["data_dir"]
-
-    @property
-    def pattern_file(self):
-        """Retrieve pattern_file from config dict."""
-        return self.config["output"]["pattern_file"]
 
     @property
     def data_file(self):
@@ -315,11 +304,8 @@ class REPEX_state:
                 eng: eng_idx[eng] for eng in ens_engs[ens_num + 1]
             }
 
-        # write pattern:
-        if self.pattern and self.toinitiate == -1:
-            self.write_pattern(md_items)
-        else:
-            md_items["md_start"] = time.time()
+        # check time:
+        md_items["md_start"] = time.time()
 
         # record pnum_old
         md_items["pnum_old"] = []
@@ -342,7 +328,24 @@ class REPEX_state:
                 list(valid) + [0 for _ in range(self.n - self._offset)]
             )
         ens += self._offset
-        assert valid[ens] != 0
+
+        if valid[ens] == 0:
+            # The path is not valid in ensemble.
+            # This situation should only occur in the initial path loading.
+            raise_msg = (
+                f"Path {traj.path_number} lying in {traj.adress} "
+                f"is not valid in ensemble {ens:03.0f}!\n"
+            )
+            cap = self.cap if self.cap is not None else self.interfaces[-1]
+            if ens > 0:
+                raise_msg += (
+                    f"Path {traj.path_number} has max_op {traj.ordermax[0]}"
+                    f" and does not have any phase points "
+                    f"between {self.interfaces[ens-1]} and {cap}.\n"
+                )
+
+            raise ValueError(raise_msg)
+
         # invalidate last prob
         self._last_prob = None
         self._trajs[ens] = traj
@@ -757,22 +760,6 @@ class REPEX_state:
         with open("./restart.toml", "wb") as f:
             tomli_w.dump(self.config, f)
 
-    def write_pattern(self, md_items):
-        """Pattern writer."""
-        md_start = time.time()
-        ensnums = "-".join([str(i + 1) for i in md_items["ens_nums"]])
-        with open(self.pattern_file, "a") as fp:
-            fp.write(
-                f"{md_items['pin']}\t\t"
-                + f"{md_items['md_start'] - self.start_time:8.8f}\t"
-                + f"{md_items['wmd_start'] - self.start_time:8.8f}\t"
-                + f"{md_items['wmd_end'] - self.start_time:8.8f}\t"
-                + f"{md_items['md_end'] - self.start_time:8.8f}\t"
-                + f"{md_start - self.start_time:8.8f}\t"
-                + f"{ensnums}\n"
-            )
-        md_items["md_start"] = md_start
-
     def printing(self):
         """Check if print."""
         return self.screen > 0 and np.mod(self.cstep, self.screen) == 0
@@ -802,14 +789,17 @@ class REPEX_state:
         )
         status = md_items["status"]
         simtime = md_items["md_end"] - md_items["md_start"]
+        subcycles = md_items["subcycles"]
         logger.info(
             f"shooted {' '.join(moves)} in ensembles: {ens_nums}"
             f" with paths: {pnum_old} -> {pnum_new}"
         )
         logger.info(
-            "with status:"
-            f" {status} len: {trial_lens} op: {trial_ops} and"
-            f" worker: {self.cworker} total time: {simtime:.2f}"
+            "with status:" f" {status} len: {trial_lens} op: {trial_ops} and"
+        )
+        logger.info(
+            f"worker: {self.cworker} total time:"
+            f"{simtime:.2f}s and subcycles: {subcycles}"
         )
         self.print_state()
 
@@ -942,9 +932,14 @@ class REPEX_state:
                 ):
                     if len(self.pn_olds) > self.n - 2:
                         pn_old_del, del_dic = next(iter(self.pn_olds.items()))
+                        load_dir = self.config["simulation"]["load_dir"]
                         if self.config["output"]["keep_maxop_trajs"]:
+                            path_dir = os.path.join(load_dir, pn_old_del)
                             # delete trajectory files if low orderp (infinit)
-                            if del_dic["max_op"][0] < self.maxop:
+                            # and directory is not a symlink
+                            if del_dic["max_op"][
+                                0
+                            ] < self.maxop and not os.path.islink(path_dir):
                                 # update maxop and then delete|
                                 for adress in del_dic["adress"]:
                                     #if os.path.isfile(adress):
@@ -955,7 +950,6 @@ class REPEX_state:
                                 #if os.path.isfile(adress):
                                 os.remove(adress)
                         # delete txt files
-                        load_dir = self.config["simulation"]["load_dir"]
                         if self.config["output"].get("delete_old_all", False):
                             for txt in ("order.txt", "traj.txt", "energy.txt"):
                                 txt_adress = os.path.join(
@@ -991,7 +985,10 @@ class REPEX_state:
             write_to_pathens(self, md_items["pnum_old"])
 
         self.sort_trajstate()
-        self.config["current"]["traj_num"] = traj_num
+        cdict = self.config["current"]
+        cdict["traj_num"] = traj_num
+        cdict["wsubcycles"][md_items["pin"]] += md_items["subcycles"]
+        cdict["tsubcycles"] = int(sum(self.config["current"]["wsubcycles"]))
         self.cworker = md_items["pin"]
         if self.printing():
             self.print_shooted(md_items, pn_news)
@@ -1054,18 +1051,6 @@ class REPEX_state:
             "adress": paths[0].adress,
             "frac": np.array(frac, dtype="longdouble"),
         }
-
-    def pattern_header(self):
-        """Write pattern0 header."""
-        if self.toinitiate == 0:
-            restarted = self.config["current"].get("restarted_from")
-            writemode = "a" if restarted else "w"
-            with open(self.pattern_file, writemode) as fp:
-                fp.write(
-                    "# Worker\tMD_start [s]\t\twMD_start [s]\twMD_end",
-                    +"[s]\tMD_end [s]\t Dask_end [s]",
-                    +f"\tEnsembles\t{self.start_time}\n",
-                )
 
     def initiate_ensembles(self):
         """Create all the ensemble dicts from the *toml config dict."""

@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from infretis.classes.engines.factory import create_engines
-from infretis.classes.orderparameter import create_orderparameters
 from infretis.classes.path import paste_paths
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -18,19 +15,6 @@ logger.addHandler(logging.NullHandler())
 
 
 ENGINES: dict = {}
-
-
-def def_globals(config):
-    """Define global engine and orderparameter variables.
-
-    Args:
-        config: Dictionary with .toml settings.
-    """
-    global ENGINES
-
-    ENGINES, engine_occ = create_engines(config)
-    create_orderparameters(ENGINES, config)
-    return engine_occ
 
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -77,12 +61,11 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
         The updated `md_items` dictionary with additional results from
         the MD simulation.
     """
-    # record start time
-    md_items["wmd_start"] = time.time()
-
     # perform the hw move:
     picked = md_items["picked"]
+    subcycles0 = np.sum([i.steps for j in ENGINES.values() for i in j])
     _, trials, status = select_shoot(picked)
+    subcycles1 = np.sum([i.steps for j in ENGINES.values() for i in j])
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -103,7 +86,12 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
             )
             picked[ens_num]["traj"] = trial
 
-    md_items.update({"status": status, "wmd_end": time.time()})
+    md_items.update(
+        {
+            "status": status,
+            "subcycles": int(subcycles1 - subcycles0),
+        }
+    )
     return md_items
 
 
@@ -179,11 +167,15 @@ def compute_weight(path: InfPath, interfaces: List[float], move: str) -> float:
         )
         weight = 1.0 * wf_weight
 
-    if path.get_start_point(
-        interfaces[0], interfaces[2]
-    ) != path.get_end_point(interfaces[0], interfaces[2]):
-        if move in ("ss", "wf", "mwf"):
+    endp = path.get_end_point(interfaces[0], interfaces[2])
+    if path.get_start_point(interfaces[0], interfaces[2]) != endp:
+        if move in ("ss", "mwf", "wf"):
             weight *= 2
+
+    # In case a reactive trajectory is sampled but weight is 0.0,
+    # set weight to 1.0
+    if move == "wf" and weight == 0 and endp == "R":
+        weight = 1.0
 
     return weight
 
@@ -450,8 +442,6 @@ def shoot(
             trial_path.status = "FTX"  # exceeds "memory".
         return False, trial_path, trial_path.status
 
-    trial_path.weight = 1.0
-
     # Deal with the rejections for path properties.
     # Make sure we did not hit the left interface on {0-}
     # Which is the only ensemble that allows paths starting in R
@@ -604,7 +594,6 @@ def subt_acceptance(
 
     if move in ("wf", "mwf"):
         intf[2] = ens_set["tis_set"].get("interface_cap", intf[2])
-    trial_path.weight = compute_weight(trial_path, intf, move)
 
     if set(start_cond) != set(trial_path.get_start_point(intf[0], intf[2])):
         trial_path = trial_path.reverse(engine.order_function)
@@ -1241,11 +1230,22 @@ def quantis_swap_zero(
     V0_r1 = tmp_path0.phasepoints[0].vpot
     V1_r1 = old_path1.phasepoints[0].vpot
     V1_r0 = tmp_path1.phasepoints[0].vpot
-    logger.info(f"V0r0 {V0_r0:.4e} V0r1 {V0_r1:.4e} dV0 {V0_r0 - V0_r1:.4e}")
-    logger.info(f"V1r0 {V1_r0:.4e} V1r1 {V1_r1:.4e} dV1 {V1_r0 - V1_r1:.4e}")
-    deltaV0 = V0_r0 - V0_r1
-    deltaV1 = V1_r0 - V1_r1
-    pacc = min(1.0, np.exp(deltaV0 * engine0.beta - deltaV1 * engine1.beta))
+    energies = [V0_r0, V0_r1, V1_r0, V1_r1]
+    if None not in energies:
+        logger.info(
+            f"V0r0 {V0_r0:.4e} V0r1 {V0_r1:.4e} dV0 {V0_r0 - V0_r1:.4e}"
+        )
+        logger.info(
+            f"V1r0 {V1_r0:.4e} V1r1 {V1_r1:.4e} dV1 {V1_r0 - V1_r1:.4e}"
+        )
+        deltaV0 = V0_r0 - V0_r1
+        deltaV1 = V1_r0 - V1_r1
+        pacc = min(
+            1.0, np.exp(deltaV0 * engine0.beta - deltaV1 * engine1.beta)
+        )
+    else:
+        pacc = 0.0
+        logger.info("Some energies are missing, setting pacc = 0.")
     rand = ens_set0["rgen"].random()
     if ens_set0["tis_set"]["accept_all"]:
         logger.info(f"Accepting all zero swaps! Actual Pacc = {pacc}")
@@ -1340,9 +1340,5 @@ def quantis_swap_zero(
 
     if new_path1.status != "ACC":
         return False, [new_path0, new_path1], new_path1.status
-
-    # everything checked out
-    new_path0.weight = 1.0
-    new_path1.weight = 1.0
 
     return True, [new_path0, new_path1], "ACC"

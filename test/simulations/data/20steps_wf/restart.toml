@@ -132,7 +132,6 @@ pattern = 1
 delete_old = true
 delete_old_all = true
 data_file = "./infretis_data.txt"
-pattern_file = "pattern.txt"
 keep_maxop_trajs = false
 
 [current]
@@ -150,6 +149,10 @@ active = [
 ]
 locked = []
 size = 8
+wsubcycles = [
+    3599,
+]
+tsubcycles = 3599
 
 [current.frac]
 17 = [
