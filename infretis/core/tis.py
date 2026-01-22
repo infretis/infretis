@@ -976,7 +976,7 @@ def retis_swap_zero(
     )
     # High Acceptance swap is required when Wire Fencing are used
     if accept:
-        if "wf" in ens_moves:
+        if any(m in ("wf", "mwf") for m in ens_moves):
             accept, status = high_acc_swap(
                 [path1, path_old1],
                 ens_set0["rgen"],
