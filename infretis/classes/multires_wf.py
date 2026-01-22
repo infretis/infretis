@@ -18,6 +18,7 @@ Configuration (TIS settings `ens_set["tis_set"]`):
 
 Note:
     - Low-res subpaths automatically use engine.subcycles (like standard WF)
+    - If a high-res segment is rejected it is also immediately deleted (to save disk space)
 
 Notes:
 - Any highres subpath with length L == 3 (three phase points) is rejected.
@@ -263,6 +264,11 @@ def multires_wire_fencing(
 
             if not gen_success:
                 # Step 9: Reject subpath
+                # remove trajectory files of the rejected subpath
+                for rej_seg_trajname in seg.adress:
+                    os.remove(rej_seg_trajname)
+                    logger.info(f"Removing {rej_seg_trajname} because of status {status}")
+
                 if i == 1 or i == mwf.nsubpath:
                     # First or last subpath failed - always reject set and restart from s0
                     set_rejected = True
