@@ -132,6 +132,7 @@ pattern = 1
 delete_old = true
 delete_old_all = true
 data_file = "./infretis_data.txt"
+tar_file = "./infretis_data.tar"
 keep_maxop_trajs = false
 
 [current]

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import tarfile
 from typing import Optional, Tuple
 
 import tomli
@@ -273,11 +274,12 @@ def check_config(config: dict) -> None:
 
 
 def write_header(config: dict) -> None:
-    """Write infretis_data.txt header.
+    """Write infretis_data.txt/tar.
 
     Args
         config: the configuration dictionary
     """
+    # prep infretis_data.txt
     size = config["current"]["size"]
     data_dir = config["output"]["data_dir"]
     data_file = os.path.join(data_dir, "infretis_data.txt")
@@ -293,6 +295,18 @@ def write_header(config: dict) -> None:
         ens_str = "\t".join([f"{i:03.0f}" for i in range(size)])
         write.write("# " + f"\txxx\tlen\tmax OP\t\t{ens_str}\n")
         write.write("# " + "=" * (34 + 8 * size) + "\n")
+
+    # prep infretis_data.tar
+    tar_file = os.path.join(data_dir, "infretis_data.tar")
+    if os.path.isfile(tar_file):
+        for i in range(1, 1000):
+            tar_file = os.path.join(data_dir, f"infretis_data_{i}.tar")
+            if not os.path.isfile(tar_file):
+                break
+
+    config["output"]["tar_file"] = tar_file
+    with tarfile.open(tar_file, mode="w"):
+        pass
 
 
 def setup_logger(inp: str = "sim.log") -> None:

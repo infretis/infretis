@@ -369,19 +369,6 @@ class OutputBase(metaclass=ABCMeta):
         self.formatter = formatter
         self.first_write = True
 
-    def output(self, step: int, data: List[Any]) -> Any:
-        """Use the formatter to write data to the file.
-
-        Args:
-            step: The current step number.
-            data: The data we are going to format and write.
-        """
-        if self.first_write and self.formatter.print_header:
-            self.first_write = False
-            self.write(self.formatter.header)
-        for line in self.formatter.format(step, data):
-            self.write(line)
-
     @abstractmethod
     def write(self, towrite: str, end: str = "\n") -> bool:
         """Write a string to the output defined by this class.
@@ -563,12 +550,6 @@ class FileIO(OutputBase):
         if self.fileh is not None and not self.fileh.closed:
             self.fileh.flush()
             os.fsync(self.fileh.fileno())
-
-    def output(self, step: int, data: List[Any]) -> Any:
-        """Open file before first write."""
-        if self.first_write:
-            self.open()
-        return super().output(step, data)
 
     def __del__(self) -> None:
         """Close the file in case the object is deleted."""

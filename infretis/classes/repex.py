@@ -81,6 +81,7 @@ class REPEX_state:
         self._random_count = 0
         self._trajs = [""] * n
         self.zeroswap = 0.5
+        self.tar = None
 
         # detect any locked ens-path pairs exist pre start
         self.locked0 = list(self.config["current"].get("locked", []))
@@ -156,6 +157,11 @@ class REPEX_state:
     def maxop(self):
         """Get the maximum orderparameter seen during the simulation."""
         return self.config["current"].get("maxop", -float("inf"))
+
+    @property
+    def tar_file(self):
+        """Retrieve total steps from config dict."""
+        return self.config["output"]["tar_file"]
 
     @maxop.setter
     def maxop(self, val):
@@ -916,6 +922,12 @@ class REPEX_state:
                     ),
                 }
                 out_traj = self.pstore.output(self.cstep, data)
+
+                # save to tar file
+                for txt in ["order.txt", "energy.txt", "traj.txt"]:
+                    txt_dir = os.path.join(data["dir"], str(traj_num), txt)
+                    self.tar.add(txt_dir)
+
                 self.traj_data[traj_num] = {
                     "frac": np.zeros(self.n, dtype="longdouble"),
                     "max_op": out_traj.ordermax,
@@ -967,6 +979,7 @@ class REPEX_state:
                             "adress": self.traj_data[pn_old]["adress"],
                             "max_op": self.traj_data[pn_old]["max_op"],
                         }
+
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
 
