@@ -135,6 +135,7 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     with open("restart.toml", mode="rb") as f:
         config = tomli.load(f)
         config["output"]["data_file"] = "./infretis_data.txt"
+        config["output"]["tar_file"] = "./infretis_data.tar"
         config["output"]["delete_old_all"] = True
     with open("restart.toml", "wb") as f:
         tomli_w.dump(config, f)
