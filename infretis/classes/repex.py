@@ -2,9 +2,9 @@
 
 import logging
 import os
+import tarfile
 import time
 from datetime import datetime
-import tarfile
 
 import numpy as np
 import tomli_w
@@ -918,9 +918,7 @@ class REPEX_state:
                 load_dir = self.config["simulation"]["load_dir"]
                 data = {
                     "path": out_traj,
-                    "dir": os.path.join(
-                        os.getcwd(), load_dir
-                    ),
+                    "dir": os.path.join(os.getcwd(), load_dir),
                 }
                 out_traj = self.pstore.output(self.cstep, data)
 
@@ -928,7 +926,9 @@ class REPEX_state:
                 with tarfile.open(self.tar_file, "a") as tar:
                     for txt in ["order.txt", "energy.txt", "traj.txt"]:
                         txt_dir = os.path.join(data["dir"], str(traj_num), txt)
-                        tar.add(txt_dir, arcname=f"{load_dir}/{traj_num}/order.txt")
+                        tar.add(
+                            txt_dir, arcname=f"{load_dir}/{traj_num}/order.txt"
+                        )
 
                 self.traj_data[traj_num] = {
                     "frac": np.zeros(self.n, dtype="longdouble"),
@@ -968,7 +968,9 @@ class REPEX_state:
                                 )
                                 if os.path.isfile(txt_adress):
                                     os.remove(txt_adress)
-                            accepted = os.path.join(load_dir, pn_old_del, "accepted")
+                            accepted = os.path.join(
+                                load_dir, pn_old_del, "accepted"
+                            )
                             if not os.listdir(accepted):
                                 os.rmdir(accepted)
                             pathfolder = os.path.join(load_dir, pn_old_del)

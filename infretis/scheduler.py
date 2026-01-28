@@ -1,7 +1,6 @@
 """The main infretis loop."""
 
 import copy
-import tarfile
 
 from infretis.setup import setup_internal, setup_runner
 
