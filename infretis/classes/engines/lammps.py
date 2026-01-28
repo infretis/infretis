@@ -59,8 +59,7 @@ def write_lammpstrj(
     with open(outfile, filemode) as writefile:
         to_write = (
             f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n\
-ITEM: BOX BOUNDS {box_header}pp pp pp\n"
-            ""
+ITEM: BOX BOUNDS {box_header}pp pp pp\n" ""
         )
 
         if box is not None:
@@ -230,7 +229,7 @@ def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
         raise NotImplementedError(f"Style {atom_style}' not supported yet.")
     n_atoms = 0
     n_atom_types = 0
-    atom_type_masses = np.zeros(0)
+    atom_type_masses = np.zeros((1, 2))
     atoms = np.zeros(0)
     with open(lammps_data) as readfile:
         for i, line in enumerate(readfile):
@@ -256,10 +255,8 @@ def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
                 atoms = atoms[idx]
     # if we did not find all of the information
     if n_atoms == 0 or n_atom_types == 0:
-        raise ValueError(
-            f"Could not read atom masses from {lammps_data}. \
-                         Found {n_atoms} atoms and {n_atom_types} atom_types."
-        )
+        raise ValueError(f"Could not read atom masses from {lammps_data}. \
+                         Found {n_atoms} atoms and {n_atom_types} atom_types.")
     masses = np.zeros((n_atoms, 1))
     for atom_type in range(1, n_atom_types + 1):
         idx = np.where(atoms[:, col[atom_style]] == atom_type)[0]

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import tarfile
 import time
 from datetime import datetime
 
@@ -153,15 +154,20 @@ class REPEX_state:
         return self.config["runner"]["workers"]
 
     @property
-    def maxop(self):
+    def maxop(self) -> float:
         """Get the maximum orderparameter seen during the simulation."""
         return self.config["current"].get("maxop", -float("inf"))
 
     @maxop.setter
-    def maxop(self, val):
+    def maxop(self, val: float) -> None:
         """Update the maximum orderpameter seen during the sumulation."""
         if self.config["output"]["keep_maxop_trajs"]:
             self.config["current"]["maxop"] = val
+
+    @property
+    def tar_file(self):
+        """Retrieve total steps from config dict."""
+        return self.config["output"]["tar_file"]
 
     def pick(self):
         """Pick path and ens."""
@@ -909,13 +915,21 @@ class REPEX_state:
                 # move to accept:
                 ens_save_idx = self.traj_data[pn_old]["ens_save_idx"]
                 out_traj.path_number = traj_num
+                load_dir = self.config["simulation"]["load_dir"]
                 data = {
                     "path": out_traj,
-                    "dir": os.path.join(
-                        os.getcwd(), self.config["simulation"]["load_dir"]
-                    ),
+                    "dir": os.path.join(os.getcwd(), load_dir),
                 }
                 out_traj = self.pstore.output(self.cstep, data)
+
+                # save to tar file
+                with tarfile.open(self.tar_file, "a") as tar:
+                    for txt in ["order.txt", "energy.txt", "traj.txt"]:
+                        txt_dir = os.path.join(data["dir"], str(traj_num), txt)
+                        tar.add(
+                            txt_dir, arcname=f"{load_dir}/{traj_num}/order.txt"
+                        )
+
                 self.traj_data[traj_num] = {
                     "frac": np.zeros(self.n, dtype="longdouble"),
                     "max_op": out_traj.ordermax,
@@ -932,7 +946,6 @@ class REPEX_state:
                 ):
                     if len(self.pn_olds) > self.n - 2:
                         pn_old_del, del_dic = next(iter(self.pn_olds.items()))
-                        load_dir = self.config["simulation"]["load_dir"]
                         if self.config["output"]["keep_maxop_trajs"]:
                             path_dir = os.path.join(load_dir, pn_old_del)
                             # delete trajectory files if low orderp (infinit)
@@ -955,10 +968,14 @@ class REPEX_state:
                                 )
                                 if os.path.isfile(txt_adress):
                                     os.remove(txt_adress)
-                            os.rmdir(
-                                os.path.join(load_dir, pn_old_del, "accepted")
+                            accepted = os.path.join(
+                                load_dir, pn_old_del, "accepted"
                             )
-                            os.rmdir(os.path.join(load_dir, pn_old_del))
+                            if not os.listdir(accepted):
+                                os.rmdir(accepted)
+                            pathfolder = os.path.join(load_dir, pn_old_del)
+                            if not os.listdir(pathfolder):
+                                os.rmdir(pathfolder)
                         # pop the deleted path.
                         self.pn_olds.pop(pn_old_del)
                     # keep delete list:
@@ -967,6 +984,7 @@ class REPEX_state:
                             "adress": self.traj_data[pn_old]["adress"],
                             "max_op": self.traj_data[pn_old]["max_op"],
                         }
+
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
 
