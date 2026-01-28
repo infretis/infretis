@@ -154,20 +154,20 @@ class REPEX_state:
         return self.config["runner"]["workers"]
 
     @property
-    def maxop(self):
+    def maxop(self) -> float:
         """Get the maximum orderparameter seen during the simulation."""
         return self.config["current"].get("maxop", -float("inf"))
+
+    @maxop.setter
+    def maxop(self, val: float) -> None:
+        """Update the maximum orderpameter seen during the sumulation."""
+        if self.config["output"]["keep_maxop_trajs"]:
+            self.config["current"]["maxop"] = val
 
     @property
     def tar_file(self):
         """Retrieve total steps from config dict."""
         return self.config["output"]["tar_file"]
-
-    @maxop.setter
-    def maxop(self, val):
-        """Update the maximum orderpameter seen during the sumulation."""
-        if self.config["output"]["keep_maxop_trajs"]:
-            self.config["current"]["maxop"] = val
 
     def pick(self):
         """Pick path and ens."""

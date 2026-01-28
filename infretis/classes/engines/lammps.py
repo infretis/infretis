@@ -229,7 +229,7 @@ def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
         raise NotImplementedError(f"Style {atom_style}' not supported yet.")
     n_atoms = 0
     n_atom_types = 0
-    atom_type_masses = np.zeros(0)
+    atom_type_masses = np.zeros((1, 2))
     atoms = np.zeros(0)
     with open(lammps_data) as readfile:
         for i, line in enumerate(readfile):

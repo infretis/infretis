@@ -152,7 +152,7 @@ class Path:
         idx = rgen.integers(1, self.length - 1)
         order = self.phasepoints[idx].order[0]
         logger.debug(f"Selected point with orderp {order}")
-        return self.phasepoints[idx], idx
+        return self.phasepoints[idx], int(idx)
 
     def append(self, phasepoint: System) -> bool:
         """Append a new phase point to the path."""
