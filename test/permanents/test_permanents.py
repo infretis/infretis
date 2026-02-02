@@ -81,3 +81,40 @@ def test_matrix2():
     permanent = state.fast_glynn_perm(W_MATRIX2)
     assert pytest.approx(p_matrix) == P_MATRIX2
     assert permanent == PERMANENT2
+
+
+W_MATRIX3 = np.array([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+[0, 1, 14, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+[0, 1, 450, 352, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+[0, 1, 1518, 854, 67, 57, 37, 3, 0, 0, 0, 0, 0, 0],
+[0, 1, 1345, 821, 15, 8, 2, 0, 0, 0, 0, 0, 0, 0],
+[0, 1, 1128, 983, 23, 11, 3, 0, 0, 0, 0, 0, 0, 0],
+[0, 1, 725, 324, 44, 42, 33, 21, 2, 0, 0, 0, 0, 0],
+[0, 1, 1129, 970, 762, 717, 635, 368, 54, 1, 0, 0, 0, 0],
+[0, 1, 58, 37, 24, 24, 19, 17, 12, 7, 1, 0, 0, 0],
+[0, 1, 127, 113, 90, 89, 79, 49, 39, 31, 15, 3, 0, 0],
+[0, 1, 2452, 1898, 704, 702, 700, 700, 23904, 21818, 18418, 6382, 2322, 988],
+[0, 1, 2452, 1898, 704, 702, 700, 700, 23904, 21818, 18418, 6382, 2322, 988],
+[0, 1, 444, 444, 372, 350, 322, 258, 192, 108, 90, 202, 190, 164]], dtype=np.float64)
+
+
+def test_matrix3(caplog):
+    """This matrix technically give negative number. but we check here that no zeros are present.
+
+    """
+    import logging
+    state = REPEX_state(
+        {
+            "current": {"size": 1, "cstep": 0},
+            "runner": {"workers": 1},
+            "simulation": {"seed": 0, "steps": 10},
+        },
+        minus=True
+    )
+    locks = np.zeros(W_MATRIX3.shape[0])
+    with caplog.at_level(logging.INFO):
+        p_matrix = state.inf_retis(W_MATRIX3, locks)
+
+    assert np.sum(p_matrix<0) == 0
+    assert "Numerical instability detected in permanent calculation!" in caplog.text

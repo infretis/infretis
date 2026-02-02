@@ -59,8 +59,7 @@ def write_lammpstrj(
     with open(outfile, filemode) as writefile:
         to_write = (
             f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n\
-ITEM: BOX BOUNDS {box_header}pp pp pp\n"
-            ""
+ITEM: BOX BOUNDS {box_header}pp pp pp\n" ""
         )
 
         if box is not None:
@@ -230,8 +229,10 @@ def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
         raise NotImplementedError(f"Style {atom_style}' not supported yet.")
     n_atoms = 0
     n_atom_types = 0
-    atom_type_masses = np.zeros(0)
-    atoms = np.zeros(0)
+    # atom_type_masses = np.zeros(0)
+    # atoms = np.zeros(0)
+    atom_type_masses = np.empty((0, 2))
+    atoms = np.empty(0)
     with open(lammps_data) as readfile:
         for i, line in enumerate(readfile):
             spl = line.split()
@@ -254,12 +255,34 @@ def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
                 # sort atoms according to index
                 idx = np.argsort(atoms[:, 0])
                 atoms = atoms[idx]
+
     # if we did not find all of the information
     if n_atoms == 0 or n_atom_types == 0:
-        raise ValueError(
-            f"Could not read atom masses from {lammps_data}. \
-                         Found {n_atoms} atoms and {n_atom_types} atom_types."
+        raise ValueError(f"Could not read atom masses from {lammps_data}. \
+                         Found {n_atoms} atoms and {n_atom_types} atom_types.")
+
+    if np.shape(atoms)[0] == 0 or np.any(np.isnan(atoms)):
+        raise ValueError(f"Could not read 'Atoms' from {lammps_data}")
+
+    if np.shape(atom_type_masses)[0] == 0 or np.any(
+        np.isnan(atom_type_masses)
+    ):
+        raise ValueError(f"Could not read 'Masses' from {lammps_data}")
+
+    if np.shape(atoms)[0] != n_atoms:
+        msg = (
+            f"Found {n_atoms} atoms but read {np.shape(atoms)[0]} "
+            f"from 'Atoms' in {lammps_data}"
         )
+        raise ValueError(msg)
+
+    if np.shape(atom_type_masses)[0] != n_atom_types:
+        msg = (
+            f"Found {n_atom_types} atom types but read "
+            f"{np.shape(atom_type_masses)[0]} from 'Masses' in {lammps_data}"
+        )
+        raise ValueError(msg)
+
     masses = np.zeros((n_atoms, 1))
     for atom_type in range(1, n_atom_types + 1):
         idx = np.where(atoms[:, col[atom_style]] == atom_type)[0]
