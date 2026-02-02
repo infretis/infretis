@@ -84,7 +84,8 @@ def test_matrix2():
 
 
 def test_matrix3(caplog):
-    """This matrix technically give negative number. but we check here that no zeros are present.
+    """This w matrix technically give negative number in the p matrix.
+     But we check here that no zeros are present.
 
     """
     import logging
