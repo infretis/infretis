@@ -106,4 +106,5 @@ def test_matrix3(caplog):
 
     assert np.sum(p_matrix1<0) == 0
     assert np.sum(p_matrix2<0) == 1
+    assert p_matrix2[p_matrix2<0] < 10**(-10)
     assert "Numerical instability detected in permanent calculation!" in caplog.text
