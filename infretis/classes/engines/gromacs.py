@@ -1319,11 +1319,14 @@ def read_coord(
             ``natoms`` rows and ``_DIM`` columns.
     """
     if double:
-        fmt = f"{endian}{natoms * _DIM}d"
+        dt = np.dtype("double")
     else:
-        fmt = f"{endian}{natoms * _DIM}f"
-    read = read_struct_buff(fileh, fmt)
-    mat = np.array(read)
+        dt = np.dtype("float32")
+    dt = dt.newbyteorder(endian)
+    try:
+        mat = np.fromfile(fileh, dtype=dt, count=natoms * _DIM)
+    except ValueError:
+        raise EOFError()
     mat.shape = (natoms, _DIM)
     return mat
 
