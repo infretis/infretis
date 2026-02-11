@@ -20,6 +20,7 @@ from typing import (
 )
 
 import numpy as np
+import h5py
 
 from infretis.core.core import make_dirs
 
@@ -36,6 +37,22 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from infretis.classes.path import Path as InfPath
 
+def append_array(h5file, array, index):
+    """
+    Append array to an HDF5 file.
+    """
+    dset_name = f"arrays/{index:06d}"
+
+    if dset_name in h5file:
+        del h5file[dset_name]
+
+    h5file.create_dataset(
+        dset_name,
+        data=array,
+        compression="gzip",
+        compression_opts=4,
+        shuffle=True
+    )
 
 def _read_line_data(
     ncol: int, stripline: str, line_parser: Callable[[str], Any]
@@ -866,6 +883,25 @@ class PathStorage(OutputBase):
             with open(full_path, mode="w", encoding="utf8") as output:
                 for line in fmt.format(step, (path, status)):
                     output.write(f"{line}\n")
+        if status == "ACC":
+
+            with open("maxop.log", "a") as maxopfile:
+                maxopfile.write(f"{path.path_number} {' '.join([str(i) for i in path.phasepoints[-1].order])}\n")
+
+            with h5py.File("order.h5", "a") as h5file:
+                grp = h5file.require_group("arrays")
+                try:
+                    out_arr = np.array([i.order for i in path.phasepoints])
+                # It can happen that columns in the order.txt file contain
+                # varying number in some cases, such as:
+                # * when restarting and the orderparameter class now returns more entries
+                # * when initializing and the order.txt files have only 1 column while
+                #   the orderparameter class returns more than 1 orderparameter
+                except ValueError as e:
+                    out_arr = np.array([i.order[:1] for i in path.phasepoints])
+                append_array(h5file, out_arr, path.path_number)
+                h5file.flush()
+
         return files
 
     @staticmethod
