@@ -42,27 +42,27 @@ def spawn_rng(rgen):
 class REPEX_state:
     """Define the REPEX object."""
 
-    # dicts to hold *toml, path data, ensembles and engine pointers.
-    config: dict = {}
-    traj_data: dict = {}
-    ensembles: dict = {}
-    engine_occ: dict = {}
-
-    # holds counts current worker.
-    cworker = None
-
-    # defines storage object.
-    pstore = PathStorage()
-
     def __init__(self, config, minus=False):
         """Initiate REPEX given confic dict from *toml file."""
+
+        # dicts to hold *toml, path data, ensembles and engine pointers.
+        self.traj_data: dict = {}
+        self.ensembles: dict = {}
+        self.engine_occ: dict = {}
+
+        # holds counts current worker.
+        self.cworker = None
+
+        # defines storage object.
+        self.pstore = PathStorage()
+
         self.config = config
         # storage of additional trajectory files
         self.pstore.keep_traj_fnames = config.get("output", {}).get(
             "keep_traj_fnames", []
         )
         # set rng
-        if "restarted_from" in config["current"]:
+        if config["current"]["restarted_from"] > 0:
             self.set_rgen()
         else:
             self.rgen = default_rng(seed=config["simulation"]["seed"])
@@ -225,7 +225,8 @@ class REPEX_state:
         In case a crash, we pick lock locked from previous simulation.
         """
         if not self.locked0:
-            if "restarted_from" in self.config["current"]:
+            # if "restarted_from" in self.config["current"]:
+            if self.config["current"]["restarted_from"] > 0:
                 # get the same pick() as pre-restart. Need to set it again
                 # because current self.rgen was used for calculating self.prob.
                 self.set_rgen()
@@ -1005,6 +1006,7 @@ class REPEX_state:
     def load_paths(self, paths):
         """Load paths."""
         size = self.n - 1
+        print("screen", self.traj_data)
         # we add all the i+ paths.
         for i in range(size - 1):
             paths[i + 1].weights = calc_cv_vector(

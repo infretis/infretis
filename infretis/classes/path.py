@@ -414,8 +414,10 @@ def load_path(pdir: str) -> Path:
     """Load a path from the given directory."""
     trajtxt = os.path.join(pdir, "traj.txt")
     ordertxt = os.path.join(pdir, "order.txt")
-    assert os.path.isfile(trajtxt)
-    assert os.path.isfile(ordertxt)
+    if not os.path.isfile(trajtxt):
+        raise FileNotFoundError(f"Missing trajectory text file: {trajtxt}")
+    if not os.path.isfile(ordertxt):
+        raise FileNotFoundError(f"Missing order parameter file: {ordertxt}")
 
     # load trajtxt
     with PathExtFile(trajtxt, "r") as trajfile:
@@ -432,7 +434,8 @@ def load_path(pdir: str) -> Path:
             traj["data"][i][3] = reverse
 
         for config in set(frame[1] for frame in traj["data"]):
-            assert os.path.isfile(config)
+            if not os.path.isfile(config):
+                raise FileNotFoundError(f"Missing trajectory file: {trajtxt}")
 
     # load ordertxt
     with OrderPathFile(ordertxt, "r") as orderfile:

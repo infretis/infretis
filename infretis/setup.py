@@ -11,6 +11,7 @@ from infretis.classes.engines.factory import create_engines
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
+from infretis.config import FullConfig
 from infretis.core.tis import run_md
 
 logger = logging.getLogger("main")
@@ -108,6 +109,21 @@ def setup_config(
         msg = f"Restart file '{re_inp}' found, but its not the run file!"
         raise ValueError(msg)
 
+    # validate with pydantic
+    pydant = FullConfig(**config)
+
+    # convert back to normal dic
+    config = pydant.model_dump(by_alias=True, exclude_none=True)
+
+    if config["simulation"]["steps"] == config["current"].get("cstep"):
+        return None
+
+    # assign and write infretis_data.txt file
+    if "data_file" not in config["output"]:
+        write_header(config)
+
+    return config
+
     # in case we restart, toml file has a 'current' subdict.
     if "current" in config:
         curr = config["current"]
@@ -146,7 +162,7 @@ def setup_config(
     has_ens_engs = config["simulation"].get("ensemble_engines", False)
     if not has_ens_engs:
         ens_engs = []
-        for itnf in config["simulation"]["interfaces"]:
+        for _ in config["simulation"]["interfaces"]:
             ens_engs.append(["engine"])
         config["simulation"]["ensemble_engines"] = ens_engs
 

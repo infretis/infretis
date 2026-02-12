@@ -9,7 +9,7 @@ def test_rgen_io(tmp_path: PosixPath) -> None:
     """Test repex rgen and rgen spawn reproducability."""
     state = REPEX_state(
         {
-            "current": {"size": 1, "cstep": 0},
+            "current": {"size": 1, "cstep": 0, "restarted_from": -1},
             "runner": {"workers": 1},
             "simulation": {"seed": 0, "steps":10},
         }
@@ -32,7 +32,7 @@ def test_rgen_io(tmp_path: PosixPath) -> None:
     # restart with the "restarted_from" keyword
     with open("restart.toml", mode="rb") as f:
         config = tomli.load(f)
-        config["current"]["restarted_from"] = {}
+        config["current"]["restarted_from"] = -1
     state = REPEX_state(config)
 
     # test that the numbers are the same
