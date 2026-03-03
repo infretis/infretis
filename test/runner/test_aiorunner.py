@@ -162,6 +162,7 @@ def test_runner_infretis_mode(tmp_path: PosixPath):
         # assert same pid for same pin
         assert len(set(pids[0])) == 1
         assert len(set(pids[1])) == 1
+        assert set(pids[0]) != set(pids[1])
     finally:
         runner.stop()
         loop.close()
