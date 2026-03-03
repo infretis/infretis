@@ -260,7 +260,7 @@ class REPEX_state:
         """Fill md_items with picked path and ens."""
         # Remove previous picked
         md_items.pop("picked", None)
-
+        md_items["cstep"] = self.cstep
         # pick/lock ens & path
         if self.toinitiate >= 0:
             # assign pin

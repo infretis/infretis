@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -13,6 +14,34 @@ from infretis.classes.path import paste_paths
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
 
+_CTX = {}  # per-worker-process context, updated in run_md()
+
+def _append_tsv(relpath: str, header: str, row: str) -> None:
+    w_folder = _CTX.get("w_folder", ".")
+    os.makedirs(w_folder, exist_ok=True)
+    # Avoid "log" in the cache dir name because some code scans worker
+    # directories for "*log*" entries and expects files.
+    hist_dir = os.path.join(w_folder, ".infretis_tsv")
+    os.makedirs(hist_dir, exist_ok=True)
+
+    hist_path = os.path.join(hist_dir, relpath)
+    os.makedirs(os.path.dirname(hist_path), exist_ok=True)
+    newfile = not os.path.exists(hist_path)
+    with open(hist_path, "a", encoding="utf-8") as f:
+        if newfile:
+            f.write(header.rstrip("\n") + "\n")
+        f.write(row.rstrip("\n") + "\n")
+
+    # Engine clean-up removes root-level files in the worker folder before
+    # each move. Keep the authoritative history in a subdirectory and mirror
+    # it back to the expected location after every append.
+    public_path = os.path.join(w_folder, relpath)
+    os.makedirs(os.path.dirname(public_path) or ".", exist_ok=True)
+    shutil.copyfile(hist_path, public_path)
+
+def _fmt_vec(v) -> str:
+    a = np.asarray(v, float).ravel()
+    return ",".join(f"{x:.10g}" for x in a)
 
 ENGINES: dict = {}
 
@@ -41,7 +70,11 @@ def log_mdlogs(inp: str) -> None:
         this will be logged at the info level.
 
     """
-    logs = [log for log in os.listdir(inp) if "log" in log]
+    logs = [
+        item.name
+        for item in os.scandir(inp)
+        if item.is_file() and "log" in item.name
+    ]
     for log in logs:
         with open(os.path.join(inp, log)) as read:
             for line in read:
@@ -62,6 +95,12 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
         the MD simulation.
     """
     # perform the hw move:
+    global _CTX
+    _CTX = {
+        "cstep": md_items.get("cstep", None),
+        "pin": md_items.get("pin", None),
+        "w_folder": md_items.get("w_folder", "."),
+        }
     picked = md_items["picked"]
     subcycles0 = np.sum([i.steps for j in ENGINES.values() for i in j])
     _, trials, status = select_shoot(picked)
@@ -296,26 +335,51 @@ def select_shoot(
                 engine.rgen = pens["rgen-eng"]
             engine.clean_up()
 
+    ens_name = "unknown"
+    move_name = "unknown"
+    path_n = -1
+
     if len(picked) == 1:
         pens = next(iter(picked.values()))
         ens_set, path = (pens[i] for i in ["ens", "traj"])
         move = ens_set["mc_move"]
+
         logger.info(
             f"starting {move} in {ens_set['ens_name']}"
             + f" with path_n {path.path_number}"
         )
+
         start_cond = ens_set["start_cond"]
         accept, new_path, status = sh_moves[move](
             ens_set, path, engines[0][0], start_cond=start_cond
         )
         new_paths = [new_path]
+
+        # set logging fields
+        ens_name = ens_set["ens_name"]
+        move_name = move
+        path_n = path.path_number
+
     else:
         if picked[-1]["ens"]["tis_set"]["quantis"]:
             accept, new_paths, status = quantis_swap_zero(picked, engines)
         else:
             accept, new_paths, status = retis_swap_zero(picked, engines)
 
+        # set logging fields
+        ens_name = "swap"
+        move_name = "swap"
+        path_n = -1
+
     logger.info(f"Move was {accept} with status {status}\n")
+
+    header = "cstep\tpin\tens_name\tmove\tpath_n\taccepted\tstatus"
+    row = (
+        f"{_CTX.get('cstep')}\t{_CTX.get('pin')}\t{ens_name}\t{move_name}\t"
+        f"{path_n}\t{int(accept)}\t{status}"
+    )
+    _append_tsv("move_blocks.tsv", header, row)
+
     return accept, new_paths, status
 
 
@@ -507,6 +571,9 @@ def wire_fencing(
         "start_cond": ens_set["start_cond"],
         "tis_set": ens_set["tis_set"],
     }
+
+    sub_ens["parent_move"] = "wf"
+    sub_ens["parent_path_n"] = trial_path.path_number
     sub_ens["tis_set"]["allowmaxlength"] = True
     sub_ens["tis_set"]["maxlength"] = ens_set["tis_set"]["maxlength"]
 
@@ -716,35 +783,36 @@ def shoot_backwards(
 def prepare_shooting_point(
     path: InfPath, rgen: Generator, engine: EngineBase, ens_set: Dict[str, Any]
 ) -> Tuple[System, int, float]:
-    """Select and modify velocities for a shooting move.
-
-    This method will randomly select a shooting point from a given
-    path and modify its velocities.
-
-    Args:
-        path: This is the input path which will be used for generating a
-        new path.
-        rgen: A random number generator used for selecting the shooting
-            point from the path.
-        engine: The MD engine used for generating velocities.
-
-    Returns:
-        A tuple containing:
-            - The shooting point with modified velocities.
-            - The index of the shooting point in the original path.
-            - The change in kinetic energy when modifying the velocities.
-
-    """
     shooting_point, idx = path.get_shooting_point(rgen)
-    orderp = shooting_point.order
+
+    op_before = np.asarray(shooting_point.order, float).copy()
     shpt_copy = shooting_point.copy()
-    logger.info("Shooting from order parameter/index: %f, %d", orderp[0], idx)
-    # Copy the shooting point, so that we can modify velocities without
-    # altering the original path:
-    # Modify the velocities:
+
+    # kick
     dek, _ = engine.modify_velocities(shpt_copy, ens_set["tis_set"])
-    orderp = engine.calculate_order(shpt_copy)
-    shpt_copy.order = orderp
+
+    op_after = np.asarray(engine.calculate_order(shpt_copy), float).copy()
+    shpt_copy.order = op_after
+
+    # keep your old scalar log for backward compatibility
+    logger.info("Shooting from order parameter/index: %f, %d", op_before[0], idx)
+
+    # NEW: structured TSV row (vector CVs)
+    parent_move = ens_set.get("parent_move", ens_set.get("mc_move", "sh"))
+    path_n = path.path_number
+    if path_n is None:
+        path_n = ens_set.get("parent_path_n", -1)
+    header = (
+        "cstep\tpin\tens_name\tparent_move\tpath_n\tidx\tdek\t"
+        "op_before\top_after"
+    )
+    row = (
+        f"{_CTX.get('cstep')}\t{_CTX.get('pin')}\t{ens_set['ens_name']}\t"
+        f"{parent_move}\t{path_n}\t{idx}\t{dek:.10g}\t"
+        f"{_fmt_vec(op_before)}\t{_fmt_vec(op_after)}"
+    )
+    _append_tsv("shoot_points_all.tsv", header, row)
+
     return shpt_copy, idx, dek
 
 
