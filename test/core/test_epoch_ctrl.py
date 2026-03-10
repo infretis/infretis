@@ -23,6 +23,7 @@ import pytest
 
 import infretis.core.tis as tis
 from infretis.classes.repex import REPEX_state
+from infretis.core.epoch_ctrl import apply_epoch_ctrl, mirror_epoch_ctrl
 from infretis.setup import TOMLConfigError, check_config
 
 
@@ -101,7 +102,7 @@ def test_only_targeted_ensemble_alternates():
     expectations_ens1 = {10: 4, 20: 2, 30: 4}
     for cstep, expected in expectations_ens1.items():
         state.config["current"]["cstep"] = cstep
-        state._apply_epoch_ctrl()
+        apply_epoch_ctrl(state, state.cstep)
 
         # Targeted ensemble cycles
         assert state.ensembles[1]["tis_set"]["n_jumps"] == expected, (
@@ -128,13 +129,13 @@ def test_restart_restores_value_and_phase(tmp_path):
 
     # --- Phase A: run to epoch 1 boundary (cstep=10) ---
     state.config["current"]["cstep"] = 10
-    state._apply_epoch_ctrl()
+    apply_epoch_ctrl(state, state.cstep)
     assert state.ensembles[1]["tis_set"]["n_jumps"] == 4  # epoch 1 applied
     assert state.ensembles[2]["tis_set"]["n_jumps"] == 2  # untouched
 
     # --- Phase B: "stop" at cstep=15 (mid-epoch 2) ---
     state.config["current"]["cstep"] = 15
-    state._mirror_epoch_params()
+    mirror_epoch_ctrl(state, state.config)
 
     # Verify the mirror wrote the live values into config
     nsubpath = state.config["simulation"]["ensemble_nsubpath"]
@@ -167,14 +168,14 @@ def test_restart_restores_value_and_phase(tmp_path):
 
     # Property 3 — controller does NOT fire at cstep=15 (not a boundary)
     # cstep is already 15 from the restored config
-    state2._apply_epoch_ctrl()
+    apply_epoch_ctrl(state2, state2.cstep)
     assert state2.ensembles[1]["tis_set"]["n_jumps"] == 4, (
         "cstep=15 is mid-epoch; n_jumps must stay 4 until cstep=20"
     )
 
     # Property 3 continued — next boundary at cstep=20 fires correctly
     state2.config["current"]["cstep"] = 20
-    state2._apply_epoch_ctrl()
+    apply_epoch_ctrl(state2, state2.cstep)
     assert state2.ensembles[1]["tis_set"]["n_jumps"] == 2, (
         "cstep=20 (epoch 2): ens 1 should cycle to 2"
     )
@@ -257,7 +258,7 @@ def test_written_tsv_contains_expected_eff_n_jumps(tmp_path):
     Timing note: in a real simulation the epoch controller fires inside
     treat_output() AFTER the move worker returns, so the move at the
     boundary step still sees the pre-epoch value.  We replicate that by
-    reading n_jumps → writing the TSV row → calling _apply_epoch_ctrl().
+    reading n_jumps → writing the TSV row → calling apply_epoch_ctrl().
     """
     worker_dir = tmp_path / "worker0"
     worker_dir.mkdir()
@@ -304,7 +305,7 @@ def test_written_tsv_contains_expected_eff_n_jumps(tmp_path):
         tis._append_tsv("move_blocks.tsv", header, row)
 
         # Fire epoch AFTER writing (mirrors treat_output ordering)
-        state._apply_epoch_ctrl()
+        apply_epoch_ctrl(state, state.cstep)
 
     # Read back the TSV and assert on every row
     tsv_path = worker_dir / "move_blocks.tsv"

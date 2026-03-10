@@ -13,6 +13,7 @@ from numpy.random import default_rng
 from infretis.classes.engines.factory import assign_engines
 from infretis.classes.formatter import PathStorage
 from infretis.core.core import make_dirs
+from infretis.core.epoch_ctrl import apply_epoch_ctrl, mirror_epoch_ctrl
 from infretis.core.tis import calc_cv_vector
 
 logger = logging.getLogger("main")  # pylint: disable=invalid-name
@@ -748,52 +749,6 @@ class REPEX_state:
 
         return total / num_loops
 
-    def _apply_epoch_ctrl(self):
-        """Apply epoch-wise n_jumps updates to targeted ensembles.
-
-        Fires at each epoch boundary (cstep divisible by epoch_size, > 0).
-        Only the ensembles listed in config["simulation"]["epoch_nsubpath_ens"]
-        are modified; all other ensembles (including other WF ensembles) are
-        left unchanged.
-        """
-        epoch_size = self.config["simulation"].get("epoch_size", 0)
-        if not (epoch_size > 0 and self.cstep > 0 and self.cstep % epoch_size == 0):
-            return
-        epoch_idx = self.cstep // epoch_size
-        ens_targets = self.config["simulation"].get("epoch_nsubpath_ens", [])
-        val_schedules = self.config["simulation"].get("epoch_nsubpath_vals", [])
-        for ens_i, vals in zip(ens_targets, val_schedules):
-            if ens_i in self.ensembles and vals:
-                new_val = int(vals[epoch_idx % len(vals)])
-                old_val = self.ensembles[ens_i]["tis_set"].get("n_jumps")
-                self.ensembles[ens_i]["tis_set"]["n_jumps"] = new_val
-                logger.info(
-                    f"Epoch {epoch_idx}: ensemble {ens_i:03d} "
-                    f"n_jumps {old_val} → {new_val}"
-                )
-
-    def _mirror_epoch_params(self):
-        """Mirror per-ensemble n_jumps/mwf_nsubpath into config for restart.
-
-        Called before write_toml() so that the serialized restart.toml
-        carries the current live per-ensemble values, allowing
-        initiate_ensembles() to restore them exactly on restart.
-        """
-        global_tis = self.config["simulation"]["tis_set"]
-        ens_keys = sorted(self.ensembles.keys())
-        self.config["simulation"]["ensemble_nsubpath"] = [
-            self.ensembles[i]["tis_set"].get(
-                "n_jumps", global_tis.get("n_jumps", 2)
-            )
-            for i in ens_keys
-        ]
-        self.config["simulation"]["ensemble_mwf_nsubpath"] = [
-            self.ensembles[i]["tis_set"].get(
-                "mwf_nsubpath", global_tis.get("mwf_nsubpath", 3)
-            )
-            for i in ens_keys
-        ]
-
     def write_toml(self):
         """Toml writer."""
         self.config["current"]["active"] = self.live_paths()
@@ -1045,8 +1000,8 @@ class REPEX_state:
         if self.printing():
             self.print_shooted(md_items, pn_news)
 
-        self._apply_epoch_ctrl()
-        self._mirror_epoch_params()
+        apply_epoch_ctrl(self, self.cstep)
+        mirror_epoch_ctrl(self, self.config)
 
         # save for possible restart
         self.write_toml()

@@ -11,6 +11,7 @@ from infretis.classes.engines.factory import create_engines
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
+from infretis.core.epoch_ctrl import validate_epoch_ctrl
 from infretis.core.tis import run_md
 
 logger = logging.getLogger("main")
@@ -260,27 +261,10 @@ def check_config(config: dict) -> None:
                     )
 
     # epoch n_jumps controller checks
-    ens_targets = config["simulation"].get("epoch_nsubpath_ens", [])
-    val_schedules = config["simulation"].get("epoch_nsubpath_vals", [])
-    if len(ens_targets) != len(val_schedules):
-        raise TOMLConfigError(
-            f"epoch_nsubpath_ens has {len(ens_targets)} entries but "
-            f"epoch_nsubpath_vals has {len(val_schedules)} entries; "
-            "they must be the same length."
-        )
-    for ens_i in ens_targets:
-        if not (0 <= ens_i < n_ens):
-            raise TOMLConfigError(
-                f"epoch_nsubpath_ens contains invalid ensemble index {ens_i}; "
-                f"valid range is 0 … {n_ens - 1}."
-            )
-        ens_move = sh_moves[ens_i] if ens_i < n_sh_moves else None
-        if ens_move not in ("wf", "mwf"):
-            raise TOMLConfigError(
-                f"epoch_nsubpath_ens targets ensemble {ens_i} which uses "
-                f"move '{ens_move}'; only 'wf' and 'mwf' ensembles support "
-                "the n_jumps parameter."
-            )
+    try:
+        validate_epoch_ctrl(config)
+    except ValueError as exc:
+        raise TOMLConfigError(str(exc)) from exc
 
     # check wsubcycles and tsubcycles in case restarting from old version
     if "wsubcycles" not in config["current"]:
