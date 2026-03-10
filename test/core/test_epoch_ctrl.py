@@ -1,6 +1,8 @@
 """Tests for epoch-wise per-ensemble n_jumps controller.
 
-Verifies four properties end-to-end:
+Verifies properties end-to-end for both controller modes:
+
+global_step mode:
   1. Only the targeted ensemble's n_jumps alternates; the untargeted WF
      ensemble is never touched.
   2. Stopping mid-epoch and restarting restores the exact per-ensemble
@@ -10,6 +12,13 @@ Verifies four properties end-to-end:
   4. The n_jumps value that select_shoot() would log to move_blocks.tsv
      reflects the alternating schedule for the targeted ensemble and
      the constant original value for the untargeted ensemble.
+
+per_ensemble_moves mode:
+  5. The controller fires for ensemble i after every k completed moves of
+     that ensemble, independent of cstep.
+  6. When k differs per target, each ensemble fires on its own schedule.
+  7. Restart restores ensemble_move_counts so the phase is preserved.
+  8. epoch_count='accepted' counts only accepted moves.
 """
 
 import copy
@@ -23,7 +32,11 @@ import pytest
 
 import infretis.core.tis as tis
 from infretis.classes.repex import REPEX_state
-from infretis.core.epoch_ctrl import apply_epoch_ctrl, mirror_epoch_ctrl
+from infretis.core.epoch_ctrl import (
+    apply_epoch_ctrl,
+    mirror_epoch_ctrl,
+    validate_epoch_ctrl,
+)
 from infretis.setup import TOMLConfigError, check_config
 
 
@@ -348,3 +361,230 @@ def test_written_tsv_contains_expected_eff_n_jumps(tmp_path):
     assert all(v == 2 for v in untargeted_rows), (
         f"untargeted ensemble n_jumps changed: {untargeted_rows}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Helpers for per_ensemble_moves mode tests
+# ---------------------------------------------------------------------------
+
+def _make_config_per_ens(k=3, k_list=None) -> dict:
+    """Config for per_ensemble_moves mode, targeting ensemble 1, k moves."""
+    cfg = _make_config()
+    cfg["simulation"]["epoch_mode"] = "per_ensemble_moves"
+    cfg["simulation"]["epoch_move_k"] = k_list if k_list is not None else k
+    # epoch_size is unused in this mode but kept to avoid KeyError elsewhere
+    return cfg
+
+
+def _make_state_per_ens(k=3, k_list=None) -> REPEX_state:
+    state = REPEX_state(_make_config_per_ens(k=k, k_list=k_list), minus=True)
+    state.initiate_ensembles()
+    return state
+
+
+# ---------------------------------------------------------------------------
+# Test 5 — per_ensemble_moves fires every k moves for the targeted ensemble
+# ---------------------------------------------------------------------------
+
+def test_per_ensemble_moves_fires_at_k_moves():
+    """Controller must fire after each k-th completed move of the target."""
+    k = 3
+    state = _make_state_per_ens(k=k)
+
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 2  # initial
+
+    # Simulate 2 moves — no boundary yet
+    for _ in range(k - 1):
+        state.ensemble_move_counts[1] = (
+            state.ensemble_move_counts.get(1, 0) + 1
+        )
+        apply_epoch_ctrl(state, state.cstep)
+
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 2, (
+        f"should not fire before {k} moves"
+    )
+
+    # k-th move — boundary: schedule[1 % 2] = schedule[1] = 4
+    state.ensemble_move_counts[1] = (
+        state.ensemble_move_counts.get(1, 0) + 1
+    )
+    apply_epoch_ctrl(state, state.cstep)
+    assert state.ensemble_move_counts[1] == k
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 4, (
+        "first boundary (k moves): n_jumps must cycle to 4"
+    )
+    # Untargeted ensemble is unchanged
+    assert state.ensembles[2]["tis_set"]["n_jumps"] == 2
+
+    # Second boundary (2k moves)
+    for _ in range(k):
+        state.ensemble_move_counts[1] = (
+            state.ensemble_move_counts.get(1, 0) + 1
+        )
+    apply_epoch_ctrl(state, state.cstep)
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 2, (
+        "second boundary (2k moves): n_jumps must cycle back to 2"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 6 — different k per target
+# ---------------------------------------------------------------------------
+
+def test_per_ensemble_moves_different_k_per_target():
+    """Each targeted ensemble fires on its own k schedule."""
+    # Target both WF ensembles with different k values
+    state = REPEX_state(_make_config(), minus=True)
+    state.config["simulation"]["epoch_mode"] = "per_ensemble_moves"
+    state.config["simulation"]["epoch_nsubpath_ens"] = [1, 2]
+    state.config["simulation"]["epoch_nsubpath_vals"] = [[2, 4], [2, 6]]
+    state.config["simulation"]["epoch_move_k"] = [3, 5]
+    state.initiate_ensembles()
+
+    # Simulate 3 moves for ens 1 and 2 moves for ens 2
+    state.ensemble_move_counts[1] = 3
+    state.ensemble_move_counts[2] = 2
+    apply_epoch_ctrl(state, state.cstep)
+
+    # Ens 1 hit its k=3 boundary: epoch_idx=1 → vals[1]=4
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 4, (
+        "ens 1 should fire at count=3 (k=3)"
+    )
+    # Ens 2 has only 2 moves (k=5): must not fire
+    assert state.ensembles[2]["tis_set"]["n_jumps"] == 2, (
+        "ens 2 must not fire at count=2 (k=5)"
+    )
+
+    # Give ens 2 its 5th move
+    state.ensemble_move_counts[2] = 5
+    apply_epoch_ctrl(state, state.cstep)
+    assert state.ensembles[2]["tis_set"]["n_jumps"] == 6, (
+        "ens 2 should fire at count=5 (k=5): epoch_idx=1 → vals[1]=6"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 7 — restart restores ensemble_move_counts and preserves phase
+# ---------------------------------------------------------------------------
+
+def test_per_ensemble_moves_restart_restores_counts(tmp_path):
+    """After restart, ensemble_move_counts must be restored so the phase
+    is preserved and the controller fires at the correct total count."""
+    k = 3
+    state = _make_state_per_ens(k=k)
+
+    # Simulate k+1 moves (one epoch has fired, one more move into next)
+    state.ensemble_move_counts[1] = k
+    apply_epoch_ctrl(state, state.cstep)
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 4
+
+    state.ensemble_move_counts[1] = k + 1  # mid-epoch
+
+    # Serialize via mirror + TOML round-trip
+    mirror_epoch_ctrl(state, state.config)
+    restart_path = tmp_path / "restart.toml"
+    with restart_path.open("wb") as fh:
+        tomli_w.dump(state.config, fh)
+    with restart_path.open("rb") as fh:
+        restored_cfg = tomli.load(fh)
+
+    # Verify counts survived the round-trip
+    raw = restored_cfg["current"]["ensemble_move_counts"]
+    assert int(raw["1"]) == k + 1, "count must survive TOML round-trip"
+
+    state2 = REPEX_state(restored_cfg, minus=True)
+    state2.initiate_ensembles()
+
+    # n_jumps restored to 4 (from ensemble_nsubpath)
+    assert state2.ensembles[1]["tis_set"]["n_jumps"] == 4
+    # count restored
+    assert state2.ensemble_move_counts.get(1, 0) == k + 1
+
+    # Controller must NOT fire mid-epoch (count=k+1 is not a multiple of k=3)
+    apply_epoch_ctrl(state2, state2.cstep)
+    assert state2.ensembles[1]["tis_set"]["n_jumps"] == 4, (
+        "mid-epoch: n_jumps must stay 4"
+    )
+
+    # Next boundary at count=2k
+    state2.ensemble_move_counts[1] = 2 * k
+    apply_epoch_ctrl(state2, state2.cstep)
+    assert state2.ensembles[1]["tis_set"]["n_jumps"] == 2, (
+        "count=2k: n_jumps must cycle back to 2"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 8 — epoch_count='accepted' only counts accepted moves
+# ---------------------------------------------------------------------------
+
+def test_epoch_count_accepted_ignores_rejected_moves():
+    """With epoch_count='accepted', rejected moves must not advance the counter
+    and must not trigger the controller."""
+    k = 2
+    state = _make_state_per_ens(k=k)
+    state.config["simulation"]["epoch_count"] = "accepted"
+
+    # Simulate k rejected moves — counter must stay at 0, no firing
+    for _ in range(k):
+        # Rejected: do NOT increment (mirrors treat_output with ACC check)
+        apply_epoch_ctrl(state, state.cstep)
+
+    assert state.ensemble_move_counts.get(1, 0) == 0
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 2, (
+        "rejected moves must not advance counter or fire controller"
+    )
+
+    # Two accepted moves — counter reaches k, fires
+    state.ensemble_move_counts[1] = k
+    apply_epoch_ctrl(state, state.cstep)
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 4, (
+        "k accepted moves: controller must fire"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 9 — validate_epoch_ctrl rejects bad per_ensemble_moves config
+# ---------------------------------------------------------------------------
+
+def test_validate_rejects_bad_per_ensemble_moves_config():
+    """validate_epoch_ctrl must raise for missing or invalid epoch_move_k."""
+    base = _check_config_base()
+
+    # Missing epoch_move_k
+    cfg = copy.deepcopy(base)
+    cfg["simulation"]["epoch_mode"] = "per_ensemble_moves"
+    cfg["simulation"]["epoch_nsubpath_ens"] = [1]
+    cfg["simulation"]["epoch_nsubpath_vals"] = [[2, 4]]
+    with pytest.raises(TOMLConfigError, match="epoch_move_k"):
+        check_config(cfg)
+
+    # epoch_move_k list length mismatch
+    cfg2 = copy.deepcopy(base)
+    cfg2["simulation"]["epoch_mode"] = "per_ensemble_moves"
+    cfg2["simulation"]["epoch_nsubpath_ens"] = [1]
+    cfg2["simulation"]["epoch_nsubpath_vals"] = [[2, 4]]
+    cfg2["simulation"]["epoch_move_k"] = [3, 5]  # length 2, targets length 1
+    with pytest.raises(TOMLConfigError, match="epoch_move_k"):
+        check_config(cfg2)
+
+    # Non-positive k
+    cfg3 = copy.deepcopy(base)
+    cfg3["simulation"]["epoch_mode"] = "per_ensemble_moves"
+    cfg3["simulation"]["epoch_nsubpath_ens"] = [1]
+    cfg3["simulation"]["epoch_nsubpath_vals"] = [[2, 4]]
+    cfg3["simulation"]["epoch_move_k"] = 0
+    with pytest.raises(TOMLConfigError, match="positive"):
+        check_config(cfg3)
+
+    # Unknown epoch_mode
+    cfg4 = copy.deepcopy(base)
+    cfg4["simulation"]["epoch_mode"] = "bananas"
+    with pytest.raises(TOMLConfigError, match="epoch_mode"):
+        check_config(cfg4)
+
+    # Unknown epoch_count
+    cfg5 = copy.deepcopy(base)
+    cfg5["simulation"]["epoch_count"] = "maybe"
+    with pytest.raises(TOMLConfigError, match="epoch_count"):
+        check_config(cfg5)

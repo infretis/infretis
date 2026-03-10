@@ -96,6 +96,13 @@ class REPEX_state:
         # keep track of olds in case of delete_old = True
         self.pn_olds = {}
 
+        # Per-ensemble completed-move counters for epoch_mode='per_ensemble_moves'.
+        # Keys match self.ensembles indices; restored from config on restart.
+        raw_counts = config["current"].get("ensemble_move_counts", {})
+        self.ensemble_move_counts = {
+            int(k): int(v) for k, v in raw_counts.items()
+        }
+
     @property
     def prob(self):
         """Calculate the P matrix."""
@@ -999,6 +1006,21 @@ class REPEX_state:
         self.cworker = md_items["pin"]
         if self.printing():
             self.print_shooted(md_items, pn_news)
+
+        # Update per-ensemble move counters before firing the epoch controller.
+        # picked keys are offset by 1 relative to self.ensembles indices.
+        count_mode = self.config["simulation"].get("epoch_count", "attempted")
+        for ens_num in picked.keys():
+            ens_idx = ens_num + 1
+            if count_mode == "accepted":
+                if md_items["status"] == "ACC":
+                    self.ensemble_move_counts[ens_idx] = (
+                        self.ensemble_move_counts.get(ens_idx, 0) + 1
+                    )
+            else:
+                self.ensemble_move_counts[ens_idx] = (
+                    self.ensemble_move_counts.get(ens_idx, 0) + 1
+                )
 
         apply_epoch_ctrl(self, self.cstep)
         mirror_epoch_ctrl(self, self.config)
