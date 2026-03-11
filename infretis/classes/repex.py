@@ -107,9 +107,20 @@ class REPEX_state:
             int(k): int(v) for k, v in raw_counts.items()
         }
 
+        # Softmax-Dirichlet controller state (logits, update_count, etc.).
+        # Restored from config on restart; empty for non-softmax modes.
+        self.softmax_ctrl_state: dict = {
+            int(k): v
+            for k, v in config["simulation"].get("softmax_ctrl_state", {}).items()
+        }
+
         # In-epoch stats accumulator; reset at each epoch boundary.
-        # Not persisted across restarts (partial-epoch stats are discarded).
-        self.ensemble_epoch_stats: dict = {}
+        # For softmax_dirichlet, partial-epoch stats are persisted via
+        # softmax_epoch_stats so mid-epoch rewards survive a restart.
+        self.ensemble_epoch_stats: dict = {
+            int(k): v
+            for k, v in config["simulation"].get("softmax_epoch_stats", {}).items()
+        }
 
     @property
     def prob(self):

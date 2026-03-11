@@ -24,6 +24,9 @@ per_ensemble_moves mode:
 import copy
 import csv
 import os
+import shutil
+import time
+from pathlib import Path as StdPath
 
 import numpy as np
 import tomli
@@ -31,7 +34,8 @@ import tomli_w
 import pytest
 
 import infretis.core.tis as tis
-from infretis.classes.repex import REPEX_state
+from infretis.classes.path import load_paths_from_disk
+from infretis.classes.repex import REPEX_state, spawn_rng
 from infretis.core.epoch_ctrl import (
     apply_epoch_ctrl,
     mirror_epoch_ctrl,
@@ -686,3 +690,976 @@ def test_stats_rows_accumulate_across_epochs(tmp_path):
 
     rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
     assert [int(r["epoch_idx"]) for r in rows] == [1, 2, 3]
+
+
+# ---------------------------------------------------------------------------
+# Helpers shared by adaptive-mode tests
+# ---------------------------------------------------------------------------
+
+def _make_adaptive_config() -> dict:
+    """Minimal config for adaptive mode targeting ensemble 1."""
+    cfg = _make_config()
+    del cfg["simulation"]["epoch_nsubpath_vals"]
+    cfg["simulation"]["epoch_ctrl_mode"] = "adaptive"
+    cfg["simulation"]["adaptive_nsubpath_min"] = 1
+    cfg["simulation"]["adaptive_nsubpath_max"] = 8
+    cfg["simulation"]["adaptive_accept_low"] = 0.20
+    cfg["simulation"]["adaptive_accept_high"] = 0.60
+    cfg["simulation"]["adaptive_lambda_gain_low"] = 0.05
+    cfg["simulation"]["adaptive_pathlen_high"] = 400
+    return cfg
+
+
+def _make_adaptive_state() -> REPEX_state:
+    state = REPEX_state(_make_adaptive_config(), minus=True)
+    state.initiate_ensembles()
+    return state
+
+
+# ---------------------------------------------------------------------------
+# Test 13 — static mode never updates n_jumps
+# ---------------------------------------------------------------------------
+
+def test_static_mode_never_updates_n_jumps():
+    """With epoch_ctrl_mode='static', n_jumps must not change at epoch boundary."""
+    cfg = _make_config()
+    cfg["simulation"]["epoch_ctrl_mode"] = "static"
+    state = REPEX_state(cfg, minus=True)
+    state.initiate_ensembles()
+
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 2
+
+    # Fire several epoch boundaries — nothing should change
+    for cstep in (10, 20, 30):
+        state.config["current"]["cstep"] = cstep
+        apply_epoch_ctrl(state, cstep)
+
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 2, (
+        "static mode must never update n_jumps"
+    )
+    assert state.ensembles[2]["tis_set"]["n_jumps"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Test 14 — scheduled mode with explicit epoch_ctrl_mode key
+# ---------------------------------------------------------------------------
+
+def test_scheduled_mode_unchanged():
+    """Explicit epoch_ctrl_mode='scheduled' must behave identically to the
+    inferred scheduled behavior."""
+    cfg = _make_config()
+    cfg["simulation"]["epoch_ctrl_mode"] = "scheduled"
+    state = REPEX_state(cfg, minus=True)
+    state.initiate_ensembles()
+
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, 10)
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 4
+
+    state.config["current"]["cstep"] = 20
+    apply_epoch_ctrl(state, 20)
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Test 15 — scheduled inferred without epoch_ctrl_mode key
+# ---------------------------------------------------------------------------
+
+def test_infer_scheduled_without_ctrl_mode_key():
+    """Config with epoch_nsubpath_vals but no epoch_ctrl_mode key must behave
+    as scheduled mode."""
+    cfg = _make_config()
+    assert "epoch_ctrl_mode" not in cfg["simulation"]
+
+    state = REPEX_state(cfg, minus=True)
+    state.initiate_ensembles()
+
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, 10)
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 4, (
+        "inferred scheduled mode must cycle n_jumps"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 16 — adaptive + epoch_nsubpath_vals raises
+# ---------------------------------------------------------------------------
+
+def test_invalid_mixed_adaptive_with_vals():
+    """epoch_ctrl_mode='adaptive' combined with epoch_nsubpath_vals must raise."""
+    base = _check_config_base()
+    cfg = copy.deepcopy(base)
+    cfg["simulation"]["epoch_ctrl_mode"] = "adaptive"
+    cfg["simulation"]["epoch_nsubpath_ens"] = [1]
+    cfg["simulation"]["epoch_nsubpath_vals"] = [[2, 4]]
+    cfg["simulation"]["adaptive_nsubpath_min"] = 1
+    cfg["simulation"]["adaptive_nsubpath_max"] = 8
+    cfg["simulation"]["adaptive_accept_low"] = 0.20
+    cfg["simulation"]["adaptive_accept_high"] = 0.60
+    cfg["simulation"]["adaptive_lambda_gain_low"] = 0.05
+    cfg["simulation"]["adaptive_pathlen_high"] = 400
+    with pytest.raises(TOMLConfigError):
+        check_config(cfg)
+
+
+# ---------------------------------------------------------------------------
+# Test 17 — scheduled + adaptive_* keys raises
+# ---------------------------------------------------------------------------
+
+def test_invalid_mixed_scheduled_with_adaptive_keys():
+    """epoch_ctrl_mode='scheduled' combined with adaptive_* keys must raise."""
+    base = _check_config_base()
+    cfg = copy.deepcopy(base)
+    cfg["simulation"]["epoch_ctrl_mode"] = "scheduled"
+    cfg["simulation"]["epoch_nsubpath_ens"] = [1]
+    cfg["simulation"]["epoch_nsubpath_vals"] = [[2, 4]]
+    cfg["simulation"]["adaptive_nsubpath_min"] = 1
+    with pytest.raises(TOMLConfigError):
+        check_config(cfg)
+
+
+# ---------------------------------------------------------------------------
+# Test 18 — adaptive increases n_jumps on low acc + low lambda
+# ---------------------------------------------------------------------------
+
+def test_adaptive_increase():
+    """Low acceptance + low avg_lambda_max must increment n_jumps by 1."""
+    state = _make_adaptive_state()
+    # n_jumps starts at 2; push stats that trigger +1
+    # acc_rate = 0/10 = 0.0 < 0.20; avg_lambda_max = 0.01 < 0.05
+    for _ in range(10):
+        update_epoch_stats(
+            state, 1, accepted=False,
+            path_length=50.0, subcycles=2, lambda_max=0.01
+        )
+
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, 10)
+
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 3, (
+        "low acc + low explore: n_jumps must increase by 1"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 19 — adaptive decreases n_jumps on high path length + ok acc
+# ---------------------------------------------------------------------------
+
+def test_adaptive_decrease():
+    """High avg_path_len + ok acc_rate must decrement n_jumps by 1."""
+    state = _make_adaptive_state()
+    state.ensembles[1]["tis_set"]["n_jumps"] = 5
+    # acc_rate = 5/10 = 0.5 >= 0.20; avg_path_len = 500 > 400
+    for i in range(10):
+        update_epoch_stats(
+            state, 1, accepted=(i < 5),
+            path_length=500.0, subcycles=2, lambda_max=0.3
+        )
+
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, 10)
+
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 4, (
+        "high cost + ok acc: n_jumps must decrease by 1"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 20 — adaptive holds when within band
+# ---------------------------------------------------------------------------
+
+def test_adaptive_hold():
+    """Stats within band must leave n_jumps unchanged."""
+    state = _make_adaptive_state()
+    state.ensembles[1]["tis_set"]["n_jumps"] = 3
+    # acc_rate = 5/10 = 0.5 >= 0.20; avg_lambda_max = 0.3 >= 0.05; avg_path_len = 100 < 400
+    for i in range(10):
+        update_epoch_stats(
+            state, 1, accepted=(i < 5),
+            path_length=100.0, subcycles=2, lambda_max=0.3
+        )
+
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, 10)
+
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 3, (
+        "within-band stats must leave n_jumps unchanged"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 21 — adaptive clamps at max
+# ---------------------------------------------------------------------------
+
+def test_adaptive_clamp_at_max():
+    """When n_jumps is at adaptive_nsubpath_max, increase must stay at max."""
+    state = _make_adaptive_state()
+    n_max = state.config["simulation"]["adaptive_nsubpath_max"]
+    state.ensembles[1]["tis_set"]["n_jumps"] = n_max
+    # Trigger increase condition
+    for _ in range(10):
+        update_epoch_stats(
+            state, 1, accepted=False,
+            path_length=50.0, subcycles=2, lambda_max=0.01
+        )
+
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, 10)
+
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == n_max, (
+        "n_jumps must not exceed adaptive_nsubpath_max"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 22 — adaptive clamps at min
+# ---------------------------------------------------------------------------
+
+def test_adaptive_clamp_at_min():
+    """When n_jumps is at adaptive_nsubpath_min, decrease must stay at min."""
+    state = _make_adaptive_state()
+    n_min = state.config["simulation"]["adaptive_nsubpath_min"]
+    state.ensembles[1]["tis_set"]["n_jumps"] = n_min
+    # Trigger decrease condition
+    for i in range(10):
+        update_epoch_stats(
+            state, 1, accepted=(i < 5),
+            path_length=500.0, subcycles=2, lambda_max=0.3
+        )
+
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, 10)
+
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == n_min, (
+        "n_jumps must not go below adaptive_nsubpath_min"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 23 — adaptive TSV row has correct action, reason, avg_lambda_max, ctrl_mode
+# ---------------------------------------------------------------------------
+
+def test_adaptive_tsv_row_contains_action_and_reason(tmp_path):
+    """Flushed TSV row must contain ctrl_action, ctrl_reason, avg_lambda_max,
+    and ctrl_mode='adaptive'."""
+    state = _make_adaptive_state()
+    state.config["output"] = {"data_dir": str(tmp_path)}
+
+    # Push stats that trigger an increase: low acc + low lambda_max
+    for _ in range(4):
+        update_epoch_stats(
+            state, 1, accepted=False,
+            path_length=50.0, subcycles=2, lambda_max=0.02
+        )
+
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, 10)
+
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists()
+
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 1
+    r = rows[0]
+
+    assert r["ctrl_mode"] == "adaptive"
+    assert r["ctrl_action"] == "inc"
+    assert r["ctrl_reason"] == "low_accept_low_explore"
+    avg_lmax = float(r["avg_lambda_max"])
+    assert abs(avg_lmax - 0.02) < 1e-6, (
+        f"avg_lambda_max should be 0.02, got {avg_lmax}"
+    )
+
+
+# ===========================================================================
+# Integration tests — full chain through treat_output()
+# ===========================================================================
+#
+# These tests exercise the production path:
+#
+#   treat_output()
+#     ├── ensemble_move_counts increment (counter)
+#     ├── update_epoch_stats()            (stats accumulation)
+#     ├── apply_epoch_ctrl()              (epoch firing + n_jumps update)
+#     ├── mirror_epoch_ctrl()             (config mirroring)
+#     └── write_toml()                    (restart.toml)
+#
+# Real Path objects are loaded from the turtlemd double_well fixture.
+# All moves use status="REJ" so PathStorage.output is never invoked.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Shared fixture and helpers
+# ---------------------------------------------------------------------------
+
+# Double-well turtlemd load_copy lives here relative to the test file.
+_DW_LOAD_COPY = (
+    StdPath(__file__).parent.parent.parent
+    / "examples/turtlemd/double_well/load_copy"
+).resolve()
+
+# 8 interfaces → 8 ensembles (0=minus, 1=[0+], 2=[1+], ..., 7=[6+])
+_DW_INTERFACES = [-0.99, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, 1.0]
+_DW_MOVES = ["sh", "sh", "wf", "wf", "wf", "wf", "wf", "wf"]
+
+
+@pytest.fixture
+def dw_setup(tmp_path, monkeypatch):
+    """Copy load_copy into tmp_path, chdir there, return (state, tmp_path).
+
+    The REPEX_state is fully initialised with real paths but NO epoch-ctrl
+    keys in the config — callers add those before using the state.
+    """
+    shutil.copytree(str(_DW_LOAD_COPY), str(tmp_path / "load"))
+    monkeypatch.chdir(tmp_path)
+
+    cfg = {
+        "simulation": {
+            "interfaces": _DW_INTERFACES,
+            "shooting_moves": _DW_MOVES,
+            "tis_set": {
+                "lambda_minus_one": False,
+                "n_jumps": 2,
+                "maxlength": 2000,
+                "allowmaxlength": False,
+                "zero_momentum": False,
+                "quantis": False,
+                "accept_all": False,
+                "mwf_nsubpath": 3,
+            },
+            "seed": 0,
+            "steps": 1000,
+            "load_dir": str(tmp_path / "load"),
+        },
+        "runner": {"workers": 1},
+        "current": {
+            "cstep": 0,
+            "size": len(_DW_INTERFACES),
+            "locked": [],
+            "active": list(range(len(_DW_INTERFACES))),
+            "frac": {},
+            "wsubcycles": [0],
+            "tsubcycles": 0,
+            "traj_num": len(_DW_INTERFACES),
+        },
+        "output": {
+            "data_dir": str(tmp_path),
+            "data_file": str(tmp_path / "infretis_data.txt"),
+            "screen": 0,
+            "delete_old": False,
+            "keep_maxop_trajs": False,
+        },
+    }
+    state = REPEX_state(cfg, minus=True)
+    state.initiate_ensembles()
+    paths = load_paths_from_disk(cfg)
+    state.load_paths(paths)
+    return state, tmp_path
+
+
+def _build_md_items(state, ens_num, trial_op_max, accepted=False):
+    """Construct a minimal md_items for one move on ens_num (picked key).
+
+    ens_slot = ens_num + state._offset is the index into state._trajs.
+    Uses the currently stored path as both the trial and old path (valid
+    for REJ moves where the path is unchanged).
+    """
+    ens_slot = ens_num + state._offset
+    trial_path = state._trajs[ens_slot]
+    ens_dict = copy.deepcopy(state.ensembles[ens_num + 1])
+    ens_dict["rgen"] = spawn_rng(state.rgen)
+    status = "ACC" if accepted else "REJ"
+    return {
+        "picked": {
+            ens_num: {
+                "pn_old": trial_path.path_number,
+                "traj": trial_path,
+                "ens": ens_dict,
+            }
+        },
+        "status": status,
+        "pin": 0,
+        "subcycles": 1,
+        "trial_len": [float(trial_path.length)],
+        "trial_op": [(-0.9, trial_op_max)],
+        "pnum_old": [trial_path.path_number],
+        "moves": [state.ensembles[ens_num + 1]["mc_move"]],
+        "generated": [],
+        "ens_nums": [ens_num],
+        "md_start": time.time(),
+    }
+
+
+def _lock_ens_slot(state, ens_num):
+    """Re-lock ens_num's raw slot so add_traj can unlock it in treat_output."""
+    raw = ens_num + state._offset
+    state._locks[raw] = 1
+
+
+# ---------------------------------------------------------------------------
+# Integration test 24 — scheduled mode full chain through treat_output
+# ---------------------------------------------------------------------------
+
+def test_treat_output_scheduled_full_chain(dw_setup):
+    """Production path: treat_output fires scheduled epoch controller.
+
+    Asserts:
+    - move counter increments on each call
+    - stats accumulate into epoch buffer
+    - at epoch boundary (cstep == epoch_size): n_jumps updated, TSV written,
+      buffer reset
+    - mirror_epoch_ctrl writes new n_jumps into config
+    - write_toml() writes restart.toml; loading it restores the new n_jumps
+    """
+    state, tmp_path = dw_setup
+
+    # Add epoch ctrl config: target ensemble 2 ([1+]), epoch every 3 steps.
+    # schedule: epoch 1 → vals[1%2]=vals[1]=5, epoch 2 → vals[0]=3, ...
+    sim = state.config["simulation"]
+    sim["epoch_nsubpath_ens"] = [2]
+    sim["epoch_nsubpath_vals"] = [[3, 5]]
+    sim["epoch_size"] = 3
+
+    # Ensemble 2 uses ens_num=1 in the picked dict (ens_num + 1 == 2).
+    ENS_NUM = 1
+
+    assert state.ensembles[2]["tis_set"]["n_jumps"] == 2
+
+    # --- simulate 3 REJ moves through treat_output ---
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    # Counter: 3 attempted moves for ensemble 2
+    assert state.ensemble_move_counts.get(2, 0) == 3, (
+        "move counter must reflect 3 attempted moves"
+    )
+
+    # Epoch fired at cstep=3 (epoch_idx=1): vals[1%2]=vals[1]=5
+    assert state.ensembles[2]["tis_set"]["n_jumps"] == 5, (
+        "scheduled epoch 1: n_jumps must be updated to 5"
+    )
+
+    # Stats buffer must be reset after epoch flush
+    buf = state.ensemble_epoch_stats.get(2, {})
+    assert buf.get("n_attempted", 0) == 0, "stats buffer must be reset after epoch"
+
+    # Config mirrored: ensemble_nsubpath[2] reflects new value
+    nsubpath = state.config["simulation"]["ensemble_nsubpath"]
+    assert nsubpath[2] == 5, "mirror must write n_jumps=5 to ensemble_nsubpath[2]"
+
+    # TSV written with correct values
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists(), "epoch_summary.tsv must be created"
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 1
+    r = rows[0]
+    assert int(r["epoch_idx"]) == 1
+    assert r["ens_name"] == "002"
+    assert int(r["n_attempted"]) == 3
+    assert int(r["n_accepted"]) == 0
+    assert int(r["n_jumps_old"]) == 2
+    assert int(r["n_jumps_new"]) == 5
+    assert r["ctrl_mode"] == "scheduled"
+    assert r["ctrl_action"] == "set"
+    assert r["ctrl_reason"] == "scheduled_epoch_value"
+
+    # write_toml() wrote restart.toml — loading it restores n_jumps
+    restart_path = tmp_path / "restart.toml"
+    assert restart_path.exists(), "write_toml must produce restart.toml"
+    with restart_path.open("rb") as fh:
+        restored_cfg = tomli.load(fh)
+
+    assert restored_cfg["simulation"]["ensemble_nsubpath"][2] == 5, (
+        "restart.toml must persist updated n_jumps"
+    )
+    state2 = REPEX_state(restored_cfg, minus=True)
+    state2.initiate_ensembles()
+    assert state2.ensembles[2]["tis_set"]["n_jumps"] == 5, (
+        "restored REPEX_state must carry the updated n_jumps"
+    )
+
+    # --- simulate 3 more moves: epoch 2 fires, n_jumps cycles back to 3 ---
+    for cstep in (4, 5, 6):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    assert state.ensembles[2]["tis_set"]["n_jumps"] == 3, (
+        "scheduled epoch 2: n_jumps must cycle back to 3"
+    )
+    rows2 = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows2) == 2, "second epoch boundary must append a second TSV row"
+    assert int(rows2[1]["n_jumps_new"]) == 3
+
+
+# ---------------------------------------------------------------------------
+# Integration test 25 — adaptive mode full chain through treat_output
+# ---------------------------------------------------------------------------
+
+def test_treat_output_adaptive_full_chain(dw_setup):
+    """Production path: treat_output fires adaptive epoch controller.
+
+    Uses low trial_op_max (< adaptive_lambda_gain_low) and all-REJ moves
+    (acc_rate=0) so the adaptive rule should increment n_jumps.
+
+    Asserts the same full chain as the scheduled test plus adaptive-specific
+    ctrl_action / ctrl_reason values.
+    """
+    state, tmp_path = dw_setup
+
+    sim = state.config["simulation"]
+    sim["epoch_ctrl_mode"] = "adaptive"
+    sim["epoch_nsubpath_ens"] = [2]
+    sim["epoch_size"] = 3
+    sim["adaptive_nsubpath_min"] = 1
+    sim["adaptive_nsubpath_max"] = 8
+    sim["adaptive_accept_low"] = 0.20
+    sim["adaptive_accept_high"] = 0.60
+    sim["adaptive_lambda_gain_low"] = 0.05
+    sim["adaptive_pathlen_high"] = 400
+
+    ENS_NUM = 1
+
+    assert state.ensembles[2]["tis_set"]["n_jumps"] == 2
+
+    # 3 REJ moves with very low lambda_max (< 0.05) → triggers "inc" action
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        # trial_op_max=0.01 < adaptive_lambda_gain_low=0.05
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.01))
+
+    # Adaptive rule: acc_rate=0.0 < 0.20 AND avg_lambda_max=0.01 < 0.05 → inc
+    assert state.ensembles[2]["tis_set"]["n_jumps"] == 3, (
+        "adaptive inc: n_jumps must increase from 2 to 3"
+    )
+
+    # Move counter incremented
+    assert state.ensemble_move_counts.get(2, 0) == 3
+
+    # Buffer reset after epoch flush
+    buf = state.ensemble_epoch_stats.get(2, {})
+    assert buf.get("n_attempted", 0) == 0
+
+    # Config mirrored
+    assert state.config["simulation"]["ensemble_nsubpath"][2] == 3
+
+    # TSV row has correct adaptive fields
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["ctrl_mode"] == "adaptive"
+    assert r["ctrl_action"] == "inc"
+    assert r["ctrl_reason"] == "low_accept_low_explore"
+    assert int(r["n_accepted"]) == 0
+    assert int(r["n_jumps_old"]) == 2
+    assert int(r["n_jumps_new"]) == 3
+    avg_lmax = float(r["avg_lambda_max"])
+    assert abs(avg_lmax - 0.01) < 1e-9
+
+    # Restart round-trip
+    restart_path = tmp_path / "restart.toml"
+    assert restart_path.exists()
+    with restart_path.open("rb") as fh:
+        restored_cfg = tomli.load(fh)
+    assert restored_cfg["simulation"]["ensemble_nsubpath"][2] == 3
+    state2 = REPEX_state(restored_cfg, minus=True)
+    state2.initiate_ensembles()
+    assert state2.ensembles[2]["tis_set"]["n_jumps"] == 3, (
+        "restored state must carry adaptive-updated n_jumps"
+    )
+
+# ---------------------------------------------------------------------------
+# softmax_dirichlet helpers — imported for unit tests
+# ---------------------------------------------------------------------------
+
+from infretis.core.epoch_ctrl import (
+    _compute_q,
+    _epoch_sample,
+    _init_softmax_ctrl_state,
+    _softmax,
+)
+
+
+# ---------------------------------------------------------------------------
+# Shared softmax_dirichlet config factory
+# ---------------------------------------------------------------------------
+
+def _sd_config_base() -> dict:
+    """Minimal valid config for softmax_dirichlet validation tests."""
+    base = _check_config_base()
+    base["simulation"].update(
+        {
+            "epoch_ctrl_mode": "softmax_dirichlet",
+            "epoch_mode": "per_ensemble_moves",
+            "epoch_count": "attempted",
+            "epoch_move_k": 5,
+            "epoch_nsubpath_ens": [1],  # ensemble 1 is "wf" in _check_config_base
+            "epoch_nsubpath_choices": [[1, 2, 3, 4]],
+            "softmax_eta0": 0.5,
+            "softmax_beta": 0.7,
+            "softmax_tau": 1.0,
+            "softmax_explore_floor": 0.05,
+            "softmax_init": "uniform",
+            "reward_proxy": "lambda_vs_subcycles_v1",
+            "reward_eps_gain": 1e-12,
+            "reward_eps_cost": 1e-12,
+            "epoch_ctrl_seed": 42,
+        }
+    )
+    return base
+
+
+def _sd_sim_keys() -> dict:
+    """Softmax config keys for injection into dw_setup state.config."""
+    return {
+        "epoch_ctrl_mode": "softmax_dirichlet",
+        "epoch_mode": "per_ensemble_moves",
+        "epoch_count": "attempted",
+        "epoch_move_k": 3,
+        "epoch_nsubpath_ens": [2],
+        "epoch_nsubpath_choices": [[1, 2, 3, 4]],
+        "softmax_eta0": 0.5,
+        "softmax_beta": 0.7,
+        "softmax_tau": 1.0,
+        "softmax_explore_floor": 0.05,
+        "softmax_init": "uniform",
+        "reward_proxy": "lambda_vs_subcycles_v1",
+        "reward_eps_gain": 1e-12,
+        "reward_eps_cost": 1e-12,
+        "epoch_ctrl_seed": 42,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Unit test 26 — missing epoch_nsubpath_choices rejected
+# ---------------------------------------------------------------------------
+
+def test_sd_validation_rejects_missing_choices():
+    """Missing epoch_nsubpath_choices must raise TOMLConfigError."""
+    cfg = _sd_config_base()
+    del cfg["simulation"]["epoch_nsubpath_choices"]
+    with pytest.raises(TOMLConfigError, match="epoch_nsubpath_choices"):
+        check_config(cfg)
+
+
+# ---------------------------------------------------------------------------
+# Unit test 27 — wrong epoch_mode rejected
+# ---------------------------------------------------------------------------
+
+def test_sd_validation_rejects_wrong_epoch_mode():
+    """epoch_mode='global_step' must be rejected for softmax_dirichlet."""
+    cfg = _sd_config_base()
+    cfg["simulation"]["epoch_mode"] = "global_step"
+    with pytest.raises(TOMLConfigError, match="per_ensemble_moves"):
+        check_config(cfg)
+
+
+# ---------------------------------------------------------------------------
+# Unit test 28 — bad softmax_beta rejected
+# ---------------------------------------------------------------------------
+
+def test_sd_validation_rejects_bad_softmax_params():
+    """softmax_beta <= 0.5 must raise TOMLConfigError."""
+    cfg = _sd_config_base()
+    cfg["simulation"]["softmax_beta"] = 0.3
+    with pytest.raises(TOMLConfigError, match="softmax_beta"):
+        check_config(cfg)
+
+
+# ---------------------------------------------------------------------------
+# Unit test 29 — q sums to one and is strictly positive
+# ---------------------------------------------------------------------------
+
+def test_sd_q_sums_to_one_and_strictly_positive():
+    """_compute_q must return a valid probability vector for any logits."""
+    # Uniform logits
+    q = _compute_q([0.0, 0.0, 0.0], tau=1.0, eps_explore=0.05)
+    assert abs(q.sum() - 1.0) < 1e-12
+    assert (q > 0).all()
+    # Non-uniform logits
+    q2 = _compute_q([2.0, 0.0, -2.0, 1.0], tau=1.0, eps_explore=0.05)
+    assert abs(q2.sum() - 1.0) < 1e-12
+    assert (q2 > 0).all()
+    # Zero explore floor
+    q3 = _compute_q([0.0, 1.0], tau=1.0, eps_explore=0.0)
+    assert abs(q3.sum() - 1.0) < 1e-12
+    assert (q3 > 0).all()
+
+
+# ---------------------------------------------------------------------------
+# Unit test 30 — explore-floor mixture formula correct
+# ---------------------------------------------------------------------------
+
+def test_sd_explore_floor_mixture():
+    """_compute_q result equals (1-eps)*softmax(logits/tau) + eps/K."""
+    logits = [1.0, 0.5, -0.5]
+    tau = 0.8
+    eps = 0.1
+    q = _compute_q(logits, tau, eps)
+    p = _softmax(np.array(logits) / tau)
+    expected = (1.0 - eps) * p + eps / len(logits)
+    np.testing.assert_allclose(q, expected, atol=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Unit test 31 — sampling is deterministic
+# ---------------------------------------------------------------------------
+
+def test_sd_deterministic_sampling():
+    """_epoch_sample returns identical choice on repeated calls."""
+    q = _compute_q([0.0, 0.0, 0.0, 0.0], tau=1.0, eps_explore=0.0)
+    seed, ens_i, epoch_idx = 42, 2, 7
+    c1 = _epoch_sample(q, seed, ens_i, epoch_idx)
+    c2 = _epoch_sample(q, seed, ens_i, epoch_idx)
+    assert c1 == c2
+    # Different epoch_idx should (almost surely) give independent draws
+    # — just verify the function runs without error; equality not guaranteed.
+    _epoch_sample(q, seed, ens_i, epoch_idx + 1)
+
+
+# ---------------------------------------------------------------------------
+# Unit test 32 — logit update increases chosen action probability
+# ---------------------------------------------------------------------------
+
+def test_sd_logit_update_increases_chosen_prob():
+    """Positive reward applied to choice_idx must increase softmax prob."""
+    logits = [0.0, 0.0, 0.0, 0.0, 0.0]
+    tau = 1.0
+    eps = 0.0
+    old_q = _compute_q(logits, tau, eps)
+    choice_idx = 2
+    reward = 1.0
+    eta = 0.5
+    new_logits = list(logits)
+    new_logits[choice_idx] += eta * reward / old_q[choice_idx]
+    old_p = _softmax(np.array(logits) / tau)
+    new_p = _softmax(np.array(new_logits) / tau)
+    assert new_logits[choice_idx] > logits[choice_idx]
+    assert new_p[choice_idx] > old_p[choice_idx]
+
+
+# ---------------------------------------------------------------------------
+# Unit test 33 — zero-reward update leaves logits unchanged
+# ---------------------------------------------------------------------------
+
+def test_sd_logit_update_neutral_reward():
+    """Reward=0.0 must leave logits unchanged to float precision."""
+    logits = [0.1, -0.2, 0.5]
+    tau = 1.0
+    eps = 0.05
+    old_q = _compute_q(logits, tau, eps)
+    choice_idx = 1
+    reward = 0.0
+    eta = 0.5
+    new_logits = list(logits)
+    new_logits[choice_idx] += eta * reward / old_q[choice_idx]
+    assert new_logits == logits
+
+
+# ---------------------------------------------------------------------------
+# Unit test 34 — no cross-ensemble state leakage
+# ---------------------------------------------------------------------------
+
+def test_sd_no_cross_ensemble_leakage():
+    """Updating ens 2 ctrl_state must not touch ens 3 ctrl_state."""
+    cs2 = _init_softmax_ctrl_state([1, 2, 3], 2, {"softmax_init": "uniform"})
+    cs3 = _init_softmax_ctrl_state([2, 4], 2, {"softmax_init": "uniform"})
+    sd = {2: cs2, 3: cs3}
+
+    # Simulate logit update on ens 2 only
+    sd[2]["logits"][0] += 1.0
+    sd[2]["update_count"] = 1
+
+    assert sd[3]["logits"] == [0.0, 0.0]
+    assert sd[3]["update_count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Integration test 35 — ctrl only fires at epoch boundary
+# ---------------------------------------------------------------------------
+
+def test_sd_only_fires_at_boundary(dw_setup):
+    """k-1 moves must not trigger ctrl; k-th move must."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1  # ensemble index 2
+
+    # k-1 = 2 moves: ctrl_state not yet populated
+    for cstep in (1, 2):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    assert 2 not in state.softmax_ctrl_state, (
+        "ctrl_state must not be set before epoch boundary"
+    )
+
+    # k-th move: ctrl fires
+    state.cstep = 3
+    _lock_ens_slot(state, ENS_NUM)
+    state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    assert 2 in state.softmax_ctrl_state, (
+        "ctrl_state must be populated after first epoch boundary"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Integration test 36 — n_jumps does not change mid-epoch
+# ---------------------------------------------------------------------------
+
+def test_sd_n_jumps_fixed_within_epoch(dw_setup):
+    """n_jumps must stay constant for all moves within one epoch."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1
+
+    # Run k moves → epoch 1 fires, n_jumps set to some value
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    n_after_ep1 = state.ensembles[2]["tis_set"].get("n_jumps")
+    choices = state.config["simulation"]["epoch_nsubpath_choices"][0]
+    assert n_after_ep1 in choices, "n_jumps after epoch 1 must be in choices"
+
+    # Mid epoch 2: one more move must not change n_jumps
+    state.cstep = 4
+    _lock_ens_slot(state, ENS_NUM)
+    state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    assert state.ensembles[2]["tis_set"].get("n_jumps") == n_after_ep1, (
+        "n_jumps must not change mid-epoch"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Integration test 37 — first boundary populates state and writes TSV
+# ---------------------------------------------------------------------------
+
+def test_sd_boundary_updates_and_samples(dw_setup):
+    """After epoch 1 fires: TSV written, ctrl_state populated, n_jumps valid."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1
+
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    # TSV written
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists(), "epoch_summary.tsv must be created at epoch boundary"
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["ctrl_mode"] == "softmax_dirichlet"
+    assert r["ctrl_action"] in ("sample_hold", "sample_set")
+    assert r["ctrl_reason"] == "softmax_dirichlet_epoch_update"
+    # First epoch: no prior reward → reward column is "nan"
+    assert r["reward"] == "nan"
+    assert "choice_idx" in r
+    assert "probs_json" in r
+
+    # ctrl_state populated
+    assert 2 in state.softmax_ctrl_state
+    cs = state.softmax_ctrl_state[2]
+    assert cs["initialized"] is True
+    assert cs["last_choice_idx"] is not None
+    assert cs["update_count"] == 0  # first epoch: no logit update applied
+
+    # n_jumps is in choices
+    choices = state.config["simulation"]["epoch_nsubpath_choices"][0]
+    assert state.ensembles[2]["tis_set"].get("n_jumps") in choices
+
+
+# ---------------------------------------------------------------------------
+# Integration test 38 — restart roundtrip preserves full epoch stats
+# ---------------------------------------------------------------------------
+
+def test_sd_restart_roundtrip(dw_setup):
+    """Stop mid-epoch; restart.toml must contain softmax state and epoch
+    stats; restored state continues correctly to epoch 2 boundary."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1
+
+    # Epoch 1: 3 moves → epoch fires, ctrl_state initialised
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    assert 2 in state.softmax_ctrl_state
+    cs_ep1 = copy.deepcopy(state.softmax_ctrl_state[2])
+    assert cs_ep1["update_count"] == 0
+    assert cs_ep1["last_choice_idx"] is not None
+
+    # Mid epoch 2: 2 moves (no epoch fire)
+    for cstep in (4, 5):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    buf_before = state.ensemble_epoch_stats.get(2, {})
+    assert buf_before.get("n_attempted", 0) == 2, (
+        "partial epoch buffer must have 2 moves after mid-epoch stop"
+    )
+
+    # Read restart.toml written by the last treat_output
+    restart_path = tmp_path / "restart.toml"
+    assert restart_path.exists()
+    with restart_path.open("rb") as fh:
+        saved_cfg = tomli.load(fh)
+
+    # Verify serialized softmax state
+    assert "softmax_ctrl_state" in saved_cfg["simulation"], (
+        "mirror must persist softmax_ctrl_state"
+    )
+    assert "softmax_epoch_stats" in saved_cfg["simulation"], (
+        "mirror must persist softmax_epoch_stats for mid-epoch reward"
+    )
+    saved_cs = saved_cfg["simulation"]["softmax_ctrl_state"]["2"]
+    assert saved_cs["update_count"] == 0
+    assert saved_cs["last_choice_idx"] == cs_ep1["last_choice_idx"]
+    assert saved_cs["logits"] == cs_ep1["logits"]
+    saved_stats = saved_cfg["simulation"]["softmax_epoch_stats"]["2"]
+    assert saved_stats["n_attempted"] == 2
+
+    # Restore state from restart.toml
+    state2 = REPEX_state(saved_cfg, minus=True)
+    state2.initiate_ensembles()
+    paths = load_paths_from_disk(saved_cfg)
+    state2.load_paths(paths)
+
+    # Verify restored ctrl_state matches pre-stop state
+    assert 2 in state2.softmax_ctrl_state
+    cs_restored = state2.softmax_ctrl_state[2]
+    assert cs_restored["update_count"] == cs_ep1["update_count"]
+    assert cs_restored["last_choice_idx"] == cs_ep1["last_choice_idx"]
+    assert cs_restored["logits"] == cs_ep1["logits"]
+
+    # Verify partial epoch stats survived the restart
+    buf2 = state2.ensemble_epoch_stats.get(2, {})
+    assert buf2["n_attempted"] == 2, (
+        "partial epoch stats must be restored from softmax_epoch_stats"
+    )
+
+    # Complete epoch 2: 1 more move → epoch fires at count=6 (6 % 3 == 0)
+    state2.cstep = 6
+    _lock_ens_slot(state2, ENS_NUM)
+    state2.treat_output(_build_md_items(state2, ENS_NUM, trial_op_max=0.3))
+
+    # update_count must now be 1 (first logit update applied at epoch 2)
+    assert state2.softmax_ctrl_state[2]["update_count"] == 1, (
+        "epoch 2 boundary must apply first logit update (update_count → 1)"
+    )
+    choices = saved_cfg["simulation"]["epoch_nsubpath_choices"][0]
+    nj2 = state2.ensembles[2]["tis_set"].get("n_jumps")
+    assert nj2 in choices, "n_jumps after epoch 2 must be in admissible set"

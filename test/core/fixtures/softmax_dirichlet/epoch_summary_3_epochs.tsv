@@ -1,0 +1,4 @@
+epoch_idx	ens_name	n_attempted	n_accepted	acc_rate	avg_path_length	avg_subcycles	lambda_max	n_jumps_old	n_jumps_new	epoch_mode	epoch_count	ctrl_mode	avg_lambda_max	ctrl_action	ctrl_reason	choice_idx	choice_value	reward	eta	tau	explore_floor	probs_json
+1	002	3	0	0.0000	9.00	1.00	0.25	2	2	per_ensemble_moves	attempted	softmax_dirichlet	0.2	sample_hold	softmax_dirichlet_epoch_update	1	2	nan	nan	1	0.05	[0.25, 0.25, 0.25, 0.25]
+2	002	3	0	0.0000	9.00	1.00	0.4	2	2	per_ensemble_moves	attempted	softmax_dirichlet	0.35	sample_hold	softmax_dirichlet_epoch_update	1	2	0.35	0.5	1	0.05	[0.201979, 0.394064, 0.201979, 0.201979]
+3	002	3	0	0.0000	9.00	1.00	0.55	2	1	per_ensemble_moves	attempted	softmax_dirichlet	0.5	sample_set	softmax_dirichlet_epoch_update	0	1	0.5	0.307786	1	0.05	[0.171473, 0.48558, 0.171473, 0.171473]

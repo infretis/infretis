@@ -1,0 +1,245 @@
+[simulation]
+interfaces = [
+    -0.99,
+    -0.8,
+    -0.7,
+    -0.6,
+    -0.5,
+    -0.4,
+    -0.3,
+    1.0,
+]
+shooting_moves = [
+    "sh",
+    "sh",
+    "wf",
+    "wf",
+    "wf",
+    "wf",
+    "wf",
+    "wf",
+]
+seed = 0
+steps = 1000
+load_dir = "/tmp/tmpp6mo9scd/load"
+epoch_ctrl_mode = "softmax_dirichlet"
+epoch_mode = "per_ensemble_moves"
+epoch_count = "attempted"
+epoch_move_k = 3
+epoch_nsubpath_ens = [
+    2,
+]
+epoch_nsubpath_choices = [
+    [
+        1,
+        2,
+        3,
+        4,
+    ],
+]
+softmax_eta0 = 0.5
+softmax_beta = 0.7
+softmax_tau = 1.0
+softmax_explore_floor = 0.05
+softmax_init = "uniform"
+reward_proxy = "lambda_vs_subcycles_v1"
+reward_eps_gain = 1e-12
+reward_eps_cost = 1e-12
+epoch_ctrl_seed = 42
+ensemble_nsubpath = [
+    2,
+    2,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+]
+ensemble_mwf_nsubpath = [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+]
+
+[simulation.tis_set]
+lambda_minus_one = false
+n_jumps = 2
+maxlength = 2000
+allowmaxlength = false
+zero_momentum = false
+quantis = false
+accept_all = false
+mwf_nsubpath = 3
+
+[simulation.softmax_ctrl_state.2]
+choices = [
+    1,
+    2,
+    3,
+    4,
+]
+logits = [
+    0.0,
+    1.0905285530958857,
+    0.0,
+    0.0,
+]
+update_count = 2
+last_choice_idx = 0
+initialized = true
+
+[simulation.softmax_epoch_stats.2]
+n_attempted = 0
+n_accepted = 0
+path_length_sum = 0.0
+path_length_n = 0
+subcycles_sum = 0
+subcycles_n = 0
+lambda_max = -inf
+lambda_max_sum = 0.0
+lambda_max_n = 0
+
+[runner]
+workers = 1
+
+[current]
+cstep = 9
+size = 8
+locked = []
+active = [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+]
+wsubcycles = [
+    9,
+]
+tsubcycles = 9
+traj_num = 8
+
+[current.frac]
+0 = [
+    "9.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+1 = [
+    "0.0",
+    "7.0978709712018019104",
+    "1.9021290287981980605",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+2 = [
+    "0.0",
+    "1.3929318389016999769",
+    "4.178795516705100158",
+    "3.4282726443931998647",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+3 = [
+    "0.0",
+    "0.3745374591087038109",
+    "1.8726872955435189467",
+    "2.9962996728696305899",
+    "3.7564755724781466444",
+    "0.0",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+4 = [
+    "0.0",
+    "0.1061833002627768495",
+    "0.74328310183943800454",
+    "1.6989328042044297063",
+    "2.973132407357751868",
+    "3.478468386335603567",
+    "0.0",
+    "0.0",
+    "0.0",
+]
+5 = [
+    "0.0",
+    "0.021236660052555369884",
+    "0.21236660052555369857",
+    "0.59462648147155034665",
+    "1.4865662036788759057",
+    "3.312918968198637655",
+    "3.3722850860728270158",
+    "0.0",
+    "0.0",
+]
+6 = [
+    "0.0",
+    "0.006757119107631254012",
+    "0.0810854292915750545",
+    "0.2432562878747251697",
+    "0.66219767254786299264",
+    "1.7568509679841262918",
+    "3.5812731270445644681",
+    "2.6685793961495147604",
+    "0.0",
+]
+7 = [
+    "0.0",
+    "0.00048265136483080392863",
+    "0.009653027296616078031",
+    "0.038612109186464313454",
+    "0.12162814393736258601",
+    "0.4517616774816324705",
+    "2.0464417868826085113",
+    "6.331420603850485233",
+    "0.0",
+]
+
+[current.ensemble_move_counts]
+0 = 0
+1 = 0
+2 = 9
+3 = 0
+4 = 0
+5 = 0
+6 = 0
+7 = 0
+
+[current.rng_state]
+bit_generator = "PCG64"
+has_uint32 = 0
+uinteger = 0
+
+[current.rng_state.state]
+state = 35399562948360463058890781895381311971
+inc = 87136372517582989555478159403783844777
+
+[output]
+data_dir = "/tmp/tmpp6mo9scd"
+data_file = "/tmp/tmpp6mo9scd/infretis_data.txt"
+screen = 0
+delete_old = false
+keep_maxop_trajs = false
