@@ -35,7 +35,9 @@ from infretis.classes.repex import REPEX_state
 from infretis.core.epoch_ctrl import (
     apply_epoch_ctrl,
     mirror_epoch_ctrl,
+    update_epoch_stats,
     validate_epoch_ctrl,
+    _EPOCH_SUMMARY_FNAME,
 )
 from infretis.setup import TOMLConfigError, check_config
 
@@ -588,3 +590,98 @@ def test_validate_rejects_bad_per_ensemble_moves_config():
     cfg5["simulation"]["epoch_count"] = "maybe"
     with pytest.raises(TOMLConfigError, match="epoch_count"):
         check_config(cfg5)
+
+
+# ---------------------------------------------------------------------------
+# Tests 10-12 — epoch stats buffer
+# ---------------------------------------------------------------------------
+
+def _push_moves(state, ens_idx, n_attempted, n_accepted, path_length, subcycles, lambda_max):
+    """Helper: push n_attempted moves into the stats buffer, n_accepted accepted."""
+    for i in range(n_attempted):
+        update_epoch_stats(
+            state, ens_idx,
+            accepted=(i < n_accepted),
+            path_length=path_length,
+            subcycles=subcycles,
+            lambda_max=lambda_max,
+        )
+
+
+def test_stats_accumulate_for_targeted_only():
+    """update_epoch_stats must accumulate only for targeted ensembles."""
+    state = _make_state()
+
+    # Targeted ensemble 1: push 5 moves (3 accepted)
+    _push_moves(state, ens_idx=1, n_attempted=5, n_accepted=3,
+                path_length=20.0, subcycles=4, lambda_max=0.5)
+
+    # Untargeted ensemble 2: push 5 moves — must be silently ignored
+    _push_moves(state, ens_idx=2, n_attempted=5, n_accepted=5,
+                path_length=99.0, subcycles=99, lambda_max=0.99)
+
+    buf = state.ensemble_epoch_stats.get(1, {})
+    assert buf["n_attempted"] == 5
+    assert buf["n_accepted"] == 3
+    assert abs(buf["path_length_sum"] - 100.0) < 1e-9
+    assert buf["subcycles_sum"] == 20
+    assert abs(buf["lambda_max"] - 0.5) < 1e-9
+
+    assert 2 not in state.ensemble_epoch_stats, (
+        "untargeted ensemble must not appear in stats buffer"
+    )
+
+
+def test_stats_flushed_and_reset_at_epoch_boundary(tmp_path):
+    """apply_epoch_ctrl must write epoch_summary.tsv and reset the buffer."""
+    state = _make_state()
+    state.config["output"] = {"data_dir": str(tmp_path)}
+
+    # Accumulate 10 moves (7 accepted) into ensemble 1
+    _push_moves(state, ens_idx=1, n_attempted=10, n_accepted=7,
+                path_length=15.0, subcycles=3, lambda_max=0.42)
+
+    # Fire epoch boundary at cstep=10 (epoch_size=10)
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, state.cstep)
+
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists(), "epoch_summary.tsv must be created"
+
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 1
+    r = rows[0]
+    assert int(r["epoch_idx"]) == 1
+    assert r["ens_name"] == "001"
+    assert int(r["n_attempted"]) == 10
+    assert int(r["n_accepted"]) == 7
+    assert abs(float(r["acc_rate"]) - 0.7) < 1e-4
+    assert abs(float(r["avg_path_length"]) - 15.0) < 1e-2
+    assert abs(float(r["avg_subcycles"]) - 3.0) < 1e-2
+    assert abs(float(r["lambda_max"]) - 0.42) < 1e-5
+    assert int(r["n_jumps_new"]) == 4   # epoch 1 → schedule[1] = 4
+
+    # Buffer must be reset after flush
+    buf = state.ensemble_epoch_stats.get(1, {})
+    assert buf["n_attempted"] == 0, "buffer must reset after epoch flush"
+
+
+def test_stats_rows_accumulate_across_epochs(tmp_path):
+    """Each epoch boundary appends one row; header appears only once."""
+    state = _make_state()
+    state.config["output"] = {"data_dir": str(tmp_path)}
+
+    for epoch in range(1, 4):
+        _push_moves(state, ens_idx=1, n_attempted=10, n_accepted=epoch,
+                    path_length=float(epoch * 10), subcycles=1, lambda_max=float(epoch) * 0.1)
+        state.config["current"]["cstep"] = epoch * 10
+        apply_epoch_ctrl(state, state.cstep)
+
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    lines = tsv_path.read_text().splitlines()
+    # One header + three data rows
+    assert lines[0].startswith("epoch_idx"), "first line must be header"
+    assert len(lines) == 4, f"expected 4 lines (header + 3 rows), got {len(lines)}"
+
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert [int(r["epoch_idx"]) for r in rows] == [1, 2, 3]

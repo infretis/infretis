@@ -13,7 +13,11 @@ from numpy.random import default_rng
 from infretis.classes.engines.factory import assign_engines
 from infretis.classes.formatter import PathStorage
 from infretis.core.core import make_dirs
-from infretis.core.epoch_ctrl import apply_epoch_ctrl, mirror_epoch_ctrl
+from infretis.core.epoch_ctrl import (
+    apply_epoch_ctrl,
+    mirror_epoch_ctrl,
+    update_epoch_stats,
+)
 from infretis.core.tis import calc_cv_vector
 
 logger = logging.getLogger("main")  # pylint: disable=invalid-name
@@ -102,6 +106,10 @@ class REPEX_state:
         self.ensemble_move_counts = {
             int(k): int(v) for k, v in raw_counts.items()
         }
+
+        # In-epoch stats accumulator; reset at each epoch boundary.
+        # Not persisted across restarts (partial-epoch stats are discarded).
+        self.ensemble_epoch_stats: dict = {}
 
     @property
     def prob(self):
@@ -1007,13 +1015,14 @@ class REPEX_state:
         if self.printing():
             self.print_shooted(md_items, pn_news)
 
-        # Update per-ensemble move counters before firing the epoch controller.
+        # Update per-ensemble move counters and epoch stats buffer.
         # picked keys are offset by 1 relative to self.ensembles indices.
         count_mode = self.config["simulation"].get("epoch_count", "attempted")
-        for ens_num in picked.keys():
+        accepted = md_items["status"] == "ACC"
+        for j, ens_num in enumerate(picked.keys()):
             ens_idx = ens_num + 1
             if count_mode == "accepted":
-                if md_items["status"] == "ACC":
+                if accepted:
                     self.ensemble_move_counts[ens_idx] = (
                         self.ensemble_move_counts.get(ens_idx, 0) + 1
                     )
@@ -1021,6 +1030,24 @@ class REPEX_state:
                 self.ensemble_move_counts[ens_idx] = (
                     self.ensemble_move_counts.get(ens_idx, 0) + 1
                 )
+            trial_len = (
+                md_items["trial_len"][j]
+                if j < len(md_items["trial_len"])
+                else 0
+            )
+            trial_op_j = (
+                md_items["trial_op"][j]
+                if j < len(md_items["trial_op"])
+                else (0.0, float("-inf"))
+            )
+            update_epoch_stats(
+                self,
+                ens_idx,
+                accepted=accepted,
+                path_length=trial_len,
+                subcycles=md_items["subcycles"],
+                lambda_max=trial_op_j[1],
+            )
 
         apply_epoch_ctrl(self, self.cstep)
         mirror_epoch_ctrl(self, self.config)
