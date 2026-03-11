@@ -63,7 +63,7 @@ def _append_epoch_tsv(path: str, header: str, row: str) -> None:
 
 
 def _flush_epoch_stats(
-    state, ens_i: int, epoch_idx: int, new_n_jumps: int
+    state, ens_i: int, epoch_idx: int, old_n_jumps, new_n_jumps: int
 ) -> None:
     """Write one summary row for ensemble ens_i and reset its buffer."""
     buf = state.ensemble_epoch_stats.get(ens_i, _empty_stats())
@@ -88,12 +88,13 @@ def _flush_epoch_stats(
 
     header = (
         "epoch_idx\tens_name\tn_attempted\tn_accepted\t"
-        "acc_rate\tavg_path_length\tavg_subcycles\tlambda_max\tn_jumps_new"
+        "acc_rate\tavg_path_length\tavg_subcycles\tlambda_max\t"
+        "n_jumps_old\tn_jumps_new"
     )
     row = (
         f"{epoch_idx}\t{ens_i:03d}\t{n_att}\t{n_acc}\t"
         f"{acc_rate:.4f}\t{avg_len:.2f}\t{avg_sub:.2f}\t"
-        f"{lmax:.6g}\t{new_n_jumps}"
+        f"{lmax:.6g}\t{old_n_jumps}\t{new_n_jumps}"
     )
 
     out_dir = state.config.get("output", {}).get("data_dir", ".")
@@ -110,7 +111,7 @@ def _update_ensemble_n_jumps(
     if ens_i in state.ensembles and vals:
         new_val = int(vals[epoch_idx % len(vals)])
         old_val = state.ensembles[ens_i]["tis_set"].get("n_jumps")
-        _flush_epoch_stats(state, ens_i, epoch_idx, new_val)
+        _flush_epoch_stats(state, ens_i, epoch_idx, old_val, new_val)
         state.ensembles[ens_i]["tis_set"]["n_jumps"] = new_val
         logger.info(
             "Epoch %d: ensemble %03d n_jumps %s -> %d",

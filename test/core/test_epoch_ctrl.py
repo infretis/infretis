@@ -659,6 +659,7 @@ def test_stats_flushed_and_reset_at_epoch_boundary(tmp_path):
     assert abs(float(r["avg_path_length"]) - 15.0) < 1e-2
     assert abs(float(r["avg_subcycles"]) - 3.0) < 1e-2
     assert abs(float(r["lambda_max"]) - 0.42) < 1e-5
+    assert int(r["n_jumps_old"]) == 2   # initial global n_jumps
     assert int(r["n_jumps_new"]) == 4   # epoch 1 → schedule[1] = 4
 
     # Buffer must be reset after flush
