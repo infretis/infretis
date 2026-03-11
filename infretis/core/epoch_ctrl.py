@@ -37,6 +37,7 @@ Each firing also flushes a per-epoch statistics summary to
 
 import json
 import logging
+import math
 import os
 
 import numpy as np
@@ -107,6 +108,29 @@ def _epoch_sample(q, seed, ens_i: int, epoch_idx: int) -> int:
     return int(rng.choice(len(q), p=q))
 
 
+def _bounded_lambda_obs(lambda_max_val: float, lambda_i: float, lambda_upper: float) -> float:
+    """Bounded path observable h_i(X) clipped to [0, 1]."""
+    if lambda_upper <= lambda_i:
+        raise ValueError(
+            f"lambda_upper={lambda_upper} must be > lambda_i={lambda_i}."
+        )
+    return float(np.clip(
+        (lambda_max_val - lambda_i) / (lambda_upper - lambda_i), 0.0, 1.0
+    ))
+
+
+def _obs_bounds_for_ensemble(state, ens_idx: int) -> tuple:
+    """Return (lambda_i, lambda_upper) for ensemble ens_idx.
+
+    ens["interfaces"] = [lambda_A, lambda_i, lambda_B]
+    lambda_upper = tis_set["interface_cap"] if set, else lambda_B.
+    """
+    ens          = state.ensembles[ens_idx]
+    lambda_i     = float(ens["interfaces"][1])
+    lambda_upper = float(ens["tis_set"].get("interface_cap", ens["interfaces"][2]))
+    return lambda_i, lambda_upper
+
+
 def _empty_stats() -> dict:
     return {
         "n_attempted": 0,
@@ -118,6 +142,9 @@ def _empty_stats() -> dict:
         "lambda_max": float("-inf"),
         "lambda_max_sum": 0.0,
         "lambda_max_n": 0,
+        "prev_obs":    float("nan"),   # sentinel: not yet initialized
+        "gain_sq_sum": 0.0,
+        "gain_sq_n":   0,
     }
 
 
@@ -164,22 +191,30 @@ def _init_softmax_ctrl_state(choices, current_n_jumps, sim: dict) -> dict:
 def _compute_epoch_reward(buf: dict, sim: dict) -> float:
     """Compute reward proxy for one completed epoch buffer.
 
-    Returns (avg_lambda_max + eps_gain) / (avg_subcycles + eps_cost).
-    Guaranteed strictly positive.
+    Dispatches on ``sim["reward_proxy"]``.  Guaranteed strictly positive.
     """
+    proxy    = sim.get("reward_proxy", "lambda_vs_subcycles_v1")
     eps_gain = sim.get("reward_eps_gain", 1e-12)
     eps_cost = sim.get("reward_eps_cost", 1e-12)
-    avg_lmax = (
-        buf["lambda_max_sum"] / buf["lambda_max_n"]
-        if buf["lambda_max_n"] > 0
-        else 0.0
-    )
-    avg_sub = (
+    avg_sub  = (
         buf["subcycles_sum"] / buf["subcycles_n"]
         if buf["subcycles_n"] > 0
         else 1.0
     )
-    return (avg_lmax + eps_gain) / (avg_sub + eps_cost)
+    if proxy == "empirical_dirichlet_lambda_v1":
+        gain = (
+            buf.get("gain_sq_sum", 0.0) / buf["gain_sq_n"]
+            if buf.get("gain_sq_n", 0) > 0
+            else 0.0
+        )
+        return (gain + eps_gain) / (avg_sub + eps_cost)
+    else:  # lambda_vs_subcycles_v1 — existing behaviour unchanged
+        avg_lmax = (
+            buf["lambda_max_sum"] / buf["lambda_max_n"]
+            if buf["lambda_max_n"] > 0
+            else 0.0
+        )
+        return (avg_lmax + eps_gain) / (avg_sub + eps_cost)
 
 
 def _flush_epoch_stats(
@@ -614,10 +649,25 @@ def validate_epoch_ctrl(config: dict, state=None) -> None:
             raise ValueError(
                 "softmax_init must be 'uniform' or 'current'."
             )
-        if sim["reward_proxy"] != "lambda_vs_subcycles_v1":
+        if sim["reward_proxy"] not in (
+            "lambda_vs_subcycles_v1", "empirical_dirichlet_lambda_v1"
+        ):
             raise ValueError(
-                "reward_proxy must be 'lambda_vs_subcycles_v1' in phase 1."
+                "reward_proxy must be 'lambda_vs_subcycles_v1' or "
+                "'empirical_dirichlet_lambda_v1'."
             )
+        # Extra check for empirical proxy: validate upper bound > lambda_i per target.
+        if sim["reward_proxy"] == "empirical_dirichlet_lambda_v1":
+            ifaces  = sim["interfaces"]
+            cap_cfg = sim.get("tis_set", {}).get("interface_cap", None)
+            for ens_i in ens_targets:
+                lambda_i     = ifaces[ens_i - 1]
+                lambda_upper = cap_cfg if cap_cfg is not None else ifaces[-1]
+                if lambda_upper <= lambda_i:
+                    raise ValueError(
+                        f"Upper bound {lambda_upper} must be > lambda_i={lambda_i} "
+                        f"for ensemble {ens_i}."
+                    )
         if not isinstance(sim["epoch_ctrl_seed"], int):
             raise ValueError("epoch_ctrl_seed must be an integer.")
         if sim.get("epoch_move_k") is None:
@@ -715,6 +765,24 @@ def update_epoch_stats(
         buf["lambda_max"] = lambda_max
     buf["lambda_max_sum"] += lambda_max
     buf["lambda_max_n"] += 1
+
+    proxy = state.config["simulation"].get("reward_proxy")
+    if proxy == "empirical_dirichlet_lambda_v1":
+        lambda_i, lambda_upper = _obs_bounds_for_ensemble(state, ens_idx)
+        curr_obs = (
+            _bounded_lambda_obs(lambda_max, lambda_i, lambda_upper)
+            if accepted
+            else buf.get("prev_obs", float("nan"))    # rejected: realized state unchanged
+        )
+        prev = buf.get("prev_obs", float("nan"))
+        if math.isnan(prev):
+            if not math.isnan(curr_obs):              # first accepted move → initialise
+                buf["prev_obs"] = curr_obs
+        else:
+            delta = curr_obs - prev
+            buf["gain_sq_sum"] = buf.get("gain_sq_sum", 0.0) + delta * delta
+            buf["gain_sq_n"]   = buf.get("gain_sq_n", 0) + 1
+            buf["prev_obs"]    = curr_obs
 
 
 def apply_epoch_ctrl(state, cstep: int) -> None:

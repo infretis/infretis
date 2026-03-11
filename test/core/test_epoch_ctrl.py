@@ -1276,10 +1276,16 @@ def test_treat_output_adaptive_full_chain(dw_setup):
 # softmax_dirichlet helpers — imported for unit tests
 # ---------------------------------------------------------------------------
 
+import math
+
 from infretis.core.epoch_ctrl import (
+    _bounded_lambda_obs,
+    _compute_epoch_reward,
     _compute_q,
+    _empty_stats,
     _epoch_sample,
     _init_softmax_ctrl_state,
+    _obs_bounds_for_ensemble,
     _softmax,
 )
 
@@ -1663,3 +1669,396 @@ def test_sd_restart_roundtrip(dw_setup):
     choices = saved_cfg["simulation"]["epoch_nsubpath_choices"][0]
     nj2 = state2.ensembles[2]["tis_set"].get("n_jumps")
     assert nj2 in choices, "n_jumps after epoch 2 must be in admissible set"
+
+
+# ===========================================================================
+# Tests 39–49 — empirical_dirichlet_lambda_v1 reward proxy (Phase 2a)
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Unit test 39 — _bounded_lambda_obs clips and maps correctly
+# ---------------------------------------------------------------------------
+
+def test_sd_empirical_obs_clips_to_unit_interval():
+    """_bounded_lambda_obs: below lambda_i→0, above lambda_upper→1, interior correct."""
+    li, lu = 0.2, 0.8
+
+    # Below lambda_i → 0
+    assert _bounded_lambda_obs(0.0, li, lu) == 0.0
+    assert _bounded_lambda_obs(0.19, li, lu) == 0.0
+
+    # Above lambda_upper → 1
+    assert _bounded_lambda_obs(1.0, li, lu) == 1.0
+    assert _bounded_lambda_obs(0.81, li, lu) == 1.0
+
+    # Interior maps linearly
+    mid = (li + lu) / 2  # 0.5
+    obs = _bounded_lambda_obs(mid, li, lu)
+    assert abs(obs - 0.5) < 1e-12
+
+    # Interior: 3/4 of the way
+    val = li + 0.75 * (lu - li)  # 0.65
+    obs2 = _bounded_lambda_obs(val, li, lu)
+    assert abs(obs2 - 0.75) < 1e-12
+
+    # lambda_upper <= lambda_i must raise
+    with pytest.raises(ValueError, match="lambda_upper"):
+        _bounded_lambda_obs(0.5, 0.5, 0.5)
+    with pytest.raises(ValueError, match="lambda_upper"):
+        _bounded_lambda_obs(0.5, 0.8, 0.2)
+
+
+# ---------------------------------------------------------------------------
+# Unit test 39b — _obs_bounds_for_ensemble returns lambda_B when no cap set
+# ---------------------------------------------------------------------------
+
+def test_sd_empirical_obs_uses_lambda_B_when_no_cap():
+    """_obs_bounds_for_ensemble: no interface_cap → lambda_upper = ens['interfaces'][2]."""
+    state = _make_state()
+    state.ensembles[1]["interfaces"] = (float("-inf"), 0.3, 0.8)
+    state.ensembles[1]["tis_set"].pop("interface_cap", None)
+
+    lambda_i, lambda_upper = _obs_bounds_for_ensemble(state, 1)
+    assert abs(lambda_i - 0.3) < 1e-12
+    assert abs(lambda_upper - 0.8) < 1e-12
+
+
+# ---------------------------------------------------------------------------
+# Unit test 39c — _obs_bounds_for_ensemble uses interface_cap when present
+# ---------------------------------------------------------------------------
+
+def test_sd_empirical_obs_uses_interface_cap_when_present():
+    """_obs_bounds_for_ensemble: interface_cap in tis_set → lambda_upper = cap."""
+    state = _make_state()
+    state.ensembles[1]["interfaces"] = (float("-inf"), 0.3, 0.8)
+    state.ensembles[1]["tis_set"]["interface_cap"] = 0.6
+
+    lambda_i, lambda_upper = _obs_bounds_for_ensemble(state, 1)
+    assert abs(lambda_i - 0.3) < 1e-12
+    assert abs(lambda_upper - 0.6) < 1e-12
+
+
+# ---------------------------------------------------------------------------
+# Unit test 40 — gain accumulator accumulates correctly over a sequence
+# ---------------------------------------------------------------------------
+
+def test_sd_empirical_gain_accumulator_sequence():
+    """update_epoch_stats accumulates gain_sq_sum for obs sequence [0.1,0.4,0.4,0.9]."""
+    state = _make_state()
+    state.config["simulation"]["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    # Override ensemble 1 interfaces: lambda_i=0.0, lambda_upper=1.0 → obs = lambda_max
+    state.ensembles[1]["interfaces"] = (float("-inf"), 0.0, 1.0)
+
+    lambda_max_vals = [0.1, 0.4, 0.4, 0.9]
+    for lm in lambda_max_vals:
+        update_epoch_stats(state, 1, accepted=True, path_length=10.0, subcycles=2, lambda_max=lm)
+
+    buf = state.ensemble_epoch_stats[1]
+    # Move 1: prev_obs=0.1, no increment.
+    # Move 2: delta=0.3, gain_sq_sum+=0.09, gain_sq_n=1.
+    # Move 3: delta=0.0, gain_sq_sum+=0.0, gain_sq_n=2.
+    # Move 4: delta=0.5, gain_sq_sum+=0.25, gain_sq_n=3.
+    expected_sq_sum = (0.4 - 0.1)**2 + (0.4 - 0.4)**2 + (0.9 - 0.4)**2  # 0.34
+    assert abs(buf["gain_sq_sum"] - expected_sq_sum) < 1e-12
+    assert buf["gain_sq_n"] == 3
+    assert abs(buf["prev_obs"] - 0.9) < 1e-12
+
+
+# ---------------------------------------------------------------------------
+# Unit test 41 — _compute_epoch_reward uses empirical formula from buffer
+# ---------------------------------------------------------------------------
+
+def test_sd_empirical_reward_from_buffer():
+    """_compute_epoch_reward with empirical proxy returns (G + eps) / (avg_sub + eps)."""
+    sim = {
+        "reward_proxy": "empirical_dirichlet_lambda_v1",
+        "reward_eps_gain": 1e-12,
+        "reward_eps_cost": 1e-12,
+    }
+    buf = _empty_stats()
+    buf["gain_sq_sum"] = 0.08
+    buf["gain_sq_n"] = 2
+    buf["subcycles_sum"] = 3
+    buf["subcycles_n"] = 1
+
+    reward = _compute_epoch_reward(buf, sim)
+    gain = 0.08 / 2  # 0.04
+    avg_sub = 3.0
+    eps = 1e-12
+    expected = (gain + eps) / (avg_sub + eps)
+    assert abs(reward - expected) < 1e-20
+
+
+# ---------------------------------------------------------------------------
+# Unit test 42 — first accepted move initialises prev_obs, no increment
+# ---------------------------------------------------------------------------
+
+def test_sd_empirical_first_obs_no_increment():
+    """First accepted move: prev_obs set, gain_sq_n stays 0."""
+    state = _make_state()
+    state.config["simulation"]["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    state.ensembles[1]["interfaces"] = (float("-inf"), 0.0, 1.0)
+
+    update_epoch_stats(state, 1, accepted=True, path_length=10.0, subcycles=2, lambda_max=0.5)
+
+    buf = state.ensemble_epoch_stats[1]
+    assert abs(buf["prev_obs"] - 0.5) < 1e-12
+    assert buf["gain_sq_n"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Unit test 43 — zero gain when no increments recorded
+# ---------------------------------------------------------------------------
+
+def test_sd_empirical_zero_reward_when_no_increments():
+    """gain_sq_n=0 → reward is eps_gain / (avg_sub + eps_cost)."""
+    sim = {
+        "reward_proxy": "empirical_dirichlet_lambda_v1",
+        "reward_eps_gain": 1e-12,
+        "reward_eps_cost": 1e-12,
+    }
+    buf = _empty_stats()  # gain_sq_n = 0
+    buf["subcycles_sum"] = 3
+    buf["subcycles_n"] = 1
+
+    reward = _compute_epoch_reward(buf, sim)
+    eps = 1e-12
+    expected = eps / (3.0 + eps)
+    assert abs(reward - expected) < 1e-20
+
+
+# ---------------------------------------------------------------------------
+# Unit test 44 — validation accepts empirical_dirichlet_lambda_v1 proxy
+# ---------------------------------------------------------------------------
+
+def test_sd_validation_accepts_empirical_proxy():
+    """Valid empirical_dirichlet_lambda_v1 config passes check_config."""
+    cfg = _sd_config_base()
+    cfg["simulation"]["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    check_config(cfg)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# Unit test 45 — validation rejects bad upper bound for empirical proxy
+# ---------------------------------------------------------------------------
+
+def test_sd_validation_rejects_bad_cap_for_empirical_proxy():
+    """interface_cap <= lambda_i raises; no cap with lambda_B > lambda_i succeeds."""
+    # Bad: interface_cap is below lambda_i (= ifaces[0] = 0.0 for ens_i=1)
+    cfg = _sd_config_base()
+    cfg["simulation"]["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    cfg["simulation"]["tis_set"]["interface_cap"] = -0.5  # < lambda_i=0.0
+    with pytest.raises(TOMLConfigError):
+        check_config(cfg)
+
+    # Good: no cap, lambda_B = ifaces[-1] = 0.6 > lambda_i = 0.0
+    cfg2 = _sd_config_base()
+    cfg2["simulation"]["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    check_config(cfg2)  # must not raise
+
+
+# ===========================================================================
+# Integration tests 46–49
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Integration test 46 — rejected move gives zero gain increment
+# ---------------------------------------------------------------------------
+
+def test_sd_empirical_rejected_move_gives_zero_increment(dw_setup):
+    """ACC then REJ: gain_sq_n==1 but gain_sq_sum==0 after the rejection."""
+    state, tmp_path = dw_setup
+    keys = _sd_sim_keys()
+    keys["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    state.config["simulation"].update(keys)
+
+    # First: ACC move — initialises prev_obs
+    update_epoch_stats(state, 2, accepted=True, path_length=10.0, subcycles=1, lambda_max=-0.4)
+    buf = state.ensemble_epoch_stats.get(2, {})
+    assert not math.isnan(buf.get("prev_obs", float("nan"))), "prev_obs must be set after ACC"
+    assert buf.get("gain_sq_n", 0) == 0, "no increment on first ACC move"
+
+    # Second: REJ move — curr_obs = prev_obs, delta = 0
+    update_epoch_stats(state, 2, accepted=False, path_length=10.0, subcycles=1, lambda_max=-0.99)
+    buf2 = state.ensemble_epoch_stats.get(2, {})
+    assert buf2.get("gain_sq_n", 0) == 1, "REJ must still increment gain_sq_n"
+    assert abs(buf2.get("gain_sq_sum", float("nan")) - 0.0) < 1e-15, (
+        "delta=0 for REJ: gain_sq_sum must stay 0"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Integration test 47 — boundary reward matches empirical formula
+# ---------------------------------------------------------------------------
+
+def test_sd_empirical_reward_used_at_boundary(dw_setup):
+    """3 ACC moves with known lambda_max; epoch-2 reward matches empirical formula."""
+    state, tmp_path = dw_setup
+    keys = _sd_sim_keys()
+    keys["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    state.config["simulation"].update(keys)
+    ENS_NUM = 1  # ensemble index 2
+
+    # Epoch 1: 3 REJ moves through treat_output → ctrl_state initialized, buffer reset
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
+
+    assert 2 in state.softmax_ctrl_state, "epoch 1 must have initialized ctrl_state"
+
+    # Read ensemble 2 bounds for computing expected observables
+    lambda_i = state.ensembles[2]["interfaces"][1]
+    lambda_upper = state.ensembles[2]["interfaces"][2]
+    denom = lambda_upper - lambda_i
+
+    # Choose 3 lambda_max values → observables 0.2, 0.5, 0.7
+    lm1 = lambda_i + 0.2 * denom
+    lm2 = lambda_i + 0.5 * denom
+    lm3 = lambda_i + 0.7 * denom
+    h1 = _bounded_lambda_obs(lm1, lambda_i, lambda_upper)  # ≈ 0.2
+    h2 = _bounded_lambda_obs(lm2, lambda_i, lambda_upper)  # ≈ 0.5
+    h3 = _bounded_lambda_obs(lm3, lambda_i, lambda_upper)  # ≈ 0.7
+
+    # Push 3 ACC moves directly into epoch-2 stats buffer
+    for lm in (lm1, lm2, lm3):
+        update_epoch_stats(state, 2, accepted=True, path_length=10.0, subcycles=1, lambda_max=lm)
+
+    # Trigger epoch 2 boundary by setting move count to 2*k
+    state.ensemble_move_counts[2] = 6  # 2 * epoch_move_k=3
+    apply_epoch_ctrl(state, 0)
+
+    # Read TSV epoch-2 row
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 2, "must have epoch-1 and epoch-2 TSV rows"
+    r = rows[1]
+    reward_val = float(r["reward"])
+
+    # Expected empirical reward: gain from 3 moves (1st initializes, 2nd and 3rd give deltas)
+    # gain_sq_sum = (h2-h1)^2 + (h3-h2)^2, gain_sq_n = 2
+    gain_sq_sum = (h2 - h1) ** 2 + (h3 - h2) ** 2
+    gain = gain_sq_sum / 2
+    eps = 1e-12
+    expected = (gain + eps) / (1.0 + eps)  # avg_sub=1.0 (subcycles=1 each)
+    assert abs(reward_val - expected) < 1e-9, (
+        f"Empirical reward mismatch: got {reward_val}, expected {expected}"
+    )
+
+    # Phase-1 reward (avg_lambda_max / avg_sub) would differ
+    phase1_avg_lm = (lm1 + lm2 + lm3) / 3
+    phase1_reward = (phase1_avg_lm + eps) / (1.0 + eps)
+    assert abs(reward_val - phase1_reward) > 1e-6, (
+        "Reward must use empirical formula, not phase-1 lambda-avg formula"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Integration test 48 — restart roundtrip preserves gain state
+# ---------------------------------------------------------------------------
+
+def test_sd_empirical_restart_roundtrip_preserves_gain_state(dw_setup):
+    """Stop mid-epoch; restart.toml preserves prev_obs/gain_sq_*; restore continues."""
+    state, tmp_path = dw_setup
+    keys = _sd_sim_keys()
+    keys["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    state.config["simulation"].update(keys)
+    ENS_NUM = 1  # ensemble index 2
+
+    # Epoch 1: 3 REJ moves → ctrl_state initialized, buffer reset
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
+
+    assert 2 in state.softmax_ctrl_state
+
+    # Mid-epoch 2: 2 ACC moves to build gain state
+    lambda_i = state.ensembles[2]["interfaces"][1]
+    lambda_upper = state.ensembles[2]["interfaces"][2]
+    denom = lambda_upper - lambda_i
+    lm1 = lambda_i + 0.3 * denom
+    lm2 = lambda_i + 0.6 * denom
+
+    update_epoch_stats(state, 2, accepted=True, path_length=10.0, subcycles=1, lambda_max=lm1)
+    update_epoch_stats(state, 2, accepted=True, path_length=10.0, subcycles=1, lambda_max=lm2)
+
+    buf_before = state.ensemble_epoch_stats.get(2, {})
+    assert buf_before.get("gain_sq_n", 0) == 1, "2 ACC moves → 1 gain increment"
+    assert not math.isnan(buf_before.get("prev_obs", float("nan")))
+    prev_obs_before = buf_before["prev_obs"]
+    gain_sq_n_before = buf_before["gain_sq_n"]
+    gain_sq_sum_before = buf_before["gain_sq_sum"]
+
+    # Serialize via mirror_epoch_ctrl
+    mirror_epoch_ctrl(state, state.config)
+    saved_stats = state.config["simulation"]["softmax_epoch_stats"]["2"]
+    assert saved_stats["gain_sq_n"] == gain_sq_n_before
+    assert not math.isnan(saved_stats["prev_obs"])
+
+    # TOML roundtrip
+    restart_path = tmp_path / "restart2.toml"
+    with restart_path.open("wb") as fh:
+        tomli_w.dump(state.config, fh)
+    with restart_path.open("rb") as fh:
+        saved_cfg = tomli.load(fh)
+
+    # Restore state
+    state2 = REPEX_state(saved_cfg, minus=True)
+    state2.initiate_ensembles()
+    paths = load_paths_from_disk(saved_cfg)
+    state2.load_paths(paths)
+
+    # Verify restored gain state
+    buf2 = state2.ensemble_epoch_stats.get(2, {})
+    assert buf2.get("gain_sq_n", 0) == gain_sq_n_before, "gain_sq_n must survive restart"
+    assert not math.isnan(buf2.get("prev_obs", float("nan"))), "prev_obs must survive restart"
+    assert abs(buf2.get("prev_obs", 0.0) - prev_obs_before) < 1e-10
+    assert abs(buf2.get("gain_sq_sum", 0.0) - gain_sq_sum_before) < 1e-10
+
+    # Complete epoch 2: 1 more ACC move + trigger epoch boundary
+    lm3 = lambda_i + 0.8 * denom
+    update_epoch_stats(state2, 2, accepted=True, path_length=10.0, subcycles=1, lambda_max=lm3)
+    state2.ensemble_move_counts[2] = 6  # trigger epoch 2
+    apply_epoch_ctrl(state2, 0)
+
+    # Epoch 2 fired: update_count advanced, reward is not nan
+    assert state2.softmax_ctrl_state[2]["update_count"] == 1, (
+        "epoch 2 must apply first logit update"
+    )
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 2
+    r2 = rows[1]
+    assert r2["reward"] != "nan", "epoch-2 reward must not be nan"
+
+
+# ---------------------------------------------------------------------------
+# Integration test 49 — phase-1 proxy (lambda_vs_subcycles_v1) still works
+# ---------------------------------------------------------------------------
+
+def test_sd_phase1_proxy_still_works(dw_setup):
+    """lambda_vs_subcycles_v1 proxy: epoch fires, n_jumps updated, no regression."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())  # default phase-1 proxy
+    ENS_NUM = 1  # ensemble index 2
+
+    # 3 REJ moves → epoch 1 fires
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    # ctrl_state populated, n_jumps in choices
+    assert 2 in state.softmax_ctrl_state, "ctrl_state must be populated after epoch 1"
+    choices = state.config["simulation"]["epoch_nsubpath_choices"][0]
+    nj = state.ensembles[2]["tis_set"].get("n_jumps")
+    assert nj in choices, "n_jumps must be in admissible choices"
+
+    # TSV row written with correct mode
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists()
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 1
+    assert rows[0]["ctrl_mode"] == "softmax_dirichlet"
+    assert rows[0]["reward"] == "nan"  # first epoch: no prior reward
