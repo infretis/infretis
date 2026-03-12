@@ -107,6 +107,15 @@ class REPEX_state:
             int(k): int(v) for k, v in raw_counts.items()
         }
 
+        # Last move-count at which each ensemble fired its epoch boundary.
+        # Prevents re-firing on the same count when apply_epoch_ctrl is called
+        # again (e.g. for a different ensemble's move) before the count advances.
+        # Initialised to -1 (sentinel: never fired) and persisted in restart.toml.
+        raw_last_fired = config["current"].get("ensemble_last_fired_count", {})
+        self.ensemble_last_fired_count = {
+            int(k): int(v) for k, v in raw_last_fired.items()
+        }
+
         # Softmax-Dirichlet controller state (logits, update_count, etc.).
         # Restored from config on restart; empty for non-softmax modes.
         self.softmax_ctrl_state: dict = {

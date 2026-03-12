@@ -831,7 +831,9 @@ def apply_epoch_ctrl(state, cstep: int) -> None:
     elif mode == "per_ensemble_moves":
         for ens_i, vals, k in zip(ens_targets, val_schedules, _k_list(sim)):
             count = state.ensemble_move_counts.get(ens_i, 0)
-            if count > 0 and count % k == 0:
+            last_fired = state.ensemble_last_fired_count.get(ens_i, -1)
+            if count > 0 and count % k == 0 and count != last_fired:
+                state.ensemble_last_fired_count[ens_i] = count
                 epoch_idx = count // k
                 _dispatch_ctrl(state, ens_i, epoch_idx, ctrl_mode, sim, vals)
 
@@ -867,6 +869,10 @@ def mirror_epoch_ctrl(state, config: dict) -> None:
     # back to int on restore in REPEX_state.__init__().
     config["current"]["ensemble_move_counts"] = {
         str(i): state.ensemble_move_counts.get(i, 0)
+        for i in ens_keys
+    }
+    config["current"]["ensemble_last_fired_count"] = {
+        str(i): state.ensemble_last_fired_count.get(i, -1)
         for i in ens_keys
     }
 
