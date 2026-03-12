@@ -464,8 +464,8 @@ def _load_energies_for_path(path: Path, dirname: str) -> None:
             path.update_energies(
                 energy["data"]["ekin"],
                 energy["data"]["vpot"],
-                energy["data"]["etot"],
-                energy["data"]["temp"],
+                energy["data"].get("etot", []),
+                energy["data"].get("temp", []),
             )
     except FileNotFoundError:
         pass
