@@ -2062,3 +2062,90 @@ def test_sd_phase1_proxy_still_works(dw_setup):
     assert len(rows) == 1
     assert rows[0]["ctrl_mode"] == "softmax_dirichlet"
     assert rows[0]["reward"] == "nan"  # first epoch: no prior reward
+
+
+# ===========================================================================
+# Regression tests 52–53 — boundary-consumption guard (per_ensemble_moves)
+# ===========================================================================
+#
+# Before the fix, apply_epoch_ctrl re-fired on every call while the count
+# stayed at a multiple of k (e.g. when moves to *other* ensembles triggered
+# treat_output without advancing the targeted ensemble's counter).
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# Regression test 52 — scheduled/per_ensemble_moves: no re-fire on same count
+# ---------------------------------------------------------------------------
+
+def test_per_ensemble_moves_no_refire_on_same_count(tmp_path):
+    """After firing at count=k, calling apply_epoch_ctrl again without
+    incrementing the counter must NOT produce a second TSV row."""
+    k = 3
+    state = _make_state_per_ens(k=k)
+    state.config["output"] = {"data_dir": str(tmp_path)}
+
+    # Drive to boundary
+    state.ensemble_move_counts[1] = k
+    apply_epoch_ctrl(state, state.cstep)
+
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists()
+    rows_after_first = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows_after_first) == 1, "exactly one row after first boundary"
+    assert state.ensemble_last_fired_count.get(1) == k
+
+    # Call apply_epoch_ctrl several more times without changing the count.
+    # This mimics moves to other ensembles being processed.
+    for _ in range(5):
+        apply_epoch_ctrl(state, state.cstep)
+
+    rows_after_extra = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows_after_extra) == 1, (
+        "no extra TSV rows must appear when count has not advanced past k"
+    )
+
+    # Only after the count advances to 2k does the next boundary fire.
+    state.ensemble_move_counts[1] = 2 * k
+    apply_epoch_ctrl(state, state.cstep)
+    rows_after_second = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows_after_second) == 2, "second boundary must produce a second row"
+    assert state.ensemble_last_fired_count.get(1) == 2 * k
+
+
+# ---------------------------------------------------------------------------
+# Regression test 53 — softmax_dirichlet: no extra sample_hold rows after boundary
+# ---------------------------------------------------------------------------
+
+def test_sd_no_extra_rows_after_boundary(dw_setup):
+    """After epoch 1 fires (count=k via treat_output), additional calls to
+    apply_epoch_ctrl without new moves must not write extra sample_hold rows."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1  # ensemble index 2, k=3
+
+    # Drive exactly k=3 moves through treat_output → epoch 1 fires
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
+
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists()
+    rows_after_epoch1 = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows_after_epoch1) == 1, "exactly one TSV row after epoch 1"
+    assert state.ensemble_last_fired_count.get(2) == 3
+
+    # Call apply_epoch_ctrl directly several times (simulating other-ensemble moves)
+    for _ in range(5):
+        apply_epoch_ctrl(state, state.cstep)
+
+    rows_after_extra = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows_after_extra) == 1, (
+        "no extra sample_hold rows must appear when ensemble 2 count is unchanged"
+    )
+
+    # Verify the one row is the real boundary row (not a spurious hold)
+    r = rows_after_extra[0]
+    assert int(r["n_attempted"]) > 0, "boundary row must have n_attempted > 0"
+    assert r["ctrl_mode"] == "softmax_dirichlet"
