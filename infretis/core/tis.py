@@ -305,7 +305,7 @@ def select_shoot(
             - A string representing the status of the path.
 
     """
-    from infretis.classes.multires_shooting import (
+    from infretis.classes.multires_wf import (
         multires_wire_fencing,
     )
 
