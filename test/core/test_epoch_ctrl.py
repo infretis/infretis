@@ -2153,7 +2153,7 @@ def test_sd_no_extra_rows_after_boundary(dw_setup):
 
 
 # ===========================================================================
-# Tests 54–57 — reward EMA normalization and clipping
+# Tests 54–59 — reward EMA normalization and clipping
 # ===========================================================================
 
 
@@ -2162,17 +2162,13 @@ def test_sd_no_extra_rows_after_boundary(dw_setup):
 # ---------------------------------------------------------------------------
 
 def test_normalize_reward_rescales():
-    """After EMA warms up, large and small rewards both map to O(1) reward_eff."""
-    sim = {}
-    ctrl = {"ema_abs_reward": 1e-4}
-
-    # Small reward: raw = 1e-5. ema ← 0.9*1e-4 + 0.1*1e-5 = 9.1e-5. eff ≈ 0.11.
-    eff_small = _normalize_reward(1e-5, ctrl, sim)
+    """Small reward maps to O(0.1); large reward clips to rclip."""
+    # Small: ema ← 0.9*1e-4 + 0.1*1e-5 = 9.1e-5; eff ≈ 1e-5/9.1e-5 ≈ 0.11
+    eff_small, _ = _normalize_reward(1e-5, 1e-4)
     assert 0.0 < eff_small <= 5.0, f"small reward_eff out of range: {eff_small}"
 
-    # Large reward: raw = 1e3. eff should be clipped.
-    ctrl2 = {"ema_abs_reward": 1e-4}
-    eff_large = _normalize_reward(1e3, ctrl2, sim)
+    # Large: clips to default rclip = 5.0
+    eff_large, _ = _normalize_reward(1e3, 1e-4)
     assert abs(eff_large - 5.0) < 1e-12, f"large reward should clip to 5.0, got {eff_large}"
 
 
@@ -2182,10 +2178,7 @@ def test_normalize_reward_rescales():
 
 def test_normalize_reward_preserves_sign():
     """Negative raw_reward must produce negative reward_eff."""
-    sim = {}
-    ctrl = {"ema_abs_reward": 1.0}  # warmed-up EMA
-    raw = -0.3
-    eff = _normalize_reward(raw, ctrl, sim)
+    eff, _ = _normalize_reward(-0.3, 1.0)   # warmed-up EMA
     assert eff < 0.0, f"negative raw_reward must give negative reward_eff, got {eff}"
     assert eff >= -5.0, "must not exceed clip magnitude"
 
@@ -2195,17 +2188,11 @@ def test_normalize_reward_preserves_sign():
 # ---------------------------------------------------------------------------
 
 def test_normalize_reward_clipping():
-    """reward_eff is clipped to [-rclip, rclip]; default rclip = 5.0."""
-    sim = {"softmax_reward_eff_clip": 3.0}
-    ctrl = {"ema_abs_reward": 1.0}   # denom = max(updated_ema, floor) ≈ 1
-
-    # Very large positive: must clip to +3.0
-    eff_pos = _normalize_reward(1e6, ctrl, sim)
+    """reward_eff is clipped to [-rclip, rclip]."""
+    eff_pos, _ = _normalize_reward(1e6,  1.0, rclip=3.0)
     assert abs(eff_pos - 3.0) < 1e-12, f"expected clip at +3.0, got {eff_pos}"
 
-    # Very large negative: must clip to -3.0
-    ctrl2 = {"ema_abs_reward": 1.0}
-    eff_neg = _normalize_reward(-1e6, ctrl2, sim)
+    eff_neg, _ = _normalize_reward(-1e6, 1.0, rclip=3.0)
     assert abs(eff_neg + 3.0) < 1e-12, f"expected clip at -3.0, got {eff_neg}"
 
 
@@ -2219,26 +2206,16 @@ def test_normalize_reward_ema_survives_restart(dw_setup):
     state.config["simulation"].update(_sd_sim_keys())
     ENS_NUM = 1  # ensemble index 2, k=3
 
-    # Drive epoch 1 (initialises ctrl_state) + epoch 2 (updates EMA)
-    for cstep in (1, 2, 3):
+    # Epoch 1 + epoch 2 so EMA is updated at least once
+    for cstep in range(1, 7):
         state.cstep = cstep
         _lock_ens_slot(state, ENS_NUM)
         state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
 
     assert 2 in state.softmax_ctrl_state
-    assert "ema_abs_reward" in state.softmax_ctrl_state[2], (
-        "ema_abs_reward must be in ctrl_state after epoch 1"
-    )
-
-    # Trigger epoch 2 so EMA gets updated at least once
-    for cstep in (4, 5, 6):
-        state.cstep = cstep
-        _lock_ens_slot(state, ENS_NUM)
-        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
-
     ema_before = state.softmax_ctrl_state[2]["ema_abs_reward"]
 
-    # TOML roundtrip via mirror_epoch_ctrl
+    # TOML roundtrip
     mirror_epoch_ctrl(state, state.config)
     restart_path = tmp_path / "restart_ema.toml"
     with restart_path.open("wb") as fh:
@@ -2259,3 +2236,28 @@ def test_normalize_reward_ema_survives_restart(dw_setup):
     assert abs(ema_after - ema_before) < 1e-15, (
         f"ema_abs_reward must survive restart exactly: {ema_before} → {ema_after}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Unit test 58 — zero raw_reward gives zero reward_eff
+# ---------------------------------------------------------------------------
+
+def test_normalize_reward_zero():
+    """raw_reward = 0.0 must give reward_eff = 0.0 regardless of EMA."""
+    eff, new_ema = _normalize_reward(0.0, 1e-4)
+    assert eff == 0.0, f"expected 0.0, got {eff}"
+    # EMA still updates toward |0| = 0
+    expected_ema = 0.9 * 1e-4 + 0.1 * 0.0
+    assert abs(new_ema - expected_ema) < 1e-20
+
+
+# ---------------------------------------------------------------------------
+# Unit test 59 — nan raw_reward leaves EMA unchanged
+# ---------------------------------------------------------------------------
+
+def test_normalize_reward_nan_leaves_ema_unchanged():
+    """raw_reward = nan must return (nan, ema_unchanged) without updating EMA."""
+    ema_init = 0.42
+    eff, ema_out = _normalize_reward(float("nan"), ema_init)
+    assert math.isnan(eff), "non-finite input must yield nan reward_eff"
+    assert ema_out == ema_init, "EMA must not change for non-finite input"

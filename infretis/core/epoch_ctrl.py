@@ -189,30 +189,40 @@ def _init_softmax_ctrl_state(choices, current_n_jumps, sim: dict) -> dict:
     }
 
 
-def _normalize_reward(raw_reward: float, ctrl_state: dict, sim: dict) -> float:
-    """EMA-normalize raw_reward and clip; updates ctrl_state in place.
+def _normalize_reward(
+    raw_reward: float,
+    ema_abs_reward: float,
+    rho: float = 0.1,
+    floor: float = 1e-6,
+    rclip: float = 5.0,
+) -> tuple:
+    """EMA-normalize raw_reward and clip.
 
-    Formula:
-        ema       = (1 - rho) * ema + rho * |raw_reward|
-        denom     = max(ema, ema_floor)
-        reward_eff = clip(raw_reward / denom, -rclip, rclip)
+    Non-finite raw_reward (nan / inf) is passed through as nan without
+    updating the EMA so that first-epoch nans do not corrupt the state.
 
-    Config keys (all optional with defaults):
-        softmax_reward_ema_rho   (default 0.1)
-        softmax_reward_ema_floor (default 1e-6)
-        softmax_reward_eff_clip  (default 5.0)
+    Formula (finite case only):
+        ema_abs_reward = (1 - rho) * ema_abs_reward + rho * |raw_reward|
+        denom          = max(ema_abs_reward, floor)
+        reward_eff     = clip(raw_reward / denom, -rclip, rclip)
+
+    Args:
+        raw_reward:     raw proxy value from _compute_epoch_reward.
+        ema_abs_reward: current EMA of |raw_reward| (per-ensemble state).
+        rho:            EMA smoothing factor (default 0.1).
+        floor:          minimum denominator to avoid division by zero (default 1e-6).
+        rclip:          symmetric clip bound (default 5.0).
 
     Returns:
-        reward_eff (float)
+        (reward_eff, updated_ema_abs_reward)
     """
-    rho   = sim.get("softmax_reward_ema_rho",   0.1)
-    floor = sim.get("softmax_reward_ema_floor", 1e-6)
-    rclip = sim.get("softmax_reward_eff_clip",  5.0)
-    ema   = ctrl_state.get("ema_abs_reward", 1e-4)
-    ema   = (1.0 - rho) * ema + rho * abs(raw_reward)
-    ctrl_state["ema_abs_reward"] = ema
-    denom = max(ema, floor)
-    return float(np.clip(raw_reward / denom, -rclip, rclip))
+    if not np.isfinite(raw_reward):
+        return float("nan"), ema_abs_reward
+    ema_abs_reward = (1.0 - rho) * ema_abs_reward + rho * abs(raw_reward)
+    denom = max(ema_abs_reward, floor)
+    reward_eff = raw_reward / denom
+    reward_eff = max(-rclip, min(rclip, reward_eff))
+    return reward_eff, ema_abs_reward
 
 
 def _compute_epoch_reward(buf: dict, sim: dict) -> float:
@@ -464,7 +474,13 @@ def _apply_softmax_dirichlet_ctrl(
         )
         buf = state.ensemble_epoch_stats.get(ens_i, _empty_stats())
         raw_reward = _compute_epoch_reward(buf, sim)
-        reward_eff = _normalize_reward(raw_reward, ctrl_state, sim)
+        reward_eff, ctrl_state["ema_abs_reward"] = _normalize_reward(
+            raw_reward,
+            float(ctrl_state.get("ema_abs_reward", 1e-4)),
+            rho=float(sim.get("softmax_reward_ema_rho",   0.1)),
+            floor=float(sim.get("softmax_reward_ema_floor", 1e-6)),
+            rclip=float(sim.get("softmax_reward_eff_clip",  5.0)),
+        )
         uc = ctrl_state["update_count"]
         eta = sim["softmax_eta0"] / (uc + 1) ** sim["softmax_beta"]
         A = ctrl_state["last_choice_idx"]
