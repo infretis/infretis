@@ -3,6 +3,7 @@
 import copy
 import logging
 import os
+import shutil
 import time
 from datetime import datetime
 
@@ -999,10 +1000,10 @@ class REPEX_state:
                                 )
                                 if os.path.isfile(txt_adress):
                                     os.remove(txt_adress)
-                            os.rmdir(
-                                os.path.join(load_dir, pn_old_del, "accepted")
+                            shutil.rmtree(
+                                os.path.join(load_dir, pn_old_del),
+                                ignore_errors=True,
                             )
-                            os.rmdir(os.path.join(load_dir, pn_old_del))
                         # pop the deleted path.
                         self.pn_olds.pop(pn_old_del)
                     # keep delete list:
