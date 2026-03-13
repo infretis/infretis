@@ -1285,6 +1285,7 @@ from infretis.core.epoch_ctrl import (
     _empty_stats,
     _epoch_sample,
     _init_softmax_ctrl_state,
+    _normalize_reward,
     _obs_bounds_for_ensemble,
     _softmax,
 )
@@ -1568,8 +1569,8 @@ def test_sd_boundary_updates_and_samples(dw_setup):
     assert r["ctrl_mode"] == "softmax_dirichlet"
     assert r["ctrl_action"] in ("sample_hold", "sample_set")
     assert r["ctrl_reason"] == "softmax_dirichlet_epoch_update"
-    # First epoch: no prior reward → reward column is "nan"
-    assert r["reward"] == "nan"
+    # First epoch: no prior reward → reward_raw column is "nan"
+    assert r["reward_raw"] == "nan"
     assert "choice_idx" in r
     assert "probs_json" in r
 
@@ -1933,7 +1934,7 @@ def test_sd_empirical_reward_used_at_boundary(dw_setup):
     rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
     assert len(rows) == 2, "must have epoch-1 and epoch-2 TSV rows"
     r = rows[1]
-    reward_val = float(r["reward"])
+    reward_val = float(r["reward_raw"])
 
     # Expected empirical reward: gain from 3 moves (1st initializes, 2nd and 3rd give deltas)
     # gain_sq_sum = (h2-h1)^2 + (h3-h2)^2, gain_sq_n = 2
@@ -2030,7 +2031,7 @@ def test_sd_empirical_restart_roundtrip_preserves_gain_state(dw_setup):
     rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
     assert len(rows) == 2
     r2 = rows[1]
-    assert r2["reward"] != "nan", "epoch-2 reward must not be nan"
+    assert r2["reward_raw"] != "nan", "epoch-2 reward must not be nan"
 
 
 # ---------------------------------------------------------------------------
@@ -2061,7 +2062,7 @@ def test_sd_phase1_proxy_still_works(dw_setup):
     rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
     assert len(rows) == 1
     assert rows[0]["ctrl_mode"] == "softmax_dirichlet"
-    assert rows[0]["reward"] == "nan"  # first epoch: no prior reward
+    assert rows[0]["reward_raw"] == "nan"  # first epoch: no prior reward
 
 
 # ===========================================================================
@@ -2149,3 +2150,112 @@ def test_sd_no_extra_rows_after_boundary(dw_setup):
     r = rows_after_extra[0]
     assert int(r["n_attempted"]) > 0, "boundary row must have n_attempted > 0"
     assert r["ctrl_mode"] == "softmax_dirichlet"
+
+
+# ===========================================================================
+# Tests 54–57 — reward EMA normalization and clipping
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# Unit test 54 — normalization rescales small and large rewards comparably
+# ---------------------------------------------------------------------------
+
+def test_normalize_reward_rescales():
+    """After EMA warms up, large and small rewards both map to O(1) reward_eff."""
+    sim = {}
+    ctrl = {"ema_abs_reward": 1e-4}
+
+    # Small reward: raw = 1e-5. ema ← 0.9*1e-4 + 0.1*1e-5 = 9.1e-5. eff ≈ 0.11.
+    eff_small = _normalize_reward(1e-5, ctrl, sim)
+    assert 0.0 < eff_small <= 5.0, f"small reward_eff out of range: {eff_small}"
+
+    # Large reward: raw = 1e3. eff should be clipped.
+    ctrl2 = {"ema_abs_reward": 1e-4}
+    eff_large = _normalize_reward(1e3, ctrl2, sim)
+    assert abs(eff_large - 5.0) < 1e-12, f"large reward should clip to 5.0, got {eff_large}"
+
+
+# ---------------------------------------------------------------------------
+# Unit test 55 — sign is preserved for negative rewards
+# ---------------------------------------------------------------------------
+
+def test_normalize_reward_preserves_sign():
+    """Negative raw_reward must produce negative reward_eff."""
+    sim = {}
+    ctrl = {"ema_abs_reward": 1.0}  # warmed-up EMA
+    raw = -0.3
+    eff = _normalize_reward(raw, ctrl, sim)
+    assert eff < 0.0, f"negative raw_reward must give negative reward_eff, got {eff}"
+    assert eff >= -5.0, "must not exceed clip magnitude"
+
+
+# ---------------------------------------------------------------------------
+# Unit test 56 — clipping is symmetric and exact at boundary
+# ---------------------------------------------------------------------------
+
+def test_normalize_reward_clipping():
+    """reward_eff is clipped to [-rclip, rclip]; default rclip = 5.0."""
+    sim = {"softmax_reward_eff_clip": 3.0}
+    ctrl = {"ema_abs_reward": 1.0}   # denom = max(updated_ema, floor) ≈ 1
+
+    # Very large positive: must clip to +3.0
+    eff_pos = _normalize_reward(1e6, ctrl, sim)
+    assert abs(eff_pos - 3.0) < 1e-12, f"expected clip at +3.0, got {eff_pos}"
+
+    # Very large negative: must clip to -3.0
+    ctrl2 = {"ema_abs_reward": 1.0}
+    eff_neg = _normalize_reward(-1e6, ctrl2, sim)
+    assert abs(eff_neg + 3.0) < 1e-12, f"expected clip at -3.0, got {eff_neg}"
+
+
+# ---------------------------------------------------------------------------
+# Integration test 57 — restart preserves ema_abs_reward
+# ---------------------------------------------------------------------------
+
+def test_normalize_reward_ema_survives_restart(dw_setup):
+    """ema_abs_reward in ctrl_state must round-trip through mirror → TOML → restore."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1  # ensemble index 2, k=3
+
+    # Drive epoch 1 (initialises ctrl_state) + epoch 2 (updates EMA)
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
+
+    assert 2 in state.softmax_ctrl_state
+    assert "ema_abs_reward" in state.softmax_ctrl_state[2], (
+        "ema_abs_reward must be in ctrl_state after epoch 1"
+    )
+
+    # Trigger epoch 2 so EMA gets updated at least once
+    for cstep in (4, 5, 6):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
+
+    ema_before = state.softmax_ctrl_state[2]["ema_abs_reward"]
+
+    # TOML roundtrip via mirror_epoch_ctrl
+    mirror_epoch_ctrl(state, state.config)
+    restart_path = tmp_path / "restart_ema.toml"
+    with restart_path.open("wb") as fh:
+        tomli_w.dump(state.config, fh)
+    with restart_path.open("rb") as fh:
+        saved_cfg = tomli.load(fh)
+
+    assert "ema_abs_reward" in saved_cfg["simulation"]["softmax_ctrl_state"]["2"], (
+        "ema_abs_reward must be serialized into restart.toml"
+    )
+
+    state2 = REPEX_state(saved_cfg, minus=True)
+    state2.initiate_ensembles()
+    paths = load_paths_from_disk(saved_cfg)
+    state2.load_paths(paths)
+
+    ema_after = state2.softmax_ctrl_state[2]["ema_abs_reward"]
+    assert abs(ema_after - ema_before) < 1e-15, (
+        f"ema_abs_reward must survive restart exactly: {ema_before} → {ema_after}"
+    )

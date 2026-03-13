@@ -185,7 +185,34 @@ def _init_softmax_ctrl_state(choices, current_n_jumps, sim: dict) -> dict:
         "update_count": 0,
         "last_choice_idx": None,
         "initialized": False,
+        "ema_abs_reward": 1e-4,   # conservative init; updated each boundary
     }
+
+
+def _normalize_reward(raw_reward: float, ctrl_state: dict, sim: dict) -> float:
+    """EMA-normalize raw_reward and clip; updates ctrl_state in place.
+
+    Formula:
+        ema       = (1 - rho) * ema + rho * |raw_reward|
+        denom     = max(ema, ema_floor)
+        reward_eff = clip(raw_reward / denom, -rclip, rclip)
+
+    Config keys (all optional with defaults):
+        softmax_reward_ema_rho   (default 0.1)
+        softmax_reward_ema_floor (default 1e-6)
+        softmax_reward_eff_clip  (default 5.0)
+
+    Returns:
+        reward_eff (float)
+    """
+    rho   = sim.get("softmax_reward_ema_rho",   0.1)
+    floor = sim.get("softmax_reward_ema_floor", 1e-6)
+    rclip = sim.get("softmax_reward_eff_clip",  5.0)
+    ema   = ctrl_state.get("ema_abs_reward", 1e-4)
+    ema   = (1.0 - rho) * ema + rho * abs(raw_reward)
+    ctrl_state["ema_abs_reward"] = ema
+    denom = max(ema, floor)
+    return float(np.clip(raw_reward / denom, -rclip, rclip))
 
 
 def _compute_epoch_reward(buf: dict, sim: dict) -> float:
@@ -282,12 +309,13 @@ def _flush_epoch_stats(
 
     if sd_extras is not None:
         header += (
-            "\tchoice_idx\tchoice_value\treward\teta"
+            "\tchoice_idx\tchoice_value\treward_raw\treward_eff\tema_abs_reward\teta"
             "\ttau\texplore_floor\tprobs_json"
         )
         row += (
             f"\t{sd_extras['choice_idx']}\t{sd_extras['choice_value']}"
-            f"\t{sd_extras['reward']:.6g}\t{sd_extras['eta']:.6g}"
+            f"\t{sd_extras['reward_raw']:.6g}\t{sd_extras['reward_eff']:.6g}"
+            f"\t{sd_extras['ema_abs_reward']:.6g}\t{sd_extras['eta']:.6g}"
             f"\t{sd_extras['tau']:.6g}\t{sd_extras['explore_floor']:.6g}"
             f"\t{sd_extras['probs_json']}"
         )
@@ -426,7 +454,8 @@ def _apply_softmax_dirichlet_ctrl(
             ctrl_state["logits"], sim["softmax_tau"], sim["softmax_explore_floor"]
         )
         choice_idx = _epoch_sample(q, sim["epoch_ctrl_seed"], ens_i, epoch_idx)
-        reward = float("nan")
+        raw_reward = float("nan")
+        reward_eff = float("nan")
         eta = float("nan")
     else:
         # Subsequent boundary: update logits from reward, sample next action.
@@ -434,12 +463,13 @@ def _apply_softmax_dirichlet_ctrl(
             ctrl_state["logits"], sim["softmax_tau"], sim["softmax_explore_floor"]
         )
         buf = state.ensemble_epoch_stats.get(ens_i, _empty_stats())
-        reward = _compute_epoch_reward(buf, sim)
+        raw_reward = _compute_epoch_reward(buf, sim)
+        reward_eff = _normalize_reward(raw_reward, ctrl_state, sim)
         uc = ctrl_state["update_count"]
         eta = sim["softmax_eta0"] / (uc + 1) ** sim["softmax_beta"]
         A = ctrl_state["last_choice_idx"]
         new_logits = list(ctrl_state["logits"])
-        new_logits[A] += eta * reward / old_q[A]
+        new_logits[A] += eta * reward_eff / old_q[A]
         ctrl_state["logits"] = new_logits
         ctrl_state["update_count"] = uc + 1
         q = _compute_q(
@@ -464,7 +494,9 @@ def _apply_softmax_dirichlet_ctrl(
         sd_extras=dict(
             choice_idx=choice_idx,
             choice_value=new_n_jumps,
-            reward=reward,
+            reward_raw=raw_reward,
+            reward_eff=reward_eff,
+            ema_abs_reward=ctrl_state.get("ema_abs_reward", 1e-4),
             eta=eta,
             tau=sim["softmax_tau"],
             explore_floor=sim["softmax_explore_floor"],
@@ -886,6 +918,7 @@ def mirror_epoch_ctrl(state, config: dict) -> None:
                 "update_count":    cs["update_count"],
                 "last_choice_idx": cs["last_choice_idx"],
                 "initialized":     cs["initialized"],
+                "ema_abs_reward":  cs.get("ema_abs_reward", 1e-4),
             }
             for i, cs in state.softmax_ctrl_state.items()
         }
