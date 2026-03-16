@@ -352,7 +352,7 @@ class REPEX_state:
             md_items["pnum_old"].append(pnum_old)
 
         # empty / update md_items:
-        for key in ["moves", "trial_len", "trial_op", "generated"]:
+        for key in ["moves", "trial_len", "trial_op", "generated", "epoch_move_meta"]:
             md_items[key] = []
 
         return md_items
@@ -1061,6 +1061,11 @@ class REPEX_state:
                 if j < len(md_items["trial_op"])
                 else (0.0, float("-inf"))
             )
+            move_meta = (
+                md_items["epoch_move_meta"][j]
+                if j < len(md_items.get("epoch_move_meta", []))
+                else {}
+            )
             update_epoch_stats(
                 self,
                 ens_idx,
@@ -1068,6 +1073,7 @@ class REPEX_state:
                 path_length=trial_len,
                 subcycles=md_items["subcycles"],
                 lambda_max=trial_op_j[1],
+                move_meta=move_meta,
             )
 
         apply_epoch_ctrl(self, self.cstep)

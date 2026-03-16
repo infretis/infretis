@@ -113,6 +113,11 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
         md_items["trial_len"].append(trial.length)
         md_items["trial_op"].append((trial.ordermin[0], trial.ordermax[0]))
         md_items["generated"].append(trial.generated)
+        gen = trial.generated
+        if isinstance(gen, tuple) and len(gen) >= 5 and isinstance(gen[-1], dict):
+            md_items["epoch_move_meta"].append(gen[-1])
+        else:
+            md_items["epoch_move_meta"].append({})
         if status == "ACC":
             minus = True if ens_num < 0 else False
             trial.weights = calc_cv_vector(
@@ -591,11 +596,15 @@ def wire_fencing(
     sub_ens["tis_set"]["maxlength"] = ens_set["tis_set"]["maxlength"]
 
     succ_seg = 0
+    wf_subpath_len_sum = 0
+    wf_subpath_n = 0
     for i in range(ens_set["tis_set"].get("n_jumps", 2)):
         logger.debug("Trying a new web with Wire Fencing, jump %i", i)
         success, trial_seg, status = shoot(
             sub_ens, new_segment, engine, start_cond=("L", "R")
         )
+        wf_subpath_len_sum += trial_seg.length
+        wf_subpath_n += 1
         start, end, _, _ = trial_seg.check_interfaces(wf_int)
         logger.info(
             f"Jump {i}, len {trial_seg.length}, status"
@@ -621,7 +630,10 @@ def wire_fencing(
             trial_path, ens_set, engine, start_cond
         )
 
-    trial_path.generated = ("wf", 9000, succ_seg, trial_path.length)
+    trial_path.generated = (
+        "wf", 9000, succ_seg, trial_path.length,
+        {"wf_subpath_len_sum": wf_subpath_len_sum, "wf_subpath_n": wf_subpath_n},
+    )
 
     logger.debug("WF move %s", trial_path.status)
     if not success:

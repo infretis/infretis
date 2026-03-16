@@ -40,7 +40,7 @@ class Path:
         """
         self.maxlen = maxlen
         self.status: str = ""
-        self.generated: Optional[Union[Tuple[str, float, int, int], str]] = (
+        self.generated: Optional[Union[Tuple[str, float, int, int], Tuple[str, float, int, int, dict], str]] = (
             None
         )
         self.path_number = None

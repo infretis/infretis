@@ -145,6 +145,8 @@ def _empty_stats() -> dict:
         "prev_obs":    float("nan"),   # sentinel: not yet initialized
         "gain_sq_sum": 0.0,
         "gain_sq_n":   0,
+        "subpath_len_sum": 0.0,
+        "subpath_n": 0,
     }
 
 
@@ -265,6 +267,8 @@ def _flush_epoch_stats(
     ctrl_reason: str,
     sim: dict,
     sd_extras=None,
+    avg_subpath_length=float("nan"),
+    lp_over_ls_target_value=float("nan"),
 ) -> None:
     """Write one summary row for ensemble ens_i and reset its buffer.
 
@@ -272,6 +276,9 @@ def _flush_epoch_stats(
     fields (choice_idx, choice_value, reward, eta, tau, explore_floor,
     probs_json).  When present, extra columns are appended; old callers
     pass nothing and are unaffected.
+
+    ``avg_subpath_length`` and ``lp_over_ls_target_value`` are written
+    unconditionally into every TSV row (NaN for non-WF or non-lp_ls rows).
     """
     buf = state.ensemble_epoch_stats.get(ens_i, _empty_stats())
     n_att = buf["n_attempted"]
@@ -307,14 +314,16 @@ def _flush_epoch_stats(
         "acc_rate\tavg_path_length\tavg_subcycles\tlambda_max\t"
         "n_jumps_old\tn_jumps_new\t"
         "epoch_mode\tepoch_count\tctrl_mode\tavg_lambda_max\t"
-        "ctrl_action\tctrl_reason"
+        "ctrl_action\tctrl_reason\t"
+        "avg_subpath_length\tlp_over_ls_target_value"
     )
     row = (
         f"{epoch_idx}\t{ens_i:03d}\t{n_att}\t{n_acc}\t"
         f"{acc_rate:.4f}\t{avg_len:.2f}\t{avg_sub:.2f}\t"
         f"{lmax:.6g}\t{old_n_jumps}\t{new_n_jumps}\t"
         f"{epoch_mode}\t{epoch_count}\t{ctrl_mode}\t"
-        f"{avg_lmax:.6g}\t{ctrl_action}\t{ctrl_reason}"
+        f"{avg_lmax:.6g}\t{ctrl_action}\t{ctrl_reason}\t"
+        f"{avg_subpath_length}\t{lp_over_ls_target_value}"
     )
 
     if sd_extras is not None:
@@ -526,10 +535,54 @@ def _apply_softmax_dirichlet_ctrl(
     )
 
 
+def _lp_over_ls_ctrl(state, ens_i: int, epoch_idx: int, sim: dict) -> None:
+    """Compute new n_jumps = round(Lp/Ls) from per-epoch subpath stats."""
+    stats = state.ensemble_epoch_stats.get(ens_i, _empty_stats())
+    old_val = state.ensembles[ens_i]["tis_set"].get("n_jumps", 2)
+    if (
+        stats["path_length_n"] == 0
+        or stats["subpath_n"] == 0
+        or stats["subpath_len_sum"] <= 0
+    ):
+        _flush_epoch_stats(
+            state, ens_i, epoch_idx, old_val, old_val,
+            ctrl_mode="lp_over_ls",
+            ctrl_action="hold",
+            ctrl_reason="missing_subpath_stats",
+            sim=sim,
+            avg_subpath_length=float("nan"),
+            lp_over_ls_target_value=float("nan"),
+        )
+        state.ensemble_epoch_stats[ens_i] = _empty_stats()
+        return
+    avg_path_len = stats["path_length_sum"] / stats["path_length_n"]
+    avg_subpath_len = stats["subpath_len_sum"] / stats["subpath_n"]
+    raw_target = int(math.floor(avg_path_len / avg_subpath_len + 0.5))
+    new_val = max(1, raw_target)
+    _flush_epoch_stats(
+        state, ens_i, epoch_idx, old_val, new_val,
+        ctrl_mode="lp_over_ls",
+        ctrl_action="set" if new_val != old_val else "hold",
+        ctrl_reason="lp_over_ls_rule",
+        sim=sim,
+        avg_subpath_length=avg_subpath_len,
+        lp_over_ls_target_value=raw_target,
+    )
+    state.ensembles[ens_i]["tis_set"]["n_jumps"] = new_val
+    state.ensemble_epoch_stats[ens_i] = _empty_stats()
+    logger.info(
+        "Epoch %d: ensemble %03d n_jumps %s -> %d (lp_over_ls, Lp/Ls=%.2f)",
+        epoch_idx, ens_i, old_val, new_val, avg_path_len / avg_subpath_len,
+    )
+
+
 def _dispatch_ctrl(
     state, ens_i: int, epoch_idx: int, ctrl_mode: str, sim: dict, vals=None
 ) -> None:
     """Dispatch to the appropriate ctrl function for the given mode."""
+    if sim.get("lp_over_ls_target", False):
+        _lp_over_ls_ctrl(state, ens_i, epoch_idx, sim)
+        return
     if ctrl_mode == "scheduled":
         _apply_scheduled_ctrl(state, ens_i, vals, epoch_idx, sim)
     elif ctrl_mode == "adaptive":
@@ -740,6 +793,21 @@ def validate_epoch_ctrl(config: dict, state=None) -> None:
                     "the n_jumps parameter."
                 )
 
+    # lp_over_ls_target validation
+    lp_ls = sim.get("lp_over_ls_target", False)
+    if lp_ls:
+        if not ens_targets:
+            raise ValueError(
+                "lp_over_ls_target=true requires epoch_nsubpath_ens to be set."
+            )
+        for ens_i in ens_targets:
+            ens_move = sh_moves[ens_i] if ens_i < n_sh_moves else None
+            if ens_move != "wf":
+                raise ValueError(
+                    f"lp_over_ls_target=true but ensemble {ens_i} uses move "
+                    f"'{ens_move}'; only 'wf' ensembles are supported (not mwf)."
+                )
+
     # Trigger mode (epoch_mode) validation
     mode = sim.get("epoch_mode", "global_step")
     if mode not in ("global_step", "per_ensemble_moves"):
@@ -784,6 +852,7 @@ def update_epoch_stats(
     path_length: float,
     subcycles: int,
     lambda_max: float,
+    move_meta: dict = None,
 ) -> None:
     """Accumulate one move into the epoch stats buffer for ensemble ens_idx.
 
@@ -797,6 +866,7 @@ def update_epoch_stats(
         path_length: length of the trial path in MD steps.
         subcycles: number of MD subcycles consumed by the move.
         lambda_max: maximum order parameter of the trial path.
+        move_meta: optional dict with move-specific metadata (e.g. WF subpath stats).
     """
     ens_targets = state.config["simulation"].get("epoch_nsubpath_ens", [])
     if ens_idx not in ens_targets:
@@ -813,6 +883,10 @@ def update_epoch_stats(
         buf["lambda_max"] = lambda_max
     buf["lambda_max_sum"] += lambda_max
     buf["lambda_max_n"] += 1
+
+    if move_meta:
+        buf["subpath_len_sum"] += move_meta.get("wf_subpath_len_sum", 0)
+        buf["subpath_n"] += move_meta.get("wf_subpath_n", 0)
 
     proxy = state.config["simulation"].get("reward_proxy")
     if proxy == "empirical_dirichlet_lambda_v1":
@@ -852,8 +926,9 @@ def apply_epoch_ctrl(state, cstep: int) -> None:
     """
     sim = state.config["simulation"]
     ctrl_mode = _infer_ctrl_mode(sim)
+    lp_ls = sim.get("lp_over_ls_target", False)
 
-    if ctrl_mode == "static":
+    if ctrl_mode == "static" and not lp_ls:
         return
 
     ens_targets = sim.get("epoch_nsubpath_ens", [])

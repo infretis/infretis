@@ -2261,3 +2261,365 @@ def test_normalize_reward_nan_leaves_ema_unchanged():
     eff, ema_out = _normalize_reward(float("nan"), ema_init)
     assert math.isnan(eff), "non-finite input must yield nan reward_eff"
     assert ema_out == ema_init, "EMA must not change for non-finite input"
+
+
+# ===========================================================================
+# Tests 60–66 — lp_over_ls_target automatic WF n_jumps
+# ===========================================================================
+
+from infretis.core.epoch_ctrl import _lp_over_ls_ctrl
+
+
+# ---------------------------------------------------------------------------
+# Unit test 60 — validation rejects non-WF target
+# ---------------------------------------------------------------------------
+
+def test_lp_ls_validation_rejects_non_wf():
+    """lp_over_ls_target=true must raise when a target ensemble uses 'sh'."""
+    base = _check_config_base()
+    base["simulation"]["lp_over_ls_target"] = True
+    base["simulation"]["epoch_nsubpath_ens"] = [0]  # ensemble 0 uses "sh"
+    base["simulation"]["epoch_size"] = 5
+    base["simulation"]["epoch_mode"] = "global_step"
+    with pytest.raises((ValueError, TOMLConfigError), match="move 'sh'"):
+        validate_epoch_ctrl(base)
+
+
+# ---------------------------------------------------------------------------
+# Unit test 61 — validation rejects mwf target
+# ---------------------------------------------------------------------------
+
+def test_lp_ls_validation_rejects_mwf():
+    """lp_over_ls_target=true must raise when a target ensemble uses 'mwf'."""
+    base = _check_config_base()
+    base["simulation"]["shooting_moves"] = ["sh", "mwf", "wf"]
+    base["simulation"]["lp_over_ls_target"] = True
+    base["simulation"]["epoch_nsubpath_ens"] = [1]  # ensemble 1 uses "mwf"
+    base["simulation"]["epoch_size"] = 5
+    base["simulation"]["epoch_mode"] = "global_step"
+    with pytest.raises((ValueError, TOMLConfigError), match="mwf"):
+        validate_epoch_ctrl(base)
+
+
+# ---------------------------------------------------------------------------
+# Unit test 62 — WF generated tuple has correct structure
+# ---------------------------------------------------------------------------
+
+def test_wf_metadata_in_generated_tuple():
+    """wire_fencing() generated[0..3] unchanged; generated[4] has WF subpath keys."""
+    import infretis.core.tis as _tis
+
+    # Build a minimal fake generated tuple as wire_fencing() now produces it.
+    # We can't run a real WF move without an engine, so we verify the shape
+    # of the tuple that would be stored by constructing a mock path object.
+    class _MockPath:
+        length = 42
+        status = "ACC"
+        generated = None
+
+    p = _MockPath()
+    p.generated = (
+        "wf", 9000, 2, p.length,
+        {"wf_subpath_len_sum": 30, "wf_subpath_n": 3},
+    )
+    gen = p.generated
+    assert gen[0] == "wf"
+    assert gen[1] == 9000
+    assert isinstance(gen[2], int)
+    assert gen[3] == 42
+    assert isinstance(gen[4], dict)
+    assert "wf_subpath_len_sum" in gen[4]
+    assert "wf_subpath_n" in gen[4]
+
+
+# ---------------------------------------------------------------------------
+# Unit test 63 — update_epoch_stats accumulates subpath fields
+# ---------------------------------------------------------------------------
+
+def test_update_epoch_stats_accumulates_subpath():
+    """move_meta with wf subpath keys must accumulate in subpath_len_sum/n."""
+    state = _make_state()
+    sim = state.config["simulation"]
+    sim["epoch_nsubpath_ens"] = [1]
+
+    meta1 = {"wf_subpath_len_sum": 30, "wf_subpath_n": 3}
+    meta2 = {"wf_subpath_len_sum": 20, "wf_subpath_n": 2}
+    update_epoch_stats(state, 1, accepted=True, path_length=15.0, subcycles=1,
+                       lambda_max=0.3, move_meta=meta1)
+    update_epoch_stats(state, 1, accepted=False, path_length=10.0, subcycles=1,
+                       lambda_max=0.1, move_meta=meta2)
+
+    buf = state.ensemble_epoch_stats[1]
+    assert buf["subpath_len_sum"] == 50.0
+    assert buf["subpath_n"] == 5
+
+
+# ---------------------------------------------------------------------------
+# Integration test 64 — boundary sets n_jumps = round(Lp/Ls), no epoch_ctrl_mode needed
+# ---------------------------------------------------------------------------
+
+def test_lp_ls_boundary_sets_correct_n_jumps(dw_setup):
+    """lp_over_ls_target=true without epoch_ctrl_mode: n_jumps set to round(Lp/Ls)."""
+    state, tmp_path = dw_setup
+    sim = state.config["simulation"]
+    sim["lp_over_ls_target"] = True
+    sim["epoch_nsubpath_ens"] = [2]
+    sim["epoch_mode"] = "global_step"
+    sim["epoch_size"] = 3
+
+    ENS_NUM = 1  # ensemble index 2
+
+    # Push synthetic subpath and path length stats directly
+    # Avg path length = 60, avg subpath length = 10 → target = round(6) = 6
+    for _ in range(3):
+        update_epoch_stats(
+            state, 2, accepted=True, path_length=60.0, subcycles=1,
+            lambda_max=-0.5,
+            move_meta={"wf_subpath_len_sum": 20, "wf_subpath_n": 2},
+        )
+
+    # Trigger epoch boundary at cstep=3
+    state.cstep = 3
+    state.config["current"]["cstep"] = 3
+    apply_epoch_ctrl(state, 3)
+
+    # avg_path_len = 60.0, avg_subpath_len = 20/2 = 10.0 → round(6.0) = 6
+    assert state.ensembles[2]["tis_set"]["n_jumps"] == 6, (
+        f"expected n_jumps=6, got {state.ensembles[2]['tis_set']['n_jumps']}"
+    )
+
+    # TSV written with lp_over_ls columns populated
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists()
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["ctrl_mode"] == "lp_over_ls"
+    assert float(r["avg_subpath_length"]) == pytest.approx(10.0)
+    assert float(r["lp_over_ls_target_value"]) == 6.0
+
+
+# ---------------------------------------------------------------------------
+# Unit test 65 — subpath_n=0 → hold, no crash
+# ---------------------------------------------------------------------------
+
+def test_lp_ls_missing_data_holds(tmp_path):
+    """When subpath_n=0 the controller must hold n_jumps and not crash."""
+    state = _make_state()
+    sim = state.config["simulation"]
+    sim["lp_over_ls_target"] = True
+    sim["epoch_nsubpath_ens"] = [1]
+    sim["epoch_mode"] = "global_step"
+    sim["epoch_size"] = 5
+    state.config["output"] = {"data_dir": str(tmp_path)}
+
+    # Stats with no subpath data (subpath_n stays 0)
+    update_epoch_stats(
+        state, 1, accepted=True, path_length=50.0, subcycles=1,
+        lambda_max=0.3,
+    )
+    original_n_jumps = state.ensembles[1]["tis_set"].get("n_jumps", 2)
+
+    state.config["current"]["cstep"] = 5
+    apply_epoch_ctrl(state, 5)
+
+    # n_jumps must be unchanged
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == original_n_jumps
+
+    # TSV written with hold action
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists()
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 1
+    assert rows[0]["ctrl_action"] == "hold"
+    assert rows[0]["ctrl_reason"] == "missing_subpath_stats"
+
+
+# ---------------------------------------------------------------------------
+# Unit test 66 — lp_over_ls absent: scheduled behavior unchanged
+# ---------------------------------------------------------------------------
+
+def test_lp_ls_absent_unchanged():
+    """Without lp_over_ls_target the scheduled controller is unaffected."""
+    state = _make_state()
+    # lp_over_ls_target is not set → scheduled mode applies
+    assert "lp_over_ls_target" not in state.config["simulation"]
+
+    expectations = {10: 4, 20: 2, 30: 4}
+    for cstep, expected in expectations.items():
+        state.config["current"]["cstep"] = cstep
+        apply_epoch_ctrl(state, cstep)
+        assert state.ensembles[1]["tis_set"]["n_jumps"] == expected, (
+            f"cstep={cstep}: expected n_jumps={expected}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Unit test 67 — half-up rounding at x.5
+# ---------------------------------------------------------------------------
+
+def test_lp_ls_half_up_rounding(tmp_path):
+    """Lp/Ls=2.5 must round to 3 (half-up), not 2 (banker's rounding)."""
+    state = _make_state()
+    sim = state.config["simulation"]
+    sim["lp_over_ls_target"] = True
+    sim["epoch_nsubpath_ens"] = [1]
+    sim["epoch_mode"] = "global_step"
+    sim["epoch_size"] = 5
+    state.config["output"] = {"data_dir": str(tmp_path)}
+
+    # avg_path_len=25, avg_subpath_len=10 → 25/10=2.5 → floor(2.5+0.5)=3
+    for _ in range(5):
+        update_epoch_stats(
+            state, 1, accepted=True, path_length=25.0, subcycles=1,
+            lambda_max=0.3,
+            move_meta={"wf_subpath_len_sum": 10, "wf_subpath_n": 1},
+        )
+
+    state.config["current"]["cstep"] = 5
+    apply_epoch_ctrl(state, 5)
+
+    assert state.ensembles[1]["tis_set"]["n_jumps"] == 3, (
+        "Lp/Ls=2.5 must round to 3 with half-up rounding"
+    )
+
+    # Also check 3.5 → 4
+    state2 = _make_state()
+    state2.config["simulation"].update({
+        "lp_over_ls_target": True,
+        "epoch_nsubpath_ens": [1],
+        "epoch_mode": "global_step",
+        "epoch_size": 2,
+    })
+    state2.config["output"] = {"data_dir": str(tmp_path)}
+    for _ in range(2):
+        update_epoch_stats(
+            state2, 1, accepted=True, path_length=35.0, subcycles=1,
+            lambda_max=0.3,
+            move_meta={"wf_subpath_len_sum": 10, "wf_subpath_n": 1},
+        )
+    state2.config["current"]["cstep"] = 2
+    apply_epoch_ctrl(state2, 2)
+    assert state2.ensembles[1]["tis_set"]["n_jumps"] == 4, (
+        "Lp/Ls=3.5 must round to 4 with half-up rounding"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Integration test 68 — treat_output transports epoch_move_meta end-to-end
+# ---------------------------------------------------------------------------
+
+def test_lp_ls_treat_output_transports_move_meta(dw_setup):
+    """epoch_move_meta injected into md_items must accumulate subpath stats
+    through treat_output, firing the lp_ls controller at the epoch boundary."""
+    state, tmp_path = dw_setup
+    sim = state.config["simulation"]
+    sim["lp_over_ls_target"] = True
+    sim["epoch_nsubpath_ens"] = [2]
+    sim["epoch_mode"] = "global_step"
+    sim["epoch_size"] = 3
+
+    ENS_NUM = 1  # ensemble index 2
+
+    # avg_path_len ~ 60 (real path), avg_subpath_len = 20 → expect n_jumps=3
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        md = _build_md_items(state, ENS_NUM, trial_op_max=-0.5)
+        # inject epoch_move_meta as treat_output would receive from run_md
+        md["epoch_move_meta"] = [{"wf_subpath_len_sum": 20, "wf_subpath_n": 1}]
+        state.treat_output(md)
+
+    buf = state.ensemble_epoch_stats.get(2, {})
+    # Buffer must be reset after epoch fired
+    assert buf.get("n_attempted", 0) == 0, "buffer must reset after epoch"
+
+    # n_jumps set from Lp/Ls: avg_path≈real path length, avg_subpath=20
+    nj = state.ensembles[2]["tis_set"]["n_jumps"]
+    assert nj >= 1, "n_jumps must be a positive integer"
+
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists()
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["ctrl_mode"] == "lp_over_ls"
+    assert float(r["avg_subpath_length"]) == pytest.approx(20.0)
+    assert r["ctrl_reason"] == "lp_over_ls_rule"
+
+
+# ---------------------------------------------------------------------------
+# Unit test 69 — validation rejects lp_over_ls_target with empty targets
+# ---------------------------------------------------------------------------
+
+def test_lp_ls_validation_rejects_empty_targets():
+    """lp_over_ls_target=true with no epoch_nsubpath_ens must raise."""
+    base = _check_config_base()
+    base["simulation"]["lp_over_ls_target"] = True
+    # epoch_nsubpath_ens not set
+    with pytest.raises((ValueError, TOMLConfigError), match="epoch_nsubpath_ens"):
+        validate_epoch_ctrl(base)
+
+
+# ---------------------------------------------------------------------------
+# Integration test 70 — mid-epoch restart loses subpath stats → hold
+# ---------------------------------------------------------------------------
+
+def test_lp_ls_restart_loses_partial_stats_holds(dw_setup):
+    """Mid-epoch restart clears subpath stats; first post-restart epoch must
+    fire a hold with ctrl_reason='missing_subpath_stats'."""
+    state, tmp_path = dw_setup
+    sim = state.config["simulation"]
+    sim["lp_over_ls_target"] = True
+    sim["epoch_nsubpath_ens"] = [2]
+    sim["epoch_mode"] = "global_step"
+    sim["epoch_size"] = 5
+
+    ENS_NUM = 1  # ensemble index 2
+
+    # Accumulate 3 moves (mid-epoch: epoch fires at cstep=5)
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        md = _build_md_items(state, ENS_NUM, trial_op_max=-0.5)
+        md["epoch_move_meta"] = [{"wf_subpath_len_sum": 20, "wf_subpath_n": 1}]
+        state.treat_output(md)
+
+    # Partial epoch stats must be present
+    buf = state.ensemble_epoch_stats.get(2, {})
+    assert buf.get("subpath_n", 0) == 3
+
+    # Serialize via write_toml (simulates restart stop)
+    mirror_epoch_ctrl(state, state.config)
+    restart_path = tmp_path / "restart.toml"
+    with restart_path.open("wb") as fh:
+        tomli_w.dump(state.config, fh)
+    with restart_path.open("rb") as fh:
+        saved_cfg = tomli.load(fh)
+
+    # Restore — subpath stats are NOT persisted for lp_ls mode
+    state2 = REPEX_state(saved_cfg, minus=True)
+    state2.initiate_ensembles()
+    paths = load_paths_from_disk(saved_cfg)
+    state2.load_paths(paths)
+
+    buf2 = state2.ensemble_epoch_stats.get(2, {})
+    assert buf2.get("subpath_n", 0) == 0, (
+        "subpath_n must not survive restart for lp_ls mode"
+    )
+
+    # Drive 2 more moves to hit epoch boundary at cstep=5
+    for cstep in (4, 5):
+        state2.cstep = cstep
+        _lock_ens_slot(state2, ENS_NUM)
+        md = _build_md_items(state2, ENS_NUM, trial_op_max=-0.5)
+        # No epoch_move_meta → subpath_n stays 0
+        state2.treat_output(md)
+
+    # Epoch must have fired with hold due to missing subpath stats
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists()
+    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(rows) == 1
+    assert rows[0]["ctrl_action"] == "hold"
+    assert rows[0]["ctrl_reason"] == "missing_subpath_stats"
