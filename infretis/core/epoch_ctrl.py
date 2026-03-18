@@ -64,8 +64,6 @@ _SOFTMAX_KEYS = (
     "softmax_explore_floor",
     "softmax_init",
     "reward_proxy",
-    "reward_eps_gain",
-    "reward_eps_cost",
     "epoch_ctrl_seed",
 )
 
@@ -142,7 +140,6 @@ def _empty_stats() -> dict:
         "lambda_max": float("-inf"),
         "lambda_max_sum": 0.0,
         "lambda_max_n": 0,
-        "prev_obs":    float("nan"),   # sentinel: not yet initialized
         "gain_sq_sum": 0.0,
         "gain_sq_n":   0,
         "subpath_len_sum": 0.0,
@@ -188,6 +185,8 @@ def _init_softmax_ctrl_state(choices, current_n_jumps, sim: dict) -> dict:
         "last_choice_idx": None,
         "initialized": False,
         "ema_abs_reward": 1e-4,   # conservative init; updated each boundary
+        "reward_ema": float("nan"),  # per-ensemble EMA baseline; nan until first finite reward
+        "last_obs": float("nan"),   # persistent realized observable; survives epoch boundaries
     }
 
 
@@ -230,24 +229,31 @@ def _normalize_reward(
 def _compute_epoch_reward(buf: dict, sim: dict) -> float:
     """Compute reward proxy for one completed epoch buffer.
 
-    Dispatches on ``sim["reward_proxy"]``.  Guaranteed strictly positive.
+    Dispatches on ``sim["reward_proxy"]``.
+
+    For ``empirical_dirichlet_lambda_v1``: returns ``nan`` when
+    ``gain_sq_n < reward_min_gain_count`` (default 1); otherwise
+    returns ``gain_sq_sum / (subcycles_sum + reward_cost_offset)``.
+
+    For ``lambda_vs_subcycles_v1``: returns strictly positive value.
     """
-    proxy    = sim.get("reward_proxy", "lambda_vs_subcycles_v1")
-    eps_gain = sim.get("reward_eps_gain", 1e-12)
-    eps_cost = sim.get("reward_eps_cost", 1e-12)
-    avg_sub  = (
-        buf["subcycles_sum"] / buf["subcycles_n"]
-        if buf["subcycles_n"] > 0
-        else 1.0
-    )
+    proxy = sim.get("reward_proxy", "lambda_vs_subcycles_v1")
     if proxy == "empirical_dirichlet_lambda_v1":
-        gain = (
-            buf.get("gain_sq_sum", 0.0) / buf["gain_sq_n"]
-            if buf.get("gain_sq_n", 0) > 0
-            else 0.0
-        )
-        return (gain + eps_gain) / (avg_sub + eps_cost)
+        min_count = int(sim.get("reward_min_gain_count", 1))
+        if buf.get("gain_sq_n", 0) < min_count:
+            return float("nan")
+        total_gain = buf.get("gain_sq_sum", 0.0)
+        total_cost = buf.get("subcycles_sum", 0)
+        cost_offset = float(sim.get("reward_cost_offset", 1e-12))
+        return total_gain / (total_cost + cost_offset)
     else:  # lambda_vs_subcycles_v1 — existing behaviour unchanged
+        eps_gain = sim.get("reward_eps_gain", 1e-12)
+        eps_cost = sim.get("reward_eps_cost", 1e-12)
+        avg_sub = (
+            buf["subcycles_sum"] / buf["subcycles_n"]
+            if buf["subcycles_n"] > 0
+            else 1.0
+        )
         avg_lmax = (
             buf["lambda_max_sum"] / buf["lambda_max_n"]
             if buf["lambda_max_n"] > 0
@@ -327,13 +333,16 @@ def _flush_epoch_stats(
     )
 
     if sd_extras is not None:
+        reward_ema_fmt = float(sd_extras.get("reward_ema", float("nan")))
         header += (
-            "\tchoice_idx\tchoice_value\treward_raw\treward_eff\tema_abs_reward\teta"
-            "\ttau\texplore_floor\tprobs_json"
+            "\tchoice_idx\tchoice_value\treward_raw\treward_centered\treward_eff"
+            "\treward_ema\tema_abs_reward\teta\ttau\texplore_floor\tprobs_json"
         )
         row += (
             f"\t{sd_extras['choice_idx']}\t{sd_extras['choice_value']}"
-            f"\t{sd_extras['reward_raw']:.6g}\t{sd_extras['reward_eff']:.6g}"
+            f"\t{sd_extras['reward_raw']:.6g}\t{sd_extras['reward_centered']:.6g}"
+            f"\t{sd_extras['reward_eff']:.6g}"
+            f"\t{reward_ema_fmt:.6g}"
             f"\t{sd_extras['ema_abs_reward']:.6g}\t{sd_extras['eta']:.6g}"
             f"\t{sd_extras['tau']:.6g}\t{sd_extras['explore_floor']:.6g}"
             f"\t{sd_extras['probs_json']}"
@@ -474,29 +483,61 @@ def _apply_softmax_dirichlet_ctrl(
         )
         choice_idx = _epoch_sample(q, sim["epoch_ctrl_seed"], ens_i, epoch_idx)
         raw_reward = float("nan")
+        reward_centered = float("nan")
         reward_eff = float("nan")
         eta = float("nan")
     else:
-        # Subsequent boundary: update logits from reward, sample next action.
+        # Subsequent boundary: center reward on EMA baseline, then update logits.
         old_q = _compute_q(
             ctrl_state["logits"], sim["softmax_tau"], sim["softmax_explore_floor"]
         )
         buf = state.ensemble_epoch_stats.get(ens_i, _empty_stats())
         raw_reward = _compute_epoch_reward(buf, sim)
-        reward_eff, ctrl_state["ema_abs_reward"] = _normalize_reward(
-            raw_reward,
-            float(ctrl_state.get("ema_abs_reward", 1e-4)),
-            rho=float(sim.get("softmax_reward_ema_rho",   0.1)),
-            floor=float(sim.get("softmax_reward_ema_floor", 1e-6)),
-            rclip=float(sim.get("softmax_reward_eff_clip",  5.0)),
-        )
-        uc = ctrl_state["update_count"]
-        eta = sim["softmax_eta0"] / (uc + 1) ** sim["softmax_beta"]
-        A = ctrl_state["last_choice_idx"]
-        new_logits = list(ctrl_state["logits"])
-        new_logits[A] += eta * reward_eff / old_q[A]
-        ctrl_state["logits"] = new_logits
-        ctrl_state["update_count"] = uc + 1
+        alpha = float(sim.get("reward_ema_alpha", 0.1))
+        ema_prev = ctrl_state.get("reward_ema", float("nan"))
+
+        if not np.isfinite(raw_reward):
+            # Case 1: non-finite — no centering, no EMA update, no softmax update.
+            reward_centered = float("nan")
+            reward_eff = float("nan")
+            eta = float("nan")
+
+        elif not np.isfinite(ema_prev):
+            # Case 2: first finite reward — initialize baseline, skip logit update.
+            ctrl_state["reward_ema"] = raw_reward
+            reward_centered = float("nan")
+            reward_eff = 0.0
+            eta = float("nan")
+
+        else:
+            # Case 3: subsequent finite reward — center, normalize, full logit update.
+            reward_centered = raw_reward - ema_prev
+            reward_eff, ctrl_state["ema_abs_reward"] = _normalize_reward(
+                reward_centered,
+                float(ctrl_state.get("ema_abs_reward", 1e-4)),
+                rho=float(sim.get("softmax_reward_ema_rho",   0.1)),
+                floor=float(sim.get("softmax_reward_ema_floor", 1e-6)),
+                rclip=float(sim.get("softmax_reward_eff_clip",  5.0)),
+            )
+            uc = ctrl_state["update_count"]
+            eta = sim["softmax_eta0"] / (uc + 1) ** sim["softmax_beta"]
+            A = ctrl_state["last_choice_idx"]
+            new_logits = list(ctrl_state["logits"])
+
+            # Clip IW update term to prevent runaway updates from tiny q values
+            update_clip = float(sim.get("softmax_update_clip", 5.0))
+            update_term = float(np.clip(reward_eff / old_q[A], -update_clip, update_clip))
+            new_logits[A] += eta * update_term
+
+            # Box-clip all logits for numerical stability
+            logit_clip = float(sim.get("softmax_logit_clip", 20.0))
+            new_logits = [float(np.clip(v, -logit_clip, logit_clip)) for v in new_logits]
+
+            ctrl_state["logits"] = new_logits
+            ctrl_state["update_count"] = uc + 1
+            # EMA updated AFTER reward_eff is computed, using raw (uncentered) value
+            ctrl_state["reward_ema"] = (1.0 - alpha) * ema_prev + alpha * raw_reward
+
         q = _compute_q(
             ctrl_state["logits"], sim["softmax_tau"], sim["softmax_explore_floor"]
         )
@@ -520,7 +561,9 @@ def _apply_softmax_dirichlet_ctrl(
             choice_idx=choice_idx,
             choice_value=new_n_jumps,
             reward_raw=raw_reward,
+            reward_centered=reward_centered,
             reward_eff=reward_eff,
+            reward_ema=ctrl_state.get("reward_ema", float("nan")),
             ema_abs_reward=ctrl_state.get("ema_abs_reward", 1e-4),
             eta=eta,
             tau=sim["softmax_tau"],
@@ -714,10 +757,15 @@ def validate_epoch_ctrl(config: dict, state=None) -> None:
                 raise ValueError(
                     f"epoch_nsubpath_choices[{idx}] must be non-empty."
                 )
-            if any(int(v) < 1 for v in choices):
+            int_choices = [int(v) for v in choices]
+            if any(v < 1 for v in int_choices):
                 raise ValueError(
                     f"epoch_nsubpath_choices[{idx}] must contain only "
                     "integers >= 1."
+                )
+            if len(set(int_choices)) != len(int_choices):
+                raise ValueError(
+                    f"epoch_nsubpath_choices[{idx}] must have pairwise distinct values."
                 )
         for ens_i in ens_targets:
             if not (0 <= ens_i < n_ens):
@@ -742,9 +790,9 @@ def validate_epoch_ctrl(config: dict, state=None) -> None:
         if sim["softmax_tau"] <= 0:
             raise ValueError("softmax_tau must be > 0.")
         eps = sim["softmax_explore_floor"]
-        if not (0 <= eps < 1):
+        if not (0 < eps < 1):
             raise ValueError(
-                "softmax_explore_floor must satisfy 0 <= eps < 1."
+                "softmax_explore_floor must satisfy 0 < eps < 1."
             )
         if sim["softmax_init"] not in ("uniform", "current"):
             raise ValueError(
@@ -776,6 +824,34 @@ def validate_epoch_ctrl(config: dict, state=None) -> None:
                 "epoch_move_k must be set when "
                 "epoch_ctrl_mode='softmax_dirichlet'."
             )
+        alpha = sim.get("reward_ema_alpha", 0.1)
+        if not (0 < alpha <= 1):
+            raise ValueError(
+                f"reward_ema_alpha must be in (0, 1], got {alpha}"
+            )
+        # New optional keys — only validate if explicitly set (all have safe defaults)
+        min_count = sim.get("reward_min_gain_count", 1)
+        if int(min_count) < 1:
+            raise ValueError("reward_min_gain_count must be >= 1.")
+        cost_offset = sim.get("reward_cost_offset", 1e-12)
+        if float(cost_offset) <= 0:
+            raise ValueError("reward_cost_offset must be > 0.")
+        update_clip = sim.get("softmax_update_clip", 5.0)
+        if float(update_clip) <= 0:
+            raise ValueError("softmax_update_clip must be > 0.")
+        logit_clip = sim.get("softmax_logit_clip", 20.0)
+        if float(logit_clip) <= 0:
+            raise ValueError("softmax_logit_clip must be > 0.")
+        # Validate optional EMA/normalization keys if explicitly set
+        rho = sim.get("softmax_reward_ema_rho", 0.1)
+        if not (0 < float(rho) <= 1):
+            raise ValueError("softmax_reward_ema_rho must be in (0, 1].")
+        floor_val = sim.get("softmax_reward_ema_floor", 1e-6)
+        if float(floor_val) <= 0:
+            raise ValueError("softmax_reward_ema_floor must be > 0.")
+        eff_clip = sim.get("softmax_reward_eff_clip", 5.0)
+        if float(eff_clip) <= 0:
+            raise ValueError("softmax_reward_eff_clip must be > 0.")
 
     # Validate ensemble indices and move types for scheduled/adaptive
     if ctrl_mode in ("scheduled", "adaptive"):
@@ -890,21 +966,26 @@ def update_epoch_stats(
 
     proxy = state.config["simulation"].get("reward_proxy")
     if proxy == "empirical_dirichlet_lambda_v1":
-        lambda_i, lambda_upper = _obs_bounds_for_ensemble(state, ens_idx)
-        curr_obs = (
-            _bounded_lambda_obs(lambda_max, lambda_i, lambda_upper)
-            if accepted
-            else buf.get("prev_obs", float("nan"))    # rejected: realized state unchanged
-        )
-        prev = buf.get("prev_obs", float("nan"))
-        if math.isnan(prev):
-            if not math.isnan(curr_obs):              # first accepted move → initialise
-                buf["prev_obs"] = curr_obs
-        else:
-            delta = curr_obs - prev
-            buf["gain_sq_sum"] = buf.get("gain_sq_sum", 0.0) + delta * delta
-            buf["gain_sq_n"]   = buf.get("gain_sq_n", 0) + 1
-            buf["prev_obs"]    = curr_obs
+        ctrl_state = state.softmax_ctrl_state.get(ens_idx)
+        if ctrl_state is not None:   # skip empirical block before ctrl is initialized
+            lambda_i, lambda_upper = _obs_bounds_for_ensemble(state, ens_idx)
+            prev_obs = ctrl_state.get("last_obs", float("nan"))
+
+            if accepted:
+                curr_obs = _bounded_lambda_obs(lambda_max, lambda_i, lambda_upper)
+            else:
+                curr_obs = prev_obs   # rejected: realized state unchanged
+
+            if math.isnan(prev_obs):
+                if not math.isnan(curr_obs):
+                    # First informative move: initialize last_obs, no gain added
+                    ctrl_state["last_obs"] = curr_obs
+            else:
+                # Both prev and curr finite: accumulate squared delta
+                delta = curr_obs - prev_obs
+                buf["gain_sq_sum"] = buf.get("gain_sq_sum", 0.0) + delta * delta
+                buf["gain_sq_n"]   = buf.get("gain_sq_n", 0) + 1
+                ctrl_state["last_obs"] = curr_obs
 
 
 def apply_epoch_ctrl(state, cstep: int) -> None:
@@ -1010,6 +1091,8 @@ def mirror_epoch_ctrl(state, config: dict) -> None:
                 "last_choice_idx": cs["last_choice_idx"],
                 "initialized":     cs["initialized"],
                 "ema_abs_reward":  cs.get("ema_abs_reward", 1e-4),
+                "reward_ema":      cs.get("reward_ema", float("nan")),
+                "last_obs":        cs.get("last_obs", float("nan")),
             }
             for i, cs in state.softmax_ctrl_state.items()
         }
