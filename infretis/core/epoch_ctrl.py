@@ -46,6 +46,24 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 _EPOCH_SUMMARY_FNAME = "epoch_summary.tsv"
+_EPOCH_SOFTMAX_DEBUG_FNAME = "epoch_softmax_debug.tsv"
+
+# Public stable schema — base columns, always present in every run
+_EPOCH_SUMMARY_COLS = (
+    "epoch_idx", "ens_name", "n_attempted", "n_accepted", "acc_rate",
+    "avg_path_length", "avg_subcycles", "avg_lambda_max",
+    "n_jumps_old", "n_jumps_new", "ctrl_action", "ctrl_reason",
+)
+# Run-schema extension: added to _EPOCH_SUMMARY_COLS for the whole run
+# when the simulation uses the lp_over_ls controller for any ensemble
+_EPOCH_SUMMARY_LPLSCOLS = ("avg_subpath_length", "lp_over_ls_target_value")
+
+# Softmax internal debug — written to separate file only
+_EPOCH_SOFTMAX_DEBUG_COLS = (
+    "epoch_idx", "ens_name", "n_jumps_old", "n_jumps_new",
+    "choice_idx", "reward_raw", "reward_centered", "reward_eff",
+    "reward_ema", "ema_abs_reward", "eta", "probs_json",
+)
 
 _ADAPTIVE_KEYS = (
     "adaptive_nsubpath_min",
@@ -147,12 +165,33 @@ def _empty_stats() -> dict:
     }
 
 
-def _append_epoch_tsv(path: str, header: str, row: str) -> None:
+def _append_tsv(path: str, cols: tuple, row: dict) -> None:
+    """Append one row to a TSV file; write header on first call.
+
+    If the file already exists, validates that its first line matches the
+    expected header exactly.  Raises ValueError on a schema mismatch so
+    that old-schema and new-schema rows are never silently mixed.
+    """
     newfile = not os.path.exists(path)
+    if not newfile:
+        expected_header = "\t".join(cols)
+        with open(path, "r", encoding="utf-8") as fh:
+            existing_header = fh.readline().rstrip("\n")
+        if existing_header != expected_header:
+            raise ValueError(
+                f"TSV schema mismatch in '{path}':\n"
+                f"  existing header: {existing_header!r}\n"
+                f"  expected header: {expected_header!r}\n"
+                "Delete or rename the old file before resuming with the new schema."
+            )
     with open(path, "a", encoding="utf-8") as fh:
         if newfile:
-            fh.write(header.rstrip("\n") + "\n")
-        fh.write(row.rstrip("\n") + "\n")
+            fh.write("\t".join(cols) + "\n")
+        fh.write("\t".join(str(row[c]) for c in cols) + "\n")
+
+
+def _lp_ls_active(sim: dict) -> bool:
+    return bool(sim.get("lp_over_ls_target", False))
 
 
 def _init_softmax_ctrl_state(choices, current_n_jumps, sim: dict) -> dict:
@@ -268,24 +307,13 @@ def _flush_epoch_stats(
     epoch_idx: int,
     old_n_jumps,
     new_n_jumps: int,
-    ctrl_mode: str,
     ctrl_action: str,
     ctrl_reason: str,
     sim: dict,
-    sd_extras=None,
     avg_subpath_length=float("nan"),
     lp_over_ls_target_value=float("nan"),
 ) -> None:
-    """Write one summary row for ensemble ens_i and reset its buffer.
-
-    ``sd_extras`` is an optional dict with softmax_dirichlet-specific
-    fields (choice_idx, choice_value, reward, eta, tau, explore_floor,
-    probs_json).  When present, extra columns are appended; old callers
-    pass nothing and are unaffected.
-
-    ``avg_subpath_length`` and ``lp_over_ls_target_value`` are written
-    unconditionally into every TSV row (NaN for non-WF or non-lp_ls rows).
-    """
+    """Write one public summary row for ensemble ens_i and reset its buffer."""
     buf = state.ensemble_epoch_stats.get(ens_i, _empty_stats())
     n_att = buf["n_attempted"]
     n_acc = buf["n_accepted"]
@@ -300,11 +328,6 @@ def _flush_epoch_stats(
         if buf["subcycles_n"] > 0
         else float("nan")
     )
-    lmax = (
-        buf["lambda_max"]
-        if buf["lambda_max"] != float("-inf")
-        else float("nan")
-    )
     lmax_n = buf.get("lambda_max_n", 0)
     avg_lmax = (
         buf.get("lambda_max_sum", 0.0) / lmax_n
@@ -312,47 +335,53 @@ def _flush_epoch_stats(
         else float("nan")
     )
 
-    epoch_mode = sim.get("epoch_mode", "global_step")
-    epoch_count = sim.get("epoch_count", "attempted")
+    row = {
+        "epoch_idx": epoch_idx,
+        "ens_name": f"{ens_i:03d}",
+        "n_attempted": n_att,
+        "n_accepted": n_acc,
+        "acc_rate": f"{acc_rate:.4f}",
+        "avg_path_length": f"{avg_len:.2f}",
+        "avg_subcycles": f"{avg_sub:.2f}",
+        "avg_lambda_max": f"{avg_lmax:.6g}",
+        "n_jumps_old": old_n_jumps,
+        "n_jumps_new": new_n_jumps,
+        "ctrl_action": ctrl_action,
+        "ctrl_reason": ctrl_reason,
+        "avg_subpath_length": avg_subpath_length,
+        "lp_over_ls_target_value": lp_over_ls_target_value,
+    }
 
-    header = (
-        "epoch_idx\tens_name\tn_attempted\tn_accepted\t"
-        "acc_rate\tavg_path_length\tavg_subcycles\tlambda_max\t"
-        "n_jumps_old\tn_jumps_new\t"
-        "epoch_mode\tepoch_count\tctrl_mode\tavg_lambda_max\t"
-        "ctrl_action\tctrl_reason\t"
-        "avg_subpath_length\tlp_over_ls_target_value"
-    )
-    row = (
-        f"{epoch_idx}\t{ens_i:03d}\t{n_att}\t{n_acc}\t"
-        f"{acc_rate:.4f}\t{avg_len:.2f}\t{avg_sub:.2f}\t"
-        f"{lmax:.6g}\t{old_n_jumps}\t{new_n_jumps}\t"
-        f"{epoch_mode}\t{epoch_count}\t{ctrl_mode}\t"
-        f"{avg_lmax:.6g}\t{ctrl_action}\t{ctrl_reason}\t"
-        f"{avg_subpath_length}\t{lp_over_ls_target_value}"
-    )
-
-    if sd_extras is not None:
-        reward_ema_fmt = float(sd_extras.get("reward_ema", float("nan")))
-        header += (
-            "\tchoice_idx\tchoice_value\treward_raw\treward_centered\treward_eff"
-            "\treward_ema\tema_abs_reward\teta\ttau\texplore_floor\tprobs_json"
-        )
-        row += (
-            f"\t{sd_extras['choice_idx']}\t{sd_extras['choice_value']}"
-            f"\t{sd_extras['reward_raw']:.6g}\t{sd_extras['reward_centered']:.6g}"
-            f"\t{sd_extras['reward_eff']:.6g}"
-            f"\t{reward_ema_fmt:.6g}"
-            f"\t{sd_extras['ema_abs_reward']:.6g}\t{sd_extras['eta']:.6g}"
-            f"\t{sd_extras['tau']:.6g}\t{sd_extras['explore_floor']:.6g}"
-            f"\t{sd_extras['probs_json']}"
-        )
+    active_cols = _EPOCH_SUMMARY_COLS
+    if _lp_ls_active(sim):
+        active_cols = _EPOCH_SUMMARY_COLS + _EPOCH_SUMMARY_LPLSCOLS
 
     out_dir = state.config.get("output", {}).get("data_dir", ".")
-    _append_epoch_tsv(
-        os.path.join(out_dir, _EPOCH_SUMMARY_FNAME), header, row
-    )
+    _append_tsv(os.path.join(out_dir, _EPOCH_SUMMARY_FNAME), active_cols, row)
     state.ensemble_epoch_stats[ens_i] = _empty_stats()
+
+
+def _flush_softmax_debug(state, ens_i: int, epoch_idx: int, sd_extras: dict) -> None:
+    """Write one softmax debug row to epoch_softmax_debug.tsv."""
+    row = {
+        "epoch_idx": epoch_idx,
+        "ens_name": f"{ens_i:03d}",
+        "n_jumps_old": sd_extras["n_jumps_old"],
+        "n_jumps_new": sd_extras["n_jumps_new"],
+        "choice_idx": sd_extras["choice_idx"],
+        "reward_raw": f"{sd_extras['reward_raw']:.6g}",
+        "reward_centered": f"{sd_extras['reward_centered']:.6g}",
+        "reward_eff": f"{sd_extras['reward_eff']:.6g}",
+        "reward_ema": f"{float(sd_extras.get('reward_ema', float('nan'))):.6g}",
+        "ema_abs_reward": f"{sd_extras['ema_abs_reward']:.6g}",
+        "eta": f"{sd_extras['eta']:.6g}",
+        "probs_json": sd_extras["probs_json"],
+    }
+    out_dir = state.config.get("output", {}).get("data_dir", ".")
+    _append_tsv(
+        os.path.join(out_dir, _EPOCH_SOFTMAX_DEBUG_FNAME),
+        _EPOCH_SOFTMAX_DEBUG_COLS, row,
+    )
 
 
 def _infer_ctrl_mode(sim: dict) -> str:
@@ -420,7 +449,6 @@ def _apply_scheduled_ctrl(
         old_val = state.ensembles[ens_i]["tis_set"].get("n_jumps")
         _flush_epoch_stats(
             state, ens_i, epoch_idx, old_val, new_val,
-            ctrl_mode="scheduled",
             ctrl_action="set",
             ctrl_reason="scheduled_epoch_value",
             sim=sim,
@@ -444,7 +472,6 @@ def _apply_adaptive_ctrl(
     )
     _flush_epoch_stats(
         state, ens_i, epoch_idx, old_val, new_val,
-        ctrl_mode="adaptive",
         ctrl_action=ctrl_action,
         ctrl_reason=ctrl_reason,
         sim=sim,
@@ -553,21 +580,22 @@ def _apply_softmax_dirichlet_ctrl(
 
     _flush_epoch_stats(
         state, ens_i, epoch_idx, old_n_jumps, new_n_jumps,
-        ctrl_mode="softmax_dirichlet",
         ctrl_action=action,
         ctrl_reason="softmax_dirichlet_epoch_update",
         sim=sim,
+    )
+    _flush_softmax_debug(
+        state, ens_i, epoch_idx,
         sd_extras=dict(
+            n_jumps_old=old_n_jumps,
+            n_jumps_new=new_n_jumps,
             choice_idx=choice_idx,
-            choice_value=new_n_jumps,
             reward_raw=raw_reward,
             reward_centered=reward_centered,
             reward_eff=reward_eff,
             reward_ema=ctrl_state.get("reward_ema", float("nan")),
             ema_abs_reward=ctrl_state.get("ema_abs_reward", 1e-4),
             eta=eta,
-            tau=sim["softmax_tau"],
-            explore_floor=sim["softmax_explore_floor"],
             probs_json=json.dumps([round(float(x), 6) for x in q]),
         ),
     )
@@ -589,14 +617,12 @@ def _lp_over_ls_ctrl(state, ens_i: int, epoch_idx: int, sim: dict) -> None:
     ):
         _flush_epoch_stats(
             state, ens_i, epoch_idx, old_val, old_val,
-            ctrl_mode="lp_over_ls",
             ctrl_action="hold",
             ctrl_reason="missing_subpath_stats",
             sim=sim,
             avg_subpath_length=float("nan"),
             lp_over_ls_target_value=float("nan"),
         )
-        state.ensemble_epoch_stats[ens_i] = _empty_stats()
         return
     avg_path_len = stats["path_length_sum"] / stats["path_length_n"]
     avg_subpath_len = stats["subpath_len_sum"] / stats["subpath_n"]
@@ -604,7 +630,6 @@ def _lp_over_ls_ctrl(state, ens_i: int, epoch_idx: int, sim: dict) -> None:
     new_val = max(1, raw_target)
     _flush_epoch_stats(
         state, ens_i, epoch_idx, old_val, new_val,
-        ctrl_mode="lp_over_ls",
         ctrl_action="set" if new_val != old_val else "hold",
         ctrl_reason="lp_over_ls_rule",
         sim=sim,
@@ -612,7 +637,6 @@ def _lp_over_ls_ctrl(state, ens_i: int, epoch_idx: int, sim: dict) -> None:
         lp_over_ls_target_value=raw_target,
     )
     state.ensembles[ens_i]["tis_set"]["n_jumps"] = new_val
-    state.ensemble_epoch_stats[ens_i] = _empty_stats()
     logger.info(
         "Epoch %d: ensemble %03d n_jumps %s -> %d (lp_over_ls, Lp/Ls=%.2f)",
         epoch_idx, ens_i, old_val, new_val, avg_path_len / avg_subpath_len,
@@ -649,6 +673,19 @@ def validate_epoch_ctrl(config: dict, state=None) -> None:
         ValueError: on any configuration inconsistency.
     """
     sim = config["simulation"]
+
+    # Apply defaults before validation so downstream code can rely on them
+    sim.setdefault("epoch_mode", "global_step")
+    sim.setdefault("epoch_count", "attempted")
+    sim.setdefault("reward_ema_alpha", 0.1)
+    sim.setdefault("reward_min_gain_count", 1)
+    sim.setdefault("reward_cost_offset", 1e-12)
+    sim.setdefault("softmax_update_clip", 5.0)
+    sim.setdefault("softmax_logit_clip", 20.0)
+    sim.setdefault("softmax_reward_ema_rho", 0.1)
+    sim.setdefault("softmax_reward_ema_floor", 1e-6)
+    sim.setdefault("softmax_reward_eff_clip", 5.0)
+
     n_ens = len(sim["interfaces"])
     sh_moves = sim["shooting_moves"]
     n_sh_moves = len(sh_moves)
