@@ -300,16 +300,22 @@ def multires_wire_fencing(
                     break
 
         # Step 12: Evaluate set
+        effective_succ_sets = succ_sets
+        effective_last_acc_si = last_acc_si
+        if not set_rejected:
+            effective_succ_sets += 1
+            effective_last_acc_si = si.copy()
+
         if countset == mwf.nsubset:
             # Check if no successful subpaths or sets were generated (like WF succ_seg == 0 check)
-            if total_succ_subpaths == 0 or succ_sets == 0:
+            if total_succ_subpaths == 0 or effective_succ_sets == 0:
                 logger.info(
-                    f"MWF move rejected: {succ_sets}/{mwf.nsubset} sets completed, {total_succ_subpaths} total subpaths accepted"
+                    f"MWF move rejected: {effective_succ_sets}/{mwf.nsubset} sets completed, {total_succ_subpaths} total subpaths accepted"
                 )
                 trial_path.status = "NSG"
                 return False, trial_path, trial_path.status
 
-            path_to_extend = last_acc_si
+            path_to_extend = effective_last_acc_si
             logger.info(
                 f"Extending last accepted lowres subpath: length={path_to_extend.length}, ordermax={path_to_extend.ordermax[0]:.6f}"
             )
@@ -323,12 +329,17 @@ def multires_wire_fencing(
             success, accepted = subt_acceptance(
                 full_path, ens_set, engine, start_cond
             )
-            accepted.generated = ("mwf", 9001, succ_sets, accepted.length)
+            accepted.generated = (
+                "mwf",
+                9001,
+                effective_succ_sets,
+                accepted.length,
+            )
             if not success:
                 return False, accepted, accepted.status
 
             logger.info(
-                f"MWF move accepted: {succ_sets}/{mwf.nsubset} sets completed, {total_succ_subpaths} total subpaths accepted, final path length={accepted.length}"
+                f"MWF move accepted: {effective_succ_sets}/{mwf.nsubset} sets completed, {total_succ_subpaths} total subpaths accepted, final path length={accepted.length}"
             )
             return True, accepted, accepted.status
 
