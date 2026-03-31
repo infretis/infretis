@@ -56,13 +56,6 @@ def change_toml_steps(inp, steps):
         tomli_w.dump(config, f)
 
 
-def rm_restarted_from(inp):
-    with open(inp, mode="rb") as f:
-        config = tomli.load(f)
-        config["current"].pop("restarted_from")
-    with open(inp, "wb") as f:
-        tomli_w.dump(config, f)
-
 
 @pytest.mark.heavy
 def test_run_airetis_wf(tmp_path: PosixPath) -> None:
@@ -90,7 +83,6 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     change_toml_steps("restart.toml", 20)
     isnone = internalrun("restart.toml")
     assert isnone is None
-    rm_restarted_from("restart.toml")
 
     # compare
     items = ["infretis_data.txt", "restart.toml"]
@@ -100,7 +92,6 @@ def test_run_airetis_wf(tmp_path: PosixPath) -> None:
     change_toml_steps("restart.toml", 30)
     isnone = internalrun("restart.toml")
     assert isnone is None
-    rm_restarted_from("restart.toml")
 
     # compare
     items = ["infretis_data.txt", "restart.toml"]

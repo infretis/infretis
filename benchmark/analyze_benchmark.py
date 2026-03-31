@@ -21,6 +21,7 @@ import csv
 import math
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -120,15 +121,12 @@ def _parse_timing(path):
 
 def _parse_epoch_summary(path):
     """Parse epoch_summary.tsv.  Returns list of dicts (one per row)."""
-    rows = []
+    from infretis.tools._io import read_epoch_summary_rows
     try:
-        with open(path, newline="") as fh:
-            reader = csv.DictReader(fh, delimiter="\t")
-            for row in reader:
-                rows.append(dict(row))
+        rows, _ = read_epoch_summary_rows(Path(path))
+        return rows
     except FileNotFoundError:
-        pass
-    return rows
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -426,7 +424,7 @@ def plot_controller_diagnostics(agg_data, out_path):
                 try:
                     ep = float(row.get("epoch_idx", row.get("epoch", "nan")))
                     nj = float(row.get("n_jumps_new", "nan"))
-                    rw = float(row.get("reward_raw", "nan"))
+                    rw = float(row.get("reward_eff", row.get("reward", "nan")))
                     epochs.append(ep)
                     n_jumps_vals.append(nj)
                     rewards.append(rw)

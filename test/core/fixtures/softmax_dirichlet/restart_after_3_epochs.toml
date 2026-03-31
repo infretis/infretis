@@ -43,8 +43,6 @@ softmax_tau = 1.0
 softmax_explore_floor = 0.05
 softmax_init = "uniform"
 reward_proxy = "lambda_vs_subcycles_v1"
-reward_eps_gain = 1e-12
-reward_eps_cost = 1e-12
 epoch_ctrl_seed = 42
 ensemble_nsubpath = [
     2,
@@ -93,6 +91,9 @@ logits = [
 update_count = 2
 last_choice_idx = 0
 initialized = true
+ema_abs_reward = 0.0031
+reward_ema = 0.042
+last_obs = 0.65
 
 [simulation.softmax_epoch_stats.2]
 n_attempted = 0
@@ -104,6 +105,10 @@ subcycles_n = 0
 lambda_max = -inf
 lambda_max_sum = 0.0
 lambda_max_n = 0
+gain_sq_sum = 0.0
+gain_sq_n = 0
+subpath_len_sum = 0.0
+subpath_n = 0
 
 [runner]
 workers = 1

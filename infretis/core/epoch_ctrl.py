@@ -483,16 +483,111 @@ def _apply_adaptive_ctrl(
     )
 
 
+def _softmax_init_first_boundary(
+    state, ens_i: int, epoch_idx: int, sim: dict, choices_cfg: list
+) -> tuple:
+    """Handle the first epoch boundary: initialise state and sample first action.
+
+    Returns (ctrl_state, q, choice_idx, reward_extras) where reward_extras
+    holds the nan placeholders for the debug row.
+    """
+    current_n_jumps = state.ensembles[ens_i]["tis_set"].get("n_jumps")
+    ctrl_state = _init_softmax_ctrl_state(choices_cfg, current_n_jumps, sim)
+    q = _compute_q(
+        ctrl_state["logits"], sim["softmax_tau"], sim["softmax_explore_floor"]
+    )
+    choice_idx = _epoch_sample(q, sim["epoch_ctrl_seed"], ens_i, epoch_idx)
+    reward_extras = {
+        "raw_reward": float("nan"),
+        "reward_centered": float("nan"),
+        "reward_eff": float("nan"),
+        "eta": float("nan"),
+    }
+    return ctrl_state, q, choice_idx, reward_extras
+
+
+def _softmax_compute_reward_and_update_logits(
+    ctrl_state: dict, state, ens_i: int, epoch_idx: int, sim: dict
+) -> tuple:
+    """Compute reward from pre-flush epoch buffer, update logits if applicable.
+
+    IMPORTANT: This must be called BEFORE _flush_epoch_stats resets the buffer.
+
+    Returns (ctrl_state, q, choice_idx, reward_extras).
+    """
+    old_q = _compute_q(
+        ctrl_state["logits"], sim["softmax_tau"], sim["softmax_explore_floor"]
+    )
+    # Read reward from epoch buffer BEFORE any flush
+    buf = state.ensemble_epoch_stats.get(ens_i, _empty_stats())
+    raw_reward = _compute_epoch_reward(buf, sim)
+    alpha = float(sim.get("reward_ema_alpha", 0.1))
+    ema_prev = ctrl_state.get("reward_ema", float("nan"))
+
+    if not np.isfinite(raw_reward):
+        # Case 1: non-finite — no centering, no EMA update, no softmax update.
+        reward_centered = float("nan")
+        reward_eff = float("nan")
+        eta = float("nan")
+
+    elif not np.isfinite(ema_prev):
+        # Case 2: first finite reward — initialize baseline, skip logit update.
+        ctrl_state["reward_ema"] = raw_reward
+        reward_centered = float("nan")
+        reward_eff = 0.0
+        eta = float("nan")
+
+    else:
+        # Case 3: subsequent finite reward — center, normalize, full logit update.
+        reward_centered = raw_reward - ema_prev
+        reward_eff, ctrl_state["ema_abs_reward"] = _normalize_reward(
+            reward_centered,
+            float(ctrl_state.get("ema_abs_reward", 1e-4)),
+            rho=float(sim.get("softmax_reward_ema_rho",   0.1)),
+            floor=float(sim.get("softmax_reward_ema_floor", 1e-6)),
+            rclip=float(sim.get("softmax_reward_eff_clip",  5.0)),
+        )
+        uc = ctrl_state["update_count"]
+        eta = sim["softmax_eta0"] / (uc + 1) ** sim["softmax_beta"]
+        A = ctrl_state["last_choice_idx"]
+        new_logits = list(ctrl_state["logits"])
+
+        update_clip = float(sim.get("softmax_update_clip", 5.0))
+        update_term = float(np.clip(reward_eff / old_q[A], -update_clip, update_clip))
+        new_logits[A] += eta * update_term
+
+        logit_clip = float(sim.get("softmax_logit_clip", 20.0))
+        new_logits = [float(np.clip(v, -logit_clip, logit_clip)) for v in new_logits]
+
+        ctrl_state["logits"] = new_logits
+        ctrl_state["update_count"] = uc + 1
+        # EMA updated AFTER reward_eff is computed, using raw (uncentered) value
+        ctrl_state["reward_ema"] = (1.0 - alpha) * ema_prev + alpha * raw_reward
+
+    q = _compute_q(
+        ctrl_state["logits"], sim["softmax_tau"], sim["softmax_explore_floor"]
+    )
+    choice_idx = _epoch_sample(q, sim["epoch_ctrl_seed"], ens_i, epoch_idx)
+    reward_extras = {
+        "raw_reward": raw_reward,
+        "reward_centered": reward_centered,
+        "reward_eff": reward_eff,
+        "eta": eta,
+    }
+    return ctrl_state, q, choice_idx, reward_extras
+
+
 def _apply_softmax_dirichlet_ctrl(
     state, ens_i: int, epoch_idx: int, sim: dict
 ) -> None:
     """Flush epoch stats and apply softmax-Dirichlet n_jumps update.
 
-    On the first epoch boundary for an ensemble, initialises the
-    controller state and samples the first action (no logit update —
-    there is no prior reward for epoch 0).  On subsequent boundaries,
-    computes the importance-weighted reward, updates the logit for the
-    action taken, and samples the next action.
+    Phases (order is load-bearing):
+    1. Load or initialise controller state
+    2. Compute reward from pre-flush epoch buffer and update logits
+    3. Sample the next action
+    4. Flush summary/debug output (resets epoch buffer)
+    5. Persist chosen n_jumps
     """
     if ens_i not in state.ensembles:
         return
@@ -501,74 +596,19 @@ def _apply_softmax_dirichlet_ctrl(
     target_idx = sim["epoch_nsubpath_ens"].index(ens_i)
     choices_cfg = sim["epoch_nsubpath_choices"][target_idx]
 
+    # Phase 1-3: init/reward/sample
     if ctrl_state is None:
-        # First boundary: initialise, sample first action, no logit update.
-        current_n_jumps = state.ensembles[ens_i]["tis_set"].get("n_jumps")
-        ctrl_state = _init_softmax_ctrl_state(choices_cfg, current_n_jumps, sim)
-        q = _compute_q(
-            ctrl_state["logits"], sim["softmax_tau"], sim["softmax_explore_floor"]
-        )
-        choice_idx = _epoch_sample(q, sim["epoch_ctrl_seed"], ens_i, epoch_idx)
-        raw_reward = float("nan")
-        reward_centered = float("nan")
-        reward_eff = float("nan")
-        eta = float("nan")
-    else:
-        # Subsequent boundary: center reward on EMA baseline, then update logits.
-        old_q = _compute_q(
-            ctrl_state["logits"], sim["softmax_tau"], sim["softmax_explore_floor"]
-        )
-        buf = state.ensemble_epoch_stats.get(ens_i, _empty_stats())
-        raw_reward = _compute_epoch_reward(buf, sim)
-        alpha = float(sim.get("reward_ema_alpha", 0.1))
-        ema_prev = ctrl_state.get("reward_ema", float("nan"))
-
-        if not np.isfinite(raw_reward):
-            # Case 1: non-finite — no centering, no EMA update, no softmax update.
-            reward_centered = float("nan")
-            reward_eff = float("nan")
-            eta = float("nan")
-
-        elif not np.isfinite(ema_prev):
-            # Case 2: first finite reward — initialize baseline, skip logit update.
-            ctrl_state["reward_ema"] = raw_reward
-            reward_centered = float("nan")
-            reward_eff = 0.0
-            eta = float("nan")
-
-        else:
-            # Case 3: subsequent finite reward — center, normalize, full logit update.
-            reward_centered = raw_reward - ema_prev
-            reward_eff, ctrl_state["ema_abs_reward"] = _normalize_reward(
-                reward_centered,
-                float(ctrl_state.get("ema_abs_reward", 1e-4)),
-                rho=float(sim.get("softmax_reward_ema_rho",   0.1)),
-                floor=float(sim.get("softmax_reward_ema_floor", 1e-6)),
-                rclip=float(sim.get("softmax_reward_eff_clip",  5.0)),
+        ctrl_state, q, choice_idx, reward_extras = (
+            _softmax_init_first_boundary(
+                state, ens_i, epoch_idx, sim, choices_cfg
             )
-            uc = ctrl_state["update_count"]
-            eta = sim["softmax_eta0"] / (uc + 1) ** sim["softmax_beta"]
-            A = ctrl_state["last_choice_idx"]
-            new_logits = list(ctrl_state["logits"])
-
-            # Clip IW update term to prevent runaway updates from tiny q values
-            update_clip = float(sim.get("softmax_update_clip", 5.0))
-            update_term = float(np.clip(reward_eff / old_q[A], -update_clip, update_clip))
-            new_logits[A] += eta * update_term
-
-            # Box-clip all logits for numerical stability
-            logit_clip = float(sim.get("softmax_logit_clip", 20.0))
-            new_logits = [float(np.clip(v, -logit_clip, logit_clip)) for v in new_logits]
-
-            ctrl_state["logits"] = new_logits
-            ctrl_state["update_count"] = uc + 1
-            # EMA updated AFTER reward_eff is computed, using raw (uncentered) value
-            ctrl_state["reward_ema"] = (1.0 - alpha) * ema_prev + alpha * raw_reward
-
-        q = _compute_q(
-            ctrl_state["logits"], sim["softmax_tau"], sim["softmax_explore_floor"]
         )
-        choice_idx = _epoch_sample(q, sim["epoch_ctrl_seed"], ens_i, epoch_idx)
+    else:
+        ctrl_state, q, choice_idx, reward_extras = (
+            _softmax_compute_reward_and_update_logits(
+                ctrl_state, state, ens_i, epoch_idx, sim
+            )
+        )
 
     old_n_jumps = state.ensembles[ens_i]["tis_set"].get("n_jumps")
     new_n_jumps = ctrl_state["choices"][choice_idx]
@@ -578,6 +618,7 @@ def _apply_softmax_dirichlet_ctrl(
     ctrl_state["initialized"] = True
     state.softmax_ctrl_state[ens_i] = ctrl_state
 
+    # Phase 4: flush (resets epoch buffer)
     _flush_epoch_stats(
         state, ens_i, epoch_idx, old_n_jumps, new_n_jumps,
         ctrl_action=action,
@@ -590,15 +631,17 @@ def _apply_softmax_dirichlet_ctrl(
             n_jumps_old=old_n_jumps,
             n_jumps_new=new_n_jumps,
             choice_idx=choice_idx,
-            reward_raw=raw_reward,
-            reward_centered=reward_centered,
-            reward_eff=reward_eff,
+            reward_raw=reward_extras["raw_reward"],
+            reward_centered=reward_extras["reward_centered"],
+            reward_eff=reward_extras["reward_eff"],
             reward_ema=ctrl_state.get("reward_ema", float("nan")),
             ema_abs_reward=ctrl_state.get("ema_abs_reward", 1e-4),
-            eta=eta,
+            eta=reward_extras["eta"],
             probs_json=json.dumps([round(float(x), 6) for x in q]),
         ),
     )
+
+    # Phase 5: persist
     state.ensembles[ens_i]["tis_set"]["n_jumps"] = new_n_jumps
     logger.info(
         "Epoch %d: ensemble %03d n_jumps %s -> %d (softmax_dirichlet, choice_idx=%d)",
@@ -662,35 +705,8 @@ def _dispatch_ctrl(
 # Public API
 # ---------------------------------------------------------------------------
 
-def validate_epoch_ctrl(config: dict, state=None) -> None:
-    """Validate epoch controller config keys.
-
-    Args:
-        config: full simulation config dict.
-        state: unused; reserved for future live-state checks.
-
-    Raises:
-        ValueError: on any configuration inconsistency.
-    """
-    sim = config["simulation"]
-
-    # Apply defaults before validation so downstream code can rely on them
-    sim.setdefault("epoch_mode", "global_step")
-    sim.setdefault("epoch_count", "attempted")
-    sim.setdefault("reward_ema_alpha", 0.1)
-    sim.setdefault("reward_min_gain_count", 1)
-    sim.setdefault("reward_cost_offset", 1e-12)
-    sim.setdefault("softmax_update_clip", 5.0)
-    sim.setdefault("softmax_logit_clip", 20.0)
-    sim.setdefault("softmax_reward_ema_rho", 0.1)
-    sim.setdefault("softmax_reward_ema_floor", 1e-6)
-    sim.setdefault("softmax_reward_eff_clip", 5.0)
-
-    n_ens = len(sim["interfaces"])
-    sh_moves = sim["shooting_moves"]
-    n_sh_moves = len(sh_moves)
-
-    # Validate epoch_ctrl_mode if explicitly set
+def _validate_ctrl_mode_type(sim: dict) -> str:
+    """Validate and return the effective epoch ctrl mode."""
     explicit_ctrl_mode = sim.get("epoch_ctrl_mode")
     if explicit_ctrl_mode is not None and explicit_ctrl_mode not in (
         "static", "scheduled", "adaptive", "softmax_dirichlet"
@@ -700,228 +716,234 @@ def validate_epoch_ctrl(config: dict, state=None) -> None:
             "valid options are 'static', 'scheduled', 'adaptive', "
             "and 'softmax_dirichlet'."
         )
+    return _infer_ctrl_mode(sim)
 
-    ctrl_mode = _infer_ctrl_mode(sim)
-    ens_targets = sim.get("epoch_nsubpath_ens", [])
+
+def _validate_static_mode(sim: dict) -> None:
+    """Validate static mode has no conflicting keys."""
+    if sim.get("epoch_nsubpath_vals", []):
+        raise ValueError(
+            "epoch_nsubpath_vals must not be set in static mode."
+        )
+    if any(k in sim for k in _ADAPTIVE_KEYS):
+        raise ValueError(
+            "adaptive_* keys must not be set in static mode."
+        )
+
+
+def _validate_scheduled_mode(sim: dict, ens_targets: list) -> None:
+    """Validate scheduled mode keys and schedule length."""
     val_schedules = sim.get("epoch_nsubpath_vals", [])
-    has_adaptive_keys = any(k in sim for k in _ADAPTIVE_KEYS)
+    if any(k in sim for k in _ADAPTIVE_KEYS):
+        raise ValueError(
+            "adaptive_* keys must not be set in scheduled mode."
+        )
+    if len(ens_targets) != len(val_schedules):
+        raise ValueError(
+            f"epoch_nsubpath_ens has {len(ens_targets)} entries but "
+            f"epoch_nsubpath_vals has {len(val_schedules)} entries; "
+            "they must be the same length."
+        )
 
-    # Mode-specific key checks
-    if ctrl_mode == "static":
-        if val_schedules:
-            raise ValueError(
-                "epoch_nsubpath_vals must not be set in static mode."
-            )
-        if has_adaptive_keys:
-            raise ValueError(
-                "adaptive_* keys must not be set in static mode."
-            )
 
-    elif ctrl_mode == "scheduled":
-        if has_adaptive_keys:
-            raise ValueError(
-                "adaptive_* keys must not be set in scheduled mode."
-            )
-        if len(ens_targets) != len(val_schedules):
-            raise ValueError(
-                f"epoch_nsubpath_ens has {len(ens_targets)} entries but "
-                f"epoch_nsubpath_vals has {len(val_schedules)} entries; "
-                "they must be the same length."
-            )
+def _validate_adaptive_mode(sim: dict) -> None:
+    """Validate adaptive mode required keys and parameter bounds."""
+    if sim.get("epoch_nsubpath_vals", []):
+        raise ValueError(
+            "epoch_nsubpath_vals must not be set in adaptive mode."
+        )
+    missing = [k for k in _ADAPTIVE_KEYS if k not in sim]
+    if missing:
+        raise ValueError(
+            f"adaptive mode requires these config keys: "
+            f"{', '.join(missing)}."
+        )
+    n_min = sim["adaptive_nsubpath_min"]
+    n_max = sim["adaptive_nsubpath_max"]
+    accept_low = sim["adaptive_accept_low"]
+    accept_high = sim["adaptive_accept_high"]
+    if n_min < 1:
+        raise ValueError(
+            "adaptive_nsubpath_min must be >= 1."
+        )
+    if n_max < n_min:
+        raise ValueError(
+            "adaptive_nsubpath_max must be >= adaptive_nsubpath_min."
+        )
+    if not (0 < accept_low < accept_high < 1):
+        raise ValueError(
+            "Required: 0 < adaptive_accept_low < adaptive_accept_high < 1."
+        )
 
-    elif ctrl_mode == "adaptive":
-        if val_schedules:
-            raise ValueError(
-                "epoch_nsubpath_vals must not be set in adaptive mode."
-            )
-        missing = [k for k in _ADAPTIVE_KEYS if k not in sim]
-        if missing:
-            raise ValueError(
-                f"adaptive mode requires these config keys: "
-                f"{', '.join(missing)}."
-            )
-        n_min = sim["adaptive_nsubpath_min"]
-        n_max = sim["adaptive_nsubpath_max"]
-        accept_low = sim["adaptive_accept_low"]
-        accept_high = sim["adaptive_accept_high"]
-        if n_min < 1:
-            raise ValueError(
-                "adaptive_nsubpath_min must be >= 1."
-            )
-        if n_max < n_min:
-            raise ValueError(
-                "adaptive_nsubpath_max must be >= adaptive_nsubpath_min."
-            )
-        if not (0 < accept_low < accept_high < 1):
-            raise ValueError(
-                "Required: 0 < adaptive_accept_low < adaptive_accept_high < 1."
-            )
 
-    elif ctrl_mode == "softmax_dirichlet":
-        if sim.get("epoch_mode") != "per_ensemble_moves":
+def _validate_softmax_dirichlet_mode(
+    sim: dict, ens_targets: list, n_ens: int, sh_moves: list, n_sh_moves: int
+) -> None:
+    """Validate softmax_dirichlet mode: required keys, choices, hyperparams."""
+    val_schedules = sim.get("epoch_nsubpath_vals", [])
+    if sim.get("epoch_mode") != "per_ensemble_moves":
+        raise ValueError(
+            "epoch_ctrl_mode='softmax_dirichlet' requires "
+            "epoch_mode='per_ensemble_moves'."
+        )
+    if sim.get("epoch_count", "attempted") != "attempted":
+        raise ValueError(
+            "epoch_ctrl_mode='softmax_dirichlet' requires "
+            "epoch_count='attempted'."
+        )
+    if val_schedules:
+        raise ValueError(
+            "epoch_nsubpath_vals must not be set in softmax_dirichlet mode."
+        )
+    if any(k in sim for k in _ADAPTIVE_KEYS):
+        raise ValueError(
+            "adaptive_* keys must not be set in softmax_dirichlet mode."
+        )
+    missing = [k for k in _SOFTMAX_KEYS if k not in sim]
+    if missing:
+        raise ValueError(
+            f"softmax_dirichlet mode requires these config keys: "
+            f"{', '.join(missing)}."
+        )
+    choices_list = sim["epoch_nsubpath_choices"]
+    if len(choices_list) != len(ens_targets):
+        raise ValueError(
+            f"epoch_nsubpath_choices has {len(choices_list)} entries but "
+            f"epoch_nsubpath_ens has {len(ens_targets)} entries; "
+            "they must be the same length."
+        )
+    for idx, choices in enumerate(choices_list):
+        if not choices:
             raise ValueError(
-                "epoch_ctrl_mode='softmax_dirichlet' requires "
-                "epoch_mode='per_ensemble_moves'."
+                f"epoch_nsubpath_choices[{idx}] must be non-empty."
             )
-        if sim.get("epoch_count", "attempted") != "attempted":
+        int_choices = [int(v) for v in choices]
+        if any(v < 1 for v in int_choices):
             raise ValueError(
-                "epoch_ctrl_mode='softmax_dirichlet' requires "
-                "epoch_count='attempted'."
+                f"epoch_nsubpath_choices[{idx}] must contain only "
+                "integers >= 1."
             )
-        if val_schedules:
+        if len(set(int_choices)) != len(int_choices):
             raise ValueError(
-                "epoch_nsubpath_vals must not be set in softmax_dirichlet mode."
+                f"epoch_nsubpath_choices[{idx}] must have pairwise distinct values."
             )
-        if has_adaptive_keys:
-            raise ValueError(
-                "adaptive_* keys must not be set in softmax_dirichlet mode."
-            )
-        missing = [k for k in _SOFTMAX_KEYS if k not in sim]
-        if missing:
-            raise ValueError(
-                f"softmax_dirichlet mode requires these config keys: "
-                f"{', '.join(missing)}."
-            )
-        choices_list = sim["epoch_nsubpath_choices"]
-        if len(choices_list) != len(ens_targets):
-            raise ValueError(
-                f"epoch_nsubpath_choices has {len(choices_list)} entries but "
-                f"epoch_nsubpath_ens has {len(ens_targets)} entries; "
-                "they must be the same length."
-            )
-        for idx, choices in enumerate(choices_list):
-            if not choices:
-                raise ValueError(
-                    f"epoch_nsubpath_choices[{idx}] must be non-empty."
-                )
-            int_choices = [int(v) for v in choices]
-            if any(v < 1 for v in int_choices):
-                raise ValueError(
-                    f"epoch_nsubpath_choices[{idx}] must contain only "
-                    "integers >= 1."
-                )
-            if len(set(int_choices)) != len(int_choices):
-                raise ValueError(
-                    f"epoch_nsubpath_choices[{idx}] must have pairwise distinct values."
-                )
+    _validate_target_ensembles(ens_targets, n_ens, sh_moves, n_sh_moves)
+    _validate_softmax_hyperparams(sim, ens_targets)
+
+
+def _validate_softmax_hyperparams(sim: dict, ens_targets: list) -> None:
+    """Validate softmax hyperparameters and optional tuning keys."""
+    if sim["softmax_eta0"] <= 0:
+        raise ValueError("softmax_eta0 must be > 0.")
+    beta = sim["softmax_beta"]
+    if not (0.5 < beta <= 1.0):
+        raise ValueError(
+            "softmax_beta must satisfy 0.5 < softmax_beta <= 1.0."
+        )
+    if sim["softmax_tau"] <= 0:
+        raise ValueError("softmax_tau must be > 0.")
+    eps = sim["softmax_explore_floor"]
+    if not (0 < eps < 1):
+        raise ValueError(
+            "softmax_explore_floor must satisfy 0 < eps < 1."
+        )
+    if sim["softmax_init"] not in ("uniform", "current"):
+        raise ValueError(
+            "softmax_init must be 'uniform' or 'current'."
+        )
+    if sim["reward_proxy"] not in (
+        "lambda_vs_subcycles_v1", "empirical_dirichlet_lambda_v1"
+    ):
+        raise ValueError(
+            "reward_proxy must be 'lambda_vs_subcycles_v1' or "
+            "'empirical_dirichlet_lambda_v1'."
+        )
+    if sim["reward_proxy"] == "empirical_dirichlet_lambda_v1":
+        ifaces  = sim["interfaces"]
+        cap_cfg = sim.get("tis_set", {}).get("interface_cap", None)
         for ens_i in ens_targets:
-            if not (0 <= ens_i < n_ens):
+            lambda_i     = ifaces[ens_i - 1]
+            lambda_upper = cap_cfg if cap_cfg is not None else ifaces[-1]
+            if lambda_upper <= lambda_i:
                 raise ValueError(
-                    f"epoch_nsubpath_ens contains invalid ensemble index "
-                    f"{ens_i}; valid range is 0 \u2026 {n_ens - 1}."
+                    f"Upper bound {lambda_upper} must be > lambda_i={lambda_i} "
+                    f"for ensemble {ens_i}."
                 )
-            ens_move = sh_moves[ens_i] if ens_i < n_sh_moves else None
-            if ens_move not in ("wf", "mwf"):
-                raise ValueError(
-                    f"epoch_nsubpath_ens targets ensemble {ens_i} which uses "
-                    f"move '{ens_move}'; only 'wf' and 'mwf' ensembles support "
-                    "the n_jumps parameter."
-                )
-        if sim["softmax_eta0"] <= 0:
-            raise ValueError("softmax_eta0 must be > 0.")
-        beta = sim["softmax_beta"]
-        if not (0.5 < beta <= 1.0):
-            raise ValueError(
-                "softmax_beta must satisfy 0.5 < softmax_beta <= 1.0."
-            )
-        if sim["softmax_tau"] <= 0:
-            raise ValueError("softmax_tau must be > 0.")
-        eps = sim["softmax_explore_floor"]
-        if not (0 < eps < 1):
-            raise ValueError(
-                "softmax_explore_floor must satisfy 0 < eps < 1."
-            )
-        if sim["softmax_init"] not in ("uniform", "current"):
-            raise ValueError(
-                "softmax_init must be 'uniform' or 'current'."
-            )
-        if sim["reward_proxy"] not in (
-            "lambda_vs_subcycles_v1", "empirical_dirichlet_lambda_v1"
-        ):
-            raise ValueError(
-                "reward_proxy must be 'lambda_vs_subcycles_v1' or "
-                "'empirical_dirichlet_lambda_v1'."
-            )
-        # Extra check for empirical proxy: validate upper bound > lambda_i per target.
-        if sim["reward_proxy"] == "empirical_dirichlet_lambda_v1":
-            ifaces  = sim["interfaces"]
-            cap_cfg = sim.get("tis_set", {}).get("interface_cap", None)
-            for ens_i in ens_targets:
-                lambda_i     = ifaces[ens_i - 1]
-                lambda_upper = cap_cfg if cap_cfg is not None else ifaces[-1]
-                if lambda_upper <= lambda_i:
-                    raise ValueError(
-                        f"Upper bound {lambda_upper} must be > lambda_i={lambda_i} "
-                        f"for ensemble {ens_i}."
-                    )
-        if not isinstance(sim["epoch_ctrl_seed"], int):
-            raise ValueError("epoch_ctrl_seed must be an integer.")
-        if sim.get("epoch_move_k") is None:
-            raise ValueError(
-                "epoch_move_k must be set when "
-                "epoch_ctrl_mode='softmax_dirichlet'."
-            )
-        alpha = sim.get("reward_ema_alpha", 0.1)
-        if not (0 < alpha <= 1):
-            raise ValueError(
-                f"reward_ema_alpha must be in (0, 1], got {alpha}"
-            )
-        # New optional keys — only validate if explicitly set (all have safe defaults)
-        min_count = sim.get("reward_min_gain_count", 1)
-        if int(min_count) < 1:
-            raise ValueError("reward_min_gain_count must be >= 1.")
-        cost_offset = sim.get("reward_cost_offset", 1e-12)
-        if float(cost_offset) <= 0:
-            raise ValueError("reward_cost_offset must be > 0.")
-        update_clip = sim.get("softmax_update_clip", 5.0)
-        if float(update_clip) <= 0:
-            raise ValueError("softmax_update_clip must be > 0.")
-        logit_clip = sim.get("softmax_logit_clip", 20.0)
-        if float(logit_clip) <= 0:
-            raise ValueError("softmax_logit_clip must be > 0.")
-        # Validate optional EMA/normalization keys if explicitly set
-        rho = sim.get("softmax_reward_ema_rho", 0.1)
-        if not (0 < float(rho) <= 1):
-            raise ValueError("softmax_reward_ema_rho must be in (0, 1].")
-        floor_val = sim.get("softmax_reward_ema_floor", 1e-6)
-        if float(floor_val) <= 0:
-            raise ValueError("softmax_reward_ema_floor must be > 0.")
-        eff_clip = sim.get("softmax_reward_eff_clip", 5.0)
-        if float(eff_clip) <= 0:
-            raise ValueError("softmax_reward_eff_clip must be > 0.")
+    if not isinstance(sim["epoch_ctrl_seed"], int):
+        raise ValueError("epoch_ctrl_seed must be an integer.")
+    if sim.get("epoch_move_k") is None:
+        raise ValueError(
+            "epoch_move_k must be set when "
+            "epoch_ctrl_mode='softmax_dirichlet'."
+        )
+    alpha = sim.get("reward_ema_alpha", 0.1)
+    if not (0 < alpha <= 1):
+        raise ValueError(
+            f"reward_ema_alpha must be in (0, 1], got {alpha}"
+        )
+    min_count = sim.get("reward_min_gain_count", 1)
+    if int(min_count) < 1:
+        raise ValueError("reward_min_gain_count must be >= 1.")
+    cost_offset = sim.get("reward_cost_offset", 1e-12)
+    if float(cost_offset) <= 0:
+        raise ValueError("reward_cost_offset must be > 0.")
+    update_clip = sim.get("softmax_update_clip", 5.0)
+    if float(update_clip) <= 0:
+        raise ValueError("softmax_update_clip must be > 0.")
+    logit_clip = sim.get("softmax_logit_clip", 20.0)
+    if float(logit_clip) <= 0:
+        raise ValueError("softmax_logit_clip must be > 0.")
+    rho = sim.get("softmax_reward_ema_rho", 0.1)
+    if not (0 < float(rho) <= 1):
+        raise ValueError("softmax_reward_ema_rho must be in (0, 1].")
+    floor_val = sim.get("softmax_reward_ema_floor", 1e-6)
+    if float(floor_val) <= 0:
+        raise ValueError("softmax_reward_ema_floor must be > 0.")
+    eff_clip = sim.get("softmax_reward_eff_clip", 5.0)
+    if float(eff_clip) <= 0:
+        raise ValueError("softmax_reward_eff_clip must be > 0.")
 
-    # Validate ensemble indices and move types for scheduled/adaptive
-    if ctrl_mode in ("scheduled", "adaptive"):
-        for ens_i in ens_targets:
-            if not (0 <= ens_i < n_ens):
-                raise ValueError(
-                    f"epoch_nsubpath_ens contains invalid ensemble index {ens_i}; "
-                    f"valid range is 0 \u2026 {n_ens - 1}."
-                )
-            ens_move = sh_moves[ens_i] if ens_i < n_sh_moves else None
-            if ens_move not in ("wf", "mwf"):
-                raise ValueError(
-                    f"epoch_nsubpath_ens targets ensemble {ens_i} which uses "
-                    f"move '{ens_move}'; only 'wf' and 'mwf' ensembles support "
-                    "the n_jumps parameter."
-                )
 
-    # lp_over_ls_target validation
-    lp_ls = sim.get("lp_over_ls_target", False)
-    if lp_ls:
-        if not ens_targets:
+def _validate_target_ensembles(
+    ens_targets: list, n_ens: int, sh_moves: list, n_sh_moves: int
+) -> None:
+    """Validate ensemble indices and move types for epoch targets."""
+    for ens_i in ens_targets:
+        if not (0 <= ens_i < n_ens):
             raise ValueError(
-                "lp_over_ls_target=true requires epoch_nsubpath_ens to be set."
+                f"epoch_nsubpath_ens contains invalid ensemble index {ens_i}; "
+                f"valid range is 0 \u2026 {n_ens - 1}."
             )
-        for ens_i in ens_targets:
-            ens_move = sh_moves[ens_i] if ens_i < n_sh_moves else None
-            if ens_move != "wf":
-                raise ValueError(
-                    f"lp_over_ls_target=true but ensemble {ens_i} uses move "
-                    f"'{ens_move}'; only 'wf' ensembles are supported (not mwf)."
-                )
+        ens_move = sh_moves[ens_i] if ens_i < n_sh_moves else None
+        if ens_move not in ("wf", "mwf"):
+            raise ValueError(
+                f"epoch_nsubpath_ens targets ensemble {ens_i} which uses "
+                f"move '{ens_move}'; only 'wf' and 'mwf' ensembles support "
+                "the n_jumps parameter."
+            )
 
-    # Trigger mode (epoch_mode) validation
+
+def _validate_lp_over_ls(
+    sim: dict, ens_targets: list, sh_moves: list, n_sh_moves: int
+) -> None:
+    """Validate lp_over_ls_target configuration."""
+    if not sim.get("lp_over_ls_target", False):
+        return
+    if not ens_targets:
+        raise ValueError(
+            "lp_over_ls_target=true requires epoch_nsubpath_ens to be set."
+        )
+    for ens_i in ens_targets:
+        ens_move = sh_moves[ens_i] if ens_i < n_sh_moves else None
+        if ens_move != "wf":
+            raise ValueError(
+                f"lp_over_ls_target=true but ensemble {ens_i} uses move "
+                f"'{ens_move}'; only 'wf' ensembles are supported (not mwf)."
+            )
+
+
+def _validate_trigger_mode(sim: dict, ens_targets: list) -> None:
+    """Validate epoch_mode, epoch_move_k, and epoch_count."""
     mode = sim.get("epoch_mode", "global_step")
     if mode not in ("global_step", "per_ensemble_moves"):
         raise ValueError(
@@ -956,6 +978,57 @@ def validate_epoch_ctrl(config: dict, state=None) -> None:
             f"epoch_count '{count_mode}' is not recognised; "
             "valid options are 'attempted' and 'accepted'."
         )
+
+
+def validate_epoch_ctrl(config: dict, state=None) -> None:
+    """Validate epoch controller config keys.
+
+    Dispatches to mode-specific sub-validators in fail-fast order:
+    mode inference -> mode-specific checks -> target ensemble checks ->
+    lp_over_ls checks -> trigger mode checks.
+
+    Args:
+        config: full simulation config dict.
+        state: unused; reserved for future live-state checks.
+
+    Raises:
+        ValueError: on any configuration inconsistency.
+    """
+    sim = config["simulation"]
+
+    # NOTE: defaults are NOT injected into the config dict here.
+    # All downstream consumers use .get() with defaults inline, so
+    # materializing defaults would pollute restart.toml for plain runs.
+
+    n_ens = len(sim["interfaces"])
+    sh_moves = sim["shooting_moves"]
+    n_sh_moves = len(sh_moves)
+    ens_targets = sim.get("epoch_nsubpath_ens", [])
+
+    # 1. Mode type validation and inference (must run first)
+    ctrl_mode = _validate_ctrl_mode_type(sim)
+
+    # 2. Mode-specific validation (depends on ctrl_mode from step 1)
+    if ctrl_mode == "static":
+        _validate_static_mode(sim)
+    elif ctrl_mode == "scheduled":
+        _validate_scheduled_mode(sim, ens_targets)
+    elif ctrl_mode == "adaptive":
+        _validate_adaptive_mode(sim)
+    elif ctrl_mode == "softmax_dirichlet":
+        _validate_softmax_dirichlet_mode(
+            sim, ens_targets, n_ens, sh_moves, n_sh_moves
+        )
+
+    # 3. Shared target ensemble validation (scheduled/adaptive)
+    if ctrl_mode in ("scheduled", "adaptive"):
+        _validate_target_ensembles(ens_targets, n_ens, sh_moves, n_sh_moves)
+
+    # 4. lp_over_ls_target validation
+    _validate_lp_over_ls(sim, ens_targets, sh_moves, n_sh_moves)
+
+    # 5. Trigger mode validation
+    _validate_trigger_mode(sim, ens_targets)
 
 
 def update_epoch_stats(
@@ -1079,6 +1152,52 @@ def apply_epoch_ctrl(state, cstep: int) -> None:
                 _dispatch_ctrl(state, ens_i, epoch_idx, ctrl_mode, sim, vals)
 
 
+def _epoch_ctrl_active(sim: dict, state) -> bool:
+    """Return True if epoch-controller restart state should be persisted.
+
+    Restart keys are needed when at least one of these is true:
+      1. effective controller mode is not ``static``
+      2. ``lp_over_ls_target`` is active
+      3. there is live softmax controller state to preserve
+      4. per-ensemble n_jumps or mwf_nsubpath diverge from the global value
+    """
+    ctrl_mode = _infer_ctrl_mode(sim)
+    if ctrl_mode != "static":
+        return True
+    if _lp_ls_active(sim):
+        return True
+    if state.softmax_ctrl_state:
+        return True
+    # Check per-ensemble divergence from global defaults
+    global_tis = sim["tis_set"]
+    global_nj = global_tis.get("n_jumps", 2)
+    global_mwf = global_tis.get("mwf_nsubpath", 3)
+    for ens in state.ensembles.values():
+        if ens["tis_set"].get("n_jumps", global_nj) != global_nj:
+            return True
+        if ens["tis_set"].get("mwf_nsubpath", global_mwf) != global_mwf:
+            return True
+    return False
+
+
+# Keys to remove from config when epoch controller is inactive
+_STALE_SIM_KEYS = (
+    "ensemble_nsubpath", "ensemble_mwf_nsubpath",
+    "softmax_ctrl_state", "softmax_epoch_stats",
+)
+_STALE_CURRENT_KEYS = (
+    "ensemble_move_counts", "ensemble_last_fired_count",
+)
+# Default-valued keys that should not be materialized for inactive runs
+_DEFAULT_SIM_KEYS = (
+    "epoch_mode", "epoch_count",
+    "reward_ema_alpha", "reward_min_gain_count", "reward_cost_offset",
+    "softmax_update_clip", "softmax_logit_clip",
+    "softmax_reward_ema_rho", "softmax_reward_ema_floor",
+    "softmax_reward_eff_clip",
+)
+
+
 def mirror_epoch_ctrl(state, config: dict) -> None:
     """Mirror per-ensemble n_jumps, mwf_nsubpath, and move counts into config.
 
@@ -1087,20 +1206,36 @@ def mirror_epoch_ctrl(state, config: dict) -> None:
     ``config["current"]``) so that ``write_toml()`` serializes the current
     live state and ``initiate_ensembles()`` restores it exactly on restart.
 
+    When the epoch controller is inactive (static mode, no lp_over_ls, no
+    softmax state, no per-ensemble divergence), controller-related restart
+    keys are removed to keep restart.toml clean.
+
     Args:
         state: REPEX_state instance to read current values from.
         config: full simulation config dict; mutated in-place.
     """
-    global_tis = config["simulation"]["tis_set"]
+    sim = config["simulation"]
+
+    if not _epoch_ctrl_active(sim, state):
+        # Remove stale epoch-controller keys from config
+        for key in _STALE_SIM_KEYS:
+            sim.pop(key, None)
+        for key in _STALE_CURRENT_KEYS:
+            config["current"].pop(key, None)
+        for key in _DEFAULT_SIM_KEYS:
+            sim.pop(key, None)
+        return
+
+    global_tis = sim["tis_set"]
     ens_keys = sorted(state.ensembles.keys())
 
-    config["simulation"]["ensemble_nsubpath"] = [
+    sim["ensemble_nsubpath"] = [
         state.ensembles[i]["tis_set"].get(
             "n_jumps", global_tis.get("n_jumps", 2)
         )
         for i in ens_keys
     ]
-    config["simulation"]["ensemble_mwf_nsubpath"] = [
+    sim["ensemble_mwf_nsubpath"] = [
         state.ensembles[i]["tis_set"].get(
             "mwf_nsubpath", global_tis.get("mwf_nsubpath", 3)
         )
@@ -1120,7 +1255,7 @@ def mirror_epoch_ctrl(state, config: dict) -> None:
     # Persist softmax_dirichlet controller state and partial-epoch stats so
     # that restarts preserve logits, update_count, and mid-epoch rewards.
     if state.softmax_ctrl_state:
-        config["simulation"]["softmax_ctrl_state"] = {
+        sim["softmax_ctrl_state"] = {
             str(i): {
                 "choices":         cs["choices"],
                 "logits":          cs["logits"],
@@ -1133,7 +1268,7 @@ def mirror_epoch_ctrl(state, config: dict) -> None:
             }
             for i, cs in state.softmax_ctrl_state.items()
         }
-        config["simulation"]["softmax_epoch_stats"] = {
+        sim["softmax_epoch_stats"] = {
             str(i): state.ensemble_epoch_stats.get(i, _empty_stats())
             for i in state.softmax_ctrl_state
         }

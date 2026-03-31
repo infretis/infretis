@@ -75,8 +75,6 @@ class aiorunner:
             future.result(5.0)
         except TimeoutError:
             raise RunnerError("Launching background tasks took too long")
-        except Exception as e:
-            raise (e)
 
     def _start_event_loop(self) -> None:
         """Start the event loop in a separate thread."""
@@ -159,31 +157,28 @@ class aiorunner:
             raise RunnerError(
                 "Unable to submit work if the tasks haven't been initiated"
             )
-        future = asyncio.run(self._add_work_to_queue(work_unit))
-        # Need to wait otherwise some race condition can occur
-        time.sleep(0.05)
-        return future
+        outer = asyncio.run_coroutine_threadsafe(
+            self._add_work_to_queue(work_unit), self._loop
+        )
+        return outer.result()
 
     async def _start_tasks(self) -> None:
         """Launch the background tasks."""
         if not self._task_f:
             raise RunnerError("Can't start task(s) without a task function.")
-        try:
-            self._tasks = [
-                asyncio.create_task(
-                    self._task_wrapper(
-                        self._stop_event, self._queue, self._executor, i
-                    )
+        self._tasks = [
+            asyncio.create_task(
+                self._task_wrapper(
+                    self._stop_event, self._queue, self._executor, i
                 )
-                for i in range(self._n_workers)
-            ]
-        except Exception as e:
-            raise e
+            )
+            for i in range(self._n_workers)
+        ]
 
     async def wait_for_tasks_to_end(self) -> None:
-        """Async function waiting for tasks to end."""
-        while len(asyncio.all_tasks(self._loop)) > 0:
-            await asyncio.sleep(0.1)
+        """Async function waiting for owned worker tasks to end."""
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
 
     def n_workers(self) -> int:
         """Return runner number of workers."""
@@ -199,8 +194,11 @@ class aiorunner:
         # Stop ongoing tasks
         self._stop_event.set()
 
-        # Wait until all tasks are done
-        asyncio.run(self.wait_for_tasks_to_end())
+        # Wait until all owned tasks are done via the runner loop
+        future = asyncio.run_coroutine_threadsafe(
+            self.wait_for_tasks_to_end(), self._loop
+        )
+        future.result()
 
         # Close the event loop
         self._loop.call_soon_threadsafe(self._loop.stop)

@@ -41,7 +41,16 @@ from infretis.core.epoch_ctrl import (
     mirror_epoch_ctrl,
     update_epoch_stats,
     validate_epoch_ctrl,
+    _append_tsv,
+    _epoch_ctrl_active,
     _EPOCH_SUMMARY_FNAME,
+    _EPOCH_SOFTMAX_DEBUG_FNAME,
+    _EPOCH_SUMMARY_COLS,
+    _EPOCH_SUMMARY_LPLSCOLS,
+    _EPOCH_SOFTMAX_DEBUG_COLS,
+    _STALE_SIM_KEYS,
+    _STALE_CURRENT_KEYS,
+    _DEFAULT_SIM_KEYS,
 )
 from infretis.setup import TOMLConfigError, check_config
 
@@ -662,9 +671,18 @@ def test_stats_flushed_and_reset_at_epoch_boundary(tmp_path):
     assert abs(float(r["acc_rate"]) - 0.7) < 1e-4
     assert abs(float(r["avg_path_length"]) - 15.0) < 1e-2
     assert abs(float(r["avg_subcycles"]) - 3.0) < 1e-2
-    assert abs(float(r["lambda_max"]) - 0.42) < 1e-5
     assert int(r["n_jumps_old"]) == 2   # initial global n_jumps
     assert int(r["n_jumps_new"]) == 4   # epoch 1 → schedule[1] = 4
+
+    # Removed columns must not appear in new schema
+    for removed_col in ("lambda_max", "epoch_mode", "epoch_count", "ctrl_mode"):
+        assert removed_col not in r, f"{removed_col} must not appear in new public schema"
+
+    # Header must match 12-column public schema exactly
+    header_cols = tsv_path.read_text().splitlines()[0].split("\t")
+    assert header_cols == list(_EPOCH_SUMMARY_COLS), (
+        f"TSV header {header_cols} must equal _EPOCH_SUMMARY_COLS"
+    )
 
     # Buffer must be reset after flush
     buf = state.ensemble_epoch_stats.get(1, {})
@@ -690,6 +708,14 @@ def test_stats_rows_accumulate_across_epochs(tmp_path):
 
     rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
     assert [int(r["epoch_idx"]) for r in rows] == [1, 2, 3]
+
+    # Schema assertions
+    header_cols = lines[0].split("\t")
+    assert header_cols == list(_EPOCH_SUMMARY_COLS), (
+        f"TSV header must equal _EPOCH_SUMMARY_COLS"
+    )
+    for removed_col in ("lambda_max", "epoch_mode", "epoch_count", "ctrl_mode"):
+        assert removed_col not in rows[0], f"{removed_col} must not appear in new public schema"
 
 
 # ---------------------------------------------------------------------------
@@ -962,7 +988,7 @@ def test_adaptive_tsv_row_contains_action_and_reason(tmp_path):
     assert len(rows) == 1
     r = rows[0]
 
-    assert r["ctrl_mode"] == "adaptive"
+    assert "ctrl_mode" not in r, "ctrl_mode must not appear in new public schema"
     assert r["ctrl_action"] == "inc"
     assert r["ctrl_reason"] == "low_accept_low_explore"
     avg_lmax = float(r["avg_lambda_max"])
@@ -1161,7 +1187,7 @@ def test_treat_output_scheduled_full_chain(dw_setup):
     assert int(r["n_accepted"]) == 0
     assert int(r["n_jumps_old"]) == 2
     assert int(r["n_jumps_new"]) == 5
-    assert r["ctrl_mode"] == "scheduled"
+    assert "ctrl_mode" not in r, "ctrl_mode must not appear in new public schema"
     assert r["ctrl_action"] == "set"
     assert r["ctrl_reason"] == "scheduled_epoch_value"
 
@@ -1251,7 +1277,7 @@ def test_treat_output_adaptive_full_chain(dw_setup):
     rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
     assert len(rows) == 1
     r = rows[0]
-    assert r["ctrl_mode"] == "adaptive"
+    assert "ctrl_mode" not in r, "ctrl_mode must not appear in new public schema"
     assert r["ctrl_action"] == "inc"
     assert r["ctrl_reason"] == "low_accept_low_explore"
     assert int(r["n_accepted"]) == 0
@@ -1566,13 +1592,23 @@ def test_sd_boundary_updates_and_samples(dw_setup):
     rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
     assert len(rows) == 1
     r = rows[0]
-    assert r["ctrl_mode"] == "softmax_dirichlet"
+    assert "ctrl_mode" not in r, "ctrl_mode must not appear in new public schema"
     assert r["ctrl_action"] in ("sample_hold", "sample_set")
     assert r["ctrl_reason"] == "softmax_dirichlet_epoch_update"
-    # First epoch: no prior reward → reward_raw column is "nan"
-    assert r["reward_raw"] == "nan"
-    assert "choice_idx" in r
-    assert "probs_json" in r
+    # Softmax internals must NOT be in the summary TSV
+    assert "reward_raw" not in r, "reward_raw must be in debug TSV only"
+    assert "choice_idx" not in r, "choice_idx must be in debug TSV only"
+    assert "probs_json" not in r, "probs_json must be in debug TSV only"
+
+    # Debug TSV must exist with the softmax internals
+    debug_path = tmp_path / _EPOCH_SOFTMAX_DEBUG_FNAME
+    assert debug_path.exists(), "epoch_softmax_debug.tsv must be created at epoch boundary"
+    debug_rows = list(csv.DictReader(debug_path.open(), delimiter="\t"))
+    assert len(debug_rows) == 1
+    dr = debug_rows[0]
+    assert "choice_idx" in dr
+    assert "probs_json" in dr
+    assert dr["reward_raw"] == "nan"  # first epoch: no prior reward
 
     # ctrl_state populated
     assert 2 in state.softmax_ctrl_state
@@ -1663,9 +1699,14 @@ def test_sd_restart_roundtrip(dw_setup):
     _lock_ens_slot(state2, ENS_NUM)
     state2.treat_output(_build_md_items(state2, ENS_NUM, trial_op_max=0.3))
 
-    # update_count must now be 1 (first logit update applied at epoch 2)
-    assert state2.softmax_ctrl_state[2]["update_count"] == 1, (
-        "epoch 2 boundary must apply first logit update (update_count → 1)"
+    # With the EMA baseline, epoch 2 initializes reward_ema but does NOT
+    # apply a logit update (update_count stays 0).  The first real logit
+    # update fires at epoch 3 once a centerable baseline exists.
+    assert state2.softmax_ctrl_state[2]["update_count"] == 0, (
+        "epoch 2 boundary initializes EMA baseline but must not update logits yet"
+    )
+    assert not math.isnan(state2.softmax_ctrl_state[2]["reward_ema"]), (
+        "epoch 2 must set reward_ema baseline"
     )
     choices = saved_cfg["simulation"]["epoch_nsubpath_choices"][0]
     nj2 = state2.ensembles[2]["tis_set"].get("n_jumps")
@@ -1749,20 +1790,23 @@ def test_sd_empirical_gain_accumulator_sequence():
     state.config["simulation"]["reward_proxy"] = "empirical_dirichlet_lambda_v1"
     # Override ensemble 1 interfaces: lambda_i=0.0, lambda_upper=1.0 → obs = lambda_max
     state.ensembles[1]["interfaces"] = (float("-inf"), 0.0, 1.0)
+    # Pre-populate ctrl_state so the empirical block runs (last_obs starts nan)
+    state.softmax_ctrl_state[1] = {"last_obs": float("nan")}
 
     lambda_max_vals = [0.1, 0.4, 0.4, 0.9]
     for lm in lambda_max_vals:
         update_epoch_stats(state, 1, accepted=True, path_length=10.0, subcycles=2, lambda_max=lm)
 
     buf = state.ensemble_epoch_stats[1]
-    # Move 1: prev_obs=0.1, no increment.
+    cs = state.softmax_ctrl_state[1]
+    # Move 1: last_obs initialized to 0.1, no increment.
     # Move 2: delta=0.3, gain_sq_sum+=0.09, gain_sq_n=1.
     # Move 3: delta=0.0, gain_sq_sum+=0.0, gain_sq_n=2.
     # Move 4: delta=0.5, gain_sq_sum+=0.25, gain_sq_n=3.
     expected_sq_sum = (0.4 - 0.1)**2 + (0.4 - 0.4)**2 + (0.9 - 0.4)**2  # 0.34
     assert abs(buf["gain_sq_sum"] - expected_sq_sum) < 1e-12
     assert buf["gain_sq_n"] == 3
-    assert abs(buf["prev_obs"] - 0.9) < 1e-12
+    assert abs(cs["last_obs"] - 0.9) < 1e-12
 
 
 # ---------------------------------------------------------------------------
@@ -1770,11 +1814,9 @@ def test_sd_empirical_gain_accumulator_sequence():
 # ---------------------------------------------------------------------------
 
 def test_sd_empirical_reward_from_buffer():
-    """_compute_epoch_reward with empirical proxy returns (G + eps) / (avg_sub + eps)."""
+    """_compute_epoch_reward with empirical proxy returns total_gain / (total_cost + offset)."""
     sim = {
         "reward_proxy": "empirical_dirichlet_lambda_v1",
-        "reward_eps_gain": 1e-12,
-        "reward_eps_cost": 1e-12,
     }
     buf = _empty_stats()
     buf["gain_sq_sum"] = 0.08
@@ -1783,10 +1825,8 @@ def test_sd_empirical_reward_from_buffer():
     buf["subcycles_n"] = 1
 
     reward = _compute_epoch_reward(buf, sim)
-    gain = 0.08 / 2  # 0.04
-    avg_sub = 3.0
-    eps = 1e-12
-    expected = (gain + eps) / (avg_sub + eps)
+    # New formula: total_gain / (total_cost + cost_offset)
+    expected = 0.08 / (3 + 1e-12)
     assert abs(reward - expected) < 1e-20
 
 
@@ -1795,15 +1835,18 @@ def test_sd_empirical_reward_from_buffer():
 # ---------------------------------------------------------------------------
 
 def test_sd_empirical_first_obs_no_increment():
-    """First accepted move: prev_obs set, gain_sq_n stays 0."""
+    """First accepted move: last_obs set in ctrl_state, gain_sq_n stays 0."""
     state = _make_state()
     state.config["simulation"]["reward_proxy"] = "empirical_dirichlet_lambda_v1"
     state.ensembles[1]["interfaces"] = (float("-inf"), 0.0, 1.0)
+    # Pre-populate ctrl_state so the empirical block runs
+    state.softmax_ctrl_state[1] = {"last_obs": float("nan")}
 
     update_epoch_stats(state, 1, accepted=True, path_length=10.0, subcycles=2, lambda_max=0.5)
 
     buf = state.ensemble_epoch_stats[1]
-    assert abs(buf["prev_obs"] - 0.5) < 1e-12
+    cs = state.softmax_ctrl_state[1]
+    assert abs(cs["last_obs"] - 0.5) < 1e-12
     assert buf["gain_sq_n"] == 0
 
 
@@ -1812,20 +1855,16 @@ def test_sd_empirical_first_obs_no_increment():
 # ---------------------------------------------------------------------------
 
 def test_sd_empirical_zero_reward_when_no_increments():
-    """gain_sq_n=0 → reward is eps_gain / (avg_sub + eps_cost)."""
+    """gain_sq_n=0 < reward_min_gain_count=1 → reward is nan."""
     sim = {
         "reward_proxy": "empirical_dirichlet_lambda_v1",
-        "reward_eps_gain": 1e-12,
-        "reward_eps_cost": 1e-12,
     }
     buf = _empty_stats()  # gain_sq_n = 0
     buf["subcycles_sum"] = 3
     buf["subcycles_n"] = 1
 
     reward = _compute_epoch_reward(buf, sim)
-    eps = 1e-12
-    expected = eps / (3.0 + eps)
-    assert abs(reward - expected) < 1e-20
+    assert math.isnan(reward), f"expected nan for gain_sq_n=0, got {reward}"
 
 
 # ---------------------------------------------------------------------------
@@ -1872,14 +1911,17 @@ def test_sd_empirical_rejected_move_gives_zero_increment(dw_setup):
     keys = _sd_sim_keys()
     keys["reward_proxy"] = "empirical_dirichlet_lambda_v1"
     state.config["simulation"].update(keys)
+    # Pre-populate ctrl_state so the empirical block runs (last_obs starts nan)
+    state.softmax_ctrl_state[2] = {"last_obs": float("nan")}
 
-    # First: ACC move — initialises prev_obs
+    # First: ACC move — initialises last_obs in ctrl_state
     update_epoch_stats(state, 2, accepted=True, path_length=10.0, subcycles=1, lambda_max=-0.4)
+    cs = state.softmax_ctrl_state[2]
     buf = state.ensemble_epoch_stats.get(2, {})
-    assert not math.isnan(buf.get("prev_obs", float("nan"))), "prev_obs must be set after ACC"
+    assert not math.isnan(cs.get("last_obs", float("nan"))), "last_obs must be set after ACC"
     assert buf.get("gain_sq_n", 0) == 0, "no increment on first ACC move"
 
-    # Second: REJ move — curr_obs = prev_obs, delta = 0
+    # Second: REJ move — curr_obs = last_obs, delta = 0
     update_epoch_stats(state, 2, accepted=False, path_length=10.0, subcycles=1, lambda_max=-0.99)
     buf2 = state.ensemble_epoch_stats.get(2, {})
     assert buf2.get("gain_sq_n", 0) == 1, "REJ must still increment gain_sq_n"
@@ -1929,24 +1971,25 @@ def test_sd_empirical_reward_used_at_boundary(dw_setup):
     state.ensemble_move_counts[2] = 6  # 2 * epoch_move_k=3
     apply_epoch_ctrl(state, 0)
 
-    # Read TSV epoch-2 row
-    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
-    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
-    assert len(rows) == 2, "must have epoch-1 and epoch-2 TSV rows"
-    r = rows[1]
-    reward_val = float(r["reward_raw"])
+    # Read debug TSV epoch-2 row (reward_raw lives in the debug file)
+    debug_path = tmp_path / _EPOCH_SOFTMAX_DEBUG_FNAME
+    assert debug_path.exists(), "epoch_softmax_debug.tsv must exist after epoch boundaries"
+    debug_rows = list(csv.DictReader(debug_path.open(), delimiter="\t"))
+    assert len(debug_rows) == 2, "must have epoch-1 and epoch-2 debug rows"
+    reward_val = float(debug_rows[1]["reward_raw"])
 
     # Expected empirical reward: gain from 3 moves (1st initializes, 2nd and 3rd give deltas)
     # gain_sq_sum = (h2-h1)^2 + (h3-h2)^2, gain_sq_n = 2
+    # New formula: total_gain / (total_cost + cost_offset)
     gain_sq_sum = (h2 - h1) ** 2 + (h3 - h2) ** 2
-    gain = gain_sq_sum / 2
-    eps = 1e-12
-    expected = (gain + eps) / (1.0 + eps)  # avg_sub=1.0 (subcycles=1 each)
-    assert abs(reward_val - expected) < 1e-9, (
+    cost_offset = 1e-12
+    expected = gain_sq_sum / (3.0 + cost_offset)  # subcycles_sum=3 (3 moves, subcycles=1 each)
+    assert abs(reward_val - expected) < 1e-6, (
         f"Empirical reward mismatch: got {reward_val}, expected {expected}"
     )
 
     # Phase-1 reward (avg_lambda_max / avg_sub) would differ
+    eps = 1e-12
     phase1_avg_lm = (lm1 + lm2 + lm3) / 3
     phase1_reward = (phase1_avg_lm + eps) / (1.0 + eps)
     assert abs(reward_val - phase1_reward) > 1e-6, (
@@ -1959,14 +2002,14 @@ def test_sd_empirical_reward_used_at_boundary(dw_setup):
 # ---------------------------------------------------------------------------
 
 def test_sd_empirical_restart_roundtrip_preserves_gain_state(dw_setup):
-    """Stop mid-epoch; restart.toml preserves prev_obs/gain_sq_*; restore continues."""
+    """Stop mid-epoch; restart.toml preserves last_obs/gain_sq_*; restore continues."""
     state, tmp_path = dw_setup
     keys = _sd_sim_keys()
     keys["reward_proxy"] = "empirical_dirichlet_lambda_v1"
     state.config["simulation"].update(keys)
     ENS_NUM = 1  # ensemble index 2
 
-    # Epoch 1: 3 REJ moves → ctrl_state initialized, buffer reset
+    # Epoch 1: 3 REJ moves → ctrl_state initialized (last_obs=nan), buffer reset
     for cstep in (1, 2, 3):
         state.cstep = cstep
         _lock_ens_slot(state, ENS_NUM)
@@ -1985,17 +2028,19 @@ def test_sd_empirical_restart_roundtrip_preserves_gain_state(dw_setup):
     update_epoch_stats(state, 2, accepted=True, path_length=10.0, subcycles=1, lambda_max=lm2)
 
     buf_before = state.ensemble_epoch_stats.get(2, {})
+    cs_before = state.softmax_ctrl_state[2]
     assert buf_before.get("gain_sq_n", 0) == 1, "2 ACC moves → 1 gain increment"
-    assert not math.isnan(buf_before.get("prev_obs", float("nan")))
-    prev_obs_before = buf_before["prev_obs"]
+    assert not math.isnan(cs_before.get("last_obs", float("nan")))
+    last_obs_before = cs_before["last_obs"]
     gain_sq_n_before = buf_before["gain_sq_n"]
     gain_sq_sum_before = buf_before["gain_sq_sum"]
 
     # Serialize via mirror_epoch_ctrl
     mirror_epoch_ctrl(state, state.config)
+    saved_cs = state.config["simulation"]["softmax_ctrl_state"]["2"]
     saved_stats = state.config["simulation"]["softmax_epoch_stats"]["2"]
     assert saved_stats["gain_sq_n"] == gain_sq_n_before
-    assert not math.isnan(saved_stats["prev_obs"])
+    assert not math.isnan(saved_cs.get("last_obs", float("nan")))
 
     # TOML roundtrip
     restart_path = tmp_path / "restart2.toml"
@@ -2012,9 +2057,10 @@ def test_sd_empirical_restart_roundtrip_preserves_gain_state(dw_setup):
 
     # Verify restored gain state
     buf2 = state2.ensemble_epoch_stats.get(2, {})
+    cs2 = state2.softmax_ctrl_state[2]
     assert buf2.get("gain_sq_n", 0) == gain_sq_n_before, "gain_sq_n must survive restart"
-    assert not math.isnan(buf2.get("prev_obs", float("nan"))), "prev_obs must survive restart"
-    assert abs(buf2.get("prev_obs", 0.0) - prev_obs_before) < 1e-10
+    assert not math.isnan(cs2.get("last_obs", float("nan"))), "last_obs must survive restart"
+    assert abs(cs2.get("last_obs", 0.0) - last_obs_before) < 1e-10
     assert abs(buf2.get("gain_sq_sum", 0.0) - gain_sq_sum_before) < 1e-10
 
     # Complete epoch 2: 1 more ACC move + trigger epoch boundary
@@ -2023,15 +2069,23 @@ def test_sd_empirical_restart_roundtrip_preserves_gain_state(dw_setup):
     state2.ensemble_move_counts[2] = 6  # trigger epoch 2
     apply_epoch_ctrl(state2, 0)
 
-    # Epoch 2 fired: update_count advanced, reward is not nan
-    assert state2.softmax_ctrl_state[2]["update_count"] == 1, (
-        "epoch 2 must apply first logit update"
+    # With the EMA baseline, epoch 2 initializes reward_ema but does NOT
+    # apply a logit update.  The first real logit update fires at epoch 3.
+    assert state2.softmax_ctrl_state[2]["update_count"] == 0, (
+        "epoch 2 must initialize EMA baseline without applying a logit update"
     )
-    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
-    rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
-    assert len(rows) == 2
-    r2 = rows[1]
-    assert r2["reward_raw"] != "nan", "epoch-2 reward must not be nan"
+    # reward_raw and reward_eff are in the debug TSV
+    debug_path = tmp_path / _EPOCH_SOFTMAX_DEBUG_FNAME
+    assert debug_path.exists(), "epoch_softmax_debug.tsv must exist"
+    debug_rows = list(csv.DictReader(debug_path.open(), delimiter="\t"))
+    assert len(debug_rows) == 2
+    dr2 = debug_rows[1]
+    # reward_raw is finite (the empirical proxy computed from accumulated stats)
+    assert dr2["reward_raw"] != "nan", "epoch-2 reward_raw must not be nan"
+    # reward_eff is 0.0 on Case 2 (baseline initialization)
+    assert float(dr2["reward_eff"]) == pytest.approx(0.0), (
+        "epoch-2 reward_eff must be 0.0 (EMA baseline initialization)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2061,8 +2115,316 @@ def test_sd_phase1_proxy_still_works(dw_setup):
     assert tsv_path.exists()
     rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
     assert len(rows) == 1
-    assert rows[0]["ctrl_mode"] == "softmax_dirichlet"
-    assert rows[0]["reward_raw"] == "nan"  # first epoch: no prior reward
+    assert "ctrl_mode" not in rows[0], "ctrl_mode must not appear in new public schema"
+    assert "reward_raw" not in rows[0], "reward_raw must be in debug TSV only"
+
+
+# ===========================================================================
+# Tests 50–59 — ref_softmax refinements
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# Test T1 — last_obs survives epoch boundary
+# ---------------------------------------------------------------------------
+
+def test_last_obs_survives_epoch_boundary(dw_setup):
+    """After epoch fires, ctrl_state['last_obs'] retains the value set during
+    pre-boundary moves and is not wiped by the buffer reset."""
+    state, tmp_path = dw_setup
+    keys = _sd_sim_keys()
+    keys["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    state.config["simulation"].update(keys)
+    ENS_NUM = 1  # ensemble index 2
+
+    # Epoch 1: 3 REJ moves through treat_output → ctrl_state initialized
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
+
+    assert 2 in state.softmax_ctrl_state
+    # After epoch 1 fires (all REJ moves), last_obs should still be nan
+    # because REJ moves with last_obs=nan don't initialize it
+    assert math.isnan(state.softmax_ctrl_state[2].get("last_obs", float("nan")))
+
+    # Now push one ACC move into epoch 2 buffer — should set last_obs
+    lambda_i = state.ensembles[2]["interfaces"][1]
+    lambda_upper = state.ensembles[2]["interfaces"][2]
+    lm = lambda_i + 0.5 * (lambda_upper - lambda_i)
+    update_epoch_stats(state, 2, accepted=True, path_length=10.0, subcycles=1, lambda_max=lm)
+
+    expected_obs = _bounded_lambda_obs(lm, lambda_i, lambda_upper)
+    assert abs(state.softmax_ctrl_state[2]["last_obs"] - expected_obs) < 1e-12, (
+        "last_obs must be set after first ACC move"
+    )
+
+    # Fire epoch 2 boundary; last_obs must persist after buffer reset
+    state.ensemble_move_counts[2] = 6  # trigger epoch 2
+    apply_epoch_ctrl(state, 0)
+
+    # Buffer is reset but last_obs in ctrl_state must survive
+    buf = state.ensemble_epoch_stats.get(2, {})
+    assert buf.get("gain_sq_n", 0) == 0, "buffer must be reset after epoch flush"
+    assert abs(state.softmax_ctrl_state[2]["last_obs"] - expected_obs) < 1e-12, (
+        "last_obs in ctrl_state must survive epoch boundary"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test T2 — last_obs round-trips through mirror → TOML → restore
+# ---------------------------------------------------------------------------
+
+def test_last_obs_restart_fidelity(dw_setup):
+    """last_obs in ctrl_state must round-trip through mirror → TOML → restore exactly."""
+    state, tmp_path = dw_setup
+    keys = _sd_sim_keys()
+    keys["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    state.config["simulation"].update(keys)
+    ENS_NUM = 1
+
+    # Epoch 1 fires
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
+
+    # Push ACC move to set last_obs
+    lambda_i = state.ensembles[2]["interfaces"][1]
+    lambda_upper = state.ensembles[2]["interfaces"][2]
+    lm = lambda_i + 0.7 * (lambda_upper - lambda_i)
+    update_epoch_stats(state, 2, accepted=True, path_length=10.0, subcycles=1, lambda_max=lm)
+    expected_obs = _bounded_lambda_obs(lm, lambda_i, lambda_upper)
+
+    # Mirror and round-trip through TOML
+    mirror_epoch_ctrl(state, state.config)
+    restart_path = tmp_path / "restart_last_obs.toml"
+    with restart_path.open("wb") as fh:
+        tomli_w.dump(state.config, fh)
+    with restart_path.open("rb") as fh:
+        saved_cfg = tomli.load(fh)
+
+    # Verify serialized value
+    saved_last_obs = saved_cfg["simulation"]["softmax_ctrl_state"]["2"]["last_obs"]
+    assert abs(saved_last_obs - expected_obs) < 1e-12, (
+        "last_obs must be written into restart.toml exactly"
+    )
+
+    # Restore and verify
+    state2 = REPEX_state(saved_cfg, minus=True)
+    state2.initiate_ensembles()
+    paths = load_paths_from_disk(saved_cfg)
+    state2.load_paths(paths)
+
+    restored_obs = state2.softmax_ctrl_state[2].get("last_obs", float("nan"))
+    assert abs(restored_obs - expected_obs) < 1e-12, (
+        "last_obs must survive TOML round-trip exactly"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test T3 — first accepted move initializes last_obs, no gain added
+# ---------------------------------------------------------------------------
+
+def test_first_accepted_initializes_last_obs_no_gain():
+    """First finite curr_obs → last_obs set; gain_sq_n stays 0."""
+    state = _make_state()
+    state.config["simulation"]["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    state.ensembles[1]["interfaces"] = (float("-inf"), 0.0, 1.0)
+    state.softmax_ctrl_state[1] = {"last_obs": float("nan")}
+
+    update_epoch_stats(state, 1, accepted=True, path_length=10.0, subcycles=2, lambda_max=0.4)
+
+    cs = state.softmax_ctrl_state[1]
+    buf = state.ensemble_epoch_stats[1]
+    assert abs(cs["last_obs"] - 0.4) < 1e-12, "last_obs must be set to first obs"
+    assert buf["gain_sq_n"] == 0, "no gain increment on first informative move"
+    assert buf.get("gain_sq_sum", 0.0) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Test T4 — rejected after init gives zero delta, gain_sq_n increments
+# ---------------------------------------------------------------------------
+
+def test_rejected_after_init_zero_delta_gain():
+    """REJ after init: delta=0, gain_sq_sum += 0, gain_sq_n += 1, last_obs unchanged."""
+    state = _make_state()
+    state.config["simulation"]["reward_proxy"] = "empirical_dirichlet_lambda_v1"
+    state.ensembles[1]["interfaces"] = (float("-inf"), 0.0, 1.0)
+    state.softmax_ctrl_state[1] = {"last_obs": 0.6}  # already initialized
+
+    # REJ move: curr_obs = last_obs = 0.6, delta = 0
+    update_epoch_stats(state, 1, accepted=False, path_length=10.0, subcycles=2, lambda_max=0.0)
+
+    cs = state.softmax_ctrl_state[1]
+    buf = state.ensemble_epoch_stats[1]
+    assert buf["gain_sq_n"] == 1, "REJ must increment gain_sq_n"
+    assert abs(buf.get("gain_sq_sum", 1.0)) < 1e-15, "delta=0: gain_sq_sum must not change"
+    assert abs(cs["last_obs"] - 0.6) < 1e-12, "last_obs must not change on REJ"
+
+
+# ---------------------------------------------------------------------------
+# Test T5 — empirical reward nan when below min_count
+# ---------------------------------------------------------------------------
+
+def test_empirical_reward_nan_when_below_min_count():
+    """gain_sq_n < reward_min_gain_count → _compute_epoch_reward returns nan."""
+    sim = {"reward_proxy": "empirical_dirichlet_lambda_v1", "reward_min_gain_count": 5}
+    buf = _empty_stats()
+    buf["gain_sq_sum"] = 0.5
+    buf["gain_sq_n"] = 4  # below min_count=5
+    buf["subcycles_sum"] = 10
+    buf["subcycles_n"] = 4
+
+    reward = _compute_epoch_reward(buf, sim)
+    assert math.isnan(reward), f"expected nan for gain_sq_n < min_count, got {reward}"
+
+    # At exactly min_count: finite
+    buf2 = _empty_stats()
+    buf2["gain_sq_sum"] = 0.5
+    buf2["gain_sq_n"] = 5
+    buf2["subcycles_sum"] = 10
+    buf2["subcycles_n"] = 5
+    reward2 = _compute_epoch_reward(buf2, sim)
+    assert not math.isnan(reward2), "gain_sq_n == min_count must give finite reward"
+
+
+# ---------------------------------------------------------------------------
+# Test T6 — empirical reward formula: total_gain / (total_cost + offset)
+# ---------------------------------------------------------------------------
+
+def test_empirical_reward_formula_total_gain_cost():
+    """Finite case: reward == gain_sq_sum / (subcycles_sum + reward_cost_offset) exactly."""
+    sim = {
+        "reward_proxy": "empirical_dirichlet_lambda_v1",
+        "reward_cost_offset": 2.0,
+    }
+    buf = _empty_stats()
+    buf["gain_sq_sum"] = 0.3
+    buf["gain_sq_n"] = 3
+    buf["subcycles_sum"] = 8
+    buf["subcycles_n"] = 3
+
+    reward = _compute_epoch_reward(buf, sim)
+    expected = 0.3 / (8 + 2.0)
+    assert abs(reward - expected) < 1e-15, (
+        f"expected {expected}, got {reward}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test T7 — explore_floor = 0 fails validation
+# ---------------------------------------------------------------------------
+
+def test_explore_floor_zero_fails_validation():
+    """softmax_explore_floor = 0 must raise (strictly positive required)."""
+    cfg = _sd_config_base()
+    cfg["simulation"]["softmax_explore_floor"] = 0.0
+    with pytest.raises((ValueError, TOMLConfigError), match="explore_floor"):
+        validate_epoch_ctrl(cfg)
+
+
+# ---------------------------------------------------------------------------
+# Test T8 — duplicate choices fails validation
+# ---------------------------------------------------------------------------
+
+def test_duplicate_choices_fails_validation():
+    """Duplicate values in epoch_nsubpath_choices must raise."""
+    cfg = _sd_config_base()
+    cfg["simulation"]["epoch_nsubpath_choices"] = [[1, 2, 2, 4]]  # duplicate 2
+    with pytest.raises((ValueError, TOMLConfigError), match="distinct"):
+        validate_epoch_ctrl(cfg)
+
+
+# ---------------------------------------------------------------------------
+# Test T9 — softmax_update_clip limits IW term
+# ---------------------------------------------------------------------------
+
+def test_softmax_update_clip_limits_iw_term(dw_setup):
+    """Large reward_eff / tiny q → logit delta capped at eta * update_clip."""
+    state, tmp_path = dw_setup
+    keys = _sd_sim_keys()
+    state.config["simulation"].update(keys)
+    state.config["simulation"]["softmax_update_clip"] = 3.0
+    ENS_NUM = 1  # ensemble index 2
+
+    # Run two full epochs so we reach Case 3 (full logit update)
+    for cstep in range(1, 7):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
+
+    # Epoch 3: manually set extreme reward_eff via tiny q to force clipping
+    # Inject extreme state: reward_ema set, ema_abs_reward tiny → huge reward_eff
+    cs = state.softmax_ctrl_state[2]
+    cs["reward_ema"] = 0.0
+    cs["ema_abs_reward"] = 1e-9  # tiny → normalized reward will be huge
+
+    # Record logits and update_count before boundary
+    logits_before = list(cs["logits"])
+    choice_idx = cs["last_choice_idx"]
+    uc_before = cs["update_count"]
+
+    # Inject large reward into buf so reward_raw is large
+    buf = state.ensemble_epoch_stats.setdefault(2, {})
+    buf["lambda_max_sum"] = 1e6
+    buf["lambda_max_n"] = 1
+    buf["subcycles_sum"] = 1
+    buf["subcycles_n"] = 1
+
+    # Trigger epoch 3 boundary
+    state.ensemble_move_counts[2] = 9
+    apply_epoch_ctrl(state, 0)
+
+    cs_after = state.softmax_ctrl_state[2]
+    logits_after = cs_after["logits"]
+    update_clip = 3.0
+    sim = state.config["simulation"]
+    eta = sim["softmax_eta0"] / (uc_before + 1) ** sim["softmax_beta"]
+    max_allowed_delta = eta * update_clip
+    actual_delta = abs(logits_after[choice_idx] - logits_before[choice_idx])
+    assert actual_delta <= max_allowed_delta + 1e-10, (
+        f"logit delta {actual_delta:.6f} exceeds eta*update_clip={max_allowed_delta:.6f}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test T10 — logit box-clip applied after update
+# ---------------------------------------------------------------------------
+
+def test_logit_box_clip_applied_after_update(dw_setup):
+    """Post-update logit exceeding softmax_logit_clip must be clipped to bound."""
+    state, tmp_path = dw_setup
+    keys = _sd_sim_keys()
+    state.config["simulation"].update(keys)
+    state.config["simulation"]["softmax_logit_clip"] = 1.0  # very tight clip
+    ENS_NUM = 1
+
+    # Run two epochs to reach Case 3
+    for cstep in range(1, 7):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
+
+    # Set one logit to just under the clip boundary, reward will push it over
+    cs = state.softmax_ctrl_state[2]
+    cs["reward_ema"] = 0.0
+    cs["ema_abs_reward"] = 1e-9
+    cs["logits"] = [0.9, 0.0, 0.0, 0.0]  # first logit near clip
+
+    buf = state.ensemble_epoch_stats.setdefault(2, {})
+    buf["lambda_max_sum"] = 1e6
+    buf["lambda_max_n"] = 1
+    buf["subcycles_sum"] = 1
+    buf["subcycles_n"] = 1
+
+    state.ensemble_move_counts[2] = 9
+    apply_epoch_ctrl(state, 0)
+
+    logit_clip = 1.0
+    for logit in state.softmax_ctrl_state[2]["logits"]:
+        assert logit <= logit_clip + 1e-12, f"logit {logit} exceeds clip {logit_clip}"
+        assert logit >= -logit_clip - 1e-12, f"logit {logit} below -clip {-logit_clip}"
 
 
 # ===========================================================================
@@ -2149,7 +2511,7 @@ def test_sd_no_extra_rows_after_boundary(dw_setup):
     # Verify the one row is the real boundary row (not a spurious hold)
     r = rows_after_extra[0]
     assert int(r["n_attempted"]) > 0, "boundary row must have n_attempted > 0"
-    assert r["ctrl_mode"] == "softmax_dirichlet"
+    assert "ctrl_mode" not in r, "ctrl_mode must not appear in new public schema"
 
 
 # ===========================================================================
@@ -2394,7 +2756,7 @@ def test_lp_ls_boundary_sets_correct_n_jumps(dw_setup):
     rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
     assert len(rows) == 1
     r = rows[0]
-    assert r["ctrl_mode"] == "lp_over_ls"
+    assert "ctrl_mode" not in r, "ctrl_mode must not appear in new public schema"
     assert float(r["avg_subpath_length"]) == pytest.approx(10.0)
     assert float(r["lp_over_ls_target_value"]) == 6.0
 
@@ -2543,7 +2905,7 @@ def test_lp_ls_treat_output_transports_move_meta(dw_setup):
     rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
     assert len(rows) == 1
     r = rows[0]
-    assert r["ctrl_mode"] == "lp_over_ls"
+    assert "ctrl_mode" not in r, "ctrl_mode must not appear in new public schema"
     assert float(r["avg_subpath_length"]) == pytest.approx(20.0)
     assert r["ctrl_reason"] == "lp_over_ls_rule"
 
@@ -2623,3 +2985,709 @@ def test_lp_ls_restart_loses_partial_stats_holds(dw_setup):
     assert len(rows) == 1
     assert rows[0]["ctrl_action"] == "hold"
     assert rows[0]["ctrl_reason"] == "missing_subpath_stats"
+
+
+# ===========================================================================
+# Tests 71–75 — reward EMA baseline for softmax_dirichlet controller
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# Unit test 71 — non-finite raw_reward: logits/update_count/reward_ema unchanged
+# ---------------------------------------------------------------------------
+
+def test_ema_nonfinite_skips_all(dw_setup):
+    """raw_reward=nan must leave logits, update_count, and reward_ema unchanged."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1  # ensemble index 2
+
+    # Epoch 1: initialise ctrl_state (reward_ema stays None after first boundary)
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=-0.3))
+    assert 2 in state.softmax_ctrl_state
+
+    # Force reward_ema to a known value so we can confirm it's unchanged
+    state.softmax_ctrl_state[2]["reward_ema"] = 0.1
+    logits_before = list(state.softmax_ctrl_state[2]["logits"])
+    uc_before = state.softmax_ctrl_state[2]["update_count"]
+
+    # Inject nan into the stats buffer so _compute_epoch_reward returns nan
+    state.ensemble_epoch_stats[2] = _empty_stats()
+    state.ensemble_epoch_stats[2]["lambda_max_sum"] = float("nan")
+    state.ensemble_epoch_stats[2]["lambda_max_n"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_sum"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_n"] = 1
+
+    state.ensemble_move_counts[2] = 6  # trigger epoch 2 (count = 2*k = 6)
+    apply_epoch_ctrl(state, 0)
+
+    cs = state.softmax_ctrl_state[2]
+    assert cs["logits"] == logits_before, "logits must not change for nan reward"
+    assert cs["update_count"] == uc_before, "update_count must not change for nan reward"
+    assert cs["reward_ema"] == pytest.approx(0.1), "reward_ema must not change for nan reward"
+
+
+# ---------------------------------------------------------------------------
+# Unit test 72 — first finite reward initializes EMA, skips logit update
+# ---------------------------------------------------------------------------
+
+def test_ema_first_finite_initializes(dw_setup):
+    """reward_ema=None + finite raw_reward → reward_ema=raw, reward_eff=0, logits unchanged."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1  # ensemble index 2
+
+    # Epoch 1: initialise ctrl_state
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    cs = state.softmax_ctrl_state[2]
+    assert math.isnan(cs["reward_ema"]), "reward_ema must be nan after first boundary"
+    logits_before = list(cs["logits"])
+    uc_before = cs["update_count"]
+
+    # Epoch 2 with finite buffer → Case 2 path
+    state.ensemble_epoch_stats[2] = _empty_stats()
+    state.ensemble_epoch_stats[2]["lambda_max_sum"] = 0.5
+    state.ensemble_epoch_stats[2]["lambda_max_n"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_sum"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_n"] = 1
+
+    raw_reward = _compute_epoch_reward(
+        state.ensemble_epoch_stats[2], state.config["simulation"]
+    )
+    assert np.isfinite(raw_reward)
+
+    state.ensemble_move_counts[2] = 6
+    apply_epoch_ctrl(state, 0)
+
+    cs = state.softmax_ctrl_state[2]
+    assert cs["reward_ema"] == pytest.approx(raw_reward), (
+        "reward_ema must be initialized to raw_reward"
+    )
+    assert cs["logits"] == logits_before, "logits must not change on first finite reward"
+    assert cs["update_count"] == uc_before, "update_count must not increment on first finite reward"
+
+
+# ---------------------------------------------------------------------------
+# Unit test 73 — subsequent finite reward: full update with correct values
+# ---------------------------------------------------------------------------
+
+def test_ema_subsequent_full_update(dw_setup):
+    """Verify centered reward, logit delta, update_count, and EMA update are all correct."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1  # ensemble index 2
+
+    # Epoch 1: init ctrl_state
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    # Epoch 2: initialize reward_ema baseline
+    state.ensemble_epoch_stats[2] = _empty_stats()
+    state.ensemble_epoch_stats[2]["lambda_max_sum"] = 0.5
+    state.ensemble_epoch_stats[2]["lambda_max_n"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_sum"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_n"] = 1
+    state.ensemble_move_counts[2] = 6
+    apply_epoch_ctrl(state, 0)
+
+    cs = state.softmax_ctrl_state[2]
+    assert not math.isnan(cs["reward_ema"])
+    ema_prev = cs["reward_ema"]
+    uc_before = cs["update_count"]  # 0 (no logit update yet)
+    logits_before = list(cs["logits"])
+    A = cs["last_choice_idx"]
+    ema_abs_before = float(cs.get("ema_abs_reward", 1e-4))
+
+    sim = state.config["simulation"]
+    alpha = float(sim.get("reward_ema_alpha", 0.1))
+
+    # Epoch 3: push a different reward value to trigger Case 3
+    state.ensemble_epoch_stats[2] = _empty_stats()
+    state.ensemble_epoch_stats[2]["lambda_max_sum"] = 0.9
+    state.ensemble_epoch_stats[2]["lambda_max_n"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_sum"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_n"] = 1
+
+    raw_reward_actual = _compute_epoch_reward(state.ensemble_epoch_stats[2], sim)
+    old_q = _compute_q(logits_before, sim["softmax_tau"], sim["softmax_explore_floor"])
+    reward_centered = raw_reward_actual - ema_prev
+    reward_eff_expected, _ = _normalize_reward(
+        reward_centered,
+        ema_abs_before,
+        rho=float(sim.get("softmax_reward_ema_rho", 0.1)),
+        floor=float(sim.get("softmax_reward_ema_floor", 1e-6)),
+        rclip=float(sim.get("softmax_reward_eff_clip", 5.0)),
+    )
+    eta_expected = sim["softmax_eta0"] / (uc_before + 1) ** sim["softmax_beta"]
+    update_clip_val = float(sim.get("softmax_update_clip", 5.0))
+    iw_term_expected = float(np.clip(reward_eff_expected / old_q[A], -update_clip_val, update_clip_val))
+    expected_logit_delta = eta_expected * iw_term_expected
+    expected_ema = (1.0 - alpha) * ema_prev + alpha * raw_reward_actual
+
+    state.ensemble_move_counts[2] = 9
+    apply_epoch_ctrl(state, 0)
+
+    cs = state.softmax_ctrl_state[2]
+    assert cs["update_count"] == uc_before + 1, "update_count must increment"
+    assert abs(cs["logits"][A] - (logits_before[A] + expected_logit_delta)) < 1e-10, (
+        f"logit delta mismatch: expected {expected_logit_delta}, "
+        f"got {cs['logits'][A] - logits_before[A]}"
+    )
+    assert cs["reward_ema"] == pytest.approx(expected_ema), "reward_ema must be EMA updated"
+
+
+# ---------------------------------------------------------------------------
+# Integration test 74 — restart fidelity: reward_ema survives TOML roundtrip
+# ---------------------------------------------------------------------------
+
+def test_ema_restart_fidelity(dw_setup):
+    """reward_ema in ctrl_state must round-trip through mirror → TOML → restore exactly."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1  # ensemble index 2
+
+    # Epoch 1: init ctrl_state
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    # Epoch 2: initialize reward_ema
+    state.ensemble_epoch_stats[2] = _empty_stats()
+    state.ensemble_epoch_stats[2]["lambda_max_sum"] = 0.5
+    state.ensemble_epoch_stats[2]["lambda_max_n"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_sum"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_n"] = 1
+    state.ensemble_move_counts[2] = 6
+    apply_epoch_ctrl(state, 0)
+
+    cs_before = state.softmax_ctrl_state[2]
+    assert not math.isnan(cs_before["reward_ema"]), "reward_ema must be set after epoch 2"
+    ema_before = cs_before["reward_ema"]
+
+    # TOML roundtrip
+    mirror_epoch_ctrl(state, state.config)
+    assert "reward_ema" in state.config["simulation"]["softmax_ctrl_state"]["2"], (
+        "reward_ema must be serialized by mirror_epoch_ctrl"
+    )
+
+    restart_path = tmp_path / "restart_ema_baseline.toml"
+    with restart_path.open("wb") as fh:
+        tomli_w.dump(state.config, fh)
+    with restart_path.open("rb") as fh:
+        saved_cfg = tomli.load(fh)
+
+    state2 = REPEX_state(saved_cfg, minus=True)
+    state2.initiate_ensembles()
+    paths = load_paths_from_disk(saved_cfg)
+    state2.load_paths(paths)
+
+    cs2 = state2.softmax_ctrl_state[2]
+    assert not math.isnan(cs2["reward_ema"]), "reward_ema must be restored from TOML"
+    assert abs(cs2["reward_ema"] - ema_before) < 1e-15, (
+        f"reward_ema must survive restart exactly: {ema_before} → {cs2['reward_ema']}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Integration test 75 — TSV row contains reward_ema column with correct value
+# ---------------------------------------------------------------------------
+
+def test_ema_logged_in_tsv(dw_setup):
+    """After epoch boundaries, TSV must contain reward_ema column with correct values."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1  # ensemble index 2
+
+    # Epoch 1: init ctrl_state
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    # Epoch 1: reward_ema must be in debug TSV (not summary), must be nan
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    debug_path = tmp_path / _EPOCH_SOFTMAX_DEBUG_FNAME
+    summary_rows = list(csv.DictReader(tsv_path.open(), delimiter="\t"))
+    assert len(summary_rows) == 1
+    assert "reward_ema" not in summary_rows[0], "reward_ema must not appear in summary TSV"
+    assert debug_path.exists(), "epoch_softmax_debug.tsv must be created"
+    debug_rows = list(csv.DictReader(debug_path.open(), delimiter="\t"))
+    assert len(debug_rows) == 1
+    assert "reward_ema" in debug_rows[0], "reward_ema column must exist in debug TSV header"
+    assert math.isnan(float(debug_rows[0]["reward_ema"])), (
+        "first boundary: reward_ema must be nan (ctrl_state just initialized)"
+    )
+
+    # Epoch 2: initialize EMA baseline (Case 2)
+    state.ensemble_epoch_stats[2] = _empty_stats()
+    state.ensemble_epoch_stats[2]["lambda_max_sum"] = 0.5
+    state.ensemble_epoch_stats[2]["lambda_max_n"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_sum"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_n"] = 1
+    raw_reward_ep2 = _compute_epoch_reward(
+        state.ensemble_epoch_stats[2], state.config["simulation"]
+    )
+    state.ensemble_move_counts[2] = 6
+    apply_epoch_ctrl(state, 0)
+
+    debug_rows = list(csv.DictReader(debug_path.open(), delimiter="\t"))
+    assert len(debug_rows) == 2
+    dr2 = debug_rows[1]
+    # Case 2 sets reward_ema = raw_reward_ep2
+    assert not math.isnan(float(dr2["reward_ema"])), (
+        "epoch 2 debug row: reward_ema must be set after EMA initialization"
+    )
+    assert float(dr2["reward_ema"]) == pytest.approx(raw_reward_ep2), (
+        "epoch 2 debug row: reward_ema must equal the first finite raw_reward"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Unit test 76 — alpha=1.0: reward_ema jumps fully to raw_reward each update
+# ---------------------------------------------------------------------------
+
+def test_ema_alpha_one_jumps_to_raw_reward(dw_setup):
+    """With reward_ema_alpha=1.0, reward_ema must equal raw_reward after each Case 3 update.
+
+    The EMA formula is (1-alpha)*ema_prev + alpha*raw_reward.  At alpha=1 this
+    collapses to raw_reward regardless of ema_prev, so the baseline tracks the
+    most recent observation with zero smoothing.
+    """
+    state, tmp_path = dw_setup
+    keys = _sd_sim_keys()
+    keys["reward_ema_alpha"] = 1.0
+    state.config["simulation"].update(keys)
+    ENS_NUM = 1  # ensemble index 2
+
+    def _push_finite_epoch(lmax_sum, count):
+        """Inject a synthetic stats buffer and fire the next epoch boundary."""
+        state.ensemble_epoch_stats[2] = _empty_stats()
+        state.ensemble_epoch_stats[2]["lambda_max_sum"] = lmax_sum
+        state.ensemble_epoch_stats[2]["lambda_max_n"] = 1
+        state.ensemble_epoch_stats[2]["subcycles_sum"] = 1
+        state.ensemble_epoch_stats[2]["subcycles_n"] = 1
+        state.ensemble_move_counts[2] = count
+        apply_epoch_ctrl(state, 0)
+        return _compute_epoch_reward(
+            {"lambda_max_sum": lmax_sum, "lambda_max_n": 1,
+             "subcycles_sum": 1, "subcycles_n": 1,
+             "subpath_len_sum": 0.0, "subpath_n": 0,
+             "prev_obs": float("nan"), "gain_sq_sum": 0.0, "gain_sq_n": 0,
+             "n_attempted": 1, "n_accepted": 1,
+             "path_length_sum": 10.0, "path_length_n": 1,
+             "lambda_max": lmax_sum, "lambda_max_sum": lmax_sum,
+             "subcycles_sum": 1, "subcycles_n": 1},
+            state.config["simulation"],
+        )
+
+    # Epoch 1: init ctrl_state (reward_ema stays nan)
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    assert math.isnan(state.softmax_ctrl_state[2]["reward_ema"])
+
+    # Epoch 2: Case 2 — baseline initialized to raw_reward_A
+    state.ensemble_epoch_stats[2] = _empty_stats()
+    state.ensemble_epoch_stats[2]["lambda_max_sum"] = 0.4
+    state.ensemble_epoch_stats[2]["lambda_max_n"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_sum"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_n"] = 1
+    raw_reward_A = _compute_epoch_reward(
+        state.ensemble_epoch_stats[2], state.config["simulation"]
+    )
+    state.ensemble_move_counts[2] = 6
+    apply_epoch_ctrl(state, 0)
+    assert state.softmax_ctrl_state[2]["reward_ema"] == pytest.approx(raw_reward_A)
+
+    # Epoch 3: Case 3 — with alpha=1.0, reward_ema must jump to raw_reward_B
+    state.ensemble_epoch_stats[2] = _empty_stats()
+    state.ensemble_epoch_stats[2]["lambda_max_sum"] = 0.9
+    state.ensemble_epoch_stats[2]["lambda_max_n"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_sum"] = 1
+    state.ensemble_epoch_stats[2]["subcycles_n"] = 1
+    raw_reward_B = _compute_epoch_reward(
+        state.ensemble_epoch_stats[2], state.config["simulation"]
+    )
+    assert abs(raw_reward_B - raw_reward_A) > 1e-6, "test requires distinct rewards"
+    state.ensemble_move_counts[2] = 9
+    apply_epoch_ctrl(state, 0)
+
+    ema_after = state.softmax_ctrl_state[2]["reward_ema"]
+    # (1 - 1.0) * raw_reward_A + 1.0 * raw_reward_B = raw_reward_B
+    assert ema_after == pytest.approx(raw_reward_B), (
+        f"alpha=1.0: reward_ema must jump fully to raw_reward_B={raw_reward_B}, "
+        f"got {ema_after} (ema_prev was {raw_reward_A})"
+    )
+    # Also confirm it differs from the old baseline
+    assert abs(ema_after - raw_reward_A) > 1e-6, (
+        "reward_ema must not retain any weight from the previous baseline"
+    )
+
+
+# ===========================================================================
+# Tests 77–81 — Schema constant tests (new in spring-cleaning refactor)
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# Test 77 — public TSV header equals _EPOCH_SUMMARY_COLS exactly
+# ---------------------------------------------------------------------------
+
+def test_public_tsv_schema(tmp_path):
+    """epoch_summary.tsv header must equal _EPOCH_SUMMARY_COLS exactly."""
+    state = _make_state()
+    state.config["output"] = {"data_dir": str(tmp_path)}
+
+    _push_moves(state, ens_idx=1, n_attempted=5, n_accepted=3,
+                path_length=10.0, subcycles=2, lambda_max=0.3)
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, state.cstep)
+
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists()
+    header = tsv_path.read_text().splitlines()[0].split("\t")
+    assert header == list(_EPOCH_SUMMARY_COLS), (
+        f"TSV header {header} must equal _EPOCH_SUMMARY_COLS {list(_EPOCH_SUMMARY_COLS)}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 78 — debug TSV header equals _EPOCH_SOFTMAX_DEBUG_COLS exactly
+# ---------------------------------------------------------------------------
+
+def test_debug_tsv_schema(dw_setup):
+    """epoch_softmax_debug.tsv header must equal _EPOCH_SOFTMAX_DEBUG_COLS exactly."""
+    state, tmp_path = dw_setup
+    state.config["simulation"].update(_sd_sim_keys())
+    ENS_NUM = 1
+
+    for cstep in (1, 2, 3):
+        state.cstep = cstep
+        _lock_ens_slot(state, ENS_NUM)
+        state.treat_output(_build_md_items(state, ENS_NUM, trial_op_max=0.3))
+
+    debug_path = tmp_path / _EPOCH_SOFTMAX_DEBUG_FNAME
+    assert debug_path.exists()
+    header = debug_path.read_text().splitlines()[0].split("\t")
+    assert header == list(_EPOCH_SOFTMAX_DEBUG_COLS), (
+        f"Debug TSV header {header} must equal _EPOCH_SOFTMAX_DEBUG_COLS"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 79 — debug TSV not written for non-softmax (adaptive) runs
+# ---------------------------------------------------------------------------
+
+def test_debug_tsv_not_written_for_non_softmax(tmp_path):
+    """epoch_softmax_debug.tsv must not be created for adaptive/static/scheduled runs."""
+    state = _make_adaptive_state()
+    state.config["output"] = {"data_dir": str(tmp_path)}
+
+    for _ in range(4):
+        update_epoch_stats(
+            state, 1, accepted=False,
+            path_length=50.0, subcycles=2, lambda_max=0.02
+        )
+
+    state.config["current"]["cstep"] = 10
+    apply_epoch_ctrl(state, 10)
+
+    # summary TSV must be written
+    assert (tmp_path / _EPOCH_SUMMARY_FNAME).exists()
+    # debug TSV must NOT be written
+    assert not (tmp_path / _EPOCH_SOFTMAX_DEBUG_FNAME).exists(), (
+        "epoch_softmax_debug.tsv must not be created for non-softmax runs"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 80 — lp_ls run schema includes lp_ls columns
+# ---------------------------------------------------------------------------
+
+def test_lp_ls_run_schema_cols(dw_setup):
+    """When lp_over_ls_target=True, TSV header must include _EPOCH_SUMMARY_LPLSCOLS."""
+    state, tmp_path = dw_setup
+    sim = state.config["simulation"]
+    sim["lp_over_ls_target"] = True
+    sim["epoch_nsubpath_ens"] = [2]
+    sim["epoch_mode"] = "global_step"
+    sim["epoch_size"] = 3
+
+    for _ in range(3):
+        update_epoch_stats(
+            state, 2, accepted=True, path_length=60.0, subcycles=1,
+            lambda_max=-0.5,
+            move_meta={"wf_subpath_len_sum": 20, "wf_subpath_n": 2},
+        )
+
+    state.cstep = 3
+    state.config["current"]["cstep"] = 3
+    apply_epoch_ctrl(state, 3)
+
+    tsv_path = tmp_path / _EPOCH_SUMMARY_FNAME
+    assert tsv_path.exists()
+    header = tsv_path.read_text().splitlines()[0].split("\t")
+    expected = list(_EPOCH_SUMMARY_COLS) + list(_EPOCH_SUMMARY_LPLSCOLS)
+    assert header == expected, (
+        f"lp_ls TSV header {header} must equal COLS+LPLSCOLS {expected}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 81 — backward-compat: compare_epoch reader handles old and new TSVs
+# ---------------------------------------------------------------------------
+
+def test_backward_compat_reward_column(tmp_path):
+    """compare_epoch._load must handle old TSV (reward col) and new TSV (reward_eff col)."""
+    from infretis.tools.compare_epoch import _load
+
+    # Old-schema TSV with "reward" column
+    old_tsv = tmp_path / "old.tsv"
+    old_tsv.write_text(
+        "epoch_idx\tens_name\tn_jumps_new\tacc_rate\tavg_path_length\treward\n"
+        "1\t001\t2\t0.5\t10.0\t0.42\n"
+    )
+    data_old, opt_old = _load(old_tsv)
+    assert "reward_eff" in data_old["001"], "old TSV reward must be aliased to reward_eff"
+    assert abs(data_old["001"]["reward_eff"][0] - 0.42) < 1e-9
+
+    # New-schema TSV with "reward_eff" column
+    new_tsv = tmp_path / "new.tsv"
+    new_tsv.write_text(
+        "epoch_idx\tens_name\tn_jumps_new\tacc_rate\tavg_path_length\treward_eff\n"
+        "1\t001\t2\t0.5\t10.0\t0.42\n"
+    )
+    data_new, opt_new = _load(new_tsv)
+    assert "reward_eff" in data_new["001"]
+    assert abs(data_new["001"]["reward_eff"][0] - 0.42) < 1e-9
+
+    # Both yield same numeric value
+    assert data_old["001"]["reward_eff"][0] == data_new["001"]["reward_eff"][0]
+
+
+# ---------------------------------------------------------------------------
+# Test 82 — _append_tsv rejects a pre-existing file with wrong header
+# ---------------------------------------------------------------------------
+
+def test_append_tsv_rejects_mismatched_header(tmp_path):
+    """_append_tsv must raise ValueError when the on-disk header differs."""
+    # -- public summary schema
+    bad_pub = tmp_path / "bad_public.tsv"
+    bad_pub.write_text("col_a\tcol_b\tcol_c\n1\t2\t3\n")
+    row_pub = {c: "x" for c in _EPOCH_SUMMARY_COLS}
+    with pytest.raises(ValueError, match="schema mismatch"):
+        _append_tsv(str(bad_pub), _EPOCH_SUMMARY_COLS, row_pub)
+
+    # -- softmax debug schema
+    bad_dbg = tmp_path / "bad_debug.tsv"
+    bad_dbg.write_text("foo\tbar\n0\t0\n")
+    row_dbg = {c: "x" for c in _EPOCH_SOFTMAX_DEBUG_COLS}
+    with pytest.raises(ValueError, match="schema mismatch"):
+        _append_tsv(str(bad_dbg), _EPOCH_SOFTMAX_DEBUG_COLS, row_dbg)
+
+
+# ---------------------------------------------------------------------------
+# Test 83 — _append_tsv succeeds on a file whose header already matches
+# ---------------------------------------------------------------------------
+
+def test_append_tsv_succeeds_on_matching_header(tmp_path):
+    """_append_tsv must append without error when the existing header matches."""
+    # -- public summary schema
+    pub = tmp_path / "good_public.tsv"
+    header_pub = "\t".join(_EPOCH_SUMMARY_COLS)
+    existing_row_pub = "\t".join("0" for _ in _EPOCH_SUMMARY_COLS)
+    pub.write_text(f"{header_pub}\n{existing_row_pub}\n")
+    assert len(pub.read_text().splitlines()) == 2
+
+    row_pub = {c: "1" for c in _EPOCH_SUMMARY_COLS}
+    _append_tsv(str(pub), _EPOCH_SUMMARY_COLS, row_pub)
+    lines_pub = pub.read_text().splitlines()
+    assert len(lines_pub) == 3
+    assert lines_pub[0] == header_pub  # header unchanged
+
+    # -- softmax debug schema
+    dbg = tmp_path / "good_debug.tsv"
+    header_dbg = "\t".join(_EPOCH_SOFTMAX_DEBUG_COLS)
+    existing_row_dbg = "\t".join("0" for _ in _EPOCH_SOFTMAX_DEBUG_COLS)
+    dbg.write_text(f"{header_dbg}\n{existing_row_dbg}\n")
+
+    row_dbg = {c: "1" for c in _EPOCH_SOFTMAX_DEBUG_COLS}
+    _append_tsv(str(dbg), _EPOCH_SOFTMAX_DEBUG_COLS, row_dbg)
+    lines_dbg = dbg.read_text().splitlines()
+    assert len(lines_dbg) == 3
+    assert lines_dbg[0] == header_dbg
+
+
+# ---------------------------------------------------------------------------
+# Restart config cleanliness tests
+# ---------------------------------------------------------------------------
+
+def _make_plain_config(cstep: int = 0) -> dict:
+    """Build a minimal config with NO epoch-controller keys at all.
+
+    This represents a plain run — no epoch_ctrl_mode, no epoch_nsubpath_ens,
+    no epoch_nsubpath_vals, no adaptive_*/softmax_* keys.
+    """
+    return {
+        "simulation": {
+            "interfaces": [0.0, 0.3, 0.6],
+            "shooting_moves": ["sh", "wf", "wf"],
+            "tis_set": {
+                "lambda_minus_one": False,
+                "n_jumps": 2,
+                "maxlength": 100,
+                "allowmaxlength": False,
+                "zero_momentum": False,
+                "quantis": False,
+                "accept_all": False,
+                "mwf_nsubpath": 3,
+            },
+            "seed": 0,
+            "steps": 100,
+        },
+        "runner": {"workers": 1},
+        "current": {
+            "cstep": cstep,
+            "size": 3,
+            "locked": [],
+        },
+    }
+
+
+def _make_plain_state(cstep: int = 0) -> REPEX_state:
+    state = REPEX_state(_make_plain_config(cstep), minus=True)
+    state.initiate_ensembles()
+    return state
+
+
+# -- Test: plain run, no epoch controller keys in input -----------------------
+def test_plain_run_restart_has_no_epoch_ctrl_keys():
+    """mirror_epoch_ctrl must NOT write epoch-controller keys for a plain run."""
+    state = _make_plain_state()
+
+    mirror_epoch_ctrl(state, state.config)
+
+    sim = state.config["simulation"]
+    cur = state.config["current"]
+
+    # No stale simulation keys
+    for key in _STALE_SIM_KEYS:
+        assert key not in sim, f"stale key '{key}' found in simulation"
+
+    # No stale current keys
+    for key in _STALE_CURRENT_KEYS:
+        assert key not in cur, f"stale key '{key}' found in current"
+
+    # No default-valued keys materialized
+    for key in _DEFAULT_SIM_KEYS:
+        assert key not in sim, f"default key '{key}' found in simulation"
+
+
+# -- Test: validate_epoch_ctrl does not pollute plain config ------------------
+def test_validate_does_not_inject_defaults_for_plain_run():
+    """validate_epoch_ctrl must NOT inject default keys into a plain config."""
+    state = _make_plain_state()
+    sim = state.config["simulation"]
+
+    validate_epoch_ctrl(state.config)
+
+    for key in _DEFAULT_SIM_KEYS:
+        assert key not in sim, (
+            f"validate_epoch_ctrl injected default '{key}' into simulation"
+        )
+
+
+# -- Test: scheduled controller run still writes restart keys correctly -------
+def test_scheduled_run_writes_restart_keys():
+    """mirror_epoch_ctrl must write all needed keys for a scheduled run."""
+    state = _make_state()  # has epoch_nsubpath_ens/vals → scheduled mode
+
+    mirror_epoch_ctrl(state, state.config)
+
+    sim = state.config["simulation"]
+    cur = state.config["current"]
+
+    assert "ensemble_nsubpath" in sim
+    assert "ensemble_mwf_nsubpath" in sim
+    assert "ensemble_move_counts" in cur
+    assert "ensemble_last_fired_count" in cur
+
+
+# -- Test: static mode with no divergence stays clean ------------------------
+def test_static_mode_no_divergence_stays_clean():
+    """Static mode with uniform n_jumps must not write controller keys."""
+    cfg = _make_plain_config()
+    cfg["simulation"]["epoch_ctrl_mode"] = "static"
+    state = REPEX_state(cfg, minus=True)
+    state.initiate_ensembles()
+
+    mirror_epoch_ctrl(state, state.config)
+
+    sim = state.config["simulation"]
+    cur = state.config["current"]
+
+    for key in _STALE_SIM_KEYS:
+        assert key not in sim, f"stale key '{key}' in static-mode config"
+    for key in _STALE_CURRENT_KEYS:
+        assert key not in cur, f"stale key '{key}' in static-mode current"
+
+
+# -- Test: static mode WITH per-ensemble divergence preserves it --------------
+def test_static_mode_with_divergence_preserves_nsubpath():
+    """If per-ensemble n_jumps diverges from global, mirror must persist it."""
+    cfg = _make_plain_config()
+    cfg["simulation"]["epoch_ctrl_mode"] = "static"
+    state = REPEX_state(cfg, minus=True)
+    state.initiate_ensembles()
+
+    # Manually diverge ensemble 1's n_jumps from global (2 → 5)
+    state.ensembles[1]["tis_set"]["n_jumps"] = 5
+
+    mirror_epoch_ctrl(state, state.config)
+
+    sim = state.config["simulation"]
+    assert "ensemble_nsubpath" in sim, (
+        "divergent per-ensemble n_jumps must be persisted"
+    )
+    assert sim["ensemble_nsubpath"][1] == 5
+
+
+# -- Test: stale-key cleanup -------------------------------------------------
+def test_stale_keys_removed_when_controller_inactive():
+    """If config already has old epoch-controller keys but controller is
+    inactive, mirror_epoch_ctrl must remove them."""
+    state = _make_plain_state()
+    sim = state.config["simulation"]
+    cur = state.config["current"]
+
+    # Inject stale keys as if from a previous run
+    sim["ensemble_nsubpath"] = [2, 2, 2]
+    sim["ensemble_mwf_nsubpath"] = [3, 3, 3]
+    sim["softmax_ctrl_state"] = {"0": {}}
+    sim["softmax_epoch_stats"] = {"0": {}}
+    sim["epoch_mode"] = "global_step"
+    sim["epoch_count"] = "attempted"
+    sim["reward_ema_alpha"] = 0.1
+    cur["ensemble_move_counts"] = {"0": 5, "1": 3, "2": 1}
+    cur["ensemble_last_fired_count"] = {"0": -1, "1": -1, "2": -1}
+
+    mirror_epoch_ctrl(state, state.config)
+
+    for key in _STALE_SIM_KEYS:
+        assert key not in sim, f"stale key '{key}' not cleaned up"
+    for key in _STALE_CURRENT_KEYS:
+        assert key not in cur, f"stale key '{key}' not cleaned up from current"
+    for key in _DEFAULT_SIM_KEYS:
+        assert key not in sim, f"default key '{key}' not cleaned up"

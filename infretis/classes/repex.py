@@ -513,13 +513,10 @@ class REPEX_state:
         self.toinitiate -= 1
         return self.toinitiate >= 0
 
-    def inf_retis(self, input_mat, locks):
-        """Permanent calculator."""
-        # Drop locked rows and columns
+    def _reduce_locked(self, input_mat, locks):
+        """Remove locked rows/columns and compute reinsertion metadata."""
         bool_locks = locks == 1
-        # get non_locked minus interfaces
         offset = self._offset - sum(bool_locks[: self._offset])
-        # make insert list
         i = 0
         insert_list = []
         for lock in bool_locks:
@@ -527,95 +524,101 @@ class REPEX_state:
                 insert_list.append(i)
             else:
                 i += 1
-
-        # Drop locked rows and columns
         non_locked = input_mat[~bool_locks, :][:, ~bool_locks]
+        return non_locked, offset, insert_list
 
-        # Sort based on the index of the last non-zero values in the rows
-        # argmax(a>0) gives back the first column index that is nonzero
-        # so looping over the columns backwards and multiplying by -1
-        # gives the right ordering
+    def _sort_non_locked(self, non_locked, offset):
+        """Sort non-locked matrix by last non-zero column indices."""
         minus_idx = np.argsort(np.argmax(non_locked[:offset] > 0, axis=1))
         pos_idx = (
             np.argsort(-1 * np.argmax(non_locked[offset:, ::-1] > 0, axis=1))
             + offset
         )
-
         sort_idx = np.append(minus_idx, pos_idx)
-        sorted_non_locked = non_locked[sort_idx]
+        return non_locked[sort_idx], sort_idx
 
-        # check if all trajectories have equal weights
-        sorted_non_locked_T = sorted_non_locked.T
-        # Check the minus interfaces
+    def _check_equal_weights(self, sorted_mat, offset):
+        """Check if all trajectories have equal weights."""
+        sorted_T = sorted_mat.T
         equal_minus = np.all(
-            sorted_non_locked_T[
+            sorted_T[
                 np.where(
-                    sorted_non_locked_T[:, :offset]
-                    != sorted_non_locked_T[offset - 1, :offset]
+                    sorted_T[:, :offset] != sorted_T[offset - 1, :offset]
                 )
             ]
             == 0
         )
-        # check the positive interfaces
-        if len(sorted_non_locked_T) <= offset:
+        if len(sorted_T) <= offset:
             equal_pos = True
         else:
             equal_pos = np.all(
-                sorted_non_locked_T[:, offset:][
+                sorted_T[:, offset:][
                     np.where(
-                        sorted_non_locked_T[:, offset:]
-                        != sorted_non_locked_T[offset, offset:]
+                        sorted_T[:, offset:] != sorted_T[offset, offset:]
                     )
                 ]
                 == 0
             )
+        return equal_minus and equal_pos
 
-        equal = equal_minus and equal_pos
+    def _compute_equal_weight_prob(self, sorted_mat, offset):
+        """Fast probability computation when all weights are equal."""
+        out = np.zeros(shape=sorted_mat.shape, dtype="longdouble")
+        out[:offset, ::-1] = self.quick_prob(sorted_mat[:offset, ::-1])
+        if offset < len(out):
+            out[offset:] = self.quick_prob(sorted_mat[offset:])
+        return out
 
-        out = np.zeros(shape=sorted_non_locked.shape, dtype="longdouble")
-        if equal:
-            # All trajectories have equal weights, run fast algorithm
-            # run_fast
-            # minus move should be run backwards
-            out[:offset, ::-1] = self.quick_prob(
-                sorted_non_locked[:offset, ::-1]
-            )
-            if offset < len(out):
-                # Catch only minus ens available
-                out[offset:] = self.quick_prob(sorted_non_locked[offset:])
+    def _compute_block_prob(self, sorted_mat, offset):
+        """Block-wise probability computation for unequal weights."""
+        out = np.zeros(shape=sorted_mat.shape, dtype="longdouble")
+        blocks = self.find_blocks(sorted_mat, offset=offset)
+        for start, stop, direction in blocks:
+            if direction == -1:
+                cstart, cstop = stop - 1, start - 1
+                if cstop < 0:
+                    cstop = None
+            else:
+                cstart, cstop = start, stop
+            subarr = sorted_mat[start:stop, cstart:cstop:direction]
+            subarr_T = subarr.T
+            if len(subarr) == 1:
+                out[start:stop, start:stop] = 1
+            elif np.all(subarr_T[np.where(subarr_T != subarr_T[0])] == 0):
+                temp = self.quick_prob(subarr)
+                out[start:stop, cstart:cstop:direction] = temp
+            elif len(subarr) <= 12:
+                temp = self.permanent_prob(subarr)
+                out[start:stop, cstart:cstop:direction] = temp
+            else:
+                self._random_count += 1
+                logger.debug(
+                    "random #%d, dims = %d",
+                    self._random_count,
+                    len(subarr),
+                )
+                temp = self.random_prob(subarr)
+                out[start:stop, cstart:cstop:direction] = temp
+        return out
+
+    def _reinsert_locked(self, out, insert_list):
+        """Reinsert zero rows/columns for locked ensembles."""
+        final_out_rows = np.insert(out, insert_list, 0, axis=0)
+        return np.insert(final_out_rows, insert_list, 0, axis=1)
+
+    def inf_retis(self, input_mat, locks):
+        """Permanent calculator."""
+        non_locked, offset, insert_list = self._reduce_locked(
+            input_mat, locks
+        )
+        sorted_non_locked, sort_idx = self._sort_non_locked(
+            non_locked, offset
+        )
+
+        if self._check_equal_weights(sorted_non_locked, offset):
+            out = self._compute_equal_weight_prob(sorted_non_locked, offset)
         else:
-            # TODO DEBUG print
-            # print("DEBUG this should not happen outside of wirefencing")
-            blocks = self.find_blocks(sorted_non_locked, offset=offset)
-            for start, stop, direction in blocks:
-                if direction == -1:
-                    cstart, cstop = stop - 1, start - 1
-                    if cstop < 0:
-                        cstop = None
-                else:
-                    cstart, cstop = start, stop
-                subarr = sorted_non_locked[start:stop, cstart:cstop:direction]
-                subarr_T = subarr.T
-                if len(subarr) == 1:
-                    out[start:stop, start:stop] = 1
-                elif np.all(subarr_T[np.where(subarr_T != subarr_T[0])] == 0):
-                    # Either the same weight as the last one or zero
-                    temp = self.quick_prob(subarr)
-                    out[start:stop, cstart:cstop:direction] = temp
-                elif len(subarr) <= 12:
-                    # We can run this subsecond
-                    temp = self.permanent_prob(subarr)
-                    out[start:stop, cstart:cstop:direction] = temp
-                else:
-                    self._random_count += 1
-                    # TODO DEBUG PRINTS
-                    print(
-                        f"random #{self._random_count}, "
-                        f"dims = {len(subarr)}"
-                    )
-                    # do n random parallel samples
-                    temp = self.random_prob(subarr)
-                    out[start:stop, cstart:cstop:direction] = temp
+            out = self._compute_block_prob(sorted_non_locked, offset)
 
         out[sort_idx] = out.copy()  # COPY REQUIRED TO NOT BRAKE STATE!!!
 
@@ -630,13 +633,7 @@ class REPEX_state:
                 errors in the P-matrix, setting negative \
                 elements to 0. min: {np.min(out):.3e}")
 
-        # reinsert zeroes for the locked ensembles
-        final_out_rows = np.insert(out, insert_list, 0, axis=0)
-
-        # reinsert zeroes for the locked trajectories
-        final_out = np.insert(final_out_rows, insert_list, 0, axis=1)
-
-        return final_out
+        return self._reinsert_locked(out, insert_list)
 
     def find_blocks(self, arr, offset):
         """Find blocks in a W matrix."""
@@ -931,11 +928,10 @@ class REPEX_state:
             )
             logger.info(f"{key:03.0f} * {values} *")
 
-    def treat_output(self, md_items):
-        """Treat output."""
+    def _archive_and_delete_paths(self, md_items, picked):
+        """Archive new paths, assign path numbers, and handle old-path
+        deletion. Returns (pn_news, updated_traj_num)."""
         pn_news = []
-        md_items["md_end"] = time.time()
-        picked = md_items["picked"]
         traj_num = self.config["current"]["traj_num"]
 
         for ens_num in picked.keys():
@@ -975,47 +971,45 @@ class REPEX_state:
                     self.config["output"].get("delete_old", False)
                     and pn_old > self.n - 2
                 ):
-                    if len(self.pn_olds) > self.n - 2:
-                        pn_old_del, del_dic = next(iter(self.pn_olds.items()))
-                        load_dir = self.config["simulation"]["load_dir"]
-                        if self.config["output"]["keep_maxop_trajs"]:
-                            path_dir = os.path.join(load_dir, pn_old_del)
-                            # delete trajectory files if low orderp (infinit)
-                            # and directory is not a symlink
-                            if del_dic["max_op"][
-                                0
-                            ] < self.maxop and not os.path.islink(path_dir):
-                                # update maxop and then delete|
-                                for adress in del_dic["adress"]:
-                                    os.remove(adress)
-                        else:
-                            # delete trajectory files
-                            for adress in del_dic["adress"]:
-                                os.remove(adress)
-                        # delete txt files
-                        if self.config["output"].get("delete_old_all", False):
-                            for txt in ("order.txt", "traj.txt", "energy.txt"):
-                                txt_adress = os.path.join(
-                                    load_dir, pn_old_del, txt
-                                )
-                                if os.path.isfile(txt_adress):
-                                    os.remove(txt_adress)
-                            shutil.rmtree(
-                                os.path.join(load_dir, pn_old_del),
-                                ignore_errors=True,
-                            )
-                        # pop the deleted path.
-                        self.pn_olds.pop(pn_old_del)
-                    # keep delete list:
-                    if len(self.pn_olds) <= self.n - 2:
-                        self.pn_olds[str(pn_old)] = {
-                            "adress": self.traj_data[pn_old]["adress"],
-                            "max_op": self.traj_data[pn_old]["max_op"],
-                        }
+                    self._delete_old_path(pn_old)
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
 
-        # record weights
+        return pn_news, traj_num
+
+    def _delete_old_path(self, pn_old):
+        """Handle old-path deletion bookkeeping and file removal."""
+        if len(self.pn_olds) > self.n - 2:
+            pn_old_del, del_dic = next(iter(self.pn_olds.items()))
+            load_dir = self.config["simulation"]["load_dir"]
+            if self.config["output"]["keep_maxop_trajs"]:
+                path_dir = os.path.join(load_dir, pn_old_del)
+                if del_dic["max_op"][
+                    0
+                ] < self.maxop and not os.path.islink(path_dir):
+                    for adress in del_dic["adress"]:
+                        os.remove(adress)
+            else:
+                for adress in del_dic["adress"]:
+                    os.remove(adress)
+            if self.config["output"].get("delete_old_all", False):
+                for txt in ("order.txt", "traj.txt", "energy.txt"):
+                    txt_adress = os.path.join(load_dir, pn_old_del, txt)
+                    if os.path.isfile(txt_adress):
+                        os.remove(txt_adress)
+                shutil.rmtree(
+                    os.path.join(load_dir, pn_old_del),
+                    ignore_errors=True,
+                )
+            self.pn_olds.pop(pn_old_del)
+        if len(self.pn_olds) <= self.n - 2:
+            self.pn_olds[str(pn_old)] = {
+                "adress": self.traj_data[pn_old]["adress"],
+                "max_op": self.traj_data[pn_old]["max_op"],
+            }
+
+    def _accumulate_fractions(self):
+        """Accumulate probability fractions for live, unlocked paths."""
         locked_trajs = self.locked_paths()
         if self._last_prob is None:
             self.prob
@@ -1023,21 +1017,18 @@ class REPEX_state:
             if live not in locked_trajs:
                 self.traj_data[live]["frac"] += self._last_prob[:-1][idx, :]
 
-        # write succ data to infretis_data.txt
-        if md_items["status"] == "ACC":
-            write_to_pathens(self, md_items["pnum_old"])
-
+    def _update_counters(self, md_items, traj_num):
+        """Update current-state counters after a move."""
         self.sort_trajstate()
         cdict = self.config["current"]
         cdict["traj_num"] = traj_num
         cdict["wsubcycles"][md_items["pin"]] += md_items["subcycles"]
         cdict["tsubcycles"] = int(sum(self.config["current"]["wsubcycles"]))
         self.cworker = md_items["pin"]
-        if self.printing():
-            self.print_shooted(md_items, pn_news)
 
-        # Update per-ensemble move counters and epoch stats buffer.
-        # picked keys are offset by 1 relative to self.ensembles indices.
+    def _update_epoch_stats(self, md_items, picked):
+        """Update per-ensemble move counters and epoch stats buffer, then
+        apply epoch control and mirror to config."""
         count_mode = self.config["simulation"].get("epoch_count", "attempted")
         accepted = md_items["status"] == "ACC"
         for j, ens_num in enumerate(picked.keys()):
@@ -1079,7 +1070,43 @@ class REPEX_state:
         apply_epoch_ctrl(self, self.cstep)
         mirror_epoch_ctrl(self, self.config)
 
-        # save for possible restart
+    def treat_output(self, md_items):
+        """Treat output.
+
+        Execution order is contract-sensitive:
+        1. path archival / new path-number assignment / old-path deletion
+        2. live-state update via add_traj
+        3. fraction accumulation from _last_prob
+        4. accepted-path append via write_to_pathens
+        5. sort_trajstate and current counter updates
+        6. printing/logging
+        7. epoch stats accumulation and apply_epoch_ctrl / mirror_epoch_ctrl
+        8. write_toml
+        """
+        md_items["md_end"] = time.time()
+        picked = md_items["picked"]
+
+        # 1-2: archive paths, delete old, update live state
+        pn_news, traj_num = self._archive_and_delete_paths(md_items, picked)
+
+        # 3: fraction accumulation
+        self._accumulate_fractions()
+
+        # 4: write accepted data to infretis_data.txt
+        if md_items["status"] == "ACC":
+            write_to_pathens(self, md_items["pnum_old"])
+
+        # 5: counter updates
+        self._update_counters(md_items, traj_num)
+
+        # 6: logging
+        if self.printing():
+            self.print_shooted(md_items, pn_news)
+
+        # 7: epoch stats and controller
+        self._update_epoch_stats(md_items, picked)
+
+        # 8: save for possible restart
         self.write_toml()
 
         return md_items

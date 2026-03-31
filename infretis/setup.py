@@ -82,68 +82,80 @@ def setup_runner(state: REPEX_state) -> Tuple[aiorunner, future_list]:
     return runner, futures
 
 
-def setup_config(
-    inp: str = "infretis.toml", re_inp: str = "restart.toml"
-) -> Optional[dict]:
-    """Set dict from *toml file up.
-
-    Arg
-        inp: a string specifying the input file (def: infretis.toml)
-        re_inp: a string specifying the restart file (def: restart.toml)
-
-    Return
-        A dictionary containing the configuration parameters or None
-    """
-    # sets up the dict from *toml file.
-
-    # load input:
+def _load_input_toml(inp: str) -> Optional[dict]:
+    """Load the input TOML file, returning None if not found."""
     if os.path.isfile(inp):
         with open(inp, mode="rb") as read:
+            return tomli.load(read)
+    logger.info("%s file not found, exit.", inp)
+    return None
+
+
+def _redirect_to_restart(
+    config: dict, inp: str, re_inp: str
+) -> dict:
+    """If config has no [current] but a restart file exists, load restart
+    state and merge only simulation.steps from the fresh config."""
+    if "current" not in config and os.path.isfile(re_inp):
+        fresh_steps = config["simulation"]["steps"]
+        logger.info(
+            "Restart file '%s' found; continuing from restart state "
+            "(simulation.steps=%d from '%s').",
+            re_inp,
+            fresh_steps,
+            inp,
+        )
+        with open(re_inp, mode="rb") as read:
             config = tomli.load(read)
-    else:
-        logger.info("%s file not found, exit.", inp)
+        config["simulation"]["steps"] = fresh_steps
+    return config
+
+
+def _validate_restart_state(config: dict) -> Optional[dict]:
+    """For a restart config (has [current]), validate continuation state.
+    Returns None if the simulation is complete or active paths are missing."""
+    curr = config["current"]
+
+    if curr.get("cstep", 0) >= config["simulation"]["steps"]:
+        logger.info(
+            "Simulation already complete (cstep=%d >= steps=%d).",
+            curr.get("cstep", 0),
+            config["simulation"]["steps"],
+        )
         return None
 
-    # check if restart.toml exist
-    if inp != re_inp and os.path.isfile(re_inp):
-        msg = f"Restart file '{re_inp}' found, but its not the run file!"
-        raise ValueError(msg)
+    curr["restarted_from"] = config["current"]["cstep"]
 
-    # in case we restart, toml file has a 'current' subdict.
-    if "current" in config:
-        curr = config["current"]
-
-        # if cstep and steps are equal, we stop here.
-        if curr.get("cstep") == curr.get("restarted_from", -1):
+    load_dir = config["simulation"].get("load_dir", "trajs")
+    for act in config["current"]["active"]:
+        store_p = os.path.join(load_dir, str(act), "traj.txt")
+        if not os.path.isfile(store_p):
             return None
 
-        # set 'restarted_from'
-        curr["restarted_from"] = config["current"]["cstep"]
+    return config
 
-        # check active paths:
-        load_dir = config["simulation"].get("load_dir", "trajs")
-        for act in config["current"]["active"]:
-            store_p = os.path.join(load_dir, str(act), "traj.txt")
-            if not os.path.isfile(store_p):
-                return None
-    else:
-        # no 'current' in toml, start from step 0.
-        size = len(config["simulation"]["interfaces"])
-        config["current"] = {
-            "traj_num": size,
-            "cstep": 0,
-            "active": list(range(size)),
-            "locked": [],
-            "size": size,
-            "frac": {},
-            "wsubcycles": [0 for _ in range(config["runner"]["workers"])],
-            "tsubcycles": 0,
-        }
 
-        # write/overwrite infretis_data.txt
-        write_header(config)
+def _init_fresh_run(config: dict) -> dict:
+    """Initialize a fresh run: create [current] state and write the data
+    file header."""
+    size = len(config["simulation"]["interfaces"])
+    config["current"] = {
+        "traj_num": size,
+        "cstep": 0,
+        "active": list(range(size)),
+        "locked": [],
+        "size": size,
+        "frac": {},
+        "wsubcycles": [0 for _ in range(config["runner"]["workers"])],
+        "tsubcycles": 0,
+    }
+    write_header(config)
+    return config
 
-    # quantis or any other method requiring different engines in each ensemble
+
+def _inject_defaults(config: dict) -> dict:
+    """Inject default values into simulation, tis_set, and output sections
+    so they appear in restart.toml and downstream code can avoid .get()."""
     has_ens_engs = config["simulation"].get("ensemble_engines", False)
     if not has_ens_engs:
         ens_engs = []
@@ -151,8 +163,6 @@ def setup_config(
             ens_engs.append(["engine"])
         config["simulation"]["ensemble_engines"] = ens_engs
 
-    # set all keywords only once, so they appear in restart.toml
-    # and we can avoid the .get() in other parts
     if "seed" not in config["simulation"].keys():
         config["simulation"]["seed"] = 0
 
@@ -181,6 +191,35 @@ def setup_config(
     accept_all = config["simulation"]["tis_set"].get("accept_all", False)
     config["simulation"]["tis_set"]["accept_all"] = accept_all
 
+    return config
+
+
+def setup_config(
+    inp: str = "infretis.toml", re_inp: str = "restart.toml"
+) -> Optional[dict]:
+    """Set dict from *toml file up.
+
+    Arg
+        inp: a string specifying the input file (def: infretis.toml)
+        re_inp: a string specifying the restart file (def: restart.toml)
+
+    Return
+        A dictionary containing the configuration parameters or None
+    """
+    config = _load_input_toml(inp)
+    if config is None:
+        return None
+
+    config = _redirect_to_restart(config, inp, re_inp)
+
+    if "current" in config:
+        config = _validate_restart_state(config)
+        if config is None:
+            return None
+    else:
+        config = _init_fresh_run(config)
+
+    config = _inject_defaults(config)
     check_config(config)
 
     return config
