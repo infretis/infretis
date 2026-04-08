@@ -585,6 +585,13 @@ class REPEX_state:
         assert np.allclose(np.sum(out, axis=1), 1)
         assert np.allclose(np.sum(out, axis=0), 1)
 
+        # edge case that negative probs exist: set to zero
+        if np.sum(out < 0) > 0:
+            out[out < 0] = 0
+            logger.info(f"Found {int(np.sum(out<0))} precision \
+                errors in the P-matrix, setting negative \
+                elements to 0. min: {np.min(out):.3e}")
+
         # reinsert zeroes for the locked ensembles
         final_out_rows = np.insert(out, insert_list, 0, axis=0)
 

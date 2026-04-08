@@ -149,7 +149,7 @@ class Path:
         """Pick a random shooting point from the path."""
         ### TODO: probably need an unittest for this to check if correct.
         ### idx = rgen.random_integers(1, self.length - 2)
-        idx = rgen.integers(1, self.length - 1)
+        idx = int(rgen.integers(1, self.length - 1))
         order = self.phasepoints[idx].order[0]
         logger.debug(f"Selected point with orderp {order}")
         return self.phasepoints[idx], idx
@@ -464,8 +464,8 @@ def _load_energies_for_path(path: Path, dirname: str) -> None:
             path.update_energies(
                 energy["data"]["ekin"],
                 energy["data"]["vpot"],
-                energy["data"]["etot"],
-                energy["data"]["temp"],
+                energy["data"].get("etot", []),
+                energy["data"].get("temp", []),
             )
     except FileNotFoundError:
         pass

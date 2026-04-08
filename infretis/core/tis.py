@@ -63,9 +63,9 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
     """
     # perform the hw move:
     picked = md_items["picked"]
-    subcycles0 = np.sum([i.steps for i in ENGINES["engine"]])
+    subcycles0 = np.sum([i.steps for j in ENGINES.values() for i in j])
     _, trials, status = select_shoot(picked)
-    subcycles1 = np.sum([i.steps for i in ENGINES["engine"]])
+    subcycles1 = np.sum([i.steps for j in ENGINES.values() for i in j])
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -1207,11 +1207,22 @@ def quantis_swap_zero(
     V0_r1 = tmp_path0.phasepoints[0].vpot
     V1_r1 = old_path1.phasepoints[0].vpot
     V1_r0 = tmp_path1.phasepoints[0].vpot
-    logger.info(f"V0r0 {V0_r0:.4e} V0r1 {V0_r1:.4e} dV0 {V0_r0 - V0_r1:.4e}")
-    logger.info(f"V1r0 {V1_r0:.4e} V1r1 {V1_r1:.4e} dV1 {V1_r0 - V1_r1:.4e}")
-    deltaV0 = V0_r0 - V0_r1
-    deltaV1 = V1_r0 - V1_r1
-    pacc = min(1.0, np.exp(deltaV0 * engine0.beta - deltaV1 * engine1.beta))
+    energies = [V0_r0, V0_r1, V1_r0, V1_r1]
+    if None not in energies:
+        logger.info(
+            f"V0r0 {V0_r0:.4e} V0r1 {V0_r1:.4e} dV0 {V0_r0 - V0_r1:.4e}"
+        )
+        logger.info(
+            f"V1r0 {V1_r0:.4e} V1r1 {V1_r1:.4e} dV1 {V1_r0 - V1_r1:.4e}"
+        )
+        deltaV0 = V0_r0 - V0_r1
+        deltaV1 = V1_r0 - V1_r1
+        pacc = min(
+            1.0, np.exp(deltaV0 * engine0.beta - deltaV1 * engine1.beta)
+        )
+    else:
+        pacc = 0.0
+        logger.info("Some energies are missing, setting pacc = 0.")
     rand = ens_set0["rgen"].random()
     if ens_set0["tis_set"]["accept_all"]:
         logger.info(f"Accepting all zero swaps! Actual Pacc = {pacc}")
