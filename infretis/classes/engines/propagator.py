@@ -18,14 +18,15 @@ import pathlib
 # if idle for more than this nr. of seconds we shut down the engine
 # TIMEOUT = 1000
 START = "INFINITY_START"
-SLEEP = 1.5
 
 # read .toml settings
 with open(sys.argv[1], "rb") as rfile:
     config = tomli.load(rfile)
 
+
 # calc and orderfunction only need to be set up once
 calc = create_external(config["engine"]["calculator_settings"], "ASE_calculator", [])
+sleep = config["engine"].get("sleep", 0.5)
 order_function = create_orderparameter(config)
 
 # set exe_dir, e.g. worker0/
@@ -46,25 +47,25 @@ idle_time = 0
 while True:
     # wait for start file to appear
     if not os.path.exists(START):
-        time.sleep(SLEEP)
+        time.sleep(sleep)
         print(f"{wname}: Sleeping ... now been idle for {idle_time} s", file = logger, flush=True)
-        idle_time += SLEEP
+        idle_time += sleep
     else:
         print(f"{wname}: Found {START} file", file=logger, flush=True)
         # try to read start file
         while True:
             if not os.path.exists(START):
                 print(f"{wname}: Now the START file is missing... Now idle for {idle_time}", file=logger, flush=True)
-                time.sleep(SLEEP)
-                idle_time += SLEEP
+                time.sleep(sleep)
+                idle_time += sleep
             else:
                 with open(START, "r") as rfile:
                     line = rfile.readline()
                     spl = line.split()
                     if len(spl) != 6:
                         print(f"{wname}: STARTFILE_ERR not 6 columns in file; content is '{spl}'. Now idle for {idle_time} s", file = logger, flush=True)
-                        time.sleep(SLEEP)
-                        idle_time += SLEEP
+                        time.sleep(sleep)
+                        idle_time += sleep
                     # finally escape the loop if we get 6 values
                     else:
                         print(f"{wname} " + line, file=logger, flush=True)

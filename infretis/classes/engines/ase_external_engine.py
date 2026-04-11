@@ -70,7 +70,8 @@ class ASEExternalEngine(EngineBase):
         langevin_fixcm: float = -1.0,
         python: str = "python",
         exe_path: Union[str, Path] = Path(".").resolve(),
-        sleep: float = 0.1,
+        halfstep_vel = False,
+        sleep: float = 0.5,
     ):
         """
         Initialize the ase engine.
@@ -89,6 +90,7 @@ class ASEExternalEngine(EngineBase):
         self.name = "ase"
         self.python = python
         self.sleep = sleep
+        self.halfstep_vel = halfstep_vel
 
         # TODO: make this non-manual
         # by reading in from .toml or .py?
@@ -194,7 +196,7 @@ class ASEExternalEngine(EngineBase):
             w.write(f"{initial_conf} {self.subcycles} {traj_file} {cwd} {msg_file.filename} {self.input_path}")
 
         while os.path.exists(sfile):
-            sleep(0.5)
+            sleep(self.sleep)
 
         #   cmd2 = " ".join(cmd)
         #   logger.debug(f"Executing {cmd2}.")
@@ -255,6 +257,9 @@ class ASEExternalEngine(EngineBase):
         atoms = read(filename)
         if isinstance(atoms, list):
             atoms = atoms[0]
-        vel = atoms.get_velocities()
-        atoms.set_velocities(-vel)
+        if self.halfstep_vel:
+            atoms.info["reverse_vel"] = True
+        else:
+            vel = atoms.get_velocities()
+            atoms.set_velocities(-vel)
         write(outfile, atoms)

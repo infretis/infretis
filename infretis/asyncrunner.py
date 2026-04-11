@@ -254,5 +254,4 @@ class future_list:
                     future_out = fut
                     self._futures.remove(fut)
                     break
-            time.sleep(0.5)
         return future_out
