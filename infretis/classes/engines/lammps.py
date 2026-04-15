@@ -254,10 +254,8 @@ def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
 
     # if we did not find all of the information
     if n_atoms == 0 or n_atom_types == 0:
-        raise ValueError(
-            f"Could not read atom masses from {lammps_data}. \
-                         Found {n_atoms} atoms and {n_atom_types} atom_types."
-        )
+        raise ValueError(f"Could not read atom masses from {lammps_data}. \
+                         Found {n_atoms} atoms and {n_atom_types} atom_types.")
 
     if np.shape(atoms)[0] == 0 or np.any(np.isnan(atoms)):
         raise ValueError(f"Could not read 'Atoms' from {lammps_data}")
