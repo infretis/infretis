@@ -154,7 +154,7 @@ class Path:
         logger.debug(f"Selected point with orderp {order}")
         return self.phasepoints[idx], idx
 
-    def append(self, phasepoint: System) -> bool:
+    def append(self, phasepoint: System) -> None:
         """Append a new phase point to the path."""
         self.phasepoints.append(phasepoint)
 

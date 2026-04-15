@@ -78,7 +78,7 @@ class EngineBase(metaclass=ABCMeta):
     @staticmethod
     def add_to_path(
         path: InfPath, phase_point: System, left: float, right: float
-    ) -> Tuple[str, bool, bool, bool]:
+    ) -> Tuple[str, bool, bool]:
         """Add a phase point and perform some checks.
 
         This method is intended to be used by the propagate methods
