@@ -57,10 +57,8 @@ def write_lammpstrj(
     filemode = "a" if append else "w"
     box_header = "xy xz yz " if triclinic else ""
     with open(outfile, filemode) as writefile:
-        to_write = (
-            f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n\
-ITEM: BOX BOUNDS {box_header}pp pp pp\n" ""
-        )
+        to_write = f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n\
+{pos.shape[0]}\nITEM: BOX BOUNDS {box_header}pp pp pp\n"
 
         if box is not None:
             for box_vector in box:
@@ -256,8 +254,10 @@ def get_atom_masses(lammps_data: Union[str, Path], atom_style) -> np.ndarray:
 
     # if we did not find all of the information
     if n_atoms == 0 or n_atom_types == 0:
-        raise ValueError(f"Could not read atom masses from {lammps_data}. \
-                         Found {n_atoms} atoms and {n_atom_types} atom_types.")
+        raise ValueError(
+            f"Could not read atom masses from {lammps_data}. \
+                         Found {n_atoms} atoms and {n_atom_types} atom_types."
+        )
 
     if np.shape(atoms)[0] == 0 or np.any(np.isnan(atoms)):
         raise ValueError(f"Could not read 'Atoms' from {lammps_data}")

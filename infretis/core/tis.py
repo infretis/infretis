@@ -628,8 +628,8 @@ def extender(
 
     # Extender
     if interfaces[0] <= sh_pt.order[0] < interfaces[-1]:
-        # subtract source_seg length in maxlength, subtract 1 for forward extension
-        # add 2 for the overlap with source_seg at start and end
+        # maxlen: subtract source_seg length, subtract 1 for forward extension
+        # and add 2 for the overlap with source_seg at start and end
         back_segment = source_seg.empty_path(
             maxlen=ens_set["tis_set"]["maxlength"] - source_seg.length + 1
         )
