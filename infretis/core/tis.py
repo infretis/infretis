@@ -628,13 +628,15 @@ def extender(
 
     # Extender
     if interfaces[0] <= sh_pt.order[0] < interfaces[-1]:
+        # subtract source_seg length in maxlength, subtract 1 for forward extension
+        # add 2 for the overlap with source_seg at start and end
         back_segment = source_seg.empty_path(
-            maxlen=ens_set["tis_set"]["maxlength"]
+            maxlen=ens_set["tis_set"]["maxlength"] - source_seg.length + 1
         )
         logger.debug("Trying to extend backwards")
         source_seg_copy = source_seg.copy()
 
-        shoot_backwards(
+        success = shoot_backwards(
             back_segment, source_seg_copy, sh_pt, ens_set, engine, start_cond
         )
         trial_path = paste_paths(
@@ -643,23 +645,29 @@ def extender(
             overlap=True,
             maxlen=ens_set["tis_set"]["maxlength"],
         )
+        # backwards extension failed
+        if not success:
+            trial_path.status = "BTX"
+            return False, trial_path, trial_path.status
     else:
         trial_path = source_seg.copy()
 
     sh_pt = trial_path.phasepoints[-1].copy()
     if interfaces[0] <= sh_pt.order[0] < interfaces[-1]:
+        # subtract source_seg length, add 1 for overlap with source_seg
         forth_segment = source_seg.empty_path(
-            maxlen=ens_set["tis_set"]["maxlength"]
+            maxlen=ens_set["tis_set"]["maxlength"] - trial_path.length + 1
         )
-        engine.propagate(forth_segment, ens_set, sh_pt)
+        success, status = engine.propagate(forth_segment, ens_set, sh_pt)
 
         trial_path.phasepoints = (
             trial_path.phasepoints[:-1] + forth_segment.phasepoints
         )
+        # forward extensions faile
+        if not success:
+            trial_path.status = "FTX"
+            return False, trial_path, trial_path.status
 
-    if trial_path.length >= ens_set["tis_set"]["maxlength"]:
-        trial_path.status = "FTX"  # exceeds "memory".
-        return False, trial_path, trial_path.status
     trial_path.status = "ACC"
     return True, trial_path, trial_path.status
 
@@ -884,7 +892,9 @@ def retis_swap_zero(
     path_tmp = path_old1.empty_path(maxlen=maxlen1 - 1)
     if allowed:
         logger.info("Propagating for [0^-]")
-        engine0.propagate(path_tmp, ens_set0, shpt_copy, reverse=True)
+        success, status = engine0.propagate(
+            path_tmp, ens_set0, shpt_copy, reverse=True
+        )
     else:
         logger.info("Not propagating for [0^-]")
         path_tmp.append(shpt_copy)
@@ -901,7 +911,7 @@ def retis_swap_zero(
     logger.info("Point is %s", phase_point.order)
     engine1.dump_phasepoint(phase_point, "second")
     path0.append(phase_point)
-    if path0.length == maxlen0:
+    if path0.length >= maxlen0:
         path0.status = "BTX"
     elif path0.length < 3:
         path0.status = "BTS"
@@ -912,6 +922,9 @@ def retis_swap_zero(
         path0.status = "0-L"
     else:
         path0.status = "ACC"
+    # if propagation did not succeeed for some reason, reject the swap
+    if not success:
+        return False, [path0, path_old0], path0.status
 
     # 2. Generate path for [0^+] from [0^-]:
     logger.info("Creating path for [0^+] from [0^-]")
@@ -930,7 +943,9 @@ def retis_swap_zero(
         logger.info("Initial point is %s", system.order)
         # nsembles[1]['system'] = system
         logger.info("Propagating for [0^+]")
-        engine1.propagate(path_tmp, ens_set1, system, reverse=False)
+        success, status = engine1.propagate(
+            path_tmp, ens_set1, system, reverse=False
+        )
         # Ok, now we need to just add the SECOND LAST point from [0^-] as
         # the first point for the path:
         path1 = path_tmp.empty_path(maxlen=maxlen1)
@@ -961,6 +976,8 @@ def retis_swap_zero(
     else:
         path1.status = "ACC"
     logger.info("Done with swap zero!")
+    if not success:
+        return False, [path0, path1], path1.status
 
     # Final checks:
     accept = path0.status == "ACC" and path1.status == "ACC"
