@@ -93,14 +93,7 @@ class EngineBase(metaclass=ABCMeta):
         status = "Running propagate..."
         success = False
         stop = False
-        add = path.append(phase_point)
-        if not add:
-            if path.length >= path.maxlen:
-                status = "Max. path length exceeded"
-            else:  # pragma: no cover
-                status = "Could not add for unknown reason"
-            success = False
-            stop = True
+        path.append(phase_point)
         if path.phasepoints[-1].order[0] < left:
             status = "Crossed left interface!"
             success = True
@@ -109,11 +102,12 @@ class EngineBase(metaclass=ABCMeta):
             status = "Crossed right interface!"
             success = True
             stop = True
-        if path.length == path.maxlen:
-            status = "Max. path length exceeded!"
+        # check this last in case of crossing on the last step
+        elif path.length >= path.maxlen:
+            status = "Max. path length exceeded"
             success = False
             stop = True
-        return status, success, stop, add
+        return status, success, stop
 
     @abstractmethod
     def modify_velocities(
