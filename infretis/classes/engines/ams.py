@@ -610,9 +610,11 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             }
 
             phase_point = self.snapshot_to_system(system, snapshot)
-            status, success, stop, _ = self.add_to_path(
-                path, phase_point, left, right
-            )
+            (
+                status,
+                success,
+                stop,
+            ) = self.add_to_path(path, phase_point, left, right)
 
             kin_enes.append(
                 self.states[traj_file][i].get_kineticenergy(unit=self.ene_unit)

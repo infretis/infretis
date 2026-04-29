@@ -154,13 +154,9 @@ class Path:
         logger.debug(f"Selected point with orderp {order}")
         return self.phasepoints[idx], idx
 
-    def append(self, phasepoint: System) -> bool:
+    def append(self, phasepoint: System) -> None:
         """Append a new phase point to the path."""
-        if self.maxlen is None or self.length < self.maxlen:
-            self.phasepoints.append(phasepoint)
-            return True
-        logger.debug("Max length exceeded. Could not append to path.")
-        return False
+        self.phasepoints.append(phasepoint)
 
     def get_move(self) -> Optional[str]:
         """Return the move used to generate the path."""
@@ -192,12 +188,7 @@ class Path:
             The updated path object (self).
         """
         for phasepoint in other.phasepoints:
-            app = self.append(phasepoint.copy())
-            if not app:
-                logger.warning(
-                    "Truncated path at %d while adding paths", self.length
-                )
-                return self
+            self.append(phasepoint.copy())
         return self
 
     def copy(self) -> Path:
@@ -208,7 +199,6 @@ class Path:
         new_path.status = self.status
         new_path.time_origin = self.time_origin
         new_path.generated = self.generated
-        new_path.maxlen = self.maxlen
         new_path.path_number = self.path_number
         new_path.weights = self.weights
         return new_path
@@ -391,22 +381,13 @@ def paste_paths(
     time_origin = path_back.time_origin - path_back.length + 1
     new_path = path_back.empty_path(maxlen=maxlen, time_origin=time_origin)
     for phasepoint in reversed(path_back.phasepoints):
-        app = new_path.append(phasepoint)
-        if not app:
-            msg = "Truncated while pasting backwards at: {}"
-            msg = msg.format(new_path.length)
-            logger.warning(msg)
-            return new_path
+        new_path.append(phasepoint)
     first = True
     for phasepoint in path_forw.phasepoints:
         if first and overlap:
             first = False
             continue
-        app = new_path.append(phasepoint)
-        if not app:
-            msg = f"Truncated path at: {new_path.length}"
-            logger.warning(msg)
-            return new_path
+        new_path.append(phasepoint)
     return new_path
 
 

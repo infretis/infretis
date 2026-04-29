@@ -57,10 +57,8 @@ def write_lammpstrj(
     filemode = "a" if append else "w"
     box_header = "xy xz yz " if triclinic else ""
     with open(outfile, filemode) as writefile:
-        to_write = (
-            f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n{pos.shape[0]}\n\
-ITEM: BOX BOUNDS {box_header}pp pp pp\n" ""
-        )
+        to_write = f"ITEM: TIMESTEP\n0\nITEM: NUMBER OF ATOMS\n\
+{pos.shape[0]}\nITEM: BOX BOUNDS {box_header}pp pp pp\n"
 
         if box is not None:
             for box_vector in box:
@@ -557,7 +555,7 @@ class LAMMPSEngine(EngineBase):
                             "vel_rev": reverse,
                         }
                         phase_point = self.snapshot_to_system(system, snapshot)
-                        status, success, stop, add = self.add_to_path(
+                        status, success, stop = self.add_to_path(
                             path, phase_point, left, right
                         )
                         if stop:
