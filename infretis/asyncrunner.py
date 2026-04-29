@@ -36,6 +36,8 @@ class aiorunner:
     instances of that function in the background.
     As work is submitted to the runner, it is picked up by
     workers on-the-fly.
+    Each worker has its own executor (single process) and its own queue,
+    guaranteeing that pin=N always runs on worker N.
     """
 
     def __init__(self, config: Dict, n_workers: int = 1) -> None:
@@ -47,21 +49,30 @@ class aiorunner:
         """
         self._n_workers: int = n_workers
         self._counter = multiprocessing.get_context("spawn").Value("i", 0)
-        self._executor: concurrent.futures.Executor = (
+
+        # One single-process executor per worker
+        self._executors: List[concurrent.futures.Executor] = [
             concurrent.futures.ProcessPoolExecutor(
-                max_workers=n_workers,
+                max_workers=1,
                 initializer=worker_initializer,
                 initargs=(self._counter, config),
                 mp_context=multiprocessing.get_context("spawn"),
             )
-        )
+            for _ in range(n_workers)
+        ]
+
         self._stop_event = asyncio.Event()
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(
             target=self._start_event_loop, daemon=True
         )
         self._thread.start()
-        self._queue: asyncio.Queue[Any] = asyncio.Queue()
+
+        # One queue per worker
+        self._queues: List[asyncio.Queue[Any]] = [
+            asyncio.Queue() for _ in range(n_workers)
+        ]
+
         self._task_f: Optional[Callable] = None
         self._tasks: Optional[List[asyncio.Task[Any]]] = None
 
@@ -125,42 +136,53 @@ class aiorunner:
                 except Exception as e:
                     # Pass the exception up in the future
                     future.set_exception(e)
-
                 # Mask the task as done
                 queue.task_done()
             except asyncio.QueueEmpty:
                 await asyncio.sleep(0.02)
 
     async def _add_work_to_queue(
-        self, work_unit: Dict[str, Any]
+        self, work_unit: Dict[str, Any], pin: int
     ) -> asyncio.Future:
-        """Async function adding work to queue, returns a future.
+        """Async function adding work to a specific worker's queue.
 
         Args
             work_unit: a unit of work encapsulated in a dict
+            pin: worker index
 
         Return:
             A future wih the results of the work
         """
+        if pin < 0 or pin >= self._n_workers:
+            raise RunnerError(
+                f"Pin {pin} is out of range for {self._n_workers} workers"
+            )
         future: asyncio.Future = asyncio.Future()
-        await self._queue.put((work_unit, future))
+        await self._queues[pin].put((work_unit, future))
         return future
 
     def submit_work(self, work_unit: Dict[str, Any]) -> Future:
-        """Submit work to the runner.
+        """Submit work to a specific worker via the pin in work_unit.
 
         Args:
-            task: a unit of work encapsulated in a dict
+            work_unit: a unit of work encapsulated in a dict,
+                       must contain a "pin" key with the target worker index
 
         Return:
-            A future wih the results of the work
+            A future with the results of the work
         """
         if not self._tasks:
             raise RunnerError(
                 "Unable to submit work if the tasks haven't been initiated"
             )
-        future = asyncio.run(self._add_work_to_queue(work_unit))
-        # Need to wait otherwise some race condition can occur
+        pin = work_unit.get("pin")
+        if pin is None:
+            raise RunnerError(
+                "work_unit must contain a 'pin' key to route work to a worker"
+            )
+        future = asyncio.run_coroutine_threadsafe(
+            self._add_work_to_queue(work_unit, pin), self._loop
+        ).result(5.0)
         time.sleep(0.05)
         return future
 
@@ -172,7 +194,10 @@ class aiorunner:
             self._tasks = [
                 asyncio.create_task(
                     self._task_wrapper(
-                        self._stop_event, self._queue, self._executor, i
+                        self._stop_event,
+                        self._queues[i],
+                        self._executors[i],
+                        i,
                     )
                 )
                 for i in range(self._n_workers)
@@ -191,9 +216,8 @@ class aiorunner:
 
     def stop(self) -> None:
         """Terminate the runner."""
-        # Make sure there is no more work in the queue
-        # before dispatching the task stopping event
-        while self._queue.qsize() > 0:
+        # Wait for all queues to be empty
+        while any(q.qsize() > 0 for q in self._queues):
             time.sleep(0.1)
 
         # Stop ongoing tasks

@@ -25,12 +25,13 @@ def sleeping(sleep_dict: Dict[str, Any]) -> Dict[str, Any]:
         A dictionary containing the task results
     """
     raise_error = sleep_dict.get("raise_err", False)
+    pin = sleep_dict.get("pin", -1)
     if raise_error:
         raise TaskError("Task raise error on purpose")
     else:
         sleeping_time = sleep_dict.get("duration", 0.5)
         sleep(sleeping_time)
-        return {"Time slept": sleeping_time}
+        return {"Time slept": sleeping_time, "pin": pin, "pid": os.getpid()}
 
 
 def test_runner_init():
@@ -101,7 +102,7 @@ def test_runner_check_return_success():
         futlist = future_list()
         runner.set_task(sleeping)
         runner.start()
-        futlist.add(runner.submit_work({"duration": 0.3}))
+        futlist.add(runner.submit_work({"duration": 0.3, "pin": 0}))
         fut = futlist.as_completed()
         assert fut.result().get("Time slept") == 0.3
     finally:
@@ -118,7 +119,7 @@ def test_runner_task_error():
         futlist = future_list()
         runner.set_task(sleeping)
         runner.start()
-        futlist.add(runner.submit_work({"raise_err": True}))
+        futlist.add(runner.submit_work({"raise_err": True, "pin": 0}))
         fut = futlist.as_completed()
         with pytest.raises(TaskError):
             fut.result()
@@ -132,6 +133,7 @@ def test_runner_infretis_mode(tmp_path: PosixPath):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     os.chdir(tmp_path)
+    pids = {0: [], 1: []}
     try:
         n_workers = 2
         runner = aiorunner({}, n_workers)
@@ -143,16 +145,24 @@ def test_runner_infretis_mode(tmp_path: PosixPath):
         res_dict = {}
         while loop_cnt < n_loops + 2:
             if loop_cnt < n_workers:
-                futlist.add(runner.submit_work({}))
+                futlist.add(runner.submit_work({"pin": loop_cnt}))
                 loop_cnt = loop_cnt + 1
             else:
                 future = futlist.as_completed()
                 if future:
                     res_dict[f"l{loop_cnt}"] = future.result()
+                    pin = res_dict[f"l{loop_cnt}"]["pin"]
+                    pids[pin].append(res_dict[f"l{loop_cnt}"]["pid"])
+                    sope = future.result()
                 if loop_cnt <= n_loops:
-                    futlist.add(runner.submit_work({}))
+                    futlist.add(runner.submit_work({"pin": pin}))
                 loop_cnt = loop_cnt + 1
         assert len(res_dict) == 10
+
+        # assert same pid for same pin
+        assert len(set(pids[0])) == 1
+        assert len(set(pids[1])) == 1
+        assert set(pids[0]) != set(pids[1])
     finally:
         runner.stop()
         loop.close()
