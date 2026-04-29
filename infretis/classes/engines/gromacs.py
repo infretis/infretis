@@ -38,7 +38,6 @@ _GROMACS_MAGIC = 1993
 _G96_FMT = "{0:}{1:15.9f}{2:15.9f}{3:15.9f}\n"
 _G96_BOX_FMT = "{:15.9f}" * 9 + "\n"
 _G96_BOX_FMT_3 = "{:15.9f}" * 3 + "\n"
-_GROMACS_MAGIC = 1993
 _DIM = 3
 _TRR_VERSION = "GMX_trn_file"
 _SIZE_FLOAT = struct.calcsize("f")
