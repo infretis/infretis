@@ -272,7 +272,7 @@ class TurtleMDEngine(EngineBase):
                     "vel_rev": reverse,
                 }
                 phase_point = self.snapshot_to_system(system, snapshot)
-                status, success, stop, add = self.add_to_path(
+                status, success, stop = self.add_to_path(
                     path, phase_point, left, right
                 )
 

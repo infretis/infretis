@@ -78,7 +78,7 @@ class EngineBase(metaclass=ABCMeta):
     @staticmethod
     def add_to_path(
         path: InfPath, phase_point: System, left: float, right: float
-    ) -> Tuple[str, bool, bool, bool]:
+    ) -> Tuple[str, bool, bool]:
         """Add a phase point and perform some checks.
 
         This method is intended to be used by the propagate methods
@@ -93,14 +93,7 @@ class EngineBase(metaclass=ABCMeta):
         status = "Running propagate..."
         success = False
         stop = False
-        add = path.append(phase_point)
-        if not add:
-            if path.length >= path.maxlen:
-                status = "Max. path length exceeded"
-            else:  # pragma: no cover
-                status = "Could not add for unknown reason"
-            success = False
-            stop = True
+        path.append(phase_point)
         if path.phasepoints[-1].order[0] < left:
             status = "Crossed left interface!"
             success = True
@@ -109,11 +102,12 @@ class EngineBase(metaclass=ABCMeta):
             status = "Crossed right interface!"
             success = True
             stop = True
-        if path.length == path.maxlen:
-            status = "Max. path length exceeded!"
+        # check this last in case of crossing on the last step
+        elif path.length >= path.maxlen:
+            status = "Max. path length exceeded"
             success = False
             stop = True
-        return status, success, stop, add
+        return status, success, stop
 
     @abstractmethod
     def modify_velocities(
@@ -582,52 +576,6 @@ class EngineBase(metaclass=ABCMeta):
         """
         for i in files:
             self._removefile(os.path.join(dirname, i))
-
-    def __eq__(self, other) -> bool:
-        """Check if two engines are equal."""
-        if self.__class__ != other.__class__:
-            logger.debug("%s and %s.__class__ differ", self, other)
-            return False
-
-        if set(self.__dict__) != set(other.__dict__):
-            logger.debug("%s and %s.__dict__ differ", self, other)
-            return False
-
-        for i in ["description", "_exe_dir", "timestep"]:
-            if hasattr(self, i):
-                if getattr(self, i) != getattr(other, i):
-                    logger.debug(
-                        "%s for %s and %s, attributes are %s and %s",
-                        i,
-                        self,
-                        other,
-                        getattr(self, i),
-                        getattr(other, i),
-                    )
-                    return False
-
-        if hasattr(self, "rgen"):
-            # pylint: disable=no-member
-            if self.rgen.__class__ != other.rgen.__class__ or set(
-                self.rgen.__dict__
-            ) != set(other.rgen.__dict__):
-                logger.debug("rgen class differs")
-                return False
-
-            # pylint: disable=no-member
-            for att1, att2 in zip(self.rgen.__dict__, other.rgen.__dict__):
-                # pylint: disable=no-member
-                if self.rgen.__dict__[att1] != other.rgen.__dict__[att2]:
-                    logger.debug(
-                        "rgen class attribute %s and %s differs", att1, att2
-                    )
-                    return False
-
-        return True
-
-    def __ne__(self, other) -> bool:
-        """Check if two engines are not equal."""
-        return not self == other
 
     def __str__(self) -> str:
         """Return the string description of the integrator."""
