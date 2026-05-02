@@ -131,7 +131,7 @@ while True:
                     "vel_rev": reverse,
                 }
                 phase_point = EngineBase.snapshot_to_system(system, snapshot)
-                status, success, stop, add = EngineBase.add_to_path(
+                status, success, stop = EngineBase.add_to_path(
                     path, phase_point, left, right
                 )
 
