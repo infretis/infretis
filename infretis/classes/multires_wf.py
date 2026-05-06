@@ -101,12 +101,34 @@ def _read_mwf_settings(
     )
 
 
-def _pick_random_shooting_idx(path: InfPath, rgen) -> int:
+def _random_internal_indices(path: InfPath, rgen, k: int) -> List[int]:
+    """Up to k distinct interior indices of `path`, in shuffled order."""
     n = len(path.phasepoints)
     if n <= 2:
-        return 0
-    idx = rgen.integers(1, n - 1)
-    return int(idx)
+        return []
+    available = list(range(1, n - 1))
+    rgen.shuffle(available)
+    return available[: max(0, min(k, len(available)))]
+
+
+def _pick_shooting_idx(
+    path: InfPath, rgen, is_highres: bool, queue: List[int]
+) -> Tuple[int, List[int], str]:
+    """Pick a shooting index according to resolution.
+
+    highres: pop the head of `queue`. Empty queue → status "EQU" (caller
+        treats this as a failed subpath; the lowres branch never returns EQU).
+    lowres: uniform among interior indices.
+    """
+    if is_highres:
+        if not queue:
+            return 0, queue, "EQU"
+        idx = queue.pop(0)
+        return int(idx), queue, "OK"
+    n = len(path.phasepoints)
+    if n <= 2:
+        return 0, queue, "OK"
+    return int(rgen.integers(1, n - 1)), queue, "OK"
 
 
 def _generate_segment_using_shoot(
@@ -116,17 +138,37 @@ def _generate_segment_using_shoot(
     engine: EngineBase,
     start_cond: Tuple[str, ...],
 ) -> Tuple[bool, InfPath, str]:
+    """Generate a segment from `si` using an MWF-chosen shooting index.
 
-    from infretis.core.tis import shoot  # use standard WF shoot
+    The MWF caller owns the shooting-point policy, so we build an explicit
+    shooting point from `si.phasepoints[idx]` and pass it to `shoot()`.
+    Velocity randomization (modify_velocities + check_kick) is performed here
+    to preserve standard MC kick semantics, which `shoot()` would otherwise
+    skip on the explicit-point branch.
+    """
+    from infretis.core.tis import shoot, check_kick
 
+    maxlen = ens_set_sub["tis_set"]["maxlength"]
     if idx <= 0 or idx >= len(si.phasepoints) - 1:
-        maxlen = ens_set_sub["tis_set"]["maxlength"]
         return False, si.empty_path(maxlen=maxlen), "IDX"
 
-    success, trial_path, status = shoot(
-        ens_set_sub, si, engine, shooting_point=None, start_cond=start_cond
-    )
-    return success, trial_path, status
+    shooting_point = si.phasepoints[idx].copy()
+    shooting_point.idx = idx
+
+    dek, _ = engine.modify_velocities(shooting_point, ens_set_sub["tis_set"])
+    shooting_point.order = engine.calculate_order(shooting_point)
+
+    scratch = si.empty_path(maxlen=maxlen)
+    if not check_kick(
+        shooting_point,
+        ens_set_sub["interfaces"],
+        scratch,
+        ens_set_sub["rgen"],
+        dek,
+    ):
+        return False, scratch, scratch.status
+
+    return shoot(ens_set_sub, si, engine, shooting_point, start_cond)
 
 
 def multires_wire_fencing(
@@ -200,18 +242,42 @@ def multires_wire_fencing(
         i = 0
         set_rejected = False
         si = si.copy()  # start this set from current s0
-        last_acc_in_set = (
-            si.copy()
-        )  # Track last accepted subpath within this set
-        subpaths_in_set = 0  # Count subpaths generated in this set
+        last_acc_in_set = si.copy()
+        subpaths_in_set = 0
+
+        # Build a fresh highres shooting queue from the committed s0.
+        # The queue is strictly set-local: rebuilt at each set's top, never
+        # carried across sets. Length is mwf.nsubpath - 1 because the final
+        # subpath is lowres and never consumes from the queue.
+        shooting_queue = _random_internal_indices(
+            s0, sub_ens["rgen"], mwf.nsubpath - 1
+        )
+        last_acc_queue = list(shooting_queue)
 
         # Generate up to Nsubpath subpaths
         while i < mwf.nsubpath:
-            # Step 3: pick random shooting point (like WF)
-            idx = _pick_random_shooting_idx(si, sub_ens["rgen"])
+            # Resolution of the subpath we are about to attempt
+            # (pre-increment view of i; last subpath is lowres).
+            is_highres = (i + 1) < mwf.nsubpath
 
-            # Check if path is too short for shooting
-            if (
+            # Step 3: pick shooting index per resolution
+            idx, shooting_queue, pick_status = _pick_shooting_idx(
+                si, sub_ens["rgen"], is_highres, shooting_queue
+            )
+
+            if pick_status == "EQU":
+                # Highres queue empty — treat as a failed subpath at slot i+1
+                # so the standard terminal/non-terminal rejection rules fire.
+                # EQU cannot occur on the lowres pick.
+                i += 1
+                gen_success = False
+                seg = si.empty_path(maxlen=sub_ens["tis_set"]["maxlength"])
+                status = "EQU"
+                subcycles = mwf.subcycle_small
+                logger.info(
+                    f"Set {countset}: highres queue empty at subpath {i} (EQU)"
+                )
+            elif (
                 len(si.phasepoints) <= 2
                 or idx <= 0
                 or idx >= len(si.phasepoints) - 1
@@ -219,21 +285,19 @@ def multires_wire_fencing(
                 gen_success = False
                 seg = si.empty_path(maxlen=sub_ens["tis_set"]["maxlength"])
                 status = "SHP"  # Short path
+                subcycles = mwf.subcycle_small
             else:
-                # Step 4: Generate new velocities for shooting point (done inside shoot function)
                 # Step 5: i = i + 1
                 i += 1
 
-                # Step 6: decide subcycles - last subpath uses lowres, others use highres
-                if i == mwf.nsubpath:  # Last subpath
-                    subcycles = mwf.subcycle_large  # lowres subcycles
-                else:  # All other subpaths
-                    subcycles = mwf.subcycle_small  # highres subcycles
+                # Step 6: last subpath uses lowres, others use highres
+                if i == mwf.nsubpath:
+                    subcycles = mwf.subcycle_large
+                else:
+                    subcycles = mwf.subcycle_small
 
-                # Step 7: generate si by integrating to [i, cap] using chosen resolution
-                # The shoot() function handles velocity modification and kick checking internally
                 logger.debug(
-                    f"Subpath {i}: Shooting from ordermax={si.ordermax[0]:.6f}, subcycles={subcycles}"
+                    f"Subpath {i}: Shooting from ordermax={si.ordermax[0]:.6f}, subcycles={subcycles}, idx={idx}"
                 )
                 with _temporary_subcycles(engine, subcycles):
                     gen_success, seg, status = _generate_segment_using_shoot(
@@ -264,58 +328,73 @@ def multires_wire_fencing(
 
             if not gen_success:
                 # Step 9: Reject subpath
-                # remove trajectory files of the rejected subpath
                 for rej_seg_trajname in seg.adress:
                     os.remove(rej_seg_trajname)
-                    logger.info(f"Removing {rej_seg_trajname} because of status {status}")
+                    logger.info(
+                        f"Removing {rej_seg_trajname} because of status {status}"
+                    )
 
                 if i == 1 or i == mwf.nsubpath:
-                    # First or last subpath failed - always reject set and restart from s0
                     set_rejected = True
                     si = s0.copy()
                     logger.info(
-                        f"Set {countset}: First/last subpath {i} failed, rejecting entire set"
+                        f"Set {countset}: First/last subpath {i} failed ({status}), rejecting entire set"
                     )
                     break
                 else:
-                    # Replace with last accepted subpath within current set and repeat step 3
+                    # Revert path AND queue to last accepted state in this set
                     si = last_acc_in_set.copy()
+                    shooting_queue = list(last_acc_queue)
                     logger.debug(
-                        f"Subpath {i} failed, reverting to last accepted subpath in set {countset}"
+                        f"Subpath {i} failed ({status}), reverting to last accepted subpath in set {countset}"
                     )
                     continue
             else:
                 # Step 10: Accept subpath
-                total_succ_subpaths += 1  # Count total across all sets
+                total_succ_subpaths += 1
                 si = seg.copy()
-                last_acc_in_set = (
-                    seg.copy()
-                )  # Update last accepted within current set
+                last_acc_in_set = seg.copy()
+
+                # Refresh highres queue from the just-generated segment for
+                # any remaining highres slots (i is post-increment here, so
+                # remaining highres slots = (nsubpath - 1) - i).
+                remaining_highres = (mwf.nsubpath - 1) - i
+                if remaining_highres > 0:
+                    shooting_queue = _random_internal_indices(
+                        seg, sub_ens["rgen"], remaining_highres
+                    )
+                else:
+                    shooting_queue = []
+                last_acc_queue = list(shooting_queue)
+
                 logger.debug(f"Subpath {i} accepted in set {countset}")
                 if i == mwf.nsubpath:
-                    # proceed to evaluate set (Step 12)
                     logger.debug(
                         f"Set {countset} completed successfully - final subpath accepted"
                     )
                     break
 
-        # Step 12: Evaluate set
-        effective_succ_sets = succ_sets
-        effective_last_acc_si = last_acc_si
-        if not set_rejected:
-            effective_succ_sets += 1
-            effective_last_acc_si = si.copy()
+        # Step 12: Record set outcome (commit before finalization check)
+        set_succeeded = not set_rejected
+        set_success_history.append(set_succeeded)
+
+        if set_succeeded:
+            succ_sets += 1
+            last_acc_si = si.copy()
+            s0 = si.copy()
+            logger.info(
+                f"Set {countset} completed successfully with {subpaths_in_set} subpaths generated, final path length={si.length}"
+            )
 
         if countset == mwf.nsubset:
-            # Check if no successful subpaths or sets were generated (like WF succ_seg == 0 check)
-            if total_succ_subpaths == 0 or effective_succ_sets == 0:
+            if succ_sets == 0:
                 logger.info(
-                    f"MWF move rejected: {effective_succ_sets}/{mwf.nsubset} sets completed, {total_succ_subpaths} total subpaths accepted"
+                    f"MWF move rejected: {succ_sets}/{mwf.nsubset} sets completed, {total_succ_subpaths} total subpaths accepted"
                 )
                 trial_path.status = "NSG"
                 return False, trial_path, trial_path.status
 
-            path_to_extend = effective_last_acc_si
+            path_to_extend = last_acc_si
             logger.info(
                 f"Extending last accepted lowres subpath: length={path_to_extend.length}, ordermax={path_to_extend.ordermax[0]:.6f}"
             )
@@ -329,36 +408,16 @@ def multires_wire_fencing(
             success, accepted = subt_acceptance(
                 full_path, ens_set, engine, start_cond
             )
-            accepted.generated = (
-                "mwf",
-                9001,
-                effective_succ_sets,
-                accepted.length,
-            )
+            accepted.generated = ("mwf", 9001, succ_sets, accepted.length)
             if not success:
                 return False, accepted, accepted.status
 
             logger.info(
-                f"MWF move accepted: {effective_succ_sets}/{mwf.nsubset} sets completed, {total_succ_subpaths} total subpaths accepted, final path length={accepted.length}"
+                f"MWF move accepted: {succ_sets}/{mwf.nsubset} sets completed, {total_succ_subpaths} total subpaths accepted, final path length={accepted.length}"
             )
             return True, accepted, accepted.status
-
-        # Record set outcome
-        set_success_history.append(not set_rejected)
 
         countset += 1
         logger.debug(
             f"Moving to next set {countset}/{mwf.nsubset}, set_rejected={set_rejected}"
         )
-        if not set_rejected:
-            # Set completed successfully, increment succ_sets
-            succ_sets += 1
-            last_acc_si = (
-                si.copy()
-            )  # Update last_acc_si only when set succeeds
-            s0 = (
-                si.copy()
-            )  # last accepted lowres (after successful set) becomes new s0
-            logger.info(
-                f"Set {countset-1} completed successfully with {subpaths_in_set} subpaths generated, final path length={si.length}"
-            )
