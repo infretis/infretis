@@ -14,6 +14,8 @@ Configuration (TIS settings `ens_set["tis_set"]`):
     mwf_nsubpath: int                # N_subpath (default: 3)
     n_jumps: int                     # N_subset, reuses existing WF parameter (default: 2)
     mwf_subcycle_small: int          # small N_subcycle for high-res subpaths (default: max(1, engine.subcycles // 5))
+    mwf_subcycle_small_by_ensemble:  # optional mapping ens_name -> int, overrides scalar per ensemble
+        dict[str, int]               # keys match ens_set["ens_name"] (e.g. "001"); missing entries fall through to the scalar
     interface_cap: float             # optional, same meaning as in WF
 
 Note:
@@ -23,11 +25,20 @@ Note:
 Notes:
 - Any highres subpath with length L == 3 (three phase points) is rejected.
 
-Integration with existing code:
-- Register the move key "mwf" in `tis.select_shoot`.
-- Ensure weighting treats "mwf" like "wf" (either by patching
-  `compute_weight`/`calc_cv_vector` to recognize "mwf", or by the wrapper
-  here which computes WF-weights internally).
+Per-ensemble selection:
+    "mwf" is a regular entry in `simulation.shooting_moves` and may be
+    mixed freely with "sh" and "wf" by position, e.g.::
+
+        [simulation]
+        shooting_moves = ["sh", "wf", "mwf", "mwf", "wf"]
+
+    Ensemble `i` uses `shooting_moves[i]`. No additional config key is
+    required for per-ensemble move selection.
+
+Integration with existing code (already wired in this branch):
+- "mwf" is registered in `infretis.core.tis.select_shoot`.
+- `compute_weight` / `calc_cv_vector` treat "mwf" identically to "wf"
+  (see the `("wf", "mwf")` branches in `infretis.core.tis`).
 
 """
 
@@ -86,6 +97,15 @@ def _temporary_subcycles(engine: EngineBase, new_subcycles: int):
             engine.subcycles = old
 
 
+def _positive_int_or_none(value: Any) -> Optional[int]:
+    """Return `value` if it is a positive int (not bool); else None."""
+    if isinstance(value, bool):
+        return None
+    if not isinstance(value, int):
+        return None
+    return value if value > 0 else None
+
+
 def _read_mwf_settings(
     ens_set: Dict[str, Any], engine: EngineBase
 ) -> _MWFSettings:
@@ -93,10 +113,23 @@ def _read_mwf_settings(
     # Use existing TIS parameters where possible
     large = getattr(engine, "subcycles", 10)  # from engine, like standard WF
     small_default = max(1, large // 5)
+
+    scalar_small = _positive_int_or_none(tis.get("mwf_subcycle_small"))
+    fallback_small = scalar_small if scalar_small is not None else small_default
+
+    by_ensemble = tis.get("mwf_subcycle_small_by_ensemble")
+    override_small: Optional[int] = None
+    if isinstance(by_ensemble, dict):
+        ens_name = ens_set.get("ens_name")
+        if ens_name is not None and ens_name in by_ensemble:
+            override_small = _positive_int_or_none(by_ensemble[ens_name])
+
+    subcycle_small = override_small if override_small is not None else fallback_small
+
     return _MWFSettings(
         nsubpath=int(tis.get("mwf_nsubpath", 3)),
         nsubset=int(tis.get("n_jumps", 2)),  # reuse existing WF parameter
-        subcycle_small=int(tis.get("mwf_subcycle_small", small_default)),
+        subcycle_small=int(subcycle_small),
         subcycle_large=int(large),
     )
 

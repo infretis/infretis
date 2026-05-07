@@ -180,6 +180,7 @@ def setup_config(
     accept_all = config["simulation"]["tis_set"].get("accept_all", False)
     config["simulation"]["tis_set"]["accept_all"] = accept_all
 
+    expand_ensemble_move_policy(config)
     check_config(config)
 
     return config
@@ -311,3 +312,218 @@ def setup_logger(inp: str = "sim.log") -> None:
     fileh.setLevel(log_levl)
     fileh.setFormatter(get_log_formatter(log_levl))
     logger.addHandler(fileh)
+
+
+# --------------------------------------------------------------------------- #
+# Ergonomic ensemble move policy                                              #
+# --------------------------------------------------------------------------- #
+#
+# Optional config layer that compiles into the canonical low-level fields
+# `simulation.shooting_moves`, `simulation.tis_set.mwf_subcycle_small`, and
+# `simulation.tis_set.mwf_subcycle_small_by_ensemble`. Pure-Python, runs once
+# during config load. Removes itself after a successful expansion so restart
+# files only carry canonical fields.
+
+_ALLOWED_MOVES = ("sh", "wf", "mwf")
+
+
+def _padded(idx: int) -> str:
+    return f"{idx:03d}"
+
+
+def _parse_ens_token(tok: str, n_ens: int) -> int:
+    """Normalize a single ensemble token (e.g. '3' or '003') to an int index."""
+    if not isinstance(tok, str):
+        raise TOMLConfigError(
+            f"ensemble_move_policy: ensemble token must be a string, got "
+            f"{type(tok).__name__}: {tok!r}"
+        )
+    s = tok.strip()
+    if not s or not s.isdigit():
+        raise TOMLConfigError(
+            f"ensemble_move_policy: invalid ensemble token {tok!r}; "
+            f"expected digits like '003'"
+        )
+    idx = int(s)
+    if idx < 0 or idx >= n_ens:
+        raise TOMLConfigError(
+            f"ensemble_move_policy: ensemble {tok!r} out of range "
+            f"[000, {_padded(n_ens - 1)}]"
+        )
+    return idx
+
+
+def _parse_selector(spec: object, n_ens: int) -> list[str]:
+    """Resolve a selector spec to a sorted list of zero-padded ens_names."""
+    if not isinstance(spec, str):
+        raise TOMLConfigError(
+            f"ensemble_move_policy: selector must be a string, got "
+            f"{type(spec).__name__}: {spec!r}"
+        )
+    raw = spec.strip()
+    if ":" not in raw:
+        return [_padded(_parse_ens_token(raw, n_ens))]
+
+    lo_tok, hi_tok = raw.split(":", 1)
+    lo = 0 if lo_tok.strip() == "" else _parse_ens_token(lo_tok, n_ens)
+    hi = (n_ens - 1) if hi_tok.strip() == "" else _parse_ens_token(hi_tok, n_ens)
+    if lo > hi:
+        raise TOMLConfigError(
+            f"ensemble_move_policy: range selector {spec!r} not ordered "
+            f"(lo > hi)"
+        )
+    return [_padded(i) for i in range(lo, hi + 1)]
+
+
+def _resolve_disjoint(
+    selectors: list[object], n_ens: int, *, label: str
+) -> list[str]:
+    """Expand selectors to ens_names; raise on overlap inside `selectors`."""
+    seen: set[str] = set()
+    for spec in selectors:
+        for name in _parse_selector(spec, n_ens):
+            if name in seen:
+                raise TOMLConfigError(
+                    f"ensemble_move_policy: ensemble {name!r} matched twice "
+                    f"by overlapping selectors in {label}"
+                )
+            seen.add(name)
+    return sorted(seen)
+
+
+def _is_positive_int(value: object) -> bool:
+    return (
+        isinstance(value, int)
+        and not isinstance(value, bool)
+        and value > 0
+    )
+
+
+def expand_ensemble_move_policy(config: dict) -> None:
+    """Expand `simulation.ensemble_move_policy` into canonical fields.
+
+    No-op when the section is absent or `enabled = false`. Validates the
+    full ergonomic block before mutating `config`. On success, removes the
+    `ensemble_move_policy` subsection so restarts and re-runs are idempotent.
+    Raises `TOMLConfigError` on any malformed input or canonical-field
+    conflict (default `conflict_policy = "error"`).
+    """
+    sim = config["simulation"]
+    policy = sim.get("ensemble_move_policy")
+    if policy is None:
+        return
+    if not isinstance(policy, dict):
+        raise TOMLConfigError(
+            "ensemble_move_policy must be a table"
+        )
+    if not policy.get("enabled", False):
+        # Disabled: leave config unchanged but strip the section so subsequent
+        # passes see a clean config and restart files do not carry it.
+        sim.pop("ensemble_move_policy", None)
+        return
+
+    conflict_policy = policy.get("conflict_policy", "error")
+    if conflict_policy != "error":
+        raise TOMLConfigError(
+            f"ensemble_move_policy: unsupported conflict_policy "
+            f"{conflict_policy!r}; only 'error' is implemented"
+        )
+
+    n_ens = len(sim["interfaces"])
+    if n_ens < 2:
+        raise TOMLConfigError(
+            "ensemble_move_policy requires at least 2 interfaces"
+        )
+
+    default_move = policy.get("default_move", "wf")
+    minus_move = policy.get("minus_move", "sh")
+    if default_move not in _ALLOWED_MOVES:
+        raise TOMLConfigError(
+            f"ensemble_move_policy: default_move {default_move!r} not in "
+            f"{_ALLOWED_MOVES}"
+        )
+    if minus_move not in _ALLOWED_MOVES:
+        raise TOMLConfigError(
+            f"ensemble_move_policy: minus_move {minus_move!r} not in "
+            f"{_ALLOWED_MOVES}"
+        )
+
+    default_small = policy.get("default_mwf_subcycle_small")
+    if default_small is not None and not _is_positive_int(default_small):
+        raise TOMLConfigError(
+            f"ensemble_move_policy: default_mwf_subcycle_small must be a "
+            f"positive int, got {default_small!r}"
+        )
+
+    raw_mwf_ens = policy.get("mwf_ensembles", [])
+    if not isinstance(raw_mwf_ens, list):
+        raise TOMLConfigError(
+            "ensemble_move_policy: mwf_ensembles must be a list of strings"
+        )
+    mwf_names = _resolve_disjoint(
+        list(raw_mwf_ens), n_ens, label="mwf_ensembles"
+    )
+
+    raw_subcycle_map = policy.get("mwf_subcycle_small", {})
+    if not isinstance(raw_subcycle_map, dict):
+        raise TOMLConfigError(
+            "ensemble_move_policy.mwf_subcycle_small must be a table"
+        )
+    by_ensemble: dict[str, int] = {}
+    for sel, val in raw_subcycle_map.items():
+        if not _is_positive_int(val):
+            raise TOMLConfigError(
+                f"ensemble_move_policy.mwf_subcycle_small[{sel!r}] must be a "
+                f"positive int, got {val!r}"
+            )
+        for name in _parse_selector(sel, n_ens):
+            if name in by_ensemble:
+                raise TOMLConfigError(
+                    f"ensemble_move_policy.mwf_subcycle_small: ensemble "
+                    f"{name!r} matched twice by overlapping selectors"
+                )
+            by_ensemble[name] = int(val)
+
+    # Build the proposed shooting_moves list (without mutating yet).
+    moves = [default_move] * n_ens
+    moves[0] = minus_move
+    mwf_set = set(mwf_names)
+    for i in range(n_ens):
+        if _padded(i) in mwf_set:
+            moves[i] = "mwf"
+
+    # Subcycle overrides only meaningful for ensembles that resolve to "mwf".
+    for name, _ in by_ensemble.items():
+        idx = int(name)
+        if moves[idx] != "mwf":
+            raise TOMLConfigError(
+                f"ensemble_move_policy.mwf_subcycle_small: ensemble {name!r} "
+                f"is not assigned 'mwf' (got {moves[idx]!r}); remove the "
+                f"override or add the ensemble to mwf_ensembles"
+            )
+
+    # Conflict checks — only after validation succeeds, before any mutation.
+    tis_set = sim["tis_set"]
+    if "shooting_moves" in sim:
+        raise TOMLConfigError(
+            "ensemble_move_policy conflicts with simulation.shooting_moves; "
+            "remove one (default conflict_policy='error')"
+        )
+    if "mwf_subcycle_small" in tis_set:
+        raise TOMLConfigError(
+            "ensemble_move_policy conflicts with "
+            "simulation.tis_set.mwf_subcycle_small; remove one"
+        )
+    if "mwf_subcycle_small_by_ensemble" in tis_set:
+        raise TOMLConfigError(
+            "ensemble_move_policy conflicts with "
+            "simulation.tis_set.mwf_subcycle_small_by_ensemble; remove one"
+        )
+
+    # Commit.
+    sim["shooting_moves"] = moves
+    if default_small is not None:
+        tis_set["mwf_subcycle_small"] = int(default_small)
+    if by_ensemble:
+        tis_set["mwf_subcycle_small_by_ensemble"] = by_ensemble
+    sim.pop("ensemble_move_policy", None)

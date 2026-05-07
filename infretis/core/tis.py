@@ -1132,8 +1132,10 @@ def quantis_swap_zero(
 
     logger.info("Quantis swapping [0^-] <-> [0^+].")
 
-    if "wf" in [ens_set0["mc_move"], ens_set1["mc_move"]]:
-        logger.warning("Quantis with 'wf' in [0-] or [0+] is not implemented")
+    if any(m in ("wf", "mwf") for m in (ens_set0["mc_move"], ens_set1["mc_move"])):
+        logger.warning(
+            "Quantis with 'wf'/'mwf' in [0-] or [0+] is not implemented"
+        )
         logger.warning("Continuing with regular shooting.")
 
     shooting_point0 = old_path1.phasepoints[0].copy()
