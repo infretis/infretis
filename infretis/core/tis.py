@@ -646,7 +646,7 @@ def extender(
             maxlen=ens_set["tis_set"]["maxlength"],
         )
         # backwards extension failed
-        if not success:
+        if not success and trial_path.length >= trial_path.maxlen:
             trial_path.status = "BTX"
             return False, trial_path, trial_path.status
     else:
