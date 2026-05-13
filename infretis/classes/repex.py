@@ -80,7 +80,8 @@ class REPEX_state:
         self._last_prob = None
         self._random_count = 0
         self._trajs = [""] * n
-        self.zeroswap = 0.5
+        self.zeroswap = config["simulation"].get("zeroswap", 0.5)
+        self.pick_scheme = config["simulation"].get("pick_scheme", 0)
 
         # detect any locked ens-path pairs exist pre start
         self.locked0 = list(self.config["current"].get("locked", []))
@@ -165,9 +166,18 @@ class REPEX_state:
 
     def pick(self):
         """Pick path and ens."""
-        prob = self.prob.astype("float64").flatten()
+        prob = self.prob.astype("float64")
+        if self.pick_scheme > 0:
+            # Pick ensemble based on weight,
+            valid_idx = np.where(1. - self._locks)[0]
+            ens_weights = np.zeros(self.n)
+            ens_weights[valid_idx] = np.arange(1, len(valid_idx) + 1)
+            prob *= ens_weights**self.pick_scheme
+
+        prob = prob.flatten()
         p = self.rgen.choice(self.n**2, p=np.nan_to_num(prob / np.sum(prob)))
         traj, ens = np.divmod(p, self.n)
+
         self.swap(traj, ens)
         self.lock(ens)
         traj = self._trajs[ens]
@@ -797,9 +807,10 @@ class REPEX_state:
         status = md_items["status"]
         simtime = md_items["md_end"] - md_items["md_start"]
         subcycles = md_items["subcycles"]
+        arrow = "=)" if status == "ACC" else "=("
         logger.info(
             f"shooted {' '.join(moves)} in ensembles: {ens_nums}"
-            f" with paths: {pnum_old} -> {pnum_new}"
+            f" with paths: {pnum_old} {arrow} {pnum_new}"
         )
         logger.info(
             "with status:" f" {status} len: {trial_lens} op: {trial_ops} and"
@@ -812,6 +823,9 @@ class REPEX_state:
 
     def print_start(self):
         """Print start."""
+        if self.pick_scheme > 0:
+            logger.info(f"ensemble selection scheme: {self.pick_scheme}" +
+                         " should only be used with Inf-init")
         logger.info("stored ensemble paths:")
         ens_num = self.live_paths()
         logger.info(
