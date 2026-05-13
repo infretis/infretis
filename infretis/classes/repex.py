@@ -169,7 +169,7 @@ class REPEX_state:
         prob = self.prob.astype("float64")
         if self.pick_scheme > 0:
             # Pick ensemble based on weight,
-            valid_idx = np.where(1. - self._locks)[0]
+            valid_idx = np.where(1.0 - self._locks)[0]
             ens_weights = np.zeros(self.n)
             ens_weights[valid_idx] = np.arange(1, len(valid_idx) + 1)
             prob *= ens_weights**self.pick_scheme
@@ -824,8 +824,10 @@ class REPEX_state:
     def print_start(self):
         """Print start."""
         if self.pick_scheme > 0:
-            logger.info(f"ensemble selection scheme: {self.pick_scheme}" +
-                         " should only be used with Inf-init")
+            logger.info(
+                f"ensemble selection scheme: {self.pick_scheme}"
+                + " should only be used with Inf-init"
+            )
         logger.info("stored ensemble paths:")
         ens_num = self.live_paths()
         logger.info(
