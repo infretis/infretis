@@ -150,16 +150,31 @@ def setup_config(
             ens_engs.append(["engine"])
         config["simulation"]["ensemble_engines"] = ens_engs
 
+
     # set all keywords only once, so they appear in restart.toml
     # and we can avoid the .get() in other parts
     if "seed" not in config["simulation"].keys():
         config["simulation"]["seed"] = 0
 
-    # [output]
-    keep_maxop_trajs = config["output"].get("keep_maxop_trajs", False)
-    config["output"]["keep_maxop_trajs"] = keep_maxop_trajs
-    delete_old = config["output"].get("delete_old", False)
-    delete_old_all = config["output"].get("delete_old_all", False)
+    # [simulation] defaults
+    config["simulation"].setdefault("load_dir", "load")
+    config["simulation"].setdefault("zeroswap", 0.5)
+    config["simulation"].setdefault("pick_scheme", 0)
+
+    # [simulation.tis_set] defaults
+    config["simulation"]["tis_set"].setdefault("quantis", False)
+    config["simulation"]["tis_set"].setdefault("lambda_minus_one", False)
+    config["simulation"]["tis_set"].setdefault("accept_all", False)
+
+    # [output] defaults
+    config["output"].setdefault("keep_maxop_trajs", False)
+    config["output"].setdefault("delete_old", False)
+    config["output"].setdefault("delete_old_all", False)
+
+    # validation for output settings
+    keep_maxop_trajs = config["output"]["keep_maxop_trajs"]
+    delete_old = config["output"]["delete_old"]
+    delete_old_all = config["output"]["delete_old_all"]
     if not delete_old and keep_maxop_trajs:
         raise TOMLConfigError("keep_maxop_trajs=True requires delete_old=True")
     if delete_old_all and keep_maxop_trajs:
@@ -169,16 +184,10 @@ def setup_config(
         )
         raise TOMLConfigError(msg)
 
-    quantis = config["simulation"]["tis_set"].get("quantis", False)
-    config["simulation"]["tis_set"]["quantis"] = quantis
-
-    l_1 = config["simulation"]["tis_set"].get("lambda_minus_one", False)
-    config["simulation"]["tis_set"]["lambda_minus_one"] = l_1
-
+    # handle quantis configuration
+    quantis = config["simulation"]["tis_set"]["quantis"]
     if quantis and not has_ens_engs:
         config["simulation"]["ensemble_engines"][0] = ["engine0"]
-    accept_all = config["simulation"]["tis_set"].get("accept_all", False)
-    config["simulation"]["tis_set"]["accept_all"] = accept_all
 
     check_config(config)
 
@@ -196,10 +205,8 @@ def check_config(config: dict) -> None:
     n_workers = config["runner"]["workers"]
     sh_moves = config["simulation"]["shooting_moves"]
     n_sh_moves = len(sh_moves)
+    lambda_minus_one = config["simulation"]["tis_set"]["lambda_minus_one"]
     intf_cap = config["simulation"]["tis_set"].get("interface_cap", False)
-    lambda_minus_one = config["simulation"]["tis_set"].get(
-        "lambda_minus_one", False
-    )
 
     if lambda_minus_one is not False and lambda_minus_one >= intf[0]:
         raise TOMLConfigError(

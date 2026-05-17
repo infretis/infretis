@@ -80,8 +80,8 @@ class REPEX_state:
         self._last_prob = None
         self._random_count = 0
         self._trajs = [""] * n
-        self.zeroswap = config["simulation"].get("zeroswap", 0.5)
-        self.pick_scheme = config["simulation"].get("pick_scheme", 0)
+        self.zeroswap = config["simulation"]["zeroswap"]
+        self.pick_scheme = config["simulation"]["pick_scheme"]
 
         # detect any locked ens-path pairs exist pre start
         self.locked0 = list(self.config["current"].get("locked", []))
@@ -951,7 +951,7 @@ class REPEX_state:
                 }
                 traj_num += 1
                 if (
-                    self.config["output"].get("delete_old", False)
+                    self.config["output"]["delete_old"]
                     and pn_old > self.n - 2
                 ):
                     if len(self.pn_olds) > self.n - 2:
@@ -972,7 +972,7 @@ class REPEX_state:
                             for adress in del_dic["adress"]:
                                 os.remove(adress)
                         # delete txt files
-                        if self.config["output"].get("delete_old_all", False):
+                        if self.config["output"]["delete_old_all"]:
                             for txt in ("order.txt", "traj.txt", "energy.txt"):
                                 txt_adress = os.path.join(
                                     load_dir, pn_old_del, txt

@@ -61,6 +61,8 @@ ensemble_engines = [
         "engine",
     ],
 ]
+zeroswap = 0.5
+pick_scheme = 0
 
 [simulation.tis_set]
 maxlength = 2000

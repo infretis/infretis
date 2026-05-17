@@ -76,7 +76,8 @@ def test_matrix1():
         {
             "current": {"size": 1, "cstep": 0},
             "runner": {"workers": 1},
-            "simulation": {"seed": 0, "steps": 10},
+            "simulation": {"seed": 0, "steps":10,
+                           "zeroswap": 0.5, "pick_scheme": 0},
         }
     )
     p_matrix = state.permanent_prob(W_MATRIX1)
@@ -91,7 +92,8 @@ def test_matrix2():
         {
             "current": {"size": 1, "cstep": 0},
             "runner": {"workers": 1},
-            "simulation": {"seed": 0, "steps": 10},
+            "simulation": {"seed": 0, "steps":10,
+                           "zeroswap": 0.5, "pick_scheme": 0},
         }
     )
     p_matrix = state.permanent_prob(W_MATRIX2)
@@ -110,7 +112,8 @@ def test_matrix3(caplog):
         {
             "current": {"size": 1, "cstep": 0},
             "runner": {"workers": 1},
-            "simulation": {"seed": 0, "steps": 10},
+            "simulation": {"seed": 0, "steps":10,
+                           "zeroswap": 0.5, "pick_scheme": 0},
         },
         minus=True
     )
