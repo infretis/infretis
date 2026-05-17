@@ -950,10 +950,7 @@ class REPEX_state:
                     "ens_save_idx": ens_save_idx,
                 }
                 traj_num += 1
-                if (
-                    self.config["output"]["delete_old"]
-                    and pn_old > self.n - 2
-                ):
+                if self.config["output"]["delete_old"] and pn_old > self.n - 2:
                     if len(self.pn_olds) > self.n - 2:
                         pn_old_del, del_dic = next(iter(self.pn_olds.items()))
                         load_dir = self.config["simulation"]["load_dir"]
