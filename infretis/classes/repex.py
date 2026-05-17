@@ -168,7 +168,8 @@ class REPEX_state:
         """Pick path and ens."""
         prob = self.prob.astype("float64")
         if self.pick_scheme > 0:
-            # Pick ensemble based on weight,
+            # Pick ensemble based on weight, primarily only necessary
+            # for inf-init simulations.
             valid_idx = np.where(1.0 - self._locks)[0]
             ens_weights = np.zeros(self.n)
             ens_weights[valid_idx] = np.arange(1, len(valid_idx) + 1)
