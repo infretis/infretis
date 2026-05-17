@@ -165,6 +165,8 @@ def setup_config(
     config["simulation"]["tis_set"].setdefault("quantis", False)
     config["simulation"]["tis_set"].setdefault("lambda_minus_one", False)
     config["simulation"]["tis_set"].setdefault("accept_all", False)
+    # we do not set default interface_cap here, it defaults to
+    # interfaces[-1] in wf already.
 
     # [output] defaults
     config["output"].setdefault("keep_maxop_trajs", False)
