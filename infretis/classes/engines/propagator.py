@@ -18,6 +18,7 @@ import pathlib
 # if idle for more than this nr. of seconds we shut down the engine
 # TIMEOUT = 1000
 START = "INFINITY_START"
+GENVEL = "INFINITY_GENVEL"
 
 # read .toml settings
 with open(sys.argv[1], "rb") as rfile:
@@ -46,11 +47,17 @@ idle_time = 0
 
 while True:
     # wait for start file to appear
-    if not os.path.exists(START):
-        time.sleep(sleep)
-        print(f"{wname}: Sleeping ... now been idle for {idle_time} s", file = logger, flush=True)
-        idle_time += sleep
-    else:
+    if os.path.exists(GENVEL):
+        print(f"{wname}: Found {GENVEL} file", file=logger, flush=True)
+        with open(GENVEL, "r") as rfile:
+            line = rfile.readline()
+        spl = line.split()
+        conf_in = spl[0]
+        conf_out = spl[1]
+        calc.generate_velocities(conf_in, conf_out)
+        os.remove(GENVEL)
+
+    elif os.path.exists(START):
         print(f"{wname}: Found {START} file", file=logger, flush=True)
         # try to read start file
         while True:
@@ -153,3 +160,7 @@ while True:
         print(f"{wname}: propagation done {(t1-t0)/(step_nr)} s/step.", flush=True, file=logger)
         os.remove(START)
         idle_time = 0
+    else:
+        time.sleep(sleep)
+        print(f"{wname}: Sleeping ... now been idle for {idle_time} s", file = logger, flush=True)
+        idle_time += sleep
