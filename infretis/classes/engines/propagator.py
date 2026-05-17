@@ -52,31 +52,36 @@ while True:
         with open(GENVEL, "r") as rfile:
             line = rfile.readline()
         spl = line.split()
-        conf_in = spl[0]
-        conf_out = spl[1]
-        calc.generate_velocities(conf_in, conf_out)
-        os.remove(GENVEL)
+        if len(spl) != 3:
+            print(f"{wname}: GENVEL_ERR not 3 columns in file; content is '{spl}'. Now idle for {idle_time} s", file = logger, flush=True)
+            time.sleep(sleep)
+            idle_time += sleep
+        if spl[-1] == "END":
+            conf_in = spl[0]
+            conf_out = spl[1]
+            calc.generate_velocities(conf_in, conf_out)
+            os.remove(GENVEL)
 
     elif os.path.exists(START):
         print(f"{wname}: Found {START} file", file=logger, flush=True)
         # try to read start file
         while True:
             if not os.path.exists(START):
-                print(f"{wname}: Now the START file is missing... Now idle for {idle_time}", file=logger, flush=True)
+                print(f"{wname}: START_ERR file is missing... Now idle for {idle_time}", file=logger, flush=True)
                 time.sleep(sleep)
                 idle_time += sleep
             else:
                 with open(START, "r") as rfile:
                     line = rfile.readline()
                     spl = line.split()
-                    if len(spl) != 6:
-                        print(f"{wname}: STARTFILE_ERR not 6 columns in file; content is '{spl}'. Now idle for {idle_time} s", file = logger, flush=True)
+                    if len(spl) != 7:
+                        print(f"{wname}: STARTFILE_ERR not 7 columns in file; content is '{spl}'. Now idle for {idle_time} s", file = logger, flush=True)
                         time.sleep(sleep)
                         idle_time += sleep
                     # finally escape the loop if we get 6 values
                     else:
                         print(f"{wname} " + line, file=logger, flush=True)
-                        initial_conf, subcycles, traj_file, cwd, msg_file_name, input_path = line.split()
+                        initial_conf, subcycles, traj_file, cwd, msg_file_name, input_path, _ = line.split()
                         subcycles = int(subcycles)
                         break
 

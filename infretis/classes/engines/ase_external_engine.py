@@ -71,6 +71,7 @@ class ASEExternalEngine(EngineBase):
         python: str = "python",
         exe_path: Union[str, Path] = Path(".").resolve(),
         halfstep_vel = False,
+        ase_genvel = True,
         sleep: float = 0.5,
     ):
         """
@@ -91,6 +92,7 @@ class ASEExternalEngine(EngineBase):
         self.python = python
         self.sleep = sleep
         self.halfstep_vel = halfstep_vel
+        self.ase_genvel = ase_genvel
 
         # TODO: make this non-manual
         # by reading in from .toml or .py?
@@ -193,7 +195,7 @@ class ASEExternalEngine(EngineBase):
                 )
         sfile = os.path.join(self.exe_dir, "INFINITY_START")
         with open(sfile, "w") as w:
-            w.write(f"{initial_conf} {self.subcycles} {traj_file} {cwd} {msg_file.filename} {self.input_path}")
+            w.write(f"{initial_conf} {self.subcycles} {traj_file} {cwd} {msg_file.filename} {self.input_path} END")
 
         while os.path.exists(sfile):
             sleep(self.sleep)
@@ -225,40 +227,55 @@ class ASEExternalEngine(EngineBase):
             and zero_momentum?
         """
         fname = self.dump_frame(system)
-        atoms = read(fname)
-        if isinstance(atoms, list):
-            atoms = atoms[0]
-        kin_old = atoms.get_kinetic_energy()
-
-        MaxwellBoltzmannDistribution(atoms, temperature_K=self.temperature)
-        kin_new = atoms.get_kinetic_energy()
-        if vel_settings.get("zero_momentum", False):
-            # TODO: should we preserve temperature or not?
-            # The other engines do not bother to preserve the temperature
-            Stationary(atoms, preserve_temperature=False)
-
         conf_out = os.path.join(self.exe_dir, "genvel.traj")
-        atoms.write(conf_out)
         system.config = (conf_out, 0)
-        system.ekin = kin_new
+        if not self.ase_genvel:
+            sfile = os.path.join(self.exe_dir, "INFINITY_GENVEL")
+            with open(sfile, "w") as w:
+                w.write(f"{fname} {conf_out} END")
 
-        if kin_old == 0.0:
-            dek = float("inf")
-            logger.info(
-                "Kinetic energy not found for previous point."
-                "\n(This happens when the initial configuration "
-                "does not contain energies.)"
-            )
+            while os.path.exists(sfile):
+                sleep(self.sleep)
+            # calculator used to generate velocities, so we do not know
+            # the energies yet. Therefore simply return 0
+            return 0.0, 0.0
         else:
-            dek = kin_new - kin_old
-        return dek, kin_new
+            atoms = read(fname)
+            if isinstance(atoms, list):
+                atoms = atoms[0]
+            kin_old = atoms.get_kinetic_energy()
+
+            MaxwellBoltzmannDistribution(atoms, temperature_K=self.temperature)
+            kin_new = atoms.get_kinetic_energy()
+            if vel_settings.get("zero_momentum", False):
+                # TODO: should we preserve temperature or not?
+                # The other engines do not bother to preserve the temperature
+                Stationary(atoms, preserve_temperature=False)
+
+            atoms.write(conf_out)
+            system.ekin = kin_new
+
+            if kin_old == 0.0:
+                dek = float("inf")
+                logger.info(
+                    "Kinetic energy not found for previous point."
+                    "\n(This happens when the initial configuration "
+                    "does not contain energies.)"
+                )
+            else:
+                dek = kin_new - kin_old
+            return dek, kin_new
 
     def _reverse_velocities(self, filename: str, outfile: str) -> None:
         atoms = read(filename)
         if isinstance(atoms, list):
             atoms = atoms[0]
         if self.halfstep_vel:
-            atoms.info["reverse_vel"] = True
+            if atoms.info.get("reverse_vel", False):
+                #print("reversing on reverses = non_reverse")
+                atoms.info["reverse_vel"] = False
+            else:
+                atoms.info["reverse_vel"] = True
         else:
             vel = atoms.get_velocities()
             atoms.set_velocities(-vel)
