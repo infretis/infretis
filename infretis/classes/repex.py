@@ -80,7 +80,8 @@ class REPEX_state:
         self._last_prob = None
         self._random_count = 0
         self._trajs = [""] * n
-        self.zeroswap = 0.5
+        self.zeroswap = config["simulation"]["zeroswap"]
+        self.pick_scheme = config["simulation"]["pick_scheme"]
 
         # detect any locked ens-path pairs exist pre start
         self.locked0 = list(self.config["current"].get("locked", []))
@@ -165,9 +166,19 @@ class REPEX_state:
 
     def pick(self):
         """Pick path and ens."""
-        prob = self.prob.astype("float64").flatten()
+        prob = self.prob.astype("float64")
+        if self.pick_scheme > 0:
+            # Pick ensemble based on weight, primarily only necessary
+            # for inf-init simulations.
+            valid_idx = np.where(1.0 - self._locks)[0]
+            ens_weights = np.zeros(self.n)
+            ens_weights[valid_idx] = np.arange(1, len(valid_idx) + 1)
+            prob *= ens_weights**self.pick_scheme
+
+        prob = prob.flatten()
         p = self.rgen.choice(self.n**2, p=np.nan_to_num(prob / np.sum(prob)))
         traj, ens = np.divmod(p, self.n)
+
         self.swap(traj, ens)
         self.lock(ens)
         traj = self._trajs[ens]
@@ -797,9 +808,10 @@ class REPEX_state:
         status = md_items["status"]
         simtime = md_items["md_end"] - md_items["md_start"]
         subcycles = md_items["subcycles"]
+        arrow = "=)" if status == "ACC" else "=("
         logger.info(
             f"shooted {' '.join(moves)} in ensembles: {ens_nums}"
-            f" with paths: {pnum_old} -> {pnum_new}"
+            f" with paths: {pnum_old} {arrow} {pnum_new}"
         )
         logger.info(
             "with status:" f" {status} len: {trial_lens} op: {trial_ops} and"
@@ -812,6 +824,11 @@ class REPEX_state:
 
     def print_start(self):
         """Print start."""
+        if self.pick_scheme > 0:
+            logger.info(
+                f"ensemble selection scheme: {self.pick_scheme}"
+                + " should only be used with Inf-init"
+            )
         logger.info("stored ensemble paths:")
         ens_num = self.live_paths()
         logger.info(
@@ -933,10 +950,7 @@ class REPEX_state:
                     "ens_save_idx": ens_save_idx,
                 }
                 traj_num += 1
-                if (
-                    self.config["output"].get("delete_old", False)
-                    and pn_old > self.n - 2
-                ):
+                if self.config["output"]["delete_old"] and pn_old > self.n - 2:
                     if len(self.pn_olds) > self.n - 2:
                         pn_old_del, del_dic = next(iter(self.pn_olds.items()))
                         load_dir = self.config["simulation"]["load_dir"]
@@ -955,7 +969,7 @@ class REPEX_state:
                             for adress in del_dic["adress"]:
                                 os.remove(adress)
                         # delete txt files
-                        if self.config["output"].get("delete_old_all", False):
+                        if self.config["output"]["delete_old_all"]:
                             for txt in ("order.txt", "traj.txt", "energy.txt"):
                                 txt_adress = os.path.join(
                                     load_dir, pn_old_del, txt
