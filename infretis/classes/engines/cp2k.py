@@ -1082,7 +1082,6 @@ class CP2KEngine(EngineBase):
             dek = kin_new - kin_old
         return dek, kin_new
 
-
     def run_cp2k(self, input_file, proj_name):
         """
         Run the CP2K executable.
@@ -1093,8 +1092,8 @@ class CP2KEngine(EngineBase):
             The files created by the run.
 
         """
-        cmd = self.cp2k + ['-i', input_file]
-        logger.debug('Executing CP2K %s: %s', proj_name, input_file)
+        cmd = self.cp2k + ["-i", input_file]
+        logger.debug("Executing CP2K %s: %s", proj_name, input_file)
         self.execute_command(cmd, cwd=self.exe_dir, inputs=None)
         out = {}
         for key, name in OUTPUT_FILES.items():
