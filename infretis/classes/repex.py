@@ -80,14 +80,17 @@ class REPEX_state:
         self._last_prob = None
         self._random_count = 0
         self._trajs = [""] * n
-        self.zeroswap = 0.5
+        self.zeroswap = config["simulation"]["zeroswap"]
+        self.pick_scheme = config["simulation"]["pick_scheme"]
 
         # detect any locked ens-path pairs exist pre start
         self.locked0 = list(self.config["current"].get("locked", []))
         self.locked = []
 
         # determines the number of initiation loops to do.
-        self.toinitiate = self.workers
+        # either initiate all workers, or less if less steps left.
+        stepsleft = self.tsteps - self.cstep
+        self.toinitiate = min([self.workers, stepsleft])
 
         # keep track of olds in case of delete_old = True
         self.pn_olds = {}
@@ -163,9 +166,19 @@ class REPEX_state:
 
     def pick(self):
         """Pick path and ens."""
-        prob = self.prob.astype("float64").flatten()
+        prob = self.prob.astype("float64")
+        if self.pick_scheme > 0:
+            # Pick ensemble based on weight, primarily only necessary
+            # for inf-init simulations.
+            valid_idx = np.where(1.0 - self._locks)[0]
+            ens_weights = np.zeros(self.n)
+            ens_weights[valid_idx] = np.arange(1, len(valid_idx) + 1)
+            prob *= ens_weights**self.pick_scheme
+
+        prob = prob.flatten()
         p = self.rgen.choice(self.n**2, p=np.nan_to_num(prob / np.sum(prob)))
         traj, ens = np.divmod(p, self.n)
+
         self.swap(traj, ens)
         self.lock(ens)
         traj = self._trajs[ens]
@@ -326,7 +339,24 @@ class REPEX_state:
                 list(valid) + [0 for _ in range(self.n - self._offset)]
             )
         ens += self._offset
-        assert valid[ens] != 0
+
+        if valid[ens] == 0:
+            # The path is not valid in ensemble.
+            # This situation should only occur in the initial path loading.
+            raise_msg = (
+                f"Path {traj.path_number} lying in {traj.adress} "
+                f"is not valid in ensemble {ens:03.0f}!\n"
+            )
+            cap = self.cap if self.cap is not None else self.interfaces[-1]
+            if ens > 0:
+                raise_msg += (
+                    f"Path {traj.path_number} has max_op {traj.ordermax[0]}"
+                    f" and does not have any phase points "
+                    f"between {self.interfaces[ens-1]} and {cap}.\n"
+                )
+
+            raise ValueError(raise_msg)
+
         # invalidate last prob
         self._last_prob = None
         self._trajs[ens] = traj
@@ -566,6 +596,13 @@ class REPEX_state:
         assert np.allclose(np.sum(out, axis=1), 1)
         assert np.allclose(np.sum(out, axis=0), 1)
 
+        # edge case that negative probs exist: set to zero
+        if np.sum(out < 0) > 0:
+            out[out < 0] = 0
+            logger.info(f"Found {int(np.sum(out<0))} precision \
+                errors in the P-matrix, setting negative \
+                elements to 0. min: {np.min(out):.3e}")
+
         # reinsert zeroes for the locked ensembles
         final_out_rows = np.insert(out, insert_list, 0, axis=0)
 
@@ -771,9 +808,10 @@ class REPEX_state:
         status = md_items["status"]
         simtime = md_items["md_end"] - md_items["md_start"]
         subcycles = md_items["subcycles"]
+        arrow = "=)" if status == "ACC" else "=("
         logger.info(
             f"shooted {' '.join(moves)} in ensembles: {ens_nums}"
-            f" with paths: {pnum_old} -> {pnum_new}"
+            f" with paths: {pnum_old} {arrow} {pnum_new}"
         )
         logger.info(
             "with status:" f" {status} len: {trial_lens} op: {trial_ops} and"
@@ -786,6 +824,11 @@ class REPEX_state:
 
     def print_start(self):
         """Print start."""
+        if self.pick_scheme > 0:
+            logger.info(
+                f"ensemble selection scheme: {self.pick_scheme}"
+                + " should only be used with Inf-init"
+            )
         logger.info("stored ensemble paths:")
         ens_num = self.live_paths()
         logger.info(
@@ -907,10 +950,7 @@ class REPEX_state:
                     "ens_save_idx": ens_save_idx,
                 }
                 traj_num += 1
-                if (
-                    self.config["output"].get("delete_old", False)
-                    and pn_old > self.n - 2
-                ):
+                if self.config["output"]["delete_old"] and pn_old > self.n - 2:
                     if len(self.pn_olds) > self.n - 2:
                         pn_old_del, del_dic = next(iter(self.pn_olds.items()))
                         load_dir = self.config["simulation"]["load_dir"]
@@ -929,7 +969,7 @@ class REPEX_state:
                             for adress in del_dic["adress"]:
                                 os.remove(adress)
                         # delete txt files
-                        if self.config["output"].get("delete_old_all", False):
+                        if self.config["output"]["delete_old_all"]:
                             for txt in ("order.txt", "traj.txt", "energy.txt"):
                                 txt_adress = os.path.join(
                                     load_dir, pn_old_del, txt

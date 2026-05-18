@@ -7,10 +7,11 @@ from typing import Optional, Tuple
 import tomli
 
 from infretis.asyncrunner import aiorunner, future_list
+from infretis.classes.engines.factory import create_engines
 from infretis.classes.formatter import get_log_formatter
 from infretis.classes.path import load_paths_from_disk
 from infretis.classes.repex import REPEX_state
-from infretis.core.tis import def_globals, run_md
+from infretis.core.tis import run_md
 
 logger = logging.getLogger("main")
 logger.setLevel(logging.DEBUG)
@@ -54,9 +55,8 @@ def setup_internal(config: dict) -> Tuple[dict, REPEX_state]:
         "cap": state.cap,
     }
 
-    # setup global engines, the engine_occupation lists,
-    # and create orderparameters.
-    engine_occ = def_globals(config)
+    # setup the engine_occupation list
+    _, engine_occ = create_engines(config)
     state.engine_occ = engine_occ
 
     return md_items, state
@@ -103,20 +103,10 @@ def setup_config(
         logger.info("%s file not found, exit.", inp)
         return None
 
-    # check if restart.toml exist:
+    # check if restart.toml exist
     if inp != re_inp and os.path.isfile(re_inp):
-        # load restart input:
-        with open(re_inp, mode="rb") as read:
-            re_config = tomli.load(read)
-
-        # check if sim settings for the two are equal:
-        equal = True
-        for key in config.keys():
-            if config[key] != re_config.get(key, {}):
-                equal = False
-                logger.info("We use {re_inp} instead.")
-                break
-        config = re_config if equal else config
+        msg = f"Restart file '{re_inp}' found, but its not the run file!"
+        raise ValueError(msg)
 
     # in case we restart, toml file has a 'current' subdict.
     if "current" in config:
@@ -165,11 +155,27 @@ def setup_config(
     if "seed" not in config["simulation"].keys():
         config["simulation"]["seed"] = 0
 
-    # [output]
-    keep_maxop_trajs = config["output"].get("keep_maxop_trajs", False)
-    config["output"]["keep_maxop_trajs"] = keep_maxop_trajs
-    delete_old = config["output"].get("delete_old", False)
-    delete_old_all = config["output"].get("delete_old_all", False)
+    # [simulation] defaults
+    config["simulation"].setdefault("load_dir", "load")
+    config["simulation"].setdefault("zeroswap", 0.5)
+    config["simulation"].setdefault("pick_scheme", 0)
+
+    # [simulation.tis_set] defaults
+    config["simulation"]["tis_set"].setdefault("quantis", False)
+    config["simulation"]["tis_set"].setdefault("lambda_minus_one", False)
+    config["simulation"]["tis_set"].setdefault("accept_all", False)
+    # we do not set default interface_cap here, it defaults to
+    # interfaces[-1] in wf already.
+
+    # [output] defaults
+    config["output"].setdefault("keep_maxop_trajs", False)
+    config["output"].setdefault("delete_old", False)
+    config["output"].setdefault("delete_old_all", False)
+
+    # validation for output settings
+    keep_maxop_trajs = config["output"]["keep_maxop_trajs"]
+    delete_old = config["output"]["delete_old"]
+    delete_old_all = config["output"]["delete_old_all"]
     if not delete_old and keep_maxop_trajs:
         raise TOMLConfigError("keep_maxop_trajs=True requires delete_old=True")
     if delete_old_all and keep_maxop_trajs:
@@ -179,16 +185,10 @@ def setup_config(
         )
         raise TOMLConfigError(msg)
 
-    quantis = config["simulation"]["tis_set"].get("quantis", False)
-    config["simulation"]["tis_set"]["quantis"] = quantis
-
-    l_1 = config["simulation"]["tis_set"].get("lambda_minus_one", False)
-    config["simulation"]["tis_set"]["lambda_minus_one"] = l_1
-
+    # handle quantis configuration
+    quantis = config["simulation"]["tis_set"]["quantis"]
     if quantis and not has_ens_engs:
         config["simulation"]["ensemble_engines"][0] = ["engine0"]
-    accept_all = config["simulation"]["tis_set"].get("accept_all", False)
-    config["simulation"]["tis_set"]["accept_all"] = accept_all
 
     check_config(config)
 
@@ -206,10 +206,8 @@ def check_config(config: dict) -> None:
     n_workers = config["runner"]["workers"]
     sh_moves = config["simulation"]["shooting_moves"]
     n_sh_moves = len(sh_moves)
+    lambda_minus_one = config["simulation"]["tis_set"]["lambda_minus_one"]
     intf_cap = config["simulation"]["tis_set"].get("interface_cap", False)
-    lambda_minus_one = config["simulation"]["tis_set"].get(
-        "lambda_minus_one", False
-    )
 
     if lambda_minus_one is not False and lambda_minus_one >= intf[0]:
         raise TOMLConfigError(

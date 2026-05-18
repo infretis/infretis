@@ -11,7 +11,10 @@ from asyncio import Future
 from collections.abc import Callable
 from typing import Any, Dict, List, Optional
 
+import infretis.core.tis
+from infretis.classes.engines.factory import create_engines
 from infretis.classes.formatter import get_log_formatter
+from infretis.classes.orderparameter import create_orderparameters
 
 logger = logging.getLogger("")
 logger.setLevel(logging.DEBUG)
@@ -43,13 +46,13 @@ class aiorunner:
             n_workers: number of workers active in the runner
         """
         self._n_workers: int = n_workers
-        self._counter = multiprocessing.Value("i", 0)
+        self._counter = multiprocessing.get_context("spawn").Value("i", 0)
         self._executor: concurrent.futures.Executor = (
             concurrent.futures.ProcessPoolExecutor(
                 max_workers=n_workers,
                 initializer=worker_initializer,
-                initargs=(self._counter,),
-                mp_context=multiprocessing.get_context("fork"),
+                initargs=(self._counter, config),
+                mp_context=multiprocessing.get_context("spawn"),
             )
         )
         self._stop_event = asyncio.Event()
@@ -204,8 +207,15 @@ class aiorunner:
         self._thread.join()
 
 
-def worker_initializer(counter):
+def worker_initializer(counter, config):
     """Initialize function for each worker process."""
+    # load engines if infretis simulation
+    if "simulation" in config:
+        engines, _ = create_engines(config)
+        create_orderparameters(engines, config)
+
+        # set the ENGINES variable in the tis file for each worker
+        infretis.core.tis.ENGINES = engines
     with counter.get_lock():  # Ensure that counter increment is thread-safe
         worker_id = counter.value
         counter.value += 1

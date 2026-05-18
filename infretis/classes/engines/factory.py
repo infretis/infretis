@@ -53,7 +53,7 @@ def create_engine(
         engine_map["turtlemd"] = {"class": TurtleMDEngine}
 
     if settings[eng_key]["class"].lower() not in engine_map:
-        return create_external(settings[eng_key], "engine", ["step"])
+        return create_external(settings[eng_key], "engine", [])
     engine = generic_factory(settings[eng_key], engine_map, name="engine")
     return engine
 

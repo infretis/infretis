@@ -560,7 +560,11 @@ class FileIO(OutputBase):
 
     def flush(self) -> None:
         """Flush file buffers to file."""
-        if self.fileh is not None and not self.fileh.closed:
+        if (
+            self.fileh is not None
+            and not self.fileh.closed
+            and self.fileh.writable()
+        ):
             self.fileh.flush()
             os.fsync(self.fileh.fileno())
 

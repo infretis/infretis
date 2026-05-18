@@ -224,7 +224,8 @@ def test_wirefencing(tmp_path: PosixPath) -> None:
     assert status == "ACC"
     assert check_smooth(trial_seg)[1]
     assert pytest.approx(trial_seg.ordermax[0]) == 1.003664395705834
-    assert trial_seg.weight == 124.0
+    weight = compute_weight(trial_seg, ens_set["interfaces"], "wf")
+    assert weight == 124.0
 
 
 def test_compute_weight_wf(tmp_path: PosixPath) -> None:
