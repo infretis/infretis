@@ -323,8 +323,24 @@ def setup_logger(inp: str = "sim.log") -> None:
 # `simulation.tis_set.mwf_subcycle_small_by_ensemble`. Pure-Python, runs once
 # during config load. Removes itself after a successful expansion so restart
 # files only carry canonical fields.
+#
+# Ergonomic semantics (conservative on purpose):
+#   * "000" = [0-] and "001" = [0+] are protected default-sh ensembles. The
+#     ergonomic layer never assigns wf/mwf to them; a normal user never needs
+#     to mention [0-] or [0+] at all.
+#   * `default_move` applies only to the ordinary plus ensembles "002"
+#     onward ("002", "003", ..., last ensemble).
+#   * `mwf_ensembles` and the `mwf_subcycle_small` overrides are sparse
+#     exceptions for ordinary plus ensembles; a selector that resolves to
+#     "000" or "001" is a hard error.
+#   * Special handling of "000"/"001" is intentionally NOT supported here.
+#     Users who truly need it write `simulation.shooting_moves` by hand.
 
 _ALLOWED_MOVES = ("sh", "wf", "mwf")
+
+# "000" = [0-] and "001" = [0+]. These always default to "sh" in the
+# ergonomic layer and may never be targeted by an exception selector.
+_PROTECTED_SH_ENSEMBLES = ("000", "001")
 
 
 def _padded(idx: int) -> str:
@@ -399,6 +415,15 @@ def _is_positive_int(value: object) -> bool:
     )
 
 
+def _reject_protected(names: list[str], *, label: str) -> None:
+    """Raise if any resolved ens_name is a protected default-sh ensemble."""
+    if any(name in _PROTECTED_SH_ENSEMBLES for name in names):
+        raise TOMLConfigError(
+            f"ensemble_move_policy.{label} may not target protected "
+            f"ensembles '000' or '001'; these default to 'sh'"
+        )
+
+
 def expand_ensemble_move_policy(config: dict) -> None:
     """Expand `simulation.ensemble_move_policy` into canonical fields.
 
@@ -407,6 +432,14 @@ def expand_ensemble_move_policy(config: dict) -> None:
     `ensemble_move_policy` subsection so restarts and re-runs are idempotent.
     Raises `TOMLConfigError` on any malformed input or canonical-field
     conflict (default `conflict_policy = "error"`).
+
+    Ergonomic semantics: "000" ([0-]) and "001" ([0+]) are protected
+    default-sh ensembles and are never assigned wf/mwf here. `default_move`
+    applies only to the ordinary plus ensembles "002" onward, and
+    `mwf_ensembles` / `mwf_subcycle_small` are sparse exceptions for those
+    same ensembles -- a selector resolving to "000" or "001" is an error.
+    `minus_move` is not required; only an absent value or an explicit "sh"
+    is accepted.
     """
     sim = config["simulation"]
     policy = sim.get("ensemble_move_policy")
@@ -435,17 +468,24 @@ def expand_ensemble_move_policy(config: dict) -> None:
             "ensemble_move_policy requires at least 2 interfaces"
         )
 
+    # `default_move` applies only to ordinary plus ensembles "002" onward.
     default_move = policy.get("default_move", "wf")
-    minus_move = policy.get("minus_move", "sh")
     if default_move not in _ALLOWED_MOVES:
         raise TOMLConfigError(
             f"ensemble_move_policy: default_move {default_move!r} not in "
             f"{_ALLOWED_MOVES}"
         )
-    if minus_move not in _ALLOWED_MOVES:
+
+    # `minus_move` is no longer required (or meaningful): "000" ([0-]) and
+    # "001" ([0+]) always default to "sh" in the ergonomic layer. Absent is
+    # fine; an explicit "sh" is accepted for backward compatibility; anything
+    # else is a hard error.
+    minus_move = policy.get("minus_move", "sh")
+    if minus_move != "sh":
         raise TOMLConfigError(
-            f"ensemble_move_policy: minus_move {minus_move!r} not in "
-            f"{_ALLOWED_MOVES}"
+            f"ensemble_move_policy: minus_move {minus_move!r} is not "
+            f"supported; '000' ([0-]) and '001' ([0+]) always default to "
+            f"'sh'. Remove minus_move (it is not required) or set it to 'sh'."
         )
 
     default_small = policy.get("default_mwf_subcycle_small")
@@ -463,6 +503,7 @@ def expand_ensemble_move_policy(config: dict) -> None:
     mwf_names = _resolve_disjoint(
         list(raw_mwf_ens), n_ens, label="mwf_ensembles"
     )
+    _reject_protected(mwf_names, label="mwf_ensembles")
 
     raw_subcycle_map = policy.get("mwf_subcycle_small", {})
     if not isinstance(raw_subcycle_map, dict):
@@ -476,7 +517,9 @@ def expand_ensemble_move_policy(config: dict) -> None:
                 f"ensemble_move_policy.mwf_subcycle_small[{sel!r}] must be a "
                 f"positive int, got {val!r}"
             )
-        for name in _parse_selector(sel, n_ens):
+        names = _parse_selector(sel, n_ens)
+        _reject_protected(names, label="mwf_subcycle_small")
+        for name in names:
             if name in by_ensemble:
                 raise TOMLConfigError(
                     f"ensemble_move_policy.mwf_subcycle_small: ensemble "
@@ -485,12 +528,13 @@ def expand_ensemble_move_policy(config: dict) -> None:
             by_ensemble[name] = int(val)
 
     # Build the proposed shooting_moves list (without mutating yet).
-    moves = [default_move] * n_ens
-    moves[0] = minus_move
-    mwf_set = set(mwf_names)
-    for i in range(n_ens):
-        if _padded(i) in mwf_set:
-            moves[i] = "mwf"
+    # "000"/"001" stay "sh"; `default_move` only fills "002" onward; the
+    # protected check above guarantees mwf_names contains no index < 2.
+    moves = ["sh"] * n_ens
+    for i in range(2, n_ens):
+        moves[i] = default_move
+    for name in mwf_names:
+        moves[int(name)] = "mwf"
 
     # Subcycle overrides only meaningful for ensembles that resolve to "mwf".
     for name, _ in by_ensemble.items():
