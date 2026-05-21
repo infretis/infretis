@@ -12,7 +12,16 @@ import subprocess
 from io import BufferedReader, BufferedWriter
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 
@@ -1298,7 +1307,10 @@ def read_matrix(
 
 
 def read_coord(
-    fileh: BufferedReader, endian: str, double: bool, natoms: int
+    fileh: BufferedReader,
+    endian: Literal["S", "<", ">", "=", "|", "L", "B", "N", "I"],
+    double: bool,
+    natoms: int,
 ) -> np.ndarray:
     """Read a coordinate section from the TRR file.
 
@@ -1317,10 +1329,7 @@ def read_coord(
         The coordinates as a numpy array. It will have
             ``natoms`` rows and ``_DIM`` columns.
     """
-    if double:
-        dt = np.dtype("double")
-    else:
-        dt = np.dtype("float32")
+    dt = np.dtype("double" if double else "float32")
     dt = dt.newbyteorder(endian)
     try:
         mat = np.fromfile(fileh, dtype=dt, count=natoms * _DIM)
