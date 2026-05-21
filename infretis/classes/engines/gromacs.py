@@ -1308,7 +1308,7 @@ def read_matrix(
 
 def read_coord(
     fileh: BufferedReader,
-    endian: Literal["S", "<", ">", "=", "|", "L", "B", "N", "I"],
+    endian: Literal["<", ">"],
     double: bool,
     natoms: int,
 ) -> np.ndarray:
