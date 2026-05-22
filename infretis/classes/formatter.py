@@ -949,7 +949,7 @@ class PathStorage(OutputBase):
         else:
             # save all .txt files and .traj files in same rejected subfolder
             # with structure /load_dir/<path_number>/rejected/<rej_cnt>
-            # We store at most 100 rejected paths per parent path, else
+            # We store at most 1000 rejected paths per parent path, else
             # there is probably something wrong, and all get put in rejected/999
             for rej_cnt in range(1000):
                 tmp_archive_path = os.path.join(
