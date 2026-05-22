@@ -163,7 +163,9 @@ class REPEX_state:
     def maxop(self, val):
         """Update the maximum orderpameter seen during the sumulation."""
         if self.config["output"]["keep_maxop_trajs"]:
-            self.config["current"]["maxop"] = min(val, self.config["simulation"]["interfaces"][-1])
+            self.config["current"]["maxop"] = min(
+                val, self.config["simulation"]["interfaces"][-1]
+            )
 
     def pick(self):
         """Pick path and ens."""
@@ -998,12 +1000,11 @@ class REPEX_state:
                 data_rej = {
                     "path": rej_traj,
                     "dir": os.path.join(
-                          os.getcwd(), self.config["simulation"]["load_dir"]
+                        os.getcwd(), self.config["simulation"]["load_dir"]
                     ),
                     "status": path_status,
                 }
                 self.pstore.output(self.cstep, data_rej)
-
 
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)

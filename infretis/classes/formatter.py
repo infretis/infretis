@@ -952,7 +952,9 @@ class PathStorage(OutputBase):
             # We store at most 100 rejected paths per parent path, else
             # there is probably something wrong, and all get put in rejected/999
             for rej_cnt in range(1000):
-                tmp_archive_path = os.path.join(archive_path, "rejected", str(rej_cnt))
+                tmp_archive_path = os.path.join(
+                    archive_path, "rejected", str(rej_cnt)
+                )
                 if not os.path.exists(tmp_archive_path):
                     break
             archive_path = tmp_archive_path
