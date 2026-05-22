@@ -85,6 +85,10 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
                 minus=minus,
             )
             picked[ens_num]["traj"] = trial
+        else:
+            # passed to REPEX class, where it is then processed if rejected
+            # paths are to be stored
+            picked[ens_num]["rej_traj"] = trial
 
     md_items.update(
         {
@@ -498,7 +502,7 @@ def wire_fencing(
     if n_frames == 0:
         logger.warning("Wire fencing move not usable. N frames of Path = 0")
         logger.warning(f"between interfaces {wf_int[0]} and {wf_int[-1]}.")
-        return False, trial_path, "0FR"
+        return False, trial_path, "NSG"
 
     sub_ens = {
         "interfaces": wf_int,
@@ -529,8 +533,9 @@ def wire_fencing(
             succ_seg += 1
             new_segment = trial_seg.copy()
     if succ_seg == 0:
-        # No usable segments were generated.
-        trial_path.status = "NSG"
+        # No usable segments were generated, either FTX, BTX, or BWI
+        trial_path = trial_seg
+        trial_path.status = status
         success = False
     else:
         success, trial_path, _ = extender(

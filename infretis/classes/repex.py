@@ -922,12 +922,13 @@ class REPEX_state:
             pn_old = picked[ens_num]["pn_old"]
             out_traj = picked[ens_num]["traj"]
             self.ensembles[ens_num + 1] = picked[ens_num]["ens"]
+            path_status = md_items["status"]
 
             for idx, lock in enumerate(self.locked):
                 if str(pn_old) in lock[1]:
                     self.locked.pop(idx)
             # if path is new: number and save the path:
-            if out_traj.path_number is None or md_items["status"] == "ACC":
+            if out_traj.path_number is None or path_status == "ACC":
                 # keep track of the highest order value seen during the sim
                 if ens_num != -1 and out_traj.ordermax[0] > self.maxop:
                     self.maxop = out_traj.ordermax[0]
@@ -939,6 +940,7 @@ class REPEX_state:
                     "dir": os.path.join(
                         os.getcwd(), self.config["simulation"]["load_dir"]
                     ),
+                    "status": path_status,
                 }
                 out_traj = self.pstore.output(self.cstep, data)
                 self.traj_data[traj_num] = {
@@ -989,6 +991,20 @@ class REPEX_state:
                             "adress": self.traj_data[pn_old]["adress"],
                             "max_op": self.traj_data[pn_old]["max_op"],
                         }
+            # store rejected paths if status match the ones we want to keep
+            elif path_status in self.config["output"]["keep_status"]:
+                rej_traj = picked[ens_num]["rej_traj"]
+                rej_traj.path_number = pn_old
+                data_rej = {
+                    "path": rej_traj,
+                    "dir": os.path.join(
+                          os.getcwd(), self.config["simulation"]["load_dir"]
+                    ),
+                    "status": path_status,
+                }
+                self.pstore.output(self.cstep, data_rej)
+
+
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
 

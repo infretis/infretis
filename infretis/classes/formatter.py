@@ -926,8 +926,7 @@ class PathStorage(OutputBase):
         Args:
             step: The current simulation step.
             data: A dictionary containing the path and the directory to
-                write to.
-
+                write to, in addition to path status.
         Returns:
             A copy of the path (moved to the new directory).
         """
@@ -936,6 +935,7 @@ class PathStorage(OutputBase):
         # home_dir = path_ensemble.directory['home_dir'] + '/trajs'
         path = data["path"]
         home_dir = data["dir"]
+        status = data["status"]
         # This is the path on form: /path/to/000/traj/11
         archive_path = os.path.join(
             home_dir,
@@ -944,11 +944,24 @@ class PathStorage(OutputBase):
 
         # To organize things we create a subfolder for storing the
         # files. This is on form: /path/to/000/traj/11/traj
-        traj_dir = os.path.join(archive_path, "accepted")
+        if status == "ACC":
+            traj_dir = os.path.join(archive_path, "accepted")
+        else:
+            # save all .txt files and .traj files in same rejected subfolder
+            # with structure /load_dir/<path_number>/rejected/<rej_cnt>
+            # We store at most 100 rejected paths per parent path, else
+            # there is probably something wrong, and all get put in rejected/999
+            for rej_cnt in range(1000):
+                tmp_archive_path = os.path.join(archive_path, "rejected", str(rej_cnt))
+                if not os.path.exists(tmp_archive_path):
+                    break
+            archive_path = tmp_archive_path
+            traj_dir = archive_path
+
         # Create the needed directories:
         make_dirs(traj_dir)
         # Write order, energy and traj files to the archive:
-        _ = self.output_path_files(step, [path, "ACC"], archive_path)
+        _ = self.output_path_files(step, [path, status], archive_path)
         path = self._move_path(path, traj_dir, self.keep_traj_fnames)
         return path
 
