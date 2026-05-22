@@ -498,7 +498,7 @@ def wire_fencing(
     if n_frames == 0:
         logger.warning("Wire fencing move not usable. N frames of Path = 0")
         logger.warning(f"between interfaces {wf_int[0]} and {wf_int[-1]}.")
-        return False, trial_path, "NSG"
+        return False, trial_path, "0FR"
 
     sub_ens = {
         "interfaces": wf_int,
