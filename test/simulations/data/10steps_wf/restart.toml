@@ -135,6 +135,7 @@ delete_old = true
 delete_old_all = true
 data_file = "./infretis_data.txt"
 keep_maxop_trajs = false
+keep_status = []
 
 [current]
 traj_num = 19
