@@ -1004,7 +1004,11 @@ class REPEX_state:
                     ),
                     "status": path_status,
                 }
-                self.pstore.output(self.cstep, data_rej)
+                rej_traj = self.pstore.output(self.cstep, data_rej)
+                # remove rejected trajectory files if delete_old = True
+                if self.config["output"]["delete_old"]:
+                    for adress in rej_traj.adress:
+                        os.remove(adress)
 
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
