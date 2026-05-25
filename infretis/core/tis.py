@@ -533,7 +533,7 @@ def wire_fencing(
             succ_seg += 1
             new_segment = trial_seg.copy()
     if succ_seg == 0:
-        # No usable segments were generated, either FTX, BTX, or BWI
+        # No usable segments were generated
         trial_path = trial_seg
         trial_path.status = status
         success = False
