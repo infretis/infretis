@@ -932,7 +932,15 @@ class GromacsRunner:
                         pass
             if self.running.returncode is None:
                 logger.debug("Terminating GROMACS execution")
-                os.killpg(os.getpgid(self.running.pid), signal.SIGTERM)
+                try:
+                    os.killpg(os.getpgid(self.running.pid), signal.SIGTERM)
+                except ProcessLookupError as err:
+                    logger.debug(
+                        "Could not send SIGTERM to GROMACS: process or "
+                        "process group not found (PID %s): %s",
+                        self.running.pid,
+                        err,
+                    )
 
             self.running.wait(timeout=360)
         self.stop_read = True
