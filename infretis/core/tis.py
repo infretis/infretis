@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from infretis.classes.path import paste_paths
+from infretis.classes.multires_wf import multires_wire_fencing
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 logger.addHandler(logging.NullHandler())
@@ -64,8 +65,10 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
     # perform the hw move:
     picked = md_items["picked"]
     subcycles0 = np.sum([i.steps for j in ENGINES.values() for i in j])
+    mdsteps0 = np.sum([i.mdsteps for j in ENGINES.values() for i in j])
     _, trials, status = select_shoot(picked)
     subcycles1 = np.sum([i.steps for j in ENGINES.values() for i in j])
+    mdsteps1 = np.sum([i.mdsteps for j in ENGINES.values() for i in j])
 
     # Record data
     for trial, ens_num in zip(trials, picked.keys()):
@@ -94,12 +97,10 @@ def run_md(md_items: Dict[str, Any]) -> Dict[str, Any]:
         {
             "status": status,
             "subcycles": int(subcycles1 - subcycles0),
+            "mdsteps": int(mdsteps1 - mdsteps0),
         }
     )
     return md_items
-
-
-from infretis.classes.multires_wf import multires_wire_fencing
 
 
 def calc_cv_vector(
@@ -1154,7 +1155,9 @@ def quantis_swap_zero(
 
     logger.info("Quantis swapping [0^-] <-> [0^+].")
 
-    if any(m in ("wf", "mwf") for m in (ens_set0["mc_move"], ens_set1["mc_move"])):
+    if any(
+        m in ("wf", "mwf") for m in (ens_set0["mc_move"], ens_set1["mc_move"])
+    ):
         logger.warning(
             "Quantis with 'wf'/'mwf' in [0-] or [0+] is not implemented"
         )

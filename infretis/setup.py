@@ -137,6 +137,8 @@ def setup_config(
             "frac": {},
             "wsubcycles": [0 for _ in range(config["runner"]["workers"])],
             "tsubcycles": 0,
+            "wmdsteps": [0 for _ in range(config["runner"]["workers"])],
+            "tmdsteps": 0,
         }
 
         # write/overwrite infretis_data.txt
@@ -271,16 +273,18 @@ def check_config(config: dict) -> None:
                     )
 
     # check wsubcycles and tsubcycles in case restarting from old version
-    if "wsubcycles" not in config["current"]:
-        list_of_zeros = [0 for _ in range(config["runner"]["workers"])]
-        config["current"]["wsubcycles"] = list_of_zeros
-    if "tsubcycles" not in config["current"]:
-        config["current"]["tsubcycles"] = 0
-    # if increased number of workers
-    wsub_num = len(config["current"]["wsubcycles"])
-    if wsub_num < config["runner"]["workers"]:
-        extra = config["runner"]["workers"] - wsub_num
-        config["current"]["wsubcycles"] += [0] * extra
+    # and do same for wmdsteps and tmdsteps
+    for val in ["subcycles", "mdsteps"]:
+        if f"w{val}" not in config["current"]:
+            list_of_zeros = [0 for _ in range(config["runner"]["workers"])]
+            config["current"][f"w{val}"] = list_of_zeros
+        if f"t{val}" not in config["current"]:
+            config["current"][f"t{val}"] = 0
+        # if increased number of workers
+        wsub_num = len(config["current"][f"w{val}"])
+        if wsub_num < config["runner"]["workers"]:
+            extra = config["runner"]["workers"] - wsub_num
+            config["current"][f"w{val}"] += [0] * extra
 
 
 def write_header(config: dict) -> None:
@@ -358,7 +362,7 @@ def _padded(idx: int) -> str:
 
 
 def _parse_ens_token(tok: str, n_ens: int) -> int:
-    """Normalize a single ensemble token (e.g. '3' or '003') to an int index."""
+    """Normalize a single ensemble token (e.g. '3' or '003') to an int indx."""
     if not isinstance(tok, str):
         raise TOMLConfigError(
             f"ensemble_move_policy: ensemble token must be a string, got "
@@ -392,7 +396,11 @@ def _parse_selector(spec: object, n_ens: int) -> list[str]:
 
     lo_tok, hi_tok = raw.split(":", 1)
     lo = 0 if lo_tok.strip() == "" else _parse_ens_token(lo_tok, n_ens)
-    hi = (n_ens - 1) if hi_tok.strip() == "" else _parse_ens_token(hi_tok, n_ens)
+    hi = (
+        (n_ens - 1)
+        if hi_tok.strip() == ""
+        else _parse_ens_token(hi_tok, n_ens)
+    )
     if lo > hi:
         raise TOMLConfigError(
             f"ensemble_move_policy: range selector {spec!r} not ordered "
@@ -418,11 +426,7 @@ def _resolve_disjoint(
 
 
 def _is_positive_int(value: object) -> bool:
-    return (
-        isinstance(value, int)
-        and not isinstance(value, bool)
-        and value > 0
-    )
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
 def _reject_protected(names: list[str], *, label: str) -> None:
@@ -476,9 +480,7 @@ def expand_ensemble_move_policy(config: dict) -> None:
     if policy is None:
         return
     if not isinstance(policy, dict):
-        raise TOMLConfigError(
-            "ensemble_move_policy must be a table"
-        )
+        raise TOMLConfigError("ensemble_move_policy must be a table")
     if not policy.get("enabled", False):
         # Disabled: leave config unchanged but strip the section so subsequent
         # passes see a clean config and restart files do not carry it.

@@ -602,9 +602,11 @@ class REPEX_state:
         # edge case that negative probs exist: set to zero
         if np.sum(out < 0) > 0:
             out[out < 0] = 0
-            logger.info(f"Found {int(np.sum(out<0))} precision \
+            logger.info(
+                f"Found {int(np.sum(out<0))} precision \
                 errors in the P-matrix, setting negative \
-                elements to 0. min: {np.min(out):.3e}")
+                elements to 0. min: {np.min(out):.3e}"
+            )
 
         # reinsert zeroes for the locked ensembles
         final_out_rows = np.insert(out, insert_list, 0, axis=0)
@@ -811,6 +813,7 @@ class REPEX_state:
         status = md_items["status"]
         simtime = md_items["md_end"] - md_items["md_start"]
         subcycles = md_items["subcycles"]
+        mdsteps = md_items["mdsteps"]
         arrow = "=)" if status == "ACC" else "=("
         logger.info(
             f"shooted {' '.join(moves)} in ensembles: {ens_nums}"
@@ -821,7 +824,7 @@ class REPEX_state:
         )
         logger.info(
             f"worker: {self.cworker} total time:"
-            f"{simtime:.2f}s and subcycles: {subcycles}"
+            f"{simtime:.2f}s and subcycles: {subcycles} and mdsteps: {mdsteps}"
         )
         self.print_state()
 
@@ -968,12 +971,12 @@ class REPEX_state:
                             ] < self.maxop and not os.path.islink(path_dir):
                                 # update maxop and then delete|
                                 for adress in del_dic["adress"]:
-                                    #if os.path.isfile(adress):
+                                    # if os.path.isfile(adress):
                                     os.remove(adress)
                         else:
                             # delete trajectory files
                             for adress in del_dic["adress"]:
-                                #if os.path.isfile(adress):
+                                # if os.path.isfile(adress):
                                 os.remove(adress)
                         # delete txt files
                         if self.config["output"]["delete_old_all"]:
@@ -1031,7 +1034,9 @@ class REPEX_state:
         cdict = self.config["current"]
         cdict["traj_num"] = traj_num
         cdict["wsubcycles"][md_items["pin"]] += md_items["subcycles"]
+        cdict["wmdsteps"][md_items["pin"]] += md_items["mdsteps"]
         cdict["tsubcycles"] = int(sum(self.config["current"]["wsubcycles"]))
+        cdict["tmdsteps"] = int(sum(self.config["current"]["wmdsteps"]))
         self.cworker = md_items["pin"]
         if self.printing():
             self.print_shooted(md_items, pn_news)

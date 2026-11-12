@@ -47,6 +47,7 @@ class EngineBase(metaclass=ABCMeta):
         self.ext: str = "xyz"
         self.input_files: Dict[str, Union[str, Path]] = {}
         self.order_function: Optional[OrderParameter] = None
+        self.mdsteps = 0
         self.steps = 0
 
     @property
@@ -323,6 +324,7 @@ class EngineBase(metaclass=ABCMeta):
             name, path, system, ens_set, msg_file, reverse=reverse
         )
         self.steps += path.length
+        self.mdsteps += path.length * self.subcycles
 
         # Reset to initial state:
         # ensemble['system'] = initial_state
