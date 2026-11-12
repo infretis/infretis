@@ -61,6 +61,8 @@ ensemble_engines = [
         "engine",
     ],
 ]
+zeroswap = 0.5
+pick_scheme = 0
 
 [simulation.tis_set]
 maxlength = 2000
@@ -133,6 +135,8 @@ delete_old = true
 delete_old_all = true
 data_file = "./infretis_data.txt"
 keep_maxop_trajs = false
+keep_traj_fnames = []
+keep_status = []
 
 [current]
 traj_num = 40

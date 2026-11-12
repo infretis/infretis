@@ -10,6 +10,7 @@ Important classes defined here
 AMSEngine (:py:class:`.AMSEngine`)
     A class responsible for interfacing AMS.
 """
+
 import copy
 import logging
 import os
@@ -609,9 +610,11 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
             }
 
             phase_point = self.snapshot_to_system(system, snapshot)
-            status, success, stop, _ = self.add_to_path(
-                path, phase_point, left, right
-            )
+            (
+                status,
+                success,
+                stop,
+            ) = self.add_to_path(path, phase_point, left, right)
 
             kin_enes.append(
                 self.states[traj_file][i].get_kineticenergy(unit=self.ene_unit)
@@ -622,7 +625,7 @@ class AMSEngine(EngineBase):  # , metaclass=Singleton):
                 )
             )
             tot_enes.append(kin_enes[-1] + pot_enes[-1])
-            temps.append(self.states[traj_file][i].get_temperate())
+            temps.append(self.states[traj_file][i].get_temperature())
 
             logger.info("OP: %f in frame %s %i", order[0], traj_file, i)
 

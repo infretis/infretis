@@ -12,7 +12,16 @@ import subprocess
 from io import BufferedReader, BufferedWriter
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 
@@ -38,7 +47,6 @@ _GROMACS_MAGIC = 1993
 _G96_FMT = "{0:}{1:15.9f}{2:15.9f}{3:15.9f}\n"
 _G96_BOX_FMT = "{:15.9f}" * 9 + "\n"
 _G96_BOX_FMT_3 = "{:15.9f}" * 3 + "\n"
-_GROMACS_MAGIC = 1993
 _DIM = 3
 _TRR_VERSION = "GMX_trn_file"
 _SIZE_FLOAT = struct.calcsize("f")
@@ -545,7 +553,7 @@ class GromacsEngine(EngineBase):
                     "vel_rev": reverse,
                 }
                 phase_point = self.snapshot_to_system(system, snapshot)
-                status, success, stop, _ = self.add_to_path(
+                status, success, stop = self.add_to_path(
                     path, phase_point, left, right
                 )
                 if stop:
@@ -940,7 +948,15 @@ class GromacsRunner:
                         pass
             if self.running.returncode is None:
                 logger.debug("Terminating GROMACS execution")
-                os.killpg(os.getpgid(self.running.pid), signal.SIGTERM)
+                try:
+                    os.killpg(os.getpgid(self.running.pid), signal.SIGTERM)
+                except ProcessLookupError as err:
+                    logger.debug(
+                        "Could not send SIGTERM to GROMACS: process or "
+                        "process group not found (PID %s): %s",
+                        self.running.pid,
+                        err,
+                    )
 
             self.running.wait(timeout=360)
         self.stop_read = True
@@ -1315,7 +1331,10 @@ def read_matrix(
 
 
 def read_coord(
-    fileh: BufferedReader, endian: str, double: bool, natoms: int
+    fileh: BufferedReader,
+    endian: Literal["<", ">"],
+    double: bool,
+    natoms: int,
 ) -> np.ndarray:
     """Read a coordinate section from the TRR file.
 
@@ -1334,12 +1353,12 @@ def read_coord(
         The coordinates as a numpy array. It will have
             ``natoms`` rows and ``_DIM`` columns.
     """
-    if double:
-        fmt = f"{endian}{natoms * _DIM}d"
-    else:
-        fmt = f"{endian}{natoms * _DIM}f"
-    read = read_struct_buff(fileh, fmt)
-    mat = np.array(read)
+    dt = np.dtype("double" if double else "float32")
+    dt = dt.newbyteorder(endian)
+    try:
+        mat = np.fromfile(fileh, dtype=dt, count=natoms * _DIM)
+    except ValueError:
+        raise EOFError()
     mat.shape = (natoms, _DIM)
     return mat
 

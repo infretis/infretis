@@ -80,7 +80,8 @@ class REPEX_state:
         self._last_prob = None
         self._random_count = 0
         self._trajs = [""] * n
-        self.zeroswap = 0.5
+        self.zeroswap = config["simulation"]["zeroswap"]
+        self.pick_scheme = config["simulation"]["pick_scheme"]
 
         # detect any locked ens-path pairs exist pre start
         self.locked0 = list(self.config["current"].get("locked", []))
@@ -155,19 +156,32 @@ class REPEX_state:
     @property
     def maxop(self):
         """Get the maximum orderparameter seen during the simulation."""
-        return self.config["current"].get("maxop", -float("inf"))
+        maxop = self.config["current"].get("maxop", -float("inf"))
+        return min(self.config["simulation"]["interfaces"][-1], maxop)
 
     @maxop.setter
     def maxop(self, val):
         """Update the maximum orderpameter seen during the sumulation."""
         if self.config["output"]["keep_maxop_trajs"]:
-            self.config["current"]["maxop"] = val
+            self.config["current"]["maxop"] = min(
+                val, self.config["simulation"]["interfaces"][-1]
+            )
 
     def pick(self):
         """Pick path and ens."""
-        prob = self.prob.astype("float64").flatten()
+        prob = self.prob.astype("float64")
+        if self.pick_scheme > 0:
+            # Pick ensemble based on weight, primarily only necessary
+            # for inf-init simulations.
+            valid_idx = np.where(1.0 - self._locks)[0]
+            ens_weights = np.zeros(self.n)
+            ens_weights[valid_idx] = np.arange(1, len(valid_idx) + 1)
+            prob *= ens_weights**self.pick_scheme
+
+        prob = prob.flatten()
         p = self.rgen.choice(self.n**2, p=np.nan_to_num(prob / np.sum(prob)))
         traj, ens = np.divmod(p, self.n)
+
         self.swap(traj, ens)
         self.lock(ens)
         traj = self._trajs[ens]
@@ -797,9 +811,10 @@ class REPEX_state:
         status = md_items["status"]
         simtime = md_items["md_end"] - md_items["md_start"]
         subcycles = md_items["subcycles"]
+        arrow = "=)" if status == "ACC" else "=("
         logger.info(
             f"shooted {' '.join(moves)} in ensembles: {ens_nums}"
-            f" with paths: {pnum_old} -> {pnum_new}"
+            f" with paths: {pnum_old} {arrow} {pnum_new}"
         )
         logger.info(
             "with status:" f" {status} len: {trial_lens} op: {trial_ops} and"
@@ -812,6 +827,11 @@ class REPEX_state:
 
     def print_start(self):
         """Print start."""
+        if self.pick_scheme > 0:
+            logger.info(
+                f"ensemble selection scheme: {self.pick_scheme}"
+                + " should only be used with Inf-init"
+            )
         logger.info("stored ensemble paths:")
         ens_num = self.live_paths()
         logger.info(
@@ -904,12 +924,13 @@ class REPEX_state:
             pn_old = picked[ens_num]["pn_old"]
             out_traj = picked[ens_num]["traj"]
             self.ensembles[ens_num + 1] = picked[ens_num]["ens"]
+            path_status = md_items["status"]
 
             for idx, lock in enumerate(self.locked):
                 if str(pn_old) in lock[1]:
                     self.locked.pop(idx)
             # if path is new: number and save the path:
-            if out_traj.path_number is None or md_items["status"] == "ACC":
+            if out_traj.path_number is None or path_status == "ACC":
                 # keep track of the highest order value seen during the sim
                 if ens_num != -1 and out_traj.ordermax[0] > self.maxop:
                     self.maxop = out_traj.ordermax[0]
@@ -921,6 +942,7 @@ class REPEX_state:
                     "dir": os.path.join(
                         os.getcwd(), self.config["simulation"]["load_dir"]
                     ),
+                    "status": path_status,
                 }
                 out_traj = self.pstore.output(self.cstep, data)
                 self.traj_data[traj_num] = {
@@ -933,10 +955,7 @@ class REPEX_state:
                     "ens_save_idx": ens_save_idx,
                 }
                 traj_num += 1
-                if (
-                    self.config["output"].get("delete_old", False)
-                    and pn_old > self.n - 2
-                ):
+                if self.config["output"]["delete_old"] and pn_old > self.n - 2:
                     if len(self.pn_olds) > self.n - 2:
                         pn_old_del, del_dic = next(iter(self.pn_olds.items()))
                         load_dir = self.config["simulation"]["load_dir"]
@@ -957,7 +976,7 @@ class REPEX_state:
                                 #if os.path.isfile(adress):
                                 os.remove(adress)
                         # delete txt files
-                        if self.config["output"].get("delete_old_all", False):
+                        if self.config["output"]["delete_old_all"]:
                             for txt in ("order.txt", "traj.txt", "energy.txt"):
                                 txt_adress = os.path.join(
                                     load_dir, pn_old_del, txt
@@ -976,6 +995,23 @@ class REPEX_state:
                             "adress": self.traj_data[pn_old]["adress"],
                             "max_op": self.traj_data[pn_old]["max_op"],
                         }
+            # store rejected paths if status match the ones we want to keep
+            elif path_status in self.config["output"]["keep_status"]:
+                rej_traj = picked[ens_num]["rej_traj"]
+                rej_traj.path_number = pn_old
+                data_rej = {
+                    "path": rej_traj,
+                    "dir": os.path.join(
+                        os.getcwd(), self.config["simulation"]["load_dir"]
+                    ),
+                    "status": path_status,
+                }
+                rej_traj = self.pstore.output(self.cstep, data_rej)
+                # remove rejected trajectory files if delete_old = True
+                if self.config["output"]["delete_old"]:
+                    for adress in rej_traj.adress:
+                        os.remove(adress)
+
             pn_news.append(out_traj.path_number)
             self.add_traj(ens_num, out_traj, valid=out_traj.weights)
 
