@@ -588,9 +588,9 @@ class REPEX_state:
         # edge case that negative probs exist: set to zero
         if np.sum(out < 0) > 0:
             out[out < 0] = 0
-            logger.info(
-                "Numerical instability detected in permanent calculation!"
-            )
+            logger.info(f"Found {int(np.sum(out<0))} precision \
+                errors in the P-matrix, setting negative \
+                elements to 0. min: {np.min(out):.3e}")
 
         # reinsert zeroes for the locked ensembles
         final_out_rows = np.insert(out, insert_list, 0, axis=0)
